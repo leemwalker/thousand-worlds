@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  # 1. Spatial & Relational Data (The World State)
+  postgis:
+    image: postgis/postgis:16-3.4
+    container_name: mud_postgis
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: mud_core
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - mud_net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U admin -d mud_core" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. NPC Memory Bank (The Brains)
+  mongo:
+    image: mongo:7.0
+    container_name: mud_mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - mud_net
+
+  # 3. Event Bus & Message Queue (The Nervous System)
+  nats:
+    image: nats:2.10-alpine
+    container_name: mud_nats
+    ports:
+      - "4222:4222" # Client Port
+      - "8222:8222" # HTTP Management Port
+    # Enable JetStream (-js) and set storage directory (-sd)
+    command: "-js -sd /data -m 8222"
+    volumes:
+      - nats_data:/data
+    networks:
+      - mud_net
+
+  # 4. Hot Data & Sessions (The Short-term Memory)
+  redis:
+    image: redis:7.2-alpine
+    container_name: mud_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - mud_net
+
+  # 5. Local LLM Inference (The Imagination)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: mud_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      # CORS: Allow browser clients if needed (optional)
+      - OLLAMA_ORIGINS=*
+    networks:
+      - mud_net
+    # !!! UNCOMMENT BELOW FOR NVIDIA GPU SUPPORT !!!
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+networks:
+  mud_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mongo_data:
+  nats_data:
+  redis_data:
+  ollama_models:
