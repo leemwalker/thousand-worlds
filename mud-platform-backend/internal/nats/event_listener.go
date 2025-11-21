@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
 
@@ -25,8 +26,7 @@ func NewEventListener(nc *nats.Conn, svc *service.SpatialService) *EventListener
 }
 
 type MoveCommand struct {
-	EntityID  string    `json:"entityID"`
-	WorldID   string    `json:"worldID"`
+	EntityID  string    `json:"entityID"` // String UUID from JSON
 	NewCoords NewCoords `json:"newCoords"`
 }
 
@@ -44,10 +44,16 @@ func (l *EventListener) ListenForMove() error {
 			return
 		}
 
+		entityID, err := uuid.Parse(cmd.EntityID)
+		if err != nil {
+			log.Error().Err(err).Str("entityID", cmd.EntityID).Msg("Invalid entity ID")
+			return
+		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		if err := l.service.UpdateLocation(ctx, cmd.EntityID, cmd.WorldID, cmd.NewCoords.X, cmd.NewCoords.Y, cmd.NewCoords.Z); err != nil {
+		if err := l.service.UpdateLocation(ctx, entityID, cmd.NewCoords.X, cmd.NewCoords.Y, cmd.NewCoords.Z); err != nil {
 			log.Error().Err(err).Msg("Failed to update location")
 			return
 		}

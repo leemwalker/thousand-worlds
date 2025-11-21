@@ -35,9 +35,10 @@ func TestSpatialRepository_CreateAndGet(t *testing.T) {
 	repo := NewPostgresSpatialRepository(db)
 	ctx := context.Background()
 
-	worldID := uuid.New()
+	// Use test continent world
+	worldID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
 	entityID := uuid.New()
-	x, y, z := 10.5, 20.1, 5.0
+	x, y, z := 100.5, 200.1, 5.0 // meters in test continent
 
 	err := repo.CreateEntity(ctx, worldID, entityID, x, y, z)
 	require.NoError(t, err)
@@ -58,7 +59,7 @@ func TestSpatialRepository_UpdateLocation(t *testing.T) {
 	repo := NewPostgresSpatialRepository(db)
 	ctx := context.Background()
 
-	worldID := uuid.New()
+	worldID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
 	entityID := uuid.New()
 	x, y, z := 10.0, 10.0, 0.0
 
@@ -83,26 +84,25 @@ func TestSpatialRepository_GetEntitiesNearby(t *testing.T) {
 	repo := NewPostgresSpatialRepository(db)
 	ctx := context.Background()
 
-	worldID := uuid.New()
-	centerLon, centerLat := -97.7431, 30.2672
+	worldID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
 
 	// Create center entity
 	centerID := uuid.New()
-	err := repo.CreateEntity(ctx, worldID, centerID, centerLon, centerLat, 0)
+	err := repo.CreateEntity(ctx, worldID, centerID, 0, 0, 0)
 	require.NoError(t, err)
 
-	// Create nearby entity (~5m away: 0.00005 degrees ≈ 5.5m at this latitude)
+	// Create nearby entity (~5m away in Cartesian space)
 	nearbyID := uuid.New()
-	err = repo.CreateEntity(ctx, worldID, nearbyID, centerLon+0.00005, centerLat, 0)
+	err = repo.CreateEntity(ctx, worldID, nearbyID, 5, 0, 0)
 	require.NoError(t, err)
 
 	// Create far entity (~200m away)
 	farID := uuid.New()
-	err = repo.CreateEntity(ctx, worldID, farID, centerLon+0.002, centerLat, 0)
+	err = repo.CreateEntity(ctx, worldID, farID, 200, 0, 0)
 	require.NoError(t, err)
 
 	// Search within 10m radius
-	entities, err := repo.GetEntitiesNearby(ctx, worldID, centerLon, centerLat, 0, 10)
+	entities, err := repo.GetEntitiesNearby(ctx, worldID, 0, 0, 0, 10)
 	require.NoError(t, err)
 
 	// Should find center and nearby, but not far
@@ -125,24 +125,21 @@ func TestSpatialRepository_CalculateDistance(t *testing.T) {
 	repo := NewPostgresSpatialRepository(db)
 	ctx := context.Background()
 
-	worldID := uuid.New()
+	worldID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
 	e1ID := uuid.New()
 	e2ID := uuid.New()
 
-	lon1, lat1 := -97.7431, 30.2672
-	// Move ~100m east: 0.001 degrees ≈ 111m at this latitude
-	lon2, lat2 := -97.7421, 30.2672
-
-	err := repo.CreateEntity(ctx, worldID, e1ID, lon1, lat1, 0)
+	// 3-4-5 triangle in meters
+	err := repo.CreateEntity(ctx, worldID, e1ID, 0, 0, 0)
 	require.NoError(t, err)
 
-	err = repo.CreateEntity(ctx, worldID, e2ID, lon2, lat2, 0)
+	err = repo.CreateEntity(ctx, worldID, e2ID, 3, 4, 0)
 	require.NoError(t, err)
 
 	dist, err := repo.CalculateDistance(ctx, e1ID, e2ID)
 	require.NoError(t, err)
-	// Distance should be ~100m (allowing some tolerance for spherical calculation)
-	assert.InDelta(t, 100.0, dist, 15.0, "Distance should be approximately 100m")
+	// Should be exactly 5m (3-4-5 triangle)
+	assert.InDelta(t, 5.0, dist, 0.1)
 }
 
 func TestSpatialRepository_GetEntitiesInBounds(t *testing.T) {
@@ -152,25 +149,23 @@ func TestSpatialRepository_GetEntitiesInBounds(t *testing.T) {
 	repo := NewPostgresSpatialRepository(db)
 	ctx := context.Background()
 
-	worldID := uuid.New()
+	worldID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
 
-	// Create entities in different locations around Austin, TX
+	// Create entities in different locations
 	entity1 := uuid.New()
-	err := repo.CreateEntity(ctx, worldID, entity1, -97.7431, 30.2672, 0) // Center
+	err := repo.CreateEntity(ctx, worldID, entity1, 10, 10, 0) // Inside
 	require.NoError(t, err)
 
 	entity2 := uuid.New()
-	err = repo.CreateEntity(ctx, worldID, entity2, -97.7400, 30.2700, 0) // Inside bounds
+	err = repo.CreateEntity(ctx, worldID, entity2, 15, 15, 0) // Inside
 	require.NoError(t, err)
 
 	entity3 := uuid.New()
-	err = repo.CreateEntity(ctx, worldID, entity3, -97.8000, 30.3000, 0) // Outside bounds
+	err = repo.CreateEntity(ctx, worldID, entity3, 100, 100, 0) // Outside
 	require.NoError(t, err)
 
-	// Query bounding box
-	minLon, minLat := -97.7500, 30.2600
-	maxLon, maxLat := -97.7300, 30.2800
-	entities, err := repo.GetEntitiesInBounds(ctx, worldID, minLon, minLat, maxLon, maxLat)
+	// Query bounding box (0,0) to (20,20)
+	entities, err := repo.GetEntitiesInBounds(ctx, worldID, 0, 0, 20, 20)
 	require.NoError(t, err)
 
 	// Should find entity1 and entity2, but not entity3
