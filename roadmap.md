@@ -224,7 +224,7 @@ Files to Create:
 
 ## Phase 0.4: Spatial Foundation (1-2 weeks)
 
-### Status: 🔴 Started
+### Status: ✅ Completed
 
 ### Prompt:
 
@@ -298,7 +298,7 @@ Files to Modify/Create:
 
 ## Phase 1.1: World Service Core (1 week)
 
-### Status: 🟡 In Progress (implementation plan approved)
+### Status: ✅ Completed
 
 ### Prompt:
 
@@ -360,7 +360,7 @@ Files to Create:
 
 ## Phase 1.2: Time Dilation & Tick Broadcast (1 week)
 
-### Status: 🔴 Not Started
+### Status: ✅ Completed
 
 ### Prompt:
 
@@ -425,7 +425,7 @@ Files to Modify/Create:
 
 ## Phase 1.3: Day/Night & Seasons (1 week)
 
-### Status: 🔴 Not Started
+### Status: ✅ Completed
 
 ### Prompt:
 
@@ -484,11 +484,75 @@ Files to Create:
 Modify `internal/world/ticker.go` to include time data in events
 
 
+
+
 ---
 
-# Phase 2: Player Core Systems (3-4 weeks)
+## Phase 1.4: Spherical World Utilities (Optional - As Needed)
 
-## Phase 2.1: Character System (1 week)
+### Status: 🟡 Deferred (Implement when first spherical world requires these features)
+
+### Prompt:
+
+Following TDD principles, implement Phase 1.4 Spherical World Utilities (only when needed):
+
+Core Requirements:
+1. Spherical projection utilities
+Lat/Lon to Cartesian (X, Y, Z) conversion
+Formula: X = R × cos(lat) × cos(lon), Y = R × cos(lat) × sin(lon), Z = R × sin(lat)
+Cartesian to Lat/Lon conversion
+Formula: lat = arcsin(Z/R), lon = arctan2(Y, X)
+Support multiple world radii (Earth = 6.371M meters, custom planets)
+
+2. Great circle distance calculations
+Calculate shortest distance between two points on sphere
+Haversine formula: a = sin²(Δlat/2) + cos(lat1) × cos(lat2) × sin²(Δlon/2)
+Distance = 2 × R × arcsin(√a)
+Use for proximity queries on spherical worlds
+
+3. Spherical wrapping logic
+Pole crossing detection and seamless transitions
+North pole: lat approaches +90°, longitude wraps
+South pole: lat approaches -90°, longitude wraps
+Longitude wrapping at ±180° (crossing international date line)
+Maintain correct coordinate space when crossing boundaries
+
+4. Movement validation for spherical worlds
+Check if movement crosses pole
+Adjust longitude correctly when crossing poles
+Wrap longitude when crossing ±180°
+Ensure position stays on sphere surface (constant radius)
+
+Test Requirements (80%+ coverage):
+Lat/Lon to Cartesian conversion is accurate to 1cm
+Cartesian to Lat/Lon conversion is accurate to 0.001 degrees
+Round-trip conversion (Lat/Lon → Cartesian → Lat/Lon) preserves values
+Great circle distance matches expected values for known points
+Pole crossing correctly adjusts longitude
+Longitude wraps correctly at ±180°
+Movement stays on sphere surface (radius constant)
+Works for multiple sphere sizes (Earth-sized, moon-sized, custom)
+
+Acceptance Criteria:
+Spherical projections work correctly for any radius
+Great circle distances accurate for proximity queries
+Pole crossing and longitude wrapping handle edge cases
+Movement validation ensures positions stay valid
+80%+ test coverage
+
+Dependencies: Phase 0.4 (Spatial Foundation), Phase 1.3 (Time System)
+Files to Create:
+`internal/spatial/spherical_projection.go` - Projection utilities
+`internal/spatial/great_circle.go` - Distance calculations
+`internal/spatial/spherical_wrapping.go` - Pole and longitude wrapping
+`internal/spatial/spherical_test.go` - Comprehensive tests
+
+
+---
+
+# Phase 2: Player Core Systems (4-5 weeks)
+
+## Phase 2.1: Character System (1-2 weeks)
 
 ### Status: 🔴 Not Started
 
@@ -497,60 +561,100 @@ Modify `internal/world/ticker.go` to include time data in events
 Following TDD principles, implement Phase 2.1 Character System:
 
 Core Requirements:
-1. Attribute schema
-Core (7): Strength, Agility, Health, Wits, Wisdom, Charisma, Willpower (1-100 scale)
-Secondary (4): MaxHP (Health10), MaxStamina (Health5 + Agility5), MaxFocus (Wits10), MaxMana (Wisdom10)
-Sensory (5): Sight, Hearing, Smell, Taste, Touch (1-100 scale)
+1. Attribute schema (updated system)
+**Physical Attributes (5)**: Might, Agility, Endurance, Reflexes, Vitality (1-100 scale)
+**Mental Attributes (5)**: Intellect, Cunning, Willpower, Presence, Intuition (1-100 scale)
+**Sensory Attributes (5)**: Sight, Hearing, Smell, Taste, Touch (1-100 scale)
+**Secondary Attributes (5 - calculated)**:
+- HP = Vitality × 10
+- Stamina = (Endurance × 7) + (Might × 3)
+- Focus = (Intellect × 6) + (Willpower × 4)
+- Mana = (Intuition × 6) + (Willpower × 4)
+- Nerve = (Willpower × 5) + (Presence × 3) + (Reflexes × 2)
 
-2. Character creation flow
-Player provides: name, description
-Attribute allocation: point-buy (300 points total for core)
-OR dice rolling: roll 3d6 seven times, assign to attributes
-Sensory attributes: roll 2d10 each (2-20 range, can be modified by race/traits later)
+2. Dual character creation paths
+**Path 1: Inhabit Existing NPC**
+- Browse eligible NPCs (adults with 5+ relationships, 1+ game-year lived)
+- Filter by species, location, skills, behavioral baseline
+- Select NPC and take over their identity
+- Inherit full history: relationships, memories, reputation, skills
+- Snapshot behavioral baseline at time of inhabitation
 
-3. Validation
-Core attributes: 1-100 each
-Point-buy: exactly 300 points spent
-Name: 3-20 characters, alphanumeric + spaces
-Description: max 500 characters
+**Path 2: Generate New Adult Character**
+- Species selection (Human, Dwarven, Elven, etc.)
+- Genetic baseline generation with variance (±(1d10-5) per attribute)
+- Point-buy customization (100 points total)
+  - Cost scaling: 1 point for +1 to +10, 2 points for +11 to +20, 3 points for +21 to +30
+  - Cannot reduce attributes below species baseline
+- Background questionnaire (3-5 questions for starting skill bonuses)
+- Generate adult with randomized history
 
-4. Event-sourced persistence
-CharacterCreated event: {characterID, playerID, name, attributes, timestamp}
-AttributeModified event: {characterID, attribute, oldValue, newValue, reason, timestamp}
+3. Species base attribute templates
+Define templates: Human (balanced), Dwarven (Might+10, Endurance+15, Agility-10), Elven (Agility+15, Intuition+10, Might-10), etc.
+Each species has different baseline distributions
+Sensory attributes vary by species (Elven Sight+20, Dwarven Hearing+15, etc.)
+
+4. Genetic variance system
+Apply random modifier: ±(1d10-5) to each attribute
+Range: -5 to +5 variance per attribute
+Ensures no two generated characters are identical
+Applied BEFORE point-buy
+
+5. Point-buy validation
+Total points: 100
+Cost per point: tier 1 (0-10 above baseline) = 1 point, tier 2 (11-20) = 2 points, tier 3 (21-30) = 3 points
+Cannot buy above baseline + 30
+Cannot reduce below baseline (after variance)
+
+6. NPC browser UI
+Filter: species, location, age range, skill levels
+Sort: by relationship count, game years lived, skills
+Display: name, age, species, location, primary relationships, behavioral baseline preview
+Preview mode: view full character sheet before committing
+
+7. Behavioral baseline snapshot
+On inhabitation, record: aggression, generosity, honesty, sociability, recklessness, loyalty (0.0-1.0 each)
+Baseline calculated from last 20 NPC actions
+Stored immutably for drift detection later
+
+8. Event-sourced persistence
+CharacterCreatedViaInhabitance: {characterID, playerID, npcID, baselineSnapshot, timestamp}
+CharacterCreatedViaGeneration: {characterID, playerID, species, attributes, variance, pointBuyChoices, timestamp}
+AttributeModified: {characterID, attribute, oldValue, newValue, reason, timestamp}
 Reconstruct character state from events
 
-5. Read model (CQRS)
-CharacterReadModel: {id, playerID, name, attributes, createdAt, updatedAt}
-Update from CharacterCreated/AttributeModified events
-Query: GetCharacter(characterID), GetCharactersByPlayer(playerID)
-
 Test Requirements (80%+ coverage):
-Point-buy allocates exactly 300 points
-Point-buy rejects if total != 300
-Dice rolling generates valid attribute values (3-18 range for 3d6)
-Secondary attributes calculated correctly from core attributes
-Validation rejects invalid names (too short, too long, invalid chars)
-CharacterCreated event emitted and stored
+Species templates define valid baselines
+Genetic variance applies ±5 correctly
+Point-buy enforces cost scaling (1/2/3 points)
+Point-buy prevents exceeding baseline + 30
+Point-buy enforces 100-point budget
+Secondary attributes calculated correctly from primaries
+Inhabitation preserves NPC history and relationships
+Inhabitation snapshots behavioral baseline
+NPC browser filters and sorts correctly
+CharacterCreated events emitted for both paths
 Character state reconstructed from events
-Read model updated from events
-GetCharacter returns correct character
-Concurrent character creation handled correctly
 
 Acceptance Criteria:
-Players can create characters with valid attribute distributions
-Attribute allocation (point-buy or rolling) works
-Character persistence event-sourced
-Read model for character queries
-All validation rules enforced
+Players can create characters via both inhabit and generate paths
+Point-buy system enforces costs and caps correctly
+NPC inhabitation preserves full history and relationships
+Species provide different attribute distributions
+Genetic variance ensures no identical generated characters
+All systems emit events for audit trail
 80%+ test coverage
 
-Dependencies: Phase 0.1 (Event Sourcing)
-Files to Create:
-`internal/player/character.go` - Character types
-`internal/player/creation.go` - Creation flow
-`internal/player/attributes.go` - Attribute logic
-`internal/player/events.go` - Character events
-`internal/player/character_test.go` - Test suite
+Dependencies: Phase 0.1 (Event Sourcing), Phase 3.1 (NPC Memory for inhabitation)
+Files to Create/Modify:
+`internal/character/types.go` - Attribute types, species templates
+`internal/character/creation.go` - Dual creation paths
+`internal/character/point_buy.go` - Point-buy system
+`internal/character/genetic_variance.go` - Variance system
+`internal/character/npc_browser.go` - NPC selection
+`internal/character/baseline_snapshot.go` - Behavioral baseline
+`internal/character/repository.go` - Character CRUD
+`internal/character/creation_test.go` - Test suite
 `cmd/player-service/main.go` - New player service
 
 
@@ -699,6 +803,98 @@ Files to Create:
 `internal/item/commands.go` - Item commands
 `internal/item/events.go` - Inventory events
 `internal/item/_test.go` - Test suite
+
+
+---
+
+## Phase 2.5: Skills & Progression System (2-3 weeks)
+
+### Status: 🔴 Not Started
+
+### Prompt:
+
+Following TDD principles, implement Phase 2.5 Skills & Progression System:
+
+Core Requirements:
+1. Core skills framework
+Design skill schema: {name, category, currentValue (0-100), experiencePoints}
+5 skill categories:
+- **Combat Skills**: Slashing, Piercing, Bludgeoning, Defense, Dodge
+- **Crafting Skills**: Smithing, Alchemy, Carpentry, Tailoring, Cooking
+- **Gathering Skills**: Mining, Herbalism, Logging, Hunting, Fishing
+-  **Utility Skills**: Perception, Stealth, Climbing, Swimming, Navigation
+- **Social Skills**: Persuasion, Intimidation, Deception, Bartering
+
+2. Use-based experience gain
+XP awarded per skill use (varies by action difficulty)
+XP curve formula: `XP_needed = baseXP × (skillLevel^1.5)` (exponential growth)
+Diminishing returns for repetitive actions (prevents grinding)
+Example: Mining same rock 10 times = full XP first time, 10% XP by 10th time
+
+3. Skill check system
+Roll: `d100 + skill + (relevantAttribute/5)`
+Compare vs difficulty threshold (Easy=30, Medium=50, Hard=70, VeryHard=90)
+Critical success: natural 96-100 (automatic success + bonus effect)
+Critical failure: natural 1-5 (automatic failure + penalty)
+
+4. Skill synergies
+Related skills provide minor bonuses (+5 to rolls)
+Example: Smithing+5 when Metalworking > 50
+Define synergy pairs in configuration
+
+5. Soft caps (attribute-based thresholds)
+Skill advancement harder after reaching (relevantAttribute × 1.5)
+Example: Slashing soft cap at Might × 1.5 (Might=50 → soft cap at 75)
+XP required doubles after soft cap
+
+6. Skill requirements for content
+Recipes require minimum skill levels (Cooking 40 for advanced meals)
+Equipment has skill requirements (Legendary Sword requires Slashing 80)
+Abilities unlock at skill milestones (Dodge 50 unlocks Counter-Attack)
+
+7. Quality scaling with skill level
+Crafting: skill determines quality tier (Poor < Common < Fine < Masterwork < Legendary)
+Quality formula: `quality = floor(skill / 20)` (0-4 scale)
+Combat: higher skill increases damage/accuracy
+Gathering: higher skill increases yield and rare resource chance
+
+8. Event-sourced persistence
+SkillIncreased: {characterID, skillName, oldValue, newValue, xpGained, timestamp}
+SkillUsed: {characterID, skillName, context, xpGained, diminishingReturnFactor, timestamp}
+Reconstruct skill state from events
+
+Test Requirements (80%+ coverage):
+Skill categories properly defined
+XP curve calculates correctly (exponential growth)
+Diminishing returns reduces XP for repetitive actions
+Skill checks combine skill + attribute + d100 correctly
+Critical success/failure triggers on natural 1-5 and 96-100
+Soft caps apply after attribute-based threshold
+Skill synergies grant correct bonuses
+Quality tiers scale with skill level
+SkillIncreased/SkillUsed events emitted
+Skill state reconstructed from events
+
+Acceptance Criteria:
+Skills increase through use with diminishing returns
+Skill checks properly combine skill + attribute + random roll
+All major systems (combat, crafting, gathering) respect skill levels
+Skill progression feels rewarding without being grindable
+Skills persist correctly via event sourcing
+Quality scaling provides meaningful rewards for skill advancement
+80%+ test coverage
+
+Dependencies: Phase 2.1 (Character System)
+Files to Create:
+`internal/skills/types.go` - Skill schema, categories
+`internal/skills/progression.go` - XP gain, leveling
+`internal/skills/checks.go` - Skill check system
+`internal/skills/synergies.go` - Skill synergy logic
+`internal/skills/soft_caps.go` - Soft cap system
+`internal/skills/quality.go` - Quality scaling
+`internal/skills/repository.go` - Skill persistence
+`internal/skills/diminishing_returns.go` - Anti-grinding
+`internal/skills/progression_test.go` - Test suite
 
 
 ---
