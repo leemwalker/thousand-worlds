@@ -1,0 +1,22 @@
+mode: set
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:34.80,36.2 1 1
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:38.123,45.2 3 1
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:47.122,55.2 3 1
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:57.105,67.16 5 1
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:67.16,69.3 1 0
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:70.2,70.16 1 1
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:73.138,82.16 3 1
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:82.16,84.3 1 0
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:85.2,88.18 3 1
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:88.18,90.85 2 1
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:90.85,92.4 1 0
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:93.3,93.33 1 1
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:95.2,95.22 1 1
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:98.147,107.16 3 0
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:107.16,109.3 1 0
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:110.2,113.18 3 0
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:113.18,115.85 2 0
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:115.85,117.4 1 0
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:118.3,118.33 1 0
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:120.2,120.22 1 0
+/Users/walker/git/thousand-worlds/mud-platform-backend/internal/repository/spatial_repository.go:123.125,132.2 4 1

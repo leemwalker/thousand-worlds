@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"mud-platform-backend/internal/auth"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/nats-io/nats.go"
+	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -32,12 +34,44 @@ func main() {
 
 	log.Info().Msg("Connected to NATS")
 
+	// Connect to Redis
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379"
+	}
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: redisAddr,
+	})
+	defer redisClient.Close()
+
+	// Initialize Auth Components
+	// Keys should come from env vars
+	signingKey := []byte(os.Getenv("JWT_SIGNING_KEY"))
+	if len(signingKey) == 0 {
+		signingKey = []byte("default-signing-key-do-not-use-in-prod")
+	}
+	encryptionKey := []byte(os.Getenv("JWT_ENCRYPTION_KEY"))
+	if len(encryptionKey) != 32 {
+		// Fallback for dev/test if not set or invalid length
+		// In prod, this should be a fatal error
+		encryptionKey = []byte("01234567890123456789012345678901")
+	}
+
+	tokenManager, err := auth.NewTokenManager(signingKey, encryptionKey)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to create TokenManager")
+	}
+
+	passwordHasher := auth.NewPasswordHasher()
+	sessionManager := auth.NewSessionManager(redisClient)
+	rateLimiter := auth.NewRateLimiter(redisClient)
+
 	// Initialize Handler
-	handler := NewAuthHandler(nc)
+	handler := NewAuthHandler(nc, tokenManager, passwordHasher, sessionManager, rateLimiter)
 
 	// Subscribe to Login
 	_, err = nc.Subscribe("auth.login", func(msg *nats.Msg) {
-		// Handle in a goroutine or directly? 
+		// Handle in a goroutine or directly?
 		// For high throughput, maybe a worker pool, but for now direct.
 		// We need a context, maybe with timeout.
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

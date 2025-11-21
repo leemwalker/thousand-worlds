@@ -18,3 +18,15 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS idx_events_aggregate_id_version ON events (aggregate_id, version);
 CREATE INDEX IF NOT EXISTS idx_events_event_type ON events (event_type);
 CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events (timestamp);
+
+-- Create entities table
+CREATE TABLE IF NOT EXISTS entities (
+    id UUID PRIMARY KEY,
+    world_id UUID NOT NULL,
+    position GEOGRAPHY(POINTZ, 4326) NOT NULL,
+    metadata JSONB
+);
+
+-- Create spatial index
+CREATE INDEX IF NOT EXISTS idx_entities_position ON entities USING GIST (position);
+CREATE INDEX IF NOT EXISTS idx_entities_world_position ON entities (world_id, position);
