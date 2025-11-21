@@ -259,12 +259,21 @@ func (tm *TickerManager) tick(t *ticker) {
 
 	// Broadcast to NATS
 	if tm.natsPublisher != nil {
+		// Calculate time of day and season
+		sunPos := CalculateSunPosition(newGameTime, DefaultDayLength)
+		timeOfDay := GetTimeOfDay(sunPos)
+		season, seasonProgress := CalculateSeason(newGameTime, DefaultSeasonLength)
+
 		broadcast := TickBroadcast{
 			WorldID:        t.worldID.String(),
 			TickNumber:     newTickCount,
 			GameTimeMs:     int64(newGameTime / time.Millisecond),
 			RealTimeMs:     t.tickInterval.Milliseconds(),
 			DilationFactor: t.dilationFactor,
+			TimeOfDay:      string(timeOfDay),
+			SunPosition:    sunPos,
+			CurrentSeason:  string(season),
+			SeasonProgress: seasonProgress,
 		}
 		data, _ := json.Marshal(broadcast)
 		subject := fmt.Sprintf("world.tick.%s", t.worldID)
