@@ -728,7 +728,7 @@ Files to Create:
 
 ## Phase 2.3: Inventory System (1-2 weeks)
 
-### Status: 🔴 Not Started
+### Status: ✅ Completed
 
 ### Prompt:
 
@@ -809,11 +809,11 @@ Files to Create:
 
 ## Phase 2.4: Skills & Progression System (2-3 weeks)
 
-### Status: 🔴 Not Started
+### Status: ✅ Completed
 
 ### Prompt:
 
-Following TDD principles, implement Phase 2.5 Skills & Progression System:
+Following TDD principles, implement Phase 2.4 Skills & Progression System:
 
 Core Requirements:
 1. Core skills framework
@@ -896,6 +896,1279 @@ Files to Create:
 `internal/skills/diminishing_returns.go` - Anti-grinding
 `internal/skills/progression_test.go` - Test suite
 
+# Phase 3: NPC Memory & Relationships (5-7 weeks)
+
+## Phase 3.1: Memory Storage & Retrieval (2 weeks)
+### Status: ✅ Completed
+### Prompt:
+Following TDD principles, implement Phase 3.1 NPC Memory Storage & Retrieval:
+
+Core Requirements:
+1. Design MongoDB memory schema with document types:
+   - **Observation**: NPCs witnessing events
+     ```
+     {
+       npcID: UUID,
+       memoryType: "observation",
+       timestamp: ISODate,
+       clarity: 0.0-1.0,
+       emotionalWeight: 0.0-1.0,
+       accessCount: int,
+       lastAccessed: ISODate,
+       content: {
+         event: string,
+         location: {x, y, z, worldID},
+         entitiesPresent: [UUID],
+         weatherConditions: string,
+         timeOfDay: string
+       },
+       tags: [string],
+       relatedMemories: [memoryID]
+     }
+     ```
+   - **Conversation**: Dialogue with players/NPCs
+     ```
+     {
+       npcID: UUID,
+       memoryType: "conversation",
+       timestamp: ISODate,
+       clarity: 0.0-1.0,
+       emotionalWeight: 0.0-1.0,
+       accessCount: int,
+       lastAccessed: ISODate,
+       content: {
+         participants: [UUID],
+         dialogue: [{speaker: UUID, text: string, emotion: string}],
+         location: {x, y, z, worldID},
+         outcome: string,
+         relationshipImpact: {entityID: UUID, affinityDelta: int}
+       },
+       tags: [string],
+       relatedMemories: [memoryID]
+     }
+     ```
+   - **Event**: Significant personal experiences
+     ```
+     {
+       npcID: UUID,
+       memoryType: "event",
+       timestamp: ISODate,
+       clarity: 0.0-1.0,
+       emotionalWeight: 0.0-1.0,
+       accessCount: int,
+       lastAccessed: ISODate,
+       content: {
+         eventType: string,
+         description: string,
+         location: {x, y, z, worldID},
+         participants: [UUID],
+         consequences: string,
+         emotionalResponse: string
+       },
+       tags: [string],
+       relatedMemories: [memoryID]
+     }
+     ```
+   - **Relationship**: Connections with entities
+     ```
+     {
+       npcID: UUID,
+       memoryType: "relationship",
+       targetEntityID: UUID,
+       timestamp: ISODate (first meeting),
+       lastInteraction: ISODate,
+       clarity: 0.0-1.0,
+       emotionalWeight: 0.0-1.0,
+       accessCount: int,
+       content: {
+         affection: -100 to +100,
+         trust: -100 to +100,
+         fear: -100 to +100,
+         firstImpression: string,
+         sharedExperiences: [memoryID],
+         relationshipType: string
+       },
+       tags: [string]
+     }
+     ```
+
+2. Implement NPCMemoryRepository with methods:
+   - `CreateMemory(memory) → memoryID, error`
+   - `GetMemory(memoryID) → Memory, error`
+   - `GetMemoriesByNPC(npcID, limit, offset) → []Memory, error`
+   - `GetMemoriesByType(npcID, memoryType, limit) → []Memory, error`
+   - `GetMemoriesByTimeframe(npcID, startTime, endTime) → []Memory, error`
+   - `GetMemoriesByEntity(npcID, entityID) → []Memory, error`
+   - `GetMemoriesByEmotion(npcID, minEmotionalWeight, limit) → []Memory, error`
+   - `GetMemoriesByTags(npcID, tags, matchAll bool) → []Memory, error`
+   - `UpdateMemory(memoryID, updates) → error`
+   - `DeleteMemory(memoryID) → error`
+
+3. Add memory tagging system:
+   - Auto-tag entities mentioned (player_123, npc_456)
+   - Auto-tag locations (coordinates, world)
+   - Auto-tag emotions (joy, anger, fear, sadness, surprise, disgust)
+   - Manual keywords from content analysis
+   - Compound tags: "combat_with_player_123_at_forest"
+
+4. Build memory retrieval with relevance scoring:
+   - `GetRelevantMemories(npcID, context, limit) → []Memory`
+   - Scoring formula: `score = (recency × 0.3) + (emotionalWeight × 0.4) + (accessCount × 0.1) + (contextMatch × 0.2)`
+   - Context matching: tags present in current situation boost score
+   - Return memories sorted by relevance score
+
+5. Implement memory importance calculation:
+   - Base importance: `emotionalWeight × clarity`
+   - Recency bonus: `1.0 - (daysSinceCreation / 365)` capped at 0.0
+   - Access frequency bonus: `min(accessCount / 10, 1.0)`
+   - Final importance: `baseImportance × (1 + recencyBonus + accessBonus)`
+
+Test Requirements (80%+ coverage):
+- CreateMemory stores all memory types correctly
+- GetMemory retrieves exact memory by ID
+- GetMemoriesByType filters correctly (observation vs conversation vs event)
+- GetMemoriesByTimeframe returns memories in date range
+- GetMemoriesByEntity finds all memories involving specific entity
+- GetMemoriesByEmotion filters by emotional weight threshold
+- GetMemoriesByTags supports AND/OR tag matching
+- Auto-tagging extracts entities, locations, emotions correctly
+- GetRelevantMemories ranks by composite relevance score
+- Memory importance calculation considers all factors
+- UpdateMemory modifies fields without losing data
+- Concurrent memory creation handles race conditions
+- Store 10,000 memories and retrieve relevant subset in < 100ms
+- Complex queries (tags + emotion + timeframe) perform in < 200ms
+
+Acceptance Criteria:
+- NPCs can store all four memory types with full schemas
+- Memory retrieval supports filtering by type, time, entity, emotion, tags
+- Relevance scoring prioritizes important and recent memories
+- Auto-tagging extracts meaningful keywords
+- Query performance meets targets (< 100ms simple, < 200ms complex)
+- All tests pass with 80%+ coverage
+
+Dependencies:
+- MongoDB (add to docker-compose if not present)
+- Event sourcing (Phase 0.1) for memory creation events
+
+Files to Create:
+- `internal/npc/memory/types.go` - Memory structs, enums
+- `internal/npc/memory/repository.go` - NPCMemoryRepository
+- `internal/npc/memory/tagging.go` - Auto-tagging logic
+- `internal/npc/memory/relevance.go` - Relevance scoring
+- `internal/npc/memory/repository_test.go` - Repository tests
+- `internal/npc/memory/tagging_test.go` - Tagging tests
+- `internal/npc/memory/relevance_test.go` - Scoring tests
+- `migrations/mongodb/001_memory_indexes.js` - MongoDB indexes
+
+---
+
+## Phase 3.2: Memory Decay & Rehearsal (1 week)
+### Status: ✅ Completed
+### Prompt:
+Following TDD principles, implement Phase 3.2 Memory Decay & Rehearsal:
+
+Core Requirements:
+1. Implement linear clarity decay over time:
+   - Formula: `currentClarity = initialClarity × (1 - decayRate × daysSinceCreation)`
+   - Base decay rate: `0.001` per day (0.1% daily decay)
+   - Decay accelerates for low-emotion memories: `decayRate × (1 + (1 - emotionalWeight))`
+   - High-emotion memories decay slower: `decayRate × emotionalWeight`
+   - Minimum clarity floor: `0.1` (memories never completely vanish, just become fuzzy)
+
+2. Add rehearsal bonus system:
+   - Each memory access increments `accessCount`
+   - Updates `lastAccessed` timestamp
+   - Rehearsal protection: `rehearsalBonus = min(accessCount / 20, 0.5)`
+   - Modified decay: `currentClarity = initialClarity × (1 - decayRate × daysSinceCreation × (1 - rehearsalBonus))`
+   - Frequently accessed memories decay 50% slower at max
+
+3. Build memory corruption system:
+   - On access, chance to corrupt details: `corruptionChance = 0.05 × (1 - clarity)`
+   - Corruption types:
+     - Location drift (coordinates shift slightly)
+     - Entity confusion (wrong participant remembered)
+     - Detail loss (content fields become vague)
+     - Emotional shift (emotionalWeight changes ±10%)
+   - Corrupted memories tagged with `corrupted: true` flag
+   - Original memory preserved in `originalContent` field for debugging
+
+4. Implement background decay job:
+   - Cron job runs daily: `DecayAllMemories()`
+   - Batch process all memories created > 1 day ago
+   - Update clarity values using decay formula
+   - Apply corruption checks to accessed memories
+   - Log statistics: memories decayed, corrupted, fallen below clarity threshold
+   - Performance target: process 100k memories in < 5 minutes
+
+5. Calculate memory retention score:
+   - Formula: `retention = baseRetention × (1 - decayRate × timeSinceCreation) × (1 + rehearsalBonus × accessCount)`
+   - `baseRetention = clarity × emotionalWeight`
+   - Used to determine if memory surfaces in recall queries
+   - Threshold for "forgetting": retention < 0.15
+
+Test Requirements (80%+ coverage):
+- Linear decay reduces clarity correctly over simulated days
+- High-emotion memories decay slower than low-emotion
+- Rehearsal bonus correctly reduces decay rate
+- AccessCount increments on memory retrieval
+- LastAccessed timestamp updates on access
+- Corruption probability scales with low clarity
+- Corrupted memories preserve original content
+- DecayAllMemories processes batch efficiently
+- Memory retention score combines all factors
+- Memories below retention threshold excluded from queries
+- Run decay simulation over 365 simulated days
+- Verify memory half-life: 50% clarity at expected timepoint
+- Concurrent access during decay job doesn't corrupt data
+
+Acceptance Criteria:
+- Clarity decays linearly over time with emotion-based adjustments
+- Rehearsal (access frequency) protects memories from decay
+- Corruption introduces realistic "fuzzy" details at low clarity
+- Background job processes 100k memories in < 5 minutes
+- Memory retention formula accurately predicts recall likelihood
+- All tests pass with 80%+ coverage including time-series simulation
+
+Dependencies:
+- Phase 3.1 (Memory Storage) - requires memory schema
+- Cron scheduler (add dependency: `github.com/robfig/cron/v3`)
+
+Files to Create:
+- `internal/npc/memory/decay.go` - Decay calculations
+- `internal/npc/memory/rehearsal.go` - Rehearsal bonus logic
+- `internal/npc/memory/corruption.go` - Memory corruption
+- `internal/npc/memory/retention.go` - Retention scoring
+- `internal/npc/memory/jobs.go` - Background decay job
+- `internal/npc/memory/decay_test.go` - Decay simulation tests
+- `internal/npc/memory/corruption_test.go` - Corruption tests
+- `internal/npc/memory/jobs_test.go` - Batch processing tests
+
+---
+
+## Phase 3.3: Relationship System (1-2 weeks)
+### Status: ✅ Completed
+### Prompt:
+Following TDD principles, implement Phase 3.3 Relationship System with Behavioral Drift Detection:
+
+Core Requirements:
+1. Create relationship schema (extends memory type "relationship"):
+   - Core affinity metrics (all -100 to +100):
+     - `affection`: emotional bond (positive/negative feelings)
+     - `trust`: reliability and honesty perception
+     - `fear`: threat level and intimidation
+   - Behavioral baseline tracking (all 0.0 to 1.0):
+     - `aggression`: frequency of hostile actions
+     - `generosity`: frequency of helpful/gift actions
+     - `honesty`: pattern of truthful vs deceptive behavior
+     - `sociability`: conversation initiation rate
+     - `recklessness`: frequency of dangerous decisions
+     - `loyalty`: consistency in supporting relationship
+   - Recent interaction tracking:
+     - `recentInteractions`: array of last 20 interactions
+     - Each interaction: `{timestamp, actionType, affinityDelta, behavioralContext}`
+
+2. Implement NPCRelationshipRepository methods:
+   - `CreateRelationship(npcID, targetEntityID) → Relationship, error`
+   - `GetRelationship(npcID, targetEntityID) → Relationship, error`
+   - `GetAllRelationships(npcID) → []Relationship, error`
+   - `UpdateAffinity(npcID, targetEntityID, affinityType, delta) → error`
+   - `RecordInteraction(npcID, targetEntityID, interaction) → error`
+   - `GetBehavioralBaseline(npcID, targetEntityID) → BehavioralBaseline, error`
+   - `CalculateDrift(npcID, targetEntityID, recentActions) → DriftMetrics, error`
+
+3. Add relationship update modifiers:
+   - **Gift giving**: `affection += giftValue / 10`, `trust += 5`
+   - **Threats**: `fear += 20`, `trust -= 10`, `affection -= 15`
+   - **Helping**: `affection += 10`, `trust += 8`
+   - **Lying (caught)**: `trust -= 25`, `affection -= 10`
+   - **Violence**: `fear += 30`, `affection -= 40`, `trust -= 20`
+   - **Betrayal**: `trust -= 50`, `affection -= 60`, `loyalty -= 0.3`
+   - **Consistent support**: `trust += 5`, `loyalty += 0.05`, `affection += 5`
+   - Modifiers respect bounds (-100 to +100 for affinity, 0.0 to 1.0 for behavioral)
+
+4. Build relationship decay system:
+   - Decay occurs when no interaction for extended period
+   - Formula: `affinityDecay = 0.5 per 30 days without interaction`
+   - Only affects affection and trust (not fear)
+   - Strong relationships (affection > 75) decay 50% slower
+   - Negative relationships (affection < -50) decay toward neutral faster
+   - Background job: `DecayInactiveRelationships()` runs weekly
+
+5. Implement behavioral baseline tracking:
+   - Calculate baseline from first 20 interactions or 30-day history
+   - Baseline values: `sum(behavioralMetric) / interactionCount`
+   - Update baseline slowly: `newBaseline = (oldBaseline × 0.9) + (recentAverage × 0.1)`
+   - Snapshot baseline when NPC is inhabited by player
+
+6. Add drift detection system:
+   - Calculate current behavior average from last 20 actions
+   - Drift formula: `drift = |currentBehavior - historicalBaseline|`
+   - Drift thresholds:
+     - `0.0-0.3`: No significant drift
+     - `0.3-0.5`: Subtle drift (NPC comments)
+     - `0.5-0.7`: Moderate drift (NPC questions behavior)
+     - `0.7+`: Severe drift (NPC alarmed, relationship impacts)
+   - Per-trait drift tracking (separate drift scores for aggression, generosity, etc.)
+
+7. Create NPC reactions to behavioral drift:
+   - **Subtle Drift (0.3-0.5)**:
+     - Generate concerned comments: "You seem different lately"
+     - Relationship modifier: `affection += -5 to +5` depending on change direction
+     - Memory created: observation type tagged with "personality_change"
+   - **Moderate Drift (0.5-0.7)**:
+     - Direct questioning: "That's not like you. What's going on?"
+     - Relationship modifier: `trust -= 10`, `fear += 5` if negative change
+     - Family intervention triggered if close relationship
+     - Memory created with high emotional weight (0.7)
+   - **Severe Drift (0.7+)**:
+     - Alarmed response: "You're not yourself. Something is very wrong."
+     - Relationship modifier: `trust -= 25`, possible relationship break
+     - Community response if public figure (quest trigger)
+     - Supernatural suspicion in magic worlds
+     - Memory created with max emotional weight (1.0)
+
+8. Build relationship modifier based on drift:
+   - Positive drift (coward → brave): `affection += 15`, `trust += 10`
+   - Negative drift (honest → deceptive): `affection -= 20`, `trust -= 30`
+   - Calculate modifier: `affinityDelta = driftMagnitude × 50 × directionMultiplier`
+   - Direction: +1 if personality improves by NPC's values, -1 if worsens
+
+Test Requirements (80%+ coverage):
+- CreateRelationship initializes with neutral affinity values
+- GetRelationship retrieves by NPC-target pair
+- UpdateAffinity respects bounds (-100 to +100)
+- Gift/threat/help modifiers update affinity correctly
+- Relationship decay reduces affection/trust over time (simulated days)
+- Strong relationships decay slower than weak ones
+- Behavioral baseline calculates correctly from interaction history
+- Baseline updates slowly with new interactions
+- Drift calculation compares current vs baseline accurately
+- Drift thresholds trigger appropriate NPC responses
+- Subtle drift generates comments, moderate triggers questioning
+- Severe drift causes relationship penalties
+- RecordInteraction stores last 20 interactions (FIFO)
+- Concurrent relationship updates handle race conditions
+- Drift detection works for all 6 behavioral traits
+- Positive drift improves relationships, negative worsens
+- Process 10k relationship updates in < 2 seconds
+
+Acceptance Criteria:
+- Relationships track affection, trust, fear accurately
+- Behavioral baseline captures NPC's normal personality patterns
+- Drift detection identifies when inhabited NPCs act out of character
+- NPC reactions scale appropriately (subtle → moderate → severe)
+- Relationship modifiers based on drift feel balanced
+- Decay system maintains realistic relationship dynamics
+- All tests pass with 80%+ coverage
+
+Dependencies:
+- Phase 3.1 (Memory Storage) - relationship memories
+- Phase 3.2 (Memory Decay) - relationship decay follows similar patterns
+- Event sourcing (Phase 0.1) for interaction events
+
+Files to Create:
+- `internal/npc/relationship/types.go` - Relationship, BehavioralBaseline structs
+- `internal/npc/relationship/repository.go` - NPCRelationshipRepository
+- `internal/npc/relationship/modifiers.go` - Affinity update logic
+- `internal/npc/relationship/decay.go` - Relationship decay
+- `internal/npc/relationship/baseline.go` - Behavioral baseline tracking
+- `internal/npc/relationship/drift.go` - Drift detection and scoring
+- `internal/npc/relationship/reactions.go` - NPC response generation
+- `internal/npc/relationship/repository_test.go` - Repository tests
+- `internal/npc/relationship/modifiers_test.go` - Modifier tests
+- `internal/npc/relationship/drift_test.go` - Drift detection tests
+- `internal/npc/relationship/reactions_test.go` - Reaction tests
+
+---
+
+## Phase 3.4: Emotional Memory Weighting (1-2 weeks)
+### Status: ✅ Completed
+### Prompt:
+Following TDD principles, implement Phase 3.4 Emotional Memory Weighting:
+
+Core Requirements:
+1. Add emotional intensity to memory schema:
+   - `emotionalWeight`: 0.0 (neutral) to 1.0 (peak emotion)
+   - Calculated from event context:
+     - Combat: `0.7 + (damageTaken / maxHP) × 0.3`
+     - First meeting: `0.5`
+     - Gift received: `0.3 + (giftValue / wealthLevel) × 0.4`
+     - Betrayal: `0.9`
+     - Witnessed death: `0.8`
+     - Casual conversation: `0.1 - 0.3`
+     - Achievement: `0.6`
+     - Threat to life: `0.95`
+
+2. Boost memory importance for high-emotion events:
+   - Modified importance: `importance = baseImportance × (1 + emotionalWeight)`
+   - High-emotion memories (>0.7) get 1.7x to 2.0x importance boost
+   - Prioritized in relevance scoring for recall
+   - Resist decay better: `decayRate × (1 - emotionalWeight × 0.5)`
+
+3. Implement emotion-triggered memory recall:
+   - When NPC experiences similar emotion, related memories surface
+   - Emotion similarity: `similarity = 1 - |currentEmotion - memoryEmotion|`
+   - Threshold for triggering: similarity > 0.6
+   - Returns top 5 most similar memories by combined score:
+     - `score = (emotionalSimilarity × 0.5) + (importance × 0.3) + (recency × 0.2)`
+   - Examples:
+     - Current fear → recalls past threats/combat
+     - Current joy → recalls celebrations/gifts
+     - Current anger → recalls betrayals/injustices
+
+4. Create emotion types system:
+   - Six primary emotions (Ekman model):
+     - `joy`: 0.0-1.0 intensity
+     - `anger`: 0.0-1.0 intensity
+     - `fear`: 0.0-1.0 intensity
+     - `sadness`: 0.0-1.0 intensity
+     - `surprise`: 0.0-1.0 intensity
+     - `disgust`: 0.0-1.0 intensity
+   - Complex emotions as combinations:
+     - `anticipation = joy × 0.5 + surprise × 0.5`
+     - `contempt = anger × 0.6 + disgust × 0.4`
+     - `anxiety = fear × 0.7 + surprise × 0.3`
+   - Memory tagged with dominant emotion (highest intensity)
+
+5. Build EmotionEngine for event analysis:
+   - `AnalyzeEvent(event) → EmotionProfile`
+   - Event types map to emotion intensities:
+     - Player gives gift → `{joy: 0.6, surprise: 0.3}`
+     - Player attacks → `{fear: 0.8, anger: 0.5}`
+     - Friend dies → `{sadness: 0.9, anger: 0.3}`
+     - Discover treasure → `{joy: 0.7, surprise: 0.8}`
+     - Betrayed by ally → `{anger: 0.8, sadness: 0.6}`
+   - Personality modifies emotions:
+     - Neurotic NPCs: fear/sadness +20%
+     - Aggressive NPCs: anger +30%
+     - Optimistic NPCs: joy +20%, sadness -20%
+
+6. Implement emotional memory consolidation:
+   - During sleep/rest cycles, high-emotion memories reinforced
+   - Background job: `ConsolidateEmotionalMemories(npcID)`
+   - Selects memories with emotionalWeight > 0.6 from past 24 hours
+   - Increases clarity by `0.1 × emotionalWeight`
+   - Links related emotional memories via `relatedMemories` field
+   - Simulates "replaying" important events during rest
+
+7. Add emotional memory decay resistance:
+   - Formula: `effectiveDecayRate = baseDecayRate × (1 - emotionalWeight × 0.5)`
+   - Peak emotion (1.0) provides 50% decay resistance
+   - Neutral memories (0.0) get no protection
+   - Test over simulated years: high-emotion memories persist longer
+
+Test Requirements (80%+ coverage):
+- EmotionalWeight assigned correctly based on event type
+- High-emotion memories have boosted importance scores
+- Memory importance calculation includes emotional multiplier
+- Decay resistance formula reduces decay for emotional memories
+- Emotion-triggered recall finds similar emotional memories
+- Similarity scoring prioritizes close emotional matches
+- Six primary emotions map correctly to event types
+- Complex emotions combine primary emotions correctly
+- Personality traits modify emotional intensities
+- AnalyzeEvent produces consistent EmotionProfiles
+- ConsolidateEmotionalMemories reinforces recent high-emotion memories
+- Consolidated memories show increased clarity
+- Related emotional memories linked correctly
+- Simulate 365 days: emotional memories outlast neutral ones
+- Process 10k memories with emotional scoring in < 200ms
+
+Acceptance Criteria:
+- Memories tagged with emotional intensity (0.0-1.0)
+- High-emotion memories prioritized in recall and resist decay
+- Emotion-triggered recall surfaces contextually relevant memories
+- Six primary emotions supported with event-based assignment
+- Personality influences emotional responses realistically
+- Emotional memory consolidation simulates realistic sleep processing
+- All tests pass with 80%+ coverage
+
+Dependencies:
+- Phase 3.1 (Memory Storage) - requires memory schema with emotionalWeight
+- Phase 3.2 (Memory Decay) - integrates decay resistance
+- Phase 3.3 (Relationships) - emotional events affect relationships
+
+Files to Create:
+- `internal/npc/emotion/types.go` - Emotion, EmotionProfile structs
+- `internal/npc/emotion/engine.go` - EmotionEngine for event analysis
+- `internal/npc/emotion/recall.go` - Emotion-triggered memory recall
+- `internal/npc/emotion/consolidation.go` - Memory consolidation job
+- `internal/npc/emotion/decay.go` - Emotional decay resistance
+- `internal/npc/memory/emotional_scoring.go` - Importance boosting
+- `internal/npc/emotion/engine_test.go` - EmotionEngine tests
+- `internal/npc/emotion/recall_test.go` - Recall tests
+- `internal/npc/emotion/consolidation_test.go` - Consolidation tests
+
+---
+
+# Phase 4: NPC Genetics & Appearance (2-3 weeks)
+
+## Phase 4.1: Genetic System (1-2 weeks)
+### Status: ✅ Completed
+### Prompt:
+Following TDD principles, implement Phase 4.1 Genetic System with Mendelian Inheritance:
+
+Core Requirements:
+1. Design gene schema with dominant/recessive alleles:
+   - Each trait has two alleles (one from each parent)
+   - Allele types:
+     - `Dominant` (capital letter): A, B, C...
+     - `Recessive` (lowercase letter): a, b, c...
+   - Genotype: pair of alleles (AA, Aa, aa)
+   - Phenotype: expressed trait (Aa expresses A if dominant)
+   - Gene struct:
+     ```go
+     type Gene struct {
+       TraitName    string   // "height", "strength", "eyeColor"
+       Allele1      string   // From parent1
+       Allele2      string   // From parent2
+       IsDominant1  bool     // Is allele1 dominant?
+       IsDominant2  bool
+       Phenotype    string   // Expressed trait
+     }
+     ```
+
+2. Implement Mendelian inheritance with Punnett squares:
+   - `InheritGene(parent1Gene, parent2Gene) → childGene, error`
+   - Randomly select one allele from each parent
+   - Determine phenotype from genotype:
+     - If either allele is dominant: express dominant trait
+     - If both recessive: express recessive trait
+   - Punnett square logic for probability:
+     - AA × AA → 100% AA
+     - AA × Aa → 50% AA, 50% Aa
+     - Aa × Aa → 25% AA, 50% Aa, 25% aa
+     - Aa × aa → 50% Aa, 50% aa
+   - Support co-dominance for some traits (both express partially)
+
+3. Add mutation system (5% chance per gene):
+   - `MutateGene(gene) → mutatedGene, error`
+   - Mutation chance: 5% per gene during inheritance
+   - Mutation types:
+     - Allele flip: A → a or a → A (50% of mutations)
+     - New allele: introduce rare variant (30% of mutations)
+     - Amplification: strengthen existing trait (20% of mutations)
+   - Beneficial vs neutral vs harmful mutations (weighted random)
+   - Track mutation history in NPC lineage
+
+4. Create trait-to-attribute mapping:
+   - Physical attributes influenced by genes:
+     - `Might`: strength gene (S/s), muscle gene (M/m)
+       - SS = +10, Ss = +5, ss = +0
+       - MM = +8, Mm = +4, mm = +0
+       - Final: baseStrength + strengthBonus + muscleBonus
+     - `Agility`: reflex gene (R/r), coordination gene (C/c)
+     - `Endurance`: stamina gene (E/e), resilience gene (L/l)
+     - `Vitality`: health gene (H/h), recovery gene (V/v)
+   - Mental attributes influenced by genes:
+     - `Intellect`: cognition gene (I/i), learning gene (K/k)
+     - `Cunning`: perception gene (P/p), analysis gene (A/a)
+   - Sensory attributes influenced by genes:
+     - `Sight`: vision gene (Vi/vi), color gene (Co/co)
+     - `Hearing`: auditory gene (Au/au), range gene (Ra/ra)
+   - Each gene contributes ±15 max to attribute
+
+5. Build trait-to-appearance mapping:
+   - Physical appearance from genes:
+     - **Height**: height gene (T/t)
+       - TT = 180-200cm, Tt = 165-185cm, tt = 150-170cm
+     - **Build**: build gene (B/b), muscle gene (M/m)
+       - BB/MM = muscular, Bb/Mm = average, bb/mm = lean
+     - **Hair color**: hair gene (Hr/hr), pigment gene (Pi/pi)
+       - HrHr/PiPi = black, HrHr/Pipi = brown, hrhr/pipi = blonde
+     - **Eye color**: eye gene (Ey/ey), melanin gene (Me/me)
+       - EyEy/MeMe = brown, Eyey/Meme = hazel, eyey/meme = blue
+     - **Facial features**: nose gene (N/n), jaw gene (J/j), cheek gene (Ch/ch)
+   - Generate appearance string from genotype:
+     - "Tall, muscular human with black hair, brown eyes, strong jaw"
+
+6. Implement genetic diversity system:
+   - Starting population needs diverse gene pool
+   - Initialize with random genotypes ensuring variety
+   - Avoid inbreeding depression: track common ancestors
+   - Genetic compatibility check for breeding
+   - Minimum genetic distance: `geneticSimilarity < 0.8` for healthy offspring
+
+7. Test inheritance across multiple generations:
+   - Simulate 5 generations of breeding
+   - Verify Mendelian ratios (3:1, 9:3:3:1, etc.)
+   - Track recessive trait emergence
+   - Validate mutation accumulation rates
+   - Check attribute distributions remain balanced
+
+Test Requirements (80%+ coverage):
+- InheritGene correctly implements Punnett square logic
+- Dominant alleles express in heterozygous genotypes
+- Recessive traits only express in homozygous recessive
+- Mutation occurs at ~5% rate across large sample
+- Mutation types distributed correctly (50/30/20 split)
+- Trait-to-attribute mapping adds correct bonuses
+- Multiple genes combine additively for attributes
+- Appearance generation produces consistent descriptions
+- Height ranges match genotype (TT > Tt > tt)
+- Hair/eye color inheritance follows gene rules
+- Genetic diversity check prevents excessive inbreeding
+- Simulate 5 generations: verify Mendelian ratios
+- Process 1000 inheritances in < 1 second
+- Appearance strings are unique and descriptive
+
+Acceptance Criteria:
+- NPCs inherit genes from both parents following Mendelian genetics
+- Dominant/recessive alleles express correctly in phenotype
+- Mutations occur at 5% rate with appropriate variety
+- Attributes are influenced by multiple genes additively
+- Appearance is deterministically generated from genotype
+- Genetic diversity maintained in breeding populations
+- All tests pass with 80%+ coverage including multi-generational simulations
+
+Dependencies:
+- Phase 2.1 (Character System) - requires attribute schema
+- Random number generator (crypto/rand for genetic randomness)
+
+Files to Create:
+- `internal/npc/genetics/types.go` - Gene, Genotype structs
+- `internal/npc/genetics/inheritance.go` - Mendelian inheritance
+- `internal/npc/genetics/mutation.go` - Mutation system
+- `internal/npc/genetics/traits.go` - Trait-to-attribute mappings
+- `internal/npc/genetics/appearance.go` - Appearance generation
+- `internal/npc/genetics/diversity.go` - Genetic diversity checks
+- `internal/npc/genetics/inheritance_test.go` - Punnett square tests
+- `internal/npc/genetics/mutation_test.go` - Mutation rate tests
+- `internal/npc/genetics/traits_test.go` - Attribute mapping tests
+- `internal/npc/genetics/appearance_test.go` - Appearance generation tests
+- `internal/npc/genetics/simulation_test.go` - Multi-generation tests
+
+---
+
+## Phase 4.2: Appearance Generation (1 week)
+### Status: ✅ Completed
+### Prompt:
+Following TDD principles, implement Phase 4.2 Appearance Generation:
+
+Core Requirements:
+1. Generate physical description from genetic traits:
+   - `GenerateAppearance(genotype, age, species) → AppearanceDescription, error`
+   - Combine all physical trait genes into coherent description
+   - Template structure:
+     ```
+     [Height descriptor], [build descriptor] [species] with [hair descriptor], 
+     [eye descriptor], [facial feature descriptors]. [Age-specific details].
+     ```
+   - Example outputs:
+     - "Tall, muscular human with straight black hair, piercing brown eyes, strong jawline and high cheekbones. In their prime with weathered features."
+     - "Average height, lean elf with wavy golden hair, bright blue eyes, delicate features and pointed ears. Youthful with smooth skin."
+     - "Short, stocky dwarf with thick red beard, deep-set green eyes, prominent nose and broad shoulders. Middle-aged with some gray in beard."
+
+2. Implement appearance variation within genetic constraints:
+   - Add minor randomization (±5%) to prevent clones
+   - Variation sources:
+     - Environmental factors: sun exposure, scars, weathering
+     - Lifestyle: well-fed vs malnourished affects build
+     - Occupation: calloused hands, muscular development
+     - Random minor features: moles, freckles, birthmarks
+   - Variation doesn't override genetics: tall gene → tall outcome always
+   - Generate unique identifier: `appearanceID = hash(genotype + randomSeed)`
+
+3. Add age-based appearance changes:
+   - Age categories by species lifecycle:
+     - **Child** (0-20% lifespan): "youthful, smooth skin, bright eyes"
+     - **Young Adult** (20-40%): "in their prime, clear features"
+     - **Adult** (40-60%): "mature, some weathering"
+     - **Middle-Aged** (60-80%): "middle-aged, lines forming, some gray"
+     - **Elder** (80-100%): "elderly, deeply lined, gray/white hair, stooped"
+   - Age progression modifiers:
+     - Hair color: gradual graying after 60% lifespan
+     - Skin: wrinkles, age spots after 70% lifespan
+     - Posture: slight stoop after 85% lifespan
+     - Eyes: clouding after 90% lifespan
+   - Store base appearance at birth, apply age modifiers dynamically
+
+4. Create appearance descriptors by trait value:
+   - **Height** (from height gene):
+     - 190+ cm: "very tall", "towering"
+     - 175-189: "tall", "above average height"
+     - 160-174: "average height"
+     - 145-159: "short", "below average height"
+     - <145: "very short", "diminutive"
+   - **Build** (from build + muscle genes):
+     - High muscle, low fat: "muscular", "athletic", "powerful"
+     - High muscle, high fat: "stocky", "heavyset", "burly"
+     - Low muscle, low fat: "lean", "slender", "wiry"
+     - Low muscle, high fat: "soft", "portly", "rotund"
+   - **Hair texture** (from hair genes):
+     - "straight", "wavy", "curly", "kinky"
+   - **Facial features** (from feature genes):
+     - Jaw: "strong jawline", "weak chin", "square jaw", "pointed chin"
+     - Nose: "prominent nose", "button nose", "aquiline nose", "flat nose"
+     - Cheeks: "high cheekbones", "hollow cheeks", "full cheeks"
+     - Brow: "heavy brow", "delicate brow", "furrowed brow"
+
+5. Add species-specific appearance templates:
+   - **Human**: Standard template, highest variation
+   - **Elf**: Add "pointed ears", "angular features", tendency toward "graceful", "elegant"
+   - **Dwarf**: Add "thick beard" (males), "broad shoulders", "stocky" build default, "weathered" skin common
+   - **Orc**: Add "prominent tusks", "green/gray skin tone", "muscular" default, "intimidating" presence
+   - **Halfling**: Height capped at 120cm, "youthful" appearance even when aged, "curly hair" common
+   - Each species has genetic variants within their phenotype range
+
+6. Build appearance comparison system:
+   - `CompareAppearances(appearance1, appearance2) → SimilarityScore`
+   - Similarity metrics:
+     - Height difference: `1 - (abs(height1 - height2) / maxHeightRange)`
+     - Build similarity: compare muscle/fat distributions
+     - Coloring match: hair + eyes + skin
+     - Feature similarity: jawline, nose, cheeks
+   - Overall similarity: weighted average (height 20%, build 20%, coloring 30%, features 30%)
+   - Used for family resemblance: siblings should score 0.6-0.8 similarity
+   - Identical twins from same genotype: 0.95+ (not 1.0 due to variation)
+
+7. Implement appearance caching and updates:
+   - Cache generated appearance string to avoid regeneration
+   - Recalculate only when:
+     - Age category changes (child → young adult)
+     - Major event: scarring, injury, mutation
+   - Store in NPCs table: `appearance TEXT, appearanceLastUpdated TIMESTAMP`
+   - Background job: `UpdateAgedAppearances()` runs weekly
+
+Test Requirements (80%+ coverage):
+- GenerateAppearance produces consistent output for same genotype + age
+- Appearance variation stays within genetic constraints
+- Height descriptor matches height gene value ranges
+- Build descriptor combines muscle + build genes correctly
+- Hair/eye color matches genetic hair/eye genes
+- Age category correctly determined from lifespan percentage
+- Age modifiers apply at correct life stages (graying, wrinkles, etc.)
+- Species templates add appropriate features (elf ears, dwarf beards)
+- Species height ranges respected (halflings max 120cm)
+- CompareAppearances scores family members 0.6-0.8
+- Identical genotypes score 0.95+ similarity
+- Minor variation prevents exact clones (different random seeds)
+- Appearance caching retrieves without regeneration
+- UpdateAgedAppearances only recalculates when age category changes
+- Generate 1000 appearances in < 500ms
+
+Acceptance Criteria:
+- Physical descriptions generated deterministically from genotype
+- Age-based changes applied correctly throughout lifespan
+- Species-specific features included in templates
+- Appearance variation creates diversity without breaking genetics
+- Family resemblance detectable via similarity scoring
+- All tests pass with 80%+ coverage
+
+Dependencies:
+- Phase 4.1 (Genetic System) - requires genotype with all trait genes
+- Phase 2.1 (Character System) - species definitions
+
+Files to Create:
+- `internal/npc/appearance/generator.go` - GenerateAppearance function
+- `internal/npc/appearance/descriptors.go` - Trait-to-descriptor mappings
+- `internal/npc/appearance/aging.go` - Age-based appearance changes
+- `internal/npc/appearance/species.go` - Species-specific templates
+- `internal/npc/appearance/comparison.go` - Similarity scoring
+- `internal/npc/appearance/cache.go` - Appearance caching logic
+- `internal/npc/appearance/jobs.go` - Background update job
+- `internal/npc/appearance/generator_test.go` - Generation tests
+- `internal/npc/appearance/aging_test.go` - Age progression tests
+- `internal/npc/appearance/comparison_test.go` - Similarity tests
+
+---
+
+# Phase 5: NPC AI & Desire Engine (3-4 weeks)
+
+## Phase 5.1: Desire Engine (2 weeks)
+### Status: In Progress
+### Prompt:
+Following TDD principles, implement Phase 5.1 Desire Engine with Need Hierarchy:
+
+Core Requirements:
+1. Implement need hierarchy (Maslow-inspired, game-adapted):
+   - **Tier 1 - Survival** (highest priority):
+     - `hunger`: 0-100 scale (100 = starving, 0 = full)
+     - `thirst`: 0-100 scale (100 = parched, 0 = hydrated)
+     - `sleep`: 0-100 scale (100 = exhausted, 0 = well-rested)
+     - `safety`: 0-100 scale (100 = extreme danger, 0 = completely safe)
+   - **Tier 2 - Social**:
+     - `companionship`: 0-100 scale (100 = very lonely, 0 = socially fulfilled)
+     - `conversation`: 0-100 scale (need to talk)
+     - `affection`: 0-100 scale (need for positive relationships)
+   - **Tier 3 - Achievement**:
+     - `taskCompletion`: 0-100 scale (desire to finish goals)
+     - `skillImprovement`: 0-100 scale (desire to practice/learn)
+     - `resourceAcquisition`: 0-100 scale (desire for wealth/items)
+   - **Tier 4 - Pleasure/Exploration**:
+     - `curiosity`: 0-100 scale (desire to explore/discover)
+     - `hedonism`: 0-100 scale (desire for enjoyment/indulgence)
+     - `creativity`: 0-100 scale (desire to create/express)
+
+2. Add survival needs with realistic progression:
+   - **Hunger**:
+     - Increases by `1.0 per hour` (game time)
+     - Eating reduces by `foodValue` (bread = 30, meat = 50, feast = 100)
+     - At 70+: "hungry" status, seek food
+     - At 85+: "starving", prioritize above all else, -10% to all attributes
+     - At 95+: take damage (1 HP per hour)
+   - **Thirst**:
+     - Increases by `1.5 per hour` (faster than hunger)
+     - Drinking reduces by `drinkValue` (water = 50, ale = 40, wine = 35)
+     - At 60+: "thirsty", seek water
+     - At 80+: "parched", -15% to attributes
+     - At 95+: take damage (2 HP per hour, more critical than hunger)
+   - **Sleep**:
+     - Increases by `1.0 per hour awake`
+     - Sleeping reduces by `10 per hour of sleep`
+     - At 75+: "tired", -10% to Focus and Reflexes
+     - At 90+: "exhausted", -25% to all attributes, chance to fall asleep mid-action
+   - **Safety**:
+     - Calculated from context:
+       - Combat: `100`
+       - Nearby hostile entities: `50 + (hostileCount × 10)`
+       - Dangerous area (wilderness at night): `30`
+       - Town/safe zone: `5`
+       - Home: `0`
+     - High safety need drives fleeing, seeking shelter
+
+3. Build social needs system:
+   - **Companionship**:
+     - Increases by `0.5 per hour` when alone
+     - Decreases by `5 per hour` when with friendly NPCs/players
+     - Personality modifiers:
+       - Extraverted: +50% increase rate (loneliness comes faster)
+       - Introverted: -50% increase rate (comfortable alone longer)
+     - At 60+: seek out social interactions
+     - At 80+: "lonely", -10 to Presence, mood becomes melancholy
+   - **Conversation**:
+     - Increases by `1.0 per hour` without talking
+     - Decreases by `20` per meaningful conversation
+     - Extraverted: +100% increase rate
+     - At 50+: initiate conversations with nearby entities
+   - **Affection**:
+     - Increases by `0.2 per hour` (slow, long-term need)
+     - Decreases through positive relationship interactions
+     - At 70+: seek to strengthen bonds (give gifts, help others)
+
+4. Create achievement goals system:
+   - **Task Completion**:
+     - Increases while tasks are pending
+     - Each active task adds `10` to need
+     - Decreases by `30` when task completed
+     - Conscientiousness personality trait multiplies urgency: `needValue × (1 + conscientiousness)`
+   - **Skill Improvement**:
+     - Increases by `0.3 per hour` for NPCs with high Openness
+     - Decreases when skill XP gained
+     - Drives practice behaviors (crafting, combat training)
+   - **Resource Acquisition**:
+     - Based on wealth comparison to peers
+     - Wealth percentile < 50%: need increases
+     - Drives trading, looting, resource gathering
+
+5. Add pleasure/exploration drives:
+   - **Curiosity**:
+     - High Openness NPCs: base value 40-60
+     - Low Openness NPCs: base value 5-15
+     - Increases near unexplored areas, new NPCs, unknown items
+     - Drives exploration, asking questions, examining objects
+   - **Hedonism**:
+     - Varies by personality: high Extraversion + low Conscientiousness = high hedonism
+     - Increases when bored (no stimulation for 2+ hours)
+     - Drives seeking entertainment, drinking, gambling, leisure
+   - **Creativity**:
+     - High in NPCs with artist/craftsman occupations
+     - Drives crafting, building, artistic expression
+
+6. Calculate desire priorities with personality weighting:
+   - Priority formula: `priority = needUrgency × personalityWeight × tierMultiplier`
+   - Tier multipliers:
+     - Tier 1 (Survival): `4.0` (always critical)
+     - Tier 2 (Social): `2.0`
+     - Tier 3 (Achievement): `1.5`
+     - Tier 4 (Pleasure): `1.0`
+   - Personality weights (0.5 to 2.0 based on relevant trait):
+     - Hunger/Thirst: affected by Neuroticism (anxious about needs)
+     - Social needs: affected by Extraversion
+     - Achievement: affected by Conscientiousness
+     - Curiosity: affected by Openness
+   - Top priority need determines NPC's next action goal
+
+7. Implement desire switching based on urgency:
+   - NPCs can interrupt current activity if higher-priority need emerges
+   - Interruption threshold: new priority must be `2x` current priority
+   - Examples:
+     - Chatting (social, priority 30) → interrupted by hunger at 90 (survival, priority 360)
+     - Crafting (achievement, priority 45) → not interrupted by curiosity at 60 (pleasure, priority 60, only 1.3x)
+   - Critical survival needs (95+) always interrupt immediately
+
+8. Build desire fulfillment actions:
+   - Map desires to actionable behaviors:
+     - `hunger > 70` → `SeekFood()`, `EatMeal()`
+     - `thirst > 60` → `SeekWater()`, `Drink()`
+     - `sleep > 75` → `SeekBed()`, `Sleep()`
+     - `safety > 50` → `Flee()`, `SeekShelter()`
+     - `companionship > 60` → `SeekCompany()`, `JoinGroup()`
+     - `conversation > 50` → `InitiateDialogue()`
+     - `taskCompletion` → `ContinueTask()`, `CompleteGoal()`
+     - `curiosity > 40` → `Explore()`, `Examine()`
+   - NPCs autonomously select appropriate action based on top desire
+
+Test Requirements (80%+ coverage):
+- Hunger/thirst/sleep increase at correct rates over simulated time
+- Eating/drinking/sleeping reduce needs by correct amounts
+- Safety calculated correctly from context (combat, hostiles, location)
+- Survival needs at high values (85+) apply attribute penalties
+- Companionship need increases faster for extraverted NPCs
+- Social needs decrease through appropriate interactions
+- Task completion need scales with number of active tasks
+- Curiosity higher in high-Openness NPCs
+- Priority calculation combines urgency × personality × tier correctly
+- Top-priority need correctly identified from all needs
+- Desire switching interrupts when new priority > 2x current
+- Critical survival (95+) always interrupts immediately
+- Personality weights modify need priorities appropriately
+- Conscientiousness increases task completion urgency
+- Extraversion increases social need rates
+- Simulate 24-hour cycle: verify realistic need progression
+- Process 1000 NPCs' desire calculations in < 100ms
+
+Acceptance Criteria:
+- NPCs prioritize needs following Maslow-like hierarchy (Survival > Social > Achievement > Pleasure)
+- Survival needs drive behavior when critical (hunger, thirst, sleep, safety)
+- Social needs influenced by personality (extraversion, neuroticism)
+- Achievement goals motivate task-oriented NPCs
+- Pleasure/exploration drives emerge in stable, safe contexts
+- Desire switching allows dynamic priority changes
+- All tests pass with 80%+ coverage
+
+Dependencies:
+- Phase 2.1 (Character System) - requires attributes for penalties
+- Phase 3.3 (Relationships) - social needs reference relationship states
+- Time system (Phase 1) - needs progress with game time
+
+Files to Create:
+- `internal/npc/desire/types.go` - Need, Desire, Priority structs
+- `internal/npc/desire/survival.go` - Hunger, thirst, sleep, safety
+- `internal/npc/desire/social.go` - Companionship, conversation, affection
+- `internal/npc/desire/achievement.go` - Task completion, skill improvement
+- `internal/npc/desire/pleasure.go` - Curiosity, hedonism, creativity
+- `internal/npc/desire/priority.go` - Priority calculation and switching
+- `internal/npc/desire/fulfillment.go` - Desire-to-action mapping
+- `internal/npc/desire/survival_test.go` - Survival need tests
+- `internal/npc/desire/social_test.go` - Social need tests
+- `internal/npc/desire/priority_test.go` - Priority calculation tests
+- `internal/npc/desire/simulation_test.go` - 24-hour cycle simulation
+
+---
+
+## Phase 5.2: Personality System (1 week)
+### Status: ⏳ Not Started
+### Prompt:
+Following TDD principles, implement Phase 5.2 Personality System with Big Five Model:
+
+Core Requirements:
+1. Define personality traits (Big Five OCEAN model):
+   - Each trait scored 0-100:
+     - **Openness** (0-100):
+       - High: curious, creative, adventurous, seeks novelty
+       - Low: practical, conventional, prefers routine
+     - **Conscientiousness** (0-100):
+       - High: organized, disciplined, goal-oriented, reliable
+       - Low: spontaneous, flexible, disorganized
+     - **Extraversion** (0-100):
+       - High: outgoing, energetic, talkative, seeks company
+       - Low: reserved, solitary, introspective
+     - **Agreeableness** (0-100):
+       - High: cooperative, empathetic, trusting, helpful
+       - Low: competitive, skeptical, assertive
+     - **Neuroticism** (0-100):
+       - High: anxious, moody, sensitive to stress, emotional
+       - Low: calm, stable, resilient, even-tempered
+
+2. Derive personality from genetic traits + life experiences:
+   - **Genetic baseline** (50% of personality):
+     - Map genetic traits to personality:
+       - Neurotic gene (Ne/ne): NeNe = 70-90, Nene = 50-70, nene = 20-50
+       - Extraversion gene (Ex/ex): ExEx = 70-90, Exex = 50-70, exex = 20-50
+       - Similar mappings for O/C/A
+     - Genetic component: `geneticScore = rollFromGeneRange()`
+   - **Life experiences** (50% of personality):
+     - Childhood experiences (first 20% of lifespan):
+       - Trauma: -20 to Neuroticism (more anxious)
+       - Nurtured: +15 to Agreeableness
+       - Challenged: +10 to Conscientiousness
+     - Adult experiences:
+       - Social success: +10 Extraversion
+       - Repeated failures: +10 Neuroticism, -10 Conscientiousness
+       - Exploration: +10 Openness
+     - Track experience events in MongoDB: `personalityFormingEvents: [{event, traitImpact, timestamp}]`
+
+3. Add personality influence on decision-making:
+   - Decision context: `{options: [action1, action2...], stakes: low/medium/high}`
+   - Personality modifiers per option:
+     - **Openness** affects preference for novel vs familiar:
+       - High Openness: +20 score to "explore cave", +5 to "visit tavern again"
+       - Low Openness: +20 to "return home", +5 to "try new place"
+     - **Conscientiousness** affects planning:
+       - High: +25 to "plan carefully", -15 to "act impulsively"
+       - Low: +20 to "wing it", -10 to "prepare thoroughly"
+     - **Extraversion** affects social choices:
+       - High: +30 to "join party", +15 to "initiate conversation"
+       - Low: +25 to "stay home", +10 to "work alone"
+     - **Agreeableness** affects cooperation:
+       - High: +20 to "help stranger", +15 to "share resources"
+       - Low: +15 to "ignore request", +20 to "negotiate hard"
+     - **Neuroticism** affects risk assessment:
+       - High: +30 to "avoid danger", -20 to "risky option"
+       - Low: +15 to "take calculated risk", -5 to "panic response"
+   - Final option score: `baseScore + sum(personalityModifiers) + random(0, 20)`
+   - NPC selects highest-scoring option
+
+4. Implement mood system (temporary emotional state):
+   - Current mood affects behavior short-term (minutes to hours)
+   - Mood types:
+     - `cheerful`: +10 to social interactions, +5 Extraversion temporarily
+     - `melancholy`: -10 to social, +10 to introspective actions
+     - `anxious`: +15 Neuroticism, +20 to safety-seeking
+     - `angry`: -15 Agreeableness, +20 to aggressive actions
+     - `calm`: baseline personality, no modifiers
+     - `excited`: +10 Openness, +15 to impulsive actions
+   - Mood duration: `baseDuration × (1 + Neuroticism/100)`
+     - High Neuroticism = moods last longer
+   - Mood triggers:
+     - Positive event: cheerful (30 min - 2 hours)
+     - Threat: anxious (1-3 hours)
+     - Betrayal: angry (2-6 hours)
+     - Loss: melancholy (4-12 hours)
+     - Achievement: excited (1-4 hours)
+   - Mood decays back to neutral over time
+
+5. Test personality consistency across decisions:
+   - Run decision scenarios 100 times per personality archetype
+   - High Openness NPCs should choose novel options > 70% of time
+   - High Conscientiousness NPCs should plan > 75% of time
+   - High Extraversion NPCs should seek social > 70% of time
+   - Verify personality modifiers actually influence outcomes statistically
+
+6. Build personality archetypes for testing:
+   - **The Adventurer**: O=90, C=40, E=75, A=60, N=30
+   - **The Scholar**: O=85, C=90, E=30, A=50, N=40
+   - **The Leader**: O=60, C=80, E=90, A=70, N=25
+   - **The Hermit**: O=50, C=60, E=10, A=40, N=70
+   - **The Merchant**: O=50, C=85, E=65, A=45, N=35
+   - Use for consistent testing and validation
+
+Test Requirements (80%+ coverage):
+- Personality traits initialize within 0-100 bounds
+- Genetic baseline contributes ~50% to trait values
+- Life experiences modify traits correctly (+/- values)
+- Openness modifier increases score for novel options
+- Conscientiousness increases score for planned actions
+- Extraversion increases score for social choices
+- Agreeableness increases score for cooperative actions
+- Neuroticism increases score for safe options, decreases risky
+- Mood modifiers apply temporarily to decisions
+- Mood duration scales with Neuroticism correctly
+- Mood decays back to neutral over simulated time
+- High Openness archetype chooses exploration >70% (100 trials)
+- High Conscientiousness chooses planning >75% (100 trials)
+- Personality archetypes behave consistently across scenarios
+- Process 1000 personality-influenced decisions in < 200ms
+
+Acceptance Criteria:
+- NPCs have Big Five personality traits (0-100 scale each)
+- Personality derived from 50% genetics + 50% life experiences
+- Personality traits influence decision-making with appropriate modifiers
+- Mood system provides temporary emotional state changes
+- Personality consistency validated statistically across many decisions
+- All tests pass with 80%+ coverage
+
+Dependencies:
+- Phase 4.1 (Genetics) - personality partially inherited
+- Phase 3.1 (Memory) - life experiences stored as memories
+- Phase 5.1 (Desire Engine) - personality weights need priorities
+
+Files to Create:
+- `internal/npc/personality/types.go` - Personality, Mood structs
+- `internal/npc/personality/genetics.go` - Genetic personality derivation
+- `internal/npc/personality/experiences.go` - Life experience modifiers
+- `internal/npc/personality/decisions.go` - Decision-making influence
+- `internal/npc/personality/mood.go` - Mood system
+- `internal/npc/personality/archetypes.go` - Predefined archetypes for testing
+- `internal/npc/personality/genetics_test.go` - Genetic derivation tests
+- `internal/npc/personality/decisions_test.go` - Decision influence tests
+- `internal/npc/personality/mood_test.go` - Mood system tests
+- `internal/npc/personality/consistency_test.go` - Statistical consistency tests
+
+---
+
+## Phase 5.3: NPC-to-NPC Interaction (1-2 weeks)
+### Status: ⏳ Not Started
+### Prompt:
+Following TDD principles, implement Phase 5.3 NPC-to-NPC Autonomous Interaction:
+
+Core Requirements:
+1. Build conversation initiation logic:
+   - NPCs autonomously decide when to start conversations
+   - Initiation triggers:
+     - **Proximity**: Within 5 meters of another NPC
+     - **Companionship need**: Companionship > 60
+     - **Relationship**: Existing positive relationship (affection > 40)
+     - **Shared location**: Both NPCs idle in same area for > 2 minutes
+     - **News to share**: NPC has high-emotion memory < 1 hour old
+   - Initiation probability formula:
+     ```
+     probability = baseChance × extraversionMultiplier × relationshipBonus × needUrgency
+     baseChance = 0.1 (10% per tick when conditions met)
+     extraversionMultiplier = 1.0 + (extraversion / 100)
+     relationshipBonus = 1.0 + (affection / 200)
+     needUrgency = 1.0 + (companionship / 100)
+     ```
+   - Check every 30 seconds (game time) for idle NPCs
+
+2. Implement basic conversation flow:
+   - **Greeting Phase**:
+     - Initiator: Select greeting based on relationship + personality
+       - Affection > 60: "Hello friend!", "Good to see you!"
+       - Affection 20-60: "Greetings.", "Hello there."
+       - Affection < 20: "Oh, it's you.", *nods curtly*
+     - Responder: Match greeting tone or deflect if busy/antisocial
+   - **Topic Selection Phase**:
+     - Initiator proposes topic from:
+       - Recent high-emotion memory (emotionalWeight > 0.6)
+       - Shared experience (both NPCs have related memories)
+       - Current desire (if hunger high: "I'm famished, where's food?")
+       - Random small talk (weather, local news)
+     - Topic relevance scoring:
+       ```
+       score = (emotionalWeight × 0.4) + (recency × 0.3) + (shared × 0.3)
+       ```
+     - Select highest-scoring topic
+   - **Response Phase**:
+     - Responder retrieves related memories
+     - Generates response based on:
+       - Own experience with topic
+       - Relationship with initiator (empathy if high affection)
+       - Personality (Agreeableness affects supportiveness)
+     - Response types:
+       - Agreeable: supportive, empathetic
+       - Neutral: acknowledgment, minimal engagement
+       - Disagreeable: dismissive, argumentative
+   - **Continuation or End**:
+     - Continue if both NPCs engaged (response != dismissive)
+     - Exchange 2-5 dialogue turns before natural end
+     - End conversation: update relationship, create memories
+
+3. Add relationship updates from conversations:
+   - **Positive outcomes** (agreed, shared positive emotion):
+     - `affection += 3`, `trust += 2`
+     - Memory tagged "positive_interaction"
+   - **Negative outcomes** (disagreed, conflict):
+     - `affection -= 5`, `trust -= 3`
+     - Memory tagged "argument"
+   - **Neutral outcomes** (small talk, no conflict):
+     - `affection += 1`
+     - Memory tagged "casual_conversation"
+   - Companionship need decreased by `15` for both participants
+   - Conversation need decreased by `20`
+
+4. Create memory formation during interactions:
+   - Both NPCs create conversation memory:
+     ```
+     {
+       memoryType: "conversation",
+       timestamp: now,
+       participants: [initiatorID, responderID],
+       dialogue: [{speaker, text, emotion}...],
+       topic: topicString,
+       outcome: "positive" | "neutral" | "negative",
+       emotionalWeight: calculateFromOutcome(),
+       relationshipImpact: {targetID, affinityDelta}
+     }
+     ```
+   - Emotional weight based on conversation outcome:
+     - Positive deep conversation (shared trauma, celebration): 0.7-0.9
+     - Conflict/argument: 0.6-0.8
+     - Casual pleasant chat: 0.2-0.4
+     - Boring small talk: 0.1-0.2
+
+5. Test autonomous NPC interactions without player involvement:
+   - Spawn 10 NPCs in same area
+   - Run simulation for 1 hour (game time)
+   - Verify:
+     - NPCs initiate conversations based on proximity + needs
+     - High-Extraversion NPCs initiate more frequently
+     - Conversations create memories for both participants
+     - Relationships update correctly after interactions
+     - Companionship needs decrease after socializing
+     - NPCs don't spam conversations (cooldown between initiations)
+
+6. Implement conversation cooldown system:
+   - After conversation ends, both NPCs have cooldown: `lastConversationTime`
+   - Minimum time before next initiation: `5 minutes` (game time)
+   - Prevents endless conversation loops
+   - Cooldown reduced for high-Extraversion NPCs: `5min × (1 - extraversion/200)`
+
+7. Build dialogue content generation (placeholder for Phase 6):
+   - For Phase 5.3, use templated dialogue:
+     - Greeting templates: "{greeting}, {name}! {opening_line}"
+     - Topic templates: "Did you hear about {topic}?" / "I experienced {event}"
+     - Response templates: "That sounds {adjective}!"/ "I {reaction} when that happened to me."
+   - Emotion-appropriate language selection:
+     - Joy: "wonderful", "exciting", "delightful"
+     - Anger: "infuriating", "unacceptable", "outrageous"
+     - Fear: "terrifying", "worrying", "dangerous"
+     - Sadness: "heartbreaking", "unfortunate", "tragic"
+   - Phase 6 will replace templates with LLM-generated dialogue
+
+Test Requirements (80%+ coverage):
+- Conversation initiation triggered by proximity + need conditions
+- Initiation probability scales with extraversion correctly
+- Relationship bonus increases initiation chance
+- High companionship need increases initiation urgency
+- Greeting tone matches relationship affection level
+- Topic selection chooses highest-scoring recent memory
+- Shared experiences score higher than solo memories
+- Response type determined by personality (Agreeableness)
+- Positive conversations increase affection and trust
+- Negative conversations decrease affection and trust
+- Both participants create conversation memories
+- Memories include full dialogue array
+- Emotional weight assigned based on outcome
+- Companionship need decreases after conversation
+- Conversation cooldown prevents spam initiations
+- High-Extraversion NPCs have shorter cooldowns
+- Simulate 10 NPCs for 1 hour: verify autonomous interactions
+- Process 100 concurrent conversations in < 500ms
+
+Acceptance Criteria:
+- NPCs autonomously initiate conversations based on proximity, personality, needs, and relationships
+- Conversation flow follows greeting → topic → response → end structure
+- Topic selection prioritizes emotionally significant recent memories
+- Responses reflect personality traits and relationship state
+- Conversations update relationships appropriately (positive/neutral/negative)
+- Both participants create memories with dialogue content
+- Cooldown system prevents conversation spam
+- All tests pass with 80%+ coverage including multi-NPC simulations
+
+Dependencies:
+- Phase 3.1 (Memory) - conversation memories
+- Phase 3.3 (Relationships) - relationship updates
+- Phase 5.1 (Desire Engine) - companionship need
+- Phase 5.2 (Personality) - personality-based responses
+- Phase 1 (Time System) - game time for cooldowns and need progression
+
+Files to Create:
+- `internal/npc/interaction/types.go` - Conversation, DialogueTurn structs
+- `internal/npc/interaction/initiation.go` - Conversation trigger logic
+- `internal/npc/interaction/flow.go` - Greeting, topic selection, response
+- `internal/npc/interaction/topics.go` - Topic scoring and selection
+- `internal/npc/interaction/responses.go` - Response generation
+- `internal/npc/interaction/outcomes.go` - Relationship updates
+- `internal/npc/interaction/memory.go` - Conversation memory creation
+- `internal/npc/interaction/cooldown.go` - Conversation cooldown system
+- `internal/npc/interaction/templates.go` - Template dialogue (temporary)
+- `internal/npc/interaction/initiation_test.go` - Initiation logic tests
+- `internal/npc/interaction/flow_test.go` - Conversation flow tests
+- `internal/npc/interaction/outcomes_test.go` - Relationship update tests
+- `internal/npc/interaction/simulation_test.go` - Multi-NPC autonomous tests
 
 ---
 
@@ -940,5 +2213,6 @@ Phase 1.3: Day/Night & Seasons
 Phase 2.1: Character System
 Phase 2.2: Stamina & Movement
 Phase 2.3: Inventory System
+Phase 2.4: Skills & Progression System
 
 (Phases 3-12 will be added as we progress)

@@ -2,7 +2,7 @@ package memory
 
 // CalculateImportance computes the importance score of a memory
 // Includes emotional boost from Phase 3.4
-func CalculateImportance(memory Memory) float64 {
+func CalculateImportanceScore(memory Memory) float64 {
 	// Base Importance (simplified from Phase 3.1 logic if needed, or we can reuse if we had it)
 	// Phase 3.1 had `CalculateImportance` in `relevance.go`?
 	// Let's check `relevance.go` content.

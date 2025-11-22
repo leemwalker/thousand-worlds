@@ -14,6 +14,11 @@ Players can lock their worlds down so only people they invite can visit. If a wo
 - **LLM-Guided World Creation** - Players interview with an LLM to design custom worlds (theme, tech level, geography, culture)
 - **Procedural Generation** - LLM directs procedural algorithms to generate terrain, biomes, resources, and points of interest based off of the custom world.
 - **Multiple Persistent Worlds** - MMO-style shared worlds that persist indefinitely and NPCs/Flora/Fauna act as if its a living world.
+- **Multi-World Coordinate System** - Three world types supported:
+  - **Spherical Planets**: Earth-like worlds with radius-based spherical coordinates
+  - **Bounded Cubes**: Finite rectangular spaces (continents, buildings, dungeons)
+  - **Infinite Worlds**: Unbounded exploration spaces
+- **Cartesian Coordinates** - Meter-based X, Y, Z positioning for precise spatial queries
 - **Inter-World Travel** - High-level players can travel between worlds; world creators can lock their worlds to prevent travel.
 - **Coordinate-Based Spatial System** - Replaces traditional MUD rooms with 3D coordinates (X, Y, Z) for precise positioning
 
@@ -31,6 +36,11 @@ Players can lock their worlds down so only people they invite can visit. If a wo
 
 
 ### Player Systems
+- **Dual Character Creation** - Choose to inhabit existing NPC or generate new adult character
+- **Point-Buy Customization** - 100-point system with scaling costs for generated characters
+- **Genetic Variance** - Random trait modifiers (±5) affecting starting attributes
+- **Background Questionnaire** - 3-5 questions determine starting skill bonuses for new characters
+- **Species Diversity** - Different species have different base attribute distributions
 - **Character Creation** - Customizable player characters with attributes, skills, and appearance
 - **Coordinate-Based Movement** - Move in 10 directions (N, S, E, W, NE, SE, SW, NW, UP, DOWN) with stamina for repeated movements.
 - **Stamina System** - Movement types (walk, run, sneak) drain stamina at different rates, regenerates when not moving and is based off the character's stats.
@@ -40,11 +50,25 @@ Players can lock their worlds down so only people they invite can visit. If a wo
 - **Player Stats** - See the character attributes.
 - **Skill Progression** - Skills improve with use and are used in combination with attributes to determine the success.
 - **Perception System** - Player perception skill and natural attributes affects how much detail they see in area descriptions
+- **Behavioral Drift Detection** - System tracks when inhabited NPCs act against their nature
+- **Drift Consequences** - NPCs notice and react to personality changes (relationship impacts)
 
-### Attribugte System
-- **Core Attributes** - Strength, Agility, Health, Wits, Wisdom, Charisma, Willpower
-- **Secondary Attributes** - Health Points, Stamina, Focus, Mana
-- **Sensory Attributes** - Sight, Hearing, Smell, Taste, Touch
+### Attribute System
+- **Physical Attributes (5)** - Might (power), Agility (speed/coordination), Endurance (stamina), Reflexes (reactions), Vitality (life force)
+- **Mental Attributes (5)** - Intellect (learning), Cunning (tactics), Willpower (fortitude), Presence (influence), Intuition (instinct)
+- **Secondary Attributes (5)** - Health Points (Vitality×10), Stamina Points ((Endurance×7)+(Might×3)), Focus Points ((Intellect×6)+(Willpower×4)), Mana Points ((Intuition×6)+(Willpower×4)), Nerve ((Willpower×5)+(Presence×3)+(Reflexes×2))
+- **Sensory Attributes (5)** - Sight, Hearing, Smell, Taste, Touch (affect perception and gameplay mechanics)
+
+### Skills System
+- **Use-Based Progression** - Skills improve through actual use, not point allocation
+- **Five Skill Categories** - Combat, Crafting, Gathering, Utility, Social
+- **Skill Checks** - d100 + skill + attribute modifier vs difficulty threshold
+- **Critical Rolls** - Natural 1-5 (critical failure) and 96-100 (critical success)
+- **Diminishing Returns** - Prevents grinding by reducing XP for repetitive actions
+- **Skill Synergies** - Related skills provide minor bonuses to checks
+- **Soft Caps** - Attribute-based thresholds make advancing harder beyond natural aptitude
+- **Skill Requirements** - Recipes, equipment, and abilities require minimum skill levels
+- **Quality Scaling** - Higher skills produce better crafts, more damage, better yields
 
 ### NPC (Non-Player Character) System
 - **Genetic Trait Inheritance** - NPCs inherit traits from parents using Mendelian genetics with mutations (5% chance)
@@ -54,6 +78,9 @@ Players can lock their worlds down so only people they invite can visit. If a wo
 - **Emotional Memory** - Memories have emotional weight (0.0-1.0) affecting how strongly they're remembered
 - **Relationship Tracking** - NPCs track affection, trust, and fear toward players and other NPCs
 - **Relationship Updates** - Interactions modify relationships (giving gifts increases affection, threats increase fear)
+- **Behavioral Baseline Tracking** - NPCs track patterns (aggression, generosity, honesty, sociability, recklessness, loyalty)
+- **Personality Drift Detection** - System calculates deviation when inhabited NPCs act out of character
+- **Drift Response Tiers** - Subtle (comments), Moderate (questioning), Severe (intervention/alarm)
 - **Desire Engine** - Rule-based AI prioritizes needs: Survival (hunger, thirst, sleep, safety) > Social (companionship, conversation) > Achievement (goals, tasks) > Pleasure/Exploration (hedonism or curiosity)
 - **Personality-Driven Behavior** - Genetic traits and experiences shape personality, affecting decision-making
 - **LLM Consultation** - NPCs use Ollama for dialogue, not decision making.
@@ -61,6 +88,10 @@ Players can lock their worlds down so only people they invite can visit. If a wo
 - **NPC-to-NPC Interaction** - NPCs converse and interact with each other autonomously
 - **Dialogue System** - NPC traits/desires/relationship/memories are used to determine their most likely dialogue, which is then passed to an LLM to enhance it to fit their personality and current mood.
 - **Personality/Mood Speech Patterns** - Different personalities, relationships, and moods affect how NPCs speak (formal, casual, gruff, friendly, verbose, terse)
+- **NPC Inhabitation** - Players can take over existing NPCs, inheriting their full history
+- **Inhabitation Consequences** - Acting against NPC's nature damages relationships and reputation
+- **Post-Inhabitation Recovery** - When player leaves, NPC AI reviews actions and experiences confusion for conflicting behaviors
+- **Relationship Sensitivity** - Close relationships (family, spouses) notice drift immediately and react strongly
 
 ### Combat System
 - **Real-Time Combat** - Continuous action with reaction time mechanics (prevents spamming)
@@ -132,6 +163,9 @@ Players can lock their worlds down so only people they invite can visit. If a wo
 - **Makefile Commands** - `make up`, `make down`, `make test`, `make deploy`
 - **AI-Assisted Development** - Windsurf IDE with Cascade for pair programming with LLM
 - **Comprehensive Documentation** - `.windsurf/instructions.md` files for each repo
+- **Behavioral Drift Monitor UI** - Real-time display of personality changes and relationship impacts
+- **Action Warning System** - Alerts players before taking actions that conflict with inhabited NPC nature
+- **World Creator Drift Settings** - Configure drift tolerance (strict RP to no tracking) per world
 
 ### Future Features (Roadiness)
 - **Player-Driven Content** - Tools for players to create custom quests, items, and areas
@@ -141,41 +175,56 @@ Players can lock their worlds down so only people they invite can visit. If a wo
 
 # Development Roadmap
 
-## Phase 0: Foundation & Infrastructure (4-6 weeks)
+## Phase 0: Foundation & Infrastructure (4-6 weeks) - COMPLETED
 ### Goal: Establish core architecture, testing patterns, and data persistence before building features.
 
-### 0.1 Event Sourcing & Data Layer (2 weeks)
+### 0.1 Event Sourcing & Data Layer (2 weeks) ✅
 Design event schema (command/event separation)
 Implement PostgreSQL event store with append-only events table
 Build event replay engine (rewind, fast-forward, replay from point-in-time)
 Create event versioning strategy for schema migrations
 Implement CQRS read models for common queries
 Write comprehensive tests for event persistence and replay (target: 85%+ coverage)
-### 0.2 Authentication & Security (1 week)
+
+### 0.2 Authentication & Security (1 week) ✅
 Implement JWT token generation/validation with AES-256 encryption
 Add Argon2id password hashing (64MB memory, 3 iterations, 4 parallelism)
 Build Redis session management with 24-hour TTL
 Implement rate limiting middleware (5 login attempts/min, configurable per endpoint)
 Add security tests (brute force, token tampering, session hijacking)
-### 0.3 Monitoring & Observability (1 week)
+
+### 0.3 Monitoring & Observability (1 week) ✅
 Set up Prometheus metrics collection (request latency, error rates, cache hits)
 Create Grafana dashboards for system health
 Add /health endpoints to all services
 Implement structured logging with correlation IDs across services
 Add performance benchmarks for critical paths (spatial queries < 30ms target)
-### 0.4 Spatial Foundation (1-2 weeks)
+
+### 0.4 Spatial Foundation & Multi-World System (1-2 weeks) ✅
 Design PostgreSQL schema with PostGIS extensions
-Implement coordinate system (X, Y, Z as NUMERIC with 1 decimal place precision)
+Migrated to Cartesian GEOMETRY (meter-based coordinates in X, Y, Z)
+Created worlds table with shape types (spherical planets, bounded cubes, infinite worlds)
+- World properties: shape, radius (for spherical), bounds (for cubes), independent coordinate spaces
+Implement World Repository (Create, Get, List, Update, Delete) - 5/5 tests ✅
+Updated Spatial Repository for Cartesian coordinates - 5/5 tests ✅
 Build spatial repository with GIST indexes
 Create tests for radius queries, bounding box searches, distance calculations
 Implement basic coordinate-based movement in 10 directions
 Add collision detection and boundary validation
+Seed 3 example worlds (Earth-like sphere, continent-sized bounded cube, mansion-sized cube)
+**Coverage: 69.6%**
+
+**Deferred to Future Phases (Optional):**
+- Spherical projection utilities (lat/lon ↔ Cartesian conversion) - See Phase 1.4
+- Spherical wrapping logic (pole crossing, seamless movement) - See Phase 1.4
 
 ### Acceptance Criteria:
-Can store/query spatial data with sub-meter precision
-Event store can replay 10,000 events in < 5 seconds
-All services have health checks and metrics
-Authentication flow works end-to-end with tests
+Can store/query spatial data with sub-meter precision ✅
+Multiple world types supported (spherical, bounded, infinite) ✅
+Event store can replay 10,000 events in < 5 seconds ✅
+All services have health checks and metrics ✅
+Authentication flow works end-to-end with tests ✅
+World Repository full CRUD with tests ✅
 
 ## Phase 1: World Ticker & Time System (2-3 weeks)
 ### Goal: Establish the heartbeat of the game world with proper time dilation support.
@@ -186,6 +235,7 @@ Create world registry (track active/paused worlds)
 Build ticker manager (spawn/stop tickers per world)
 Add world state persistence (running, paused, tick count, game time)
 Write tests for ticker lifecycle management
+
 ### 1.2 Time Dilation & Tick Broadcast (1 week)
 Implement configurable dilation factor (default: 1.0, range: 0.1-100.0)
 Build tick loop: GameTime += RealDelta * DilationFactor
@@ -193,6 +243,7 @@ Broadcast world.tick events to NATS (includes worldID, tickNumber, gameTime, rea
 Add tick rate configuration (default: 10 Hz)
 Implement world pause/resume with catch-up fast-forwarding
 Test multi-world scenarios (different dilation factors running simultaneously)
+
 ### 1.3 Day/Night & Seasons (1 week)
 Calculate sun position based on game time
 Implement seasonal changes (configurable cycle length per world)
@@ -200,42 +251,111 @@ Add day/night cycle state to tick events
 Create time-of-day descriptors (dawn, morning, noon, dusk, night, etc.)
 Test time progression over simulated months
 
+### 1.4 Spherical World Utilities (Optional - As Needed)
+Implement spherical projection utilities:
+- Lat/Lon to Cartesian (X, Y, Z) conversion
+- Cartesian to Lat/Lon conversion
+- Great circle distance calculations
+Build spherical wrapping logic:
+- Pole crossing detection and seamless transitions
+- Longitude wrapping at ±180°
+- Maintain correct coordinate space when crossing boundaries
+Add tests for projection accuracy and wrapping edge cases
+**Note**: Only implement when first spherical world requires these features
+
 ### Acceptance Criteria:
 Multiple worlds can run with independent tick rates
 Time dilation accurately scales game time vs real time
 Paused worlds can fast-forward to catch up when resumed
 Day/night and seasonal state correctly calculated
+(Optional) Spherical utilities work correctly if implemented
 
-## Phase 2: Player Core Systems (3-4 weeks)
+## Phase 2: Player Core Systems (4-5 weeks)
 ### Goal: Enable basic player interaction with the world.
 
-### 2.1 Character System (1 week)
-Design attribute schema (7 core + 4 secondary + 5 sensory)
-Implement character creation flow
-Build attribute allocation system (point-buy or rolling)
+### 2.1 Character System (1-2 weeks)
+Design attribute schema (10 core + 5 sensory)
+- **Physical Attributes (5)**: Might, Agility, Endurance, Reflexes, Vitality (1-100 scale)
+- **Mental Attributes (5)**: Intellect, Cunning, Willpower, Presence, Intuition (1-100 scale)
+- **Sensory Attributes (5)**: Sight, Hearing, Smell, Taste, Touch (1-100 scale)
+- **Secondary Attributes (5)**: HP (Vitality×10), Stamina ((Endurance×7)+(Might×3)), Focus ((Intellect×6)+(Willpower×4)), Mana ((Intuition×6)+(Willpower×4)), Nerve ((Willpower×5)+(Presence×3)+(Reflexes×2))
+Implement dual character creation paths:
+- **Path 1: Inhabit Existing NPC** - Browse and select from eligible NPCs (adults with 5+ relationships, 1+ game-year lived)
+- **Path 2: Generate New Adult** - Species selection, genetic baseline generation, point-buy customization (100 points with scaling costs), background questionnaire
+Build species base attribute templates (Human, Dwarven, Elven, etc.)
+Implement genetic variance system (±(1d10-5) per attribute)
+Create point-buy system with cost scaling (1 point up to +10, 2 points +11 to +20, 3 points +21 to +30)
 Add character persistence (event-sourced character state)
-Create tests for attribute validation and constraints
+Create tests for attribute validation, point-buy mechanics, and constraints
+Build NPC browser UI (filter by species, location, skills, behavioral baseline)
+Implement behavioral baseline snapshot on NPC inhabitation
+Create tests for both character creation paths
+
 ### 2.2 Stamina & Movement (1 week)
-Implement stamina pool (derived from attributes)
+Implement stamina pool (derived from Endurance and Might)
 Build movement system (walk/run/sneak with different stamina costs)
-Add stamina regeneration (rate based on character stats)
+Add stamina regeneration (rate based on Endurance and Vitality)
 Prevent movement when stamina depleted
 Test stamina edge cases (negative stamina, rapid movement spam)
+
 ### 2.3 Inventory System (1-2 weeks)
 Design item schema (weight, stack size, durability, properties)
-Implement weight-limited inventory (capacity based on Strength)
+Implement weight-limited inventory (capacity based on Might)
 Add equipment slots (weapon, armor, accessories)
 Build item durability system (degrades with use)
 Create pickup/drop/use/examine item commands
 Test inventory edge cases (overfilled, negative weight, stack overflow)
 
 ### Acceptance Criteria:
-Players can create characters with valid attribute distributions
+Players can create characters via both inhabit and generate paths
+Point-buy system enforces costs and caps correctly
+NPC inhabitation preserves full history and relationships
 Movement consumes stamina correctly and regenerates when resting
 Inventory respects weight limits and item properties
 All systems emit events for audit trail
 
-## Phase 3: NPC Memory & Relationships (4-6 weeks)
+## Phase 2.5: Skills & Progression System (2-3 weeks)
+### Goal: Implement use-based skill advancement that drives quality in crafting, combat, and perception.
+
+### 2.5.1 Core Skills Framework (1 week)
+Design skill schema (name, category, current value 0-100, experience points)
+Implement skill categories:
+- **Combat Skills**: Slashing, Piercing, Bludgeoning, Defense, Dodge
+- **Crafting Skills**: Smithing, Alchemy, Carpentry, Tailoring, Cooking
+- **Gathering Skills**: Mining, Herbalism, Logging, Hunting, Fishing
+- **Utility Skills**: Perception, Stealth, Climbing, Swimming, Navigation
+- **Social Skills**: Persuasion, Intimidation, Deception, Bartering
+Create skill persistence (event-sourced skill state)
+Build skill cap system (soft caps at attribute-based thresholds)
+Test skill initialization and storage
+
+### 2.5.2 Experience & Advancement (1 week)
+Implement use-based experience gain (XP per action)
+Calculate XP curves: `XP_needed = baseXP * (skillLevel^1.5)` (gets harder as you advance)
+Add diminishing returns for repetitive actions (prevents grinding)
+Build skill check system: `d100 + skill + (relevantAttribute/5)` vs difficulty threshold
+Create critical success/failure on natural rolls (1-5 = crit fail, 96-100 = crit success)
+Add skill synergy bonuses (related skills provide minor boosts)
+Test advancement rates and balance
+
+### 2.5.3 Skill Integration Points (1 week)
+**Combat Integration**: Weapon skills modify damage calculation
+**Crafting Integration**: Skill determines item quality tier and success rate
+**Gathering Integration**: Skill affects yield quantity and rare resource chance
+**Perception Integration**: Skill level determines area description detail depth
+**Movement Integration**: Stealth skill reduces detection range, Climbing enables vertical movement
+Add skill requirements for recipes/equipment (minimum skill to use effectively)
+Implement skill-based unlocks (new recipes, abilities at milestone levels)
+Test all integration points for balance
+
+### Acceptance Criteria:
+Skills increase through use with diminishing returns
+Skill checks properly combine skill + attribute + random roll
+All major systems (combat, crafting, gathering) respect skill levels
+Skill progression feels rewarding without being grindable
+Skills persist correctly via event sourcing
+
+## Phase 3: NPC Memory & Relationships (5-7 weeks)
 ### Goal: Build the foundation for "living" NPCs with memory and emotions.
 
 ### 3.1 Memory Storage & Retrieval (2 weeks)
@@ -245,18 +365,28 @@ Add memory tagging (entities, locations, emotions, keywords)
 Build memory retrieval by type, timeframe, entity, emotion
 Add memory importance scoring (recency + emotional weight + access frequency)
 Test memory CRUD operations and complex queries
+
 ### 3.2 Memory Decay & Rehearsal (1 week)
 Implement linear decay over time (clarity degrades)
 Add rehearsal bonus (accessed memories decay slower)
 Build memory corruption system (details become fuzzy/altered on access)
 Calculate memory retention: retention = baseRetention * (1 - decayRate * timeSinceCreation) * (1 + rehearsalBonus * accessCount)
 Run decay simulation tests over simulated years
-### 3.3 Relationship System (1 week)
+
+### 3.3 Relationship System (1-2 weeks)
 Create relationship schema (affection, trust, fear scales -100 to +100)
 Implement relationship updates based on interactions
 Add relationship modifiers (gifts increase affection, threats increase fear)
 Build relationship decay over time without interaction
+Implement behavioral baseline tracking in relationship memories
+- Track patterns: aggression, generosity, honesty, sociability, recklessness, loyalty (0.0-1.0)
+- Store last 20 interactions for drift calculation
+Add drift detection system (compare player actions to NPC's historical baseline)
+Create NPC reactions to behavioral drift (subtle, moderate, severe)
+Build relationship modifiers based on drift severity (-25 to +25)
 Test relationship edge cases (max/min values, conflicting emotions)
+Test drift calculation accuracy and NPC response appropriateness
+
 ### 3.4 Emotional Memory Weighting (1-2 weeks)
 Add emotional intensity to memories (0.0-1.0 scale)
 Boost memory importance for high-emotion events
@@ -269,6 +399,8 @@ NPCs can store, retrieve, and decay memories over time
 Rehearsal correctly prevents memory loss
 Relationships update properly based on interactions
 High-emotion memories are more persistent and easier to recall
+Behavioral drift detection identifies when inhabited NPCs act out of character
+NPCs respond appropriately to personality changes with dialogue and relationship updates
 
 ## Phase 4: NPC Genetics & Appearance (2-3 weeks)
 ### Goal: NPCs inherit traits from parents and have unique appearances/attributes.
@@ -328,16 +460,23 @@ NPC behavior is emergent and not scripted
 
 ### 6.1 Ollama Prompt Engineering (1 week)
 Design dialogue prompts (include NPC personality, memories, relationships, mood, context)
+Add behavioral drift information to prompts for inhabited NPCs
+- Include original personality baseline
+- Include current drift metrics
+- Generate concerned/curious/alarmed dialogue based on drift severity
 Implement prompt template system
 Add response parsing and validation
 Build dialogue caching (15-minute TTL)
 Test prompt quality and response coherence
+Test drift-aware dialogue generation
+
 ### 6.2 Dialogue Request Flow (1 week)
 Integrate desire engine output with dialogue generation
-Send NPC state + player input to ai-gateway
+Send NPC state + player input + drift data to ai-gateway
 Process LLM response and extract dialogue + emotional reaction
-Update NPC memory and relationships post-conversation
+Update NPC memory and relationships post-conversation (including drift observations)
 Implement fallback responses if LLM fails
+
 ### 6.3 Performance Optimization (1 week)
 Target 95%+ cache hit rate for area descriptions
 Batch dialogue requests where possible
@@ -348,6 +487,7 @@ Test concurrent dialogue performance
 ### Acceptance Criteria:
 NPCs speak in character based on personality and mood
 Dialogue reflects NPC's memories and relationships
+NPCs acknowledge and react to behavioral changes in inhabited characters
 Cache hit rate exceeds 90% during normal gameplay
 Ollama can handle 5-10 concurrent players
 
@@ -445,38 +585,51 @@ Crafting recipes form logical tech trees
 NPC merchants have realistic inventory
 Economy feels dynamic and player actions matter
 
-## Phase 10: Frontend UI (4-6 weeks)
+## Phase 10: Frontend UI (5-7 weeks)
 ### Goal: Build an intuitive, mobile-optimized interface for gameplay.
 
-### 10.1 Core UI Components (2 weeks)
+### 10.1 Core UI Components (2-3 weeks)
 Design UI mockups (command input, output log, map, stats)
 Build command parser (natural language → game commands)
 Create output formatting (color-coded text, entity highlighting)
 Implement map visualization (2D top-down with fog of war)
 Add inventory/character sheet UI
+Build behavioral drift monitor display:
+- Show original personality baseline (bar graphs)
+- Display current behavior patterns
+- Highlight drift warnings (⚠️ indicators)
+- List relationship changes due to drift
+- Show recent NPC comments about behavior changes
+Add warning system for actions that conflict with inhabited NPC nature
 Test mobile responsiveness
+
 ### 10.2 Real-Time Updates (1 week)
 Migrate from HTTP polling to WebSockets
 Implement NATS event subscription in frontend
 Add real-time combat updates
-Build notification system (other players nearby, environmental changes)
+Build notification system (other players nearby, environmental changes, drift warnings)
 Test WebSocket reconnection and reliability
+
 ### 10.3 PWA Features (1-2 weeks)
 Implement service worker for offline caching
 Add "Add to Home Screen" support
 Create offline mode (read-only, sync when reconnected)
-Build push notifications (combat alerts, server events)
+Build push notifications (combat alerts, server events, relationship warnings)
 Test installation flow on iOS/Android
+
 ### 10.4 UX Polish (1-2 weeks)
 Add command history (up/down arrows)
 Implement auto-complete for commands
 Create help system (contextual suggestions)
 Add accessibility features (screen reader support, keyboard navigation)
+Build character creation tutorial for both paths (inhabit vs generate)
 Test user experience with real players
 
 ### Acceptance Criteria:
 UI is responsive and works on mobile devices
 Real-time updates are seamless
+Behavioral drift monitor clearly communicates personality changes
+Warning system helps players make informed decisions about NPC behavior
 PWA installs successfully on mobile
 User experience is intuitive for new players
 
@@ -503,7 +656,7 @@ Create permission levels (owner, admin, guest)
 Test access control
 
 ### Acceptance Criteria:
-### 10 players can interact smoothly in the same world
+10 players can interact smoothly in the same world
 Spatial queries remain < 50ms with 10 players
 World privacy settings work correctly
 System remains stable under load
@@ -534,30 +687,37 @@ All systems tested and stable
 Documentation is comprehensive
 Production environment is ready
 Backup/restore procedures validated
-Future Enhancements (Post-Launch)
+
+## Future Enhancements (Post-Launch)
 Player-Driven Content: Tools for custom quests, items, areas
 Voice Commands: Speech-to-text integration
 Procedural Quests: LLM-generated dynamic quests
 Vector Memory Search: Advanced NPC memory retrieval using embeddings
 AWS Migration: Lift-and-shift to EKS when scaling beyond 100 players
 Advanced Graphics: Optional 3D visualization layer
-Estimated Timeline Summary
 
-## Phase 0-2 (Foundation, Ticker, Player Core): 9-13 weeks
+## Estimated Timeline Summary
 
-## Phase 3-5 (NPC Systems): 9-13 weeks
+**Phase 0-2 (Foundation, Ticker, Player Core)**: 10-14 weeks
 
-## Phase 6-7 (Dialogue & Combat): 4-6 weeks
+**Phase 2.5 (Skills)**: 2-3 weeks
 
-## Phase 8-9 (World Gen & Economy): 9-12 weeks
+**Phase 3-5 (NPC Systems)**: 10-14 weeks
 
-## Phase 10-11 (Frontend & Multiplayer): 7-10 weeks
+**Phase 6-7 (Dialogue & Combat)**: 4-6 weeks
 
-## Phase 12 (Testing & Launch): 2-3 weeks
-Total: 40-57 weeks (10-14 months) of focused development at 30-40 hrs/week with AI assistance.
+**Phase 8-9 (World Gen & Economy)**: 9-12 weeks
 
-Milestone 1 (Solo Playable): End of Phase 7 (~6 months)
-Milestone 2 (10-Player Ready): End of Phase 11 (~10 months)
-Milestone 3 (Public Launch): End of Phase 12 (~12 months)
+**Phase 10-11 (Frontend & Multiplayer)**: 8-11 weeks
+
+**Phase 12 (Testing & Launch)**: 2-3 weeks
+
+**Total: 45-63 weeks (11-16 months)** of focused development at 30-40 hrs/week with AI assistance.
+
+**Milestone 1 (Solo Playable)**: End of Phase 7 (~7 months)
+
+**Milestone 2 (10-Player Ready)**: End of Phase 11 (~12 months)
+
+**Milestone 3 (Public Launch)**: End of Phase 12 (~14 months)
 
 # THIS FILE SHOULD NEVER BE EDITED BY AI
