@@ -490,7 +490,7 @@ Modify `internal/world/ticker.go` to include time data in events
 
 ## Phase 1.4: Spherical World Utilities (Optional - As Needed)
 
-### Status: 🟡 Deferred (Implement when first spherical world requires these features)
+### Status: ✅ Completed
 
 ### Prompt:
 
@@ -554,7 +554,7 @@ Files to Create:
 
 ## Phase 2.1: Character System (1-2 weeks)
 
-### Status: 🔴 Not Started
+### Status: ✅ Completed
 
 ### Prompt:
 
@@ -662,7 +662,7 @@ Files to Create/Modify:
 
 ## Phase 2.2: Stamina & Movement (1 week)
 
-### Status: 🔴 Not Started
+### Status: ✅ Completed
 
 ### Prompt:
 
@@ -670,7 +670,7 @@ Following TDD principles, implement Phase 2.2 Stamina & Movement:
 
 Core Requirements:
 1. Stamina pool
-MaxStamina = (Health  5) + (Agility  5)
+MaxStamina = ((Endurance×7)+(Might×3))
 CurrentStamina: 0 to MaxStamina
 Start at MaxStamina on character creation
 
@@ -681,7 +681,7 @@ Sneak: 1.5 stamina per meter (0.5x speed, stealth bonus)
 Sprint: 4 stamina per meter (3x speed, loud)
 
 3. Stamina regeneration
-BasRegenRate = (Health / 10) stamina per second
+BaseRegenRate = (Endurance / 10) stamina per second
 Regen only when not moving
 Regen stops when taking damage
 
@@ -807,7 +807,7 @@ Files to Create:
 
 ---
 
-## Phase 2.5: Skills & Progression System (2-3 weeks)
+## Phase 2.4: Skills & Progression System (2-3 weeks)
 
 ### Status: 🔴 Not Started
 
