@@ -42,3 +42,33 @@ func TestUpdateSocialNeeds_Conversation(t *testing.T) {
 
 	assert.Equal(t, 1.5, dp.Needs[NeedConversation].Value)
 }
+
+func TestApplySocialPenalties_HighCompanionship(t *testing.T) {
+	dp := NewDesireProfile(uuid.New())
+	dp.Needs[NeedCompanionship].Value = 85 // Very lonely
+
+	mods := ApplySocialPenalties(dp)
+
+	// Should apply -10 Presence penalty
+	assert.Equal(t, -10, mods.Presence, "High companionship need should reduce Presence")
+}
+
+func TestApplySocialPenalties_LowCompanionship(t *testing.T) {
+	dp := NewDesireProfile(uuid.New())
+	dp.Needs[NeedCompanionship].Value = 50 // Not lonely
+
+	mods := ApplySocialPenalties(dp)
+
+	// Should apply no penalty
+	assert.Equal(t, 0, mods.Presence, "Low companionship need should not affect Presence")
+}
+
+func TestApplySocialPenalties_Threshold(t *testing.T) {
+	dp := NewDesireProfile(uuid.New())
+	dp.Needs[NeedCompanionship].Value = 80 // Exactly at threshold
+
+	mods := ApplySocialPenalties(dp)
+
+	// Should apply penalty at threshold
+	assert.Equal(t, -10, mods.Presence)
+}
