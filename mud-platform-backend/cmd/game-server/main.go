@@ -12,13 +12,17 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
 	"mud-platform-backend/cmd/game-server/api"
 	"mud-platform-backend/cmd/game-server/websocket"
 	"mud-platform-backend/internal/ai/ollama"
 	"mud-platform-backend/internal/auth"
+	"mud-platform-backend/internal/game/entry"
 	"mud-platform-backend/internal/game/processor"
+	"mud-platform-backend/internal/lobby"
+	"mud-platform-backend/internal/repository"
 	"mud-platform-backend/internal/world/interview"
 )
 
@@ -77,12 +81,26 @@ func main() {
 	authRepo := auth.NewPostgresRepository(db)
 	interviewRepo := interview.NewRepository(db)
 
+	// Initialize pgxpool for WorldRepository
+	poolConfig, err := pgxpool.ParseConfig(dbDSN)
+	if err != nil {
+		log.Fatal("Failed to parse database URL for pgxpool:", err)
+	}
+	dbPool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
+	if err != nil {
+		log.Fatal("Failed to connect to database with pgxpool:", err)
+	}
+	defer dbPool.Close()
+	worldRepo := repository.NewPostgresWorldRepository(dbPool)
+
 	// Initialize services
 	authConfig := &auth.Config{
 		SecretKey:       []byte(jwtSecret),
 		TokenExpiration: 24 * time.Hour,
 	}
 	authService := auth.NewService(authConfig, authRepo)
+	lobbyService := lobby.NewService(authRepo)
+	entryService := entry.NewService(interviewRepo)
 
 	ollamaClient := ollama.NewClient(os.Getenv("OLLAMA_HOST"), "llama3.1:8b") // 8B model with increased container memory
 	interviewService := interview.NewServiceWithRepository(ollamaClient, interviewRepo)
@@ -106,7 +124,9 @@ func main() {
 	authHandler := api.NewAuthHandler(authService, sessionManager, rateLimiter)
 	interviewHandler := api.NewInterviewHandler(interviewService)
 	sessionHandler := api.NewSessionHandler(authRepo)
-	wsHandler := websocket.NewHandler(hub)
+	entryHandler := api.NewEntryHandler(entryService)
+	worldHandler := api.NewWorldHandler(worldRepo)
+	wsHandler := websocket.NewHandler(hub, lobbyService)
 
 	// Router setup
 	r := chi.NewRouter()
@@ -150,6 +170,8 @@ func main() {
 			r.Post("/game/characters", sessionHandler.CreateCharacter)
 			r.Get("/game/characters", sessionHandler.GetCharacters)
 			r.Post("/game/join", sessionHandler.JoinGame)
+			r.Get("/game/entry-options", entryHandler.GetEntryOptions)
+			r.Get("/game/worlds", worldHandler.ListWorlds)
 
 			// WebSocket endpoint
 			r.Get("/game/ws", wsHandler.ServeHTTP)

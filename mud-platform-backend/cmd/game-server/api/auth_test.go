@@ -83,7 +83,7 @@ func TestAuthHandler_Register(t *testing.T) {
 	t.Run("Successful Registration", func(t *testing.T) {
 		payload := RegisterRequest{
 			Email:    "newuser@example.com",
-			Password: "password123",
+			Password: "Password123", // Now needs uppercase, lowercase, and digit
 		}
 		body, _ := json.Marshal(payload)
 		req := httptest.NewRequest("POST", "/api/auth/register", bytes.NewBuffer(body))
@@ -127,13 +127,13 @@ func TestAuthHandler_Login(t *testing.T) {
 
 	// Create a user first
 	ctx := context.Background()
-	_, err := service.Register(ctx, "existing@example.com", "password123")
+	_, err := service.Register(ctx, "existing@example.com", "Password123")
 	assert.NoError(t, err)
 
 	t.Run("Successful Login", func(t *testing.T) {
 		payload := LoginRequest{
 			Email:    "existing@example.com",
-			Password: "password123",
+			Password: "Password123",
 		}
 		body, _ := json.Marshal(payload)
 		req := httptest.NewRequest("POST", "/api/auth/login", bytes.NewBuffer(body))

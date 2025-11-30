@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"mud-platform-backend/internal/auth"
+	"mud-platform-backend/internal/errors"
+	"mud-platform-backend/internal/validation"
 )
 
 // AuthHandler handles authentication endpoints
@@ -45,18 +47,21 @@ type LoginResponse struct {
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body")
+		errors.RespondWithError(w, errors.Wrap(errors.ErrInvalidInput, 
+			"Failed to parse request body", err))
 		return
 	}
 
-	// Validate input
-	if req.Email == "" || req.Password == "" {
-		respondError(w, http.StatusBadRequest, "Email and password are required")
-		return
-	}
-
-	if len(req.Password) < 8 {
-		respondError(w, http.StatusBadRequest, "Password must be at least 8 characters")
+	// Validate input using validation layer
+	validator := validation.New()
+	validationErrs := &validation.ValidationErrors{}
+	
+	validationErrs.Add(validator.ValidateEmail(req.Email))
+	validationErrs.Add(validator.ValidatePassword(req.Password))
+	
+	if validationErrs.HasErrors() {
+		errors.RespondWithError(w, errors.Wrap(errors.ErrInvalidInput,
+			validationErrs.Error(), nil))
 		return
 	}
 
@@ -64,10 +69,12 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	user, err := h.authService.Register(r.Context(), req.Email, req.Password)
 	if err != nil {
 		if err == auth.ErrUserExists {
-			respondError(w, http.StatusConflict, "User already exists")
+			errors.RespondWithError(w, errors.Wrap(errors.ErrConflict,
+				"User already exists", err))
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "Failed to create user")
+		errors.RespondWithError(w, errors.Wrap(errors.ErrInternalServer,
+			"Failed to create user", err))
 		return
 	}
 
@@ -78,7 +85,21 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body")
+		errors.RespondWithError(w, errors.Wrap(errors.ErrInvalidInput,
+			"Failed to parse request body", err))
+		return
+	}
+
+	// Validate input
+	validator := validation.New()
+	validationErrs := &validation.ValidationErrors{}
+	
+	validationErrs.Add(validator.ValidateRequired(req.Email, "email"))
+	validationErrs.Add(validator.ValidateRequired(req.Password, "password"))
+	
+	if validationErrs.HasErrors() {
+		errors.RespondWithError(w, errors.Wrap(errors.ErrInvalidInput,
+			validationErrs.Error(), nil))
 		return
 	}
 
@@ -86,10 +107,12 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	token, user, err := h.authService.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
 		if err == auth.ErrInvalidCredentials {
-			respondError(w, http.StatusUnauthorized, "Invalid credentials")
+			errors.RespondWithError(w, errors.Wrap(errors.ErrUnauthorized,
+				"Invalid credentials", err))
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "Login failed")
+		errors.RespondWithError(w, errors.Wrap(errors.ErrInternalServer,
+			"Login failed", err))
 		return
 	}
 

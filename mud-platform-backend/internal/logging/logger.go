@@ -16,12 +16,24 @@ type contextKey string
 const (
 	correlationIDKey contextKey = "correlation_id"
 	loggerKey        contextKey = "logger"
+	userIDKey        contextKey = "user_id"
 )
 
 // InitLogger initializes the global logger.
 func InitLogger() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339})
+}
+
+// responseWriter wraps http.ResponseWriter to capture status code
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
 }
 
 // Middleware adds a correlation ID to the request context and logs the request.
@@ -41,19 +53,24 @@ func Middleware(next http.Handler) http.Handler {
 
 		start := time.Now()
 
+		// Wrap response writer to capture status code
+		ww := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+
 		// Log request start
 		logger.Info().
 			Str("method", r.Method).
 			Str("path", r.URL.Path).
+			Str("remote_addr", r.RemoteAddr).
 			Msg("Request started")
 
-		next.ServeHTTP(w, r.WithContext(ctx))
+		next.ServeHTTP(ww, r.WithContext(ctx))
 
 		// Log request completion
 		logger.Info().
 			Str("method", r.Method).
 			Str("path", r.URL.Path).
-			Dur("duration", time.Since(start)).
+			Int("status", ww.statusCode).
+			Dur("duration_ms", time.Since(start)).
 			Msg("Request completed")
 	})
 }
@@ -72,4 +89,40 @@ func GetCorrelationID(ctx context.Context) string {
 		return id
 	}
 	return ""
+}
+
+// LogError logs an error with context
+func LogError(ctx context.Context, err error, message string, fields map[string]interface{}) {
+	logger := FromContext(ctx)
+	event := logger.Error().Err(err)
+	
+	for k, v := range fields {
+		event = event.Interface(k, v)
+	}
+	
+	event.Msg(message)
+}
+
+// LogInfo logs an info message with context
+func LogInfo(ctx context.Context, message string, fields map[string]interface{}) {
+	logger := FromContext(ctx)
+	event := logger.Info()
+	
+	for k, v := range fields {
+		event = event.Interface(k, v)
+	}
+	
+	event.Msg(message)
+}
+
+// LogWarning logs a warning message with context
+func LogWarning(ctx context.Context, message string, fields map[string]interface{}) {
+	logger := FromContext(ctx)
+	event := logger.Warn()
+	
+	for k, v := range fields {
+		event = event.Interface(k, v)
+	}
+	
+	event.Msg(message)
 }

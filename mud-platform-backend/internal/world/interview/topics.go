@@ -2,33 +2,20 @@ package interview
 
 // AllTopics defines the ordered list of topics for the interview
 var AllTopics = []Topic{
-	// Theme
-	{Category: CategoryTheme, Name: "World Type", Description: "What kind of world is this? (fantasy, sci-fi, etc.)"},
-	{Category: CategoryTheme, Name: "Tone", Description: "What is the overall tone? (grim, hopeful, etc.)"},
-	{Category: CategoryTheme, Name: "Inspirations", Description: "Any specific inspirations? (books, movies, etc.)"},
-	{Category: CategoryTheme, Name: "Uniqueness", Description: "What makes this world unique?"},
-	{Category: CategoryTheme, Name: "Conflict", Description: "What conflicts or tensions exist?"},
+	// Core Concept
+	{Category: CategoryTheme, Name: "Core Concept", Description: "Describe the world's theme, tone, and key inspirations in one sentence."},
+	
+	// Sentient Life
+	{Category: CategoryCulture, Name: "Sentient Species", Description: "Who are the sentient people of this world? (Humans, Elves, Aliens, Robots, etc.)"},
 
-	// Tech Level
-	{Category: CategoryTechLevel, Name: "Tech Level", Description: "What is the technological advancement level?"},
-	{Category: CategoryTechLevel, Name: "Magic", Description: "Is magic present? If so, how common?"},
-	{Category: CategoryTechLevel, Name: "Advanced Tech", Description: "What is the most advanced technology available?"},
-	{Category: CategoryTechLevel, Name: "Daily Life", Description: "How does magic/technology affect daily life?"},
+	// Geography & Environment
+	{Category: CategoryGeography, Name: "Environment", Description: "Describe the geography, climate, and any unique features of the world."},
 
-	// Geography
-	{Category: CategoryGeography, Name: "Planet Size", Description: "What is the planet size?"},
-	{Category: CategoryGeography, Name: "Climate", Description: "What is the climate range?"},
-	{Category: CategoryGeography, Name: "Features", Description: "Any unique geographical features?"},
-	{Category: CategoryGeography, Name: "Land vs Water", Description: "How much land vs water?"},
-	{Category: CategoryGeography, Name: "Extreme Environments", Description: "Any extreme environments?"},
+	// Magic & Technology
+	{Category: CategoryTechLevel, Name: "Magic & Tech", Description: "What is the level of technology and magic in this world?"},
 
-	// Culture
-	{Category: CategoryCulture, Name: "Species", Description: "What sentient species exist?"},
-	{Category: CategoryCulture, Name: "Politics", Description: "What is the political structure?"},
-	{Category: CategoryCulture, Name: "Values", Description: "What are the main cultural values?"},
-	{Category: CategoryCulture, Name: "Economy", Description: "What is the economic system?"},
-	{Category: CategoryCulture, Name: "Religion", Description: "What religions or belief systems exist?"},
-	{Category: CategoryCulture, Name: "Taboos", Description: "What is considered taboo or forbidden?"},
+	// Conflict
+	{Category: CategoryTheme, Name: "Conflict", Description: "What is the central conflict or tension driving events in this world?"},
 }
 
 // GetTopicsByCategory returns topics filtered by category

@@ -22,6 +22,10 @@ type Character struct {
 	UserID      uuid.UUID  `json:"user_id"`
 	WorldID     uuid.UUID  `json:"world_id"`
 	Name        string     `json:"name"`
+	Role        string     `json:"role"`                   // player, watcher, admin
+	Appearance  string     `json:"appearance,omitempty"`   // JSON string of appearance data
+	Description string     `json:"description,omitempty"`
+	Occupation  string     `json:"occupation,omitempty"`
 	Position    *Position  `json:"position,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	LastPlayed  *time.Time `json:"last_played,omitempty"`

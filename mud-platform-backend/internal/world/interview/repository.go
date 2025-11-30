@@ -1,6 +1,7 @@
 package interview
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -282,6 +283,23 @@ func (r *Repository) GetConfigurationByInterview(interviewID uuid.UUID) (*WorldC
 	return r.scanConfiguration(r.db.QueryRow(query, interviewID))
 }
 
+// GetConfigurationByWorldID retrieves a configuration by world ID
+func (r *Repository) GetConfigurationByWorldID(worldID uuid.UUID) (*WorldConfiguration, error) {
+	query := `
+		SELECT id, interview_id, world_id, created_by,
+		       theme, tone, inspirations, unique_aspect, major_conflicts,
+		       tech_level, magic_level, advanced_tech, magic_impact,
+		       planet_size, climate_range, land_water_ratio, unique_features, extreme_environments,
+		       sentient_species, political_structure, cultural_values, economic_system, religions, taboos,
+		       biome_weights, resource_distribution, species_start_attributes,
+		       created_at
+		FROM world_configurations
+		WHERE world_id = $1
+	`
+
+	return r.scanConfiguration(r.db.QueryRow(query, worldID))
+}
+
 // scanConfiguration is a helper to scan a configuration from a row
 func (r *Repository) scanConfiguration(row *sql.Row) (*WorldConfiguration, error) {
 	var config WorldConfiguration
@@ -328,3 +346,30 @@ func (r *Repository) scanConfiguration(row *sql.Row) (*WorldConfiguration, error
 
 	return &config, nil
 }
+
+// GetSessionByID retrieves a session by ID (interface method)
+// Note: Interface uses string ID, but InterviewSession stores uuid.UUID
+func (r *Repository) GetSessionByID(sessionID string) (*InterviewSession, error) {
+	id, err := uuid.Parse(sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid session ID: %w", err)
+	}
+	return r.GetInterview(id)
+}
+
+// GetActiveSessionForUser retrieves active session for a user (interface method)
+func (r *Repository) GetActiveSessionForUser(ctx context.Context, userID uuid.UUID) (*InterviewSession, error) {
+	return r.GetActiveInterviewByPlayer(userID)
+}
+
+// SaveSession saves a session (interface method)
+func (r *Repository) SaveSession(session *InterviewSession) error {
+	// Check if session exists - ID is already a UUID
+	existing, _ := r.GetInterview(session.ID)
+	if existing != nil {
+		return r.UpdateInterview(session)
+	}
+	return r.SaveInterview(session)
+}
+
+

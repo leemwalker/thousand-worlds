@@ -61,7 +61,7 @@ func TestProcessResponse(t *testing.T) {
 	if session.State.CurrentTopicIndex != 1 {
 		t.Errorf("Expected topic index 1, got %d", session.State.CurrentTopicIndex)
 	}
-	if session.State.Answers["World Type"] != "Fantasy world" {
+	if session.State.Answers["Core Concept"] != "Fantasy world" {
 		t.Error("Answer not saved")
 	}
 	if q2 != "Next question?" {
@@ -150,7 +150,7 @@ func TestEditAnswer_NoRepository(t *testing.T) {
 	}
 	service := NewService(mockLLM)
 
-	err := service.EditAnswer(uuid.New(), "World Type", "New answer")
+	err := service.EditAnswer(uuid.New(), "Core Concept", "New answer")
 	if err == nil {
 		t.Error("Expected error when repository not available")
 	}
@@ -175,7 +175,7 @@ func TestBuildInterviewPrompt_WithHistory(t *testing.T) {
 		CurrentCategory:   CategoryTheme,
 		CurrentTopicIndex: 1,
 		Answers: map[string]string{
-			"World Type": "Fantasy",
+			"Core Concept": "Fantasy",
 		},
 		IsComplete: false,
 	}
@@ -280,8 +280,8 @@ func TestGetTopicsByCategory_Culture(t *testing.T) {
 }
 
 func TestAllTopics_Coverage(t *testing.T) {
-	if len(AllTopics) < 20 {
-		t.Errorf("Expected at least 20 topics, got %d", len(AllTopics))
+	if len(AllTopics) < 5 {
+		t.Errorf("Expected at least 5 topics, got %d", len(AllTopics))
 	}
 
 	// Verify all categories are represented

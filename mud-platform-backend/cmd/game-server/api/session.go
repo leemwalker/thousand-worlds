@@ -8,6 +8,8 @@ import (
 
 	"mud-platform-backend/internal/auth"
 	"mud-platform-backend/internal/character"
+	"mud-platform-backend/internal/errors"
+	"mud-platform-backend/internal/validation"
 )
 
 type SessionHandler struct {
@@ -20,9 +22,13 @@ func NewSessionHandler(authRepo auth.Repository) *SessionHandler {
 
 // CreateCharacterRequest represents the request to create a new character
 type CreateCharacterRequest struct {
-	WorldID uuid.UUID `json:"world_id"`
-	Name    string    `json:"name"`
-	Species string    `json:"species"`
+	WorldID     uuid.UUID `json:"world_id"`
+	Name        string    `json:"name"`
+	Species     string    `json:"species"`
+	Role        string    `json:"role,omitempty"`
+	Appearance  string    `json:"appearance,omitempty"`
+	Description string    `json:"description,omitempty"`
+	Occupation  string    `json:"occupation,omitempty"`
 }
 
 // CreateCharacterResponse represents the character creation response
@@ -35,32 +41,53 @@ type CreateCharacterResponse struct {
 func (h *SessionHandler) CreateCharacter(w http.ResponseWriter, r *http.Request) {
 	userID := getUserIDFromContext(r.Context())
 	if userID == uuid.Nil {
-		respondError(w, http.StatusUnauthorized, "Unauthorized")
+		errors.RespondWithError(w, errors.ErrUnauthorized)
 		return
 	}
 
 	var req CreateCharacterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body")
+		errors.RespondWithError(w, errors.Wrap(errors.ErrInvalidInput,
+			"Failed to parse request body", err))
 		return
 	}
 
-	// Validate inputs
-	if req.Name == "" {
-		respondError(w, http.StatusBadRequest, "Character name is required")
+	// Validate inputs using validation layer
+	validator := validation.New()
+	validationErrs := &validation.ValidationErrors{}
+	
+	validationErrs.Add(validator.ValidateRequired(req.Name, "name"))
+	validationErrs.Add(validator.ValidateStringLength(req.Name, "name", 1, 50))
+	validationErrs.Add(validator.ValidateUUID(req.WorldID, "world_id"))
+	
+	if req.Role != "" {
+		validationErrs.Add(validator.ValidateOneOf(req.Role, "role", []string{"player", "watcher", "admin"}))
+	}
+	
+	if req.Description != "" {
+		validationErrs.Add(validator.ValidateStringLength(req.Description, "description", 0, 500))
+	}
+	
+	if req.Occupation != "" {
+		validationErrs.Add(validator.ValidateStringLength(req.Occupation, "occupation", 0, 100))
+	}
+	
+	if validationErrs.HasErrors() {
+		errors.RespondWithError(w, errors.Wrap(errors.ErrInvalidInput,
+			validationErrs.Error(), nil))
 		return
 	}
 
-	if req.WorldID == uuid.Nil {
-		respondError(w, http.StatusBadRequest, "World ID is required")
-		return
-	}
-
-	// Get species template
-	template := character.GetSpeciesTemplate(req.Species)
-	if template.Name == "" {
-		respondError(w, http.StatusBadRequest, "Invalid species")
-		return
+	// Get species template (skip for watcher role)
+	var template *character.SpeciesTemplate
+	if req.Role != "watcher" {
+		t := character.GetSpeciesTemplate(req.Species)
+		if t.Name == "" {
+			errors.RespondWithError(w, errors.Wrap(errors.ErrInvalidInput,
+				"Invalid species", nil))
+			return
+		}
+		template = &t
 	}
 
 	// Create character in database
@@ -69,15 +96,33 @@ func (h *SessionHandler) CreateCharacter(w http.ResponseWriter, r *http.Request)
 		UserID:      userID,
 		WorldID:     req.WorldID,
 		Name:        req.Name,
+		Role:        req.Role,
+		Appearance:  req.Appearance,
+		Description: req.Description,
+		Occupation:  req.Occupation,
 		Position:    nil, // Will be set when character spawns
 	}
 
+	if char.Role == "" {
+		char.Role = "player"
+	}
+
 	if err := h.authRepo.CreateCharacter(r.Context(), char); err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to create character: "+err.Error())
+		errors.RespondWithError(w, errors.Wrap(errors.ErrInternalServer,
+			"Failed to create character", err))
 		return
 	}
 
-	// Calculate secondary attributes
+	// Calculate secondary attributes (skip for watcher)
+	if req.Role == "watcher" || template == nil {
+		respondJSON(w, http.StatusCreated, CreateCharacterResponse{
+			Character:      char,
+			Attributes:     nil,
+			SecondaryAttrs: nil,
+		})
+		return
+	}
+
 	secAttrs := calculateSecondaryAttributes(&template.BaseAttrs)
 
 	respondJSON(w, http.StatusCreated, CreateCharacterResponse{

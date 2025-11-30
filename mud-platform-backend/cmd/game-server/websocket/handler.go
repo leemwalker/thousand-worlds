@@ -1,9 +1,10 @@
 package websocket
 
 import (
-	// Add missing import
 	"log"
 	"net/http"
+
+	"mud-platform-backend/internal/lobby"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -20,13 +21,15 @@ var upgrader = websocket.Upgrader{
 
 // Handler handles WebSocket upgrade requests
 type Handler struct {
-	Hub *Hub
+	Hub          *Hub
+	LobbyService *lobby.Service
 }
 
 // NewHandler creates a new WebSocket handler
-func NewHandler(hub *Hub) *Handler {
+func NewHandler(hub *Hub, lobbyService *lobby.Service) *Handler {
 	return &Handler{
-		Hub: hub,
+		Hub:          hub,
+		LobbyService: lobbyService,
 	}
 }
 
@@ -51,6 +54,17 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if parsed, err := uuid.Parse(charIDStr); err == nil {
 			characterID = parsed
 		}
+	}
+
+	// If no character ID, join lobby
+	if characterID == uuid.Nil {
+		lobbyChar, err := h.LobbyService.EnsureLobbyCharacter(r.Context(), userID)
+		if err != nil {
+			log.Printf("Failed to join lobby: %v", err)
+			http.Error(w, "Failed to join lobby", http.StatusInternalServerError)
+			return
+		}
+		characterID = lobbyChar.CharacterID
 	}
 
 	// Upgrade connection

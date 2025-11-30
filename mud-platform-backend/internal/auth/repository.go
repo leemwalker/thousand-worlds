@@ -124,8 +124,8 @@ func (r *PostgresRepository) UpdateUser(ctx context.Context, user *User) error {
 // CreateCharacter creates a new character
 func (r *PostgresRepository) CreateCharacter(ctx context.Context, char *Character) error {
 	query := `
-		INSERT INTO characters (character_id, user_id, world_id, name, position, created_at)
-		VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), $7)
+		INSERT INTO characters (character_id, user_id, world_id, name, role, appearance, description, occupation, position, created_at)
+		VALUES ($1, $2, $3, $4, $5, NULLIF($6, '')::jsonb, $7, $8, ST_SetSRID(ST_MakePoint($9, $10), 4326), $11)
 	`
 
 	var lat, lon float64
@@ -139,6 +139,10 @@ func (r *PostgresRepository) CreateCharacter(ctx context.Context, char *Characte
 		char.UserID,
 		char.WorldID,
 		char.Name,
+		char.Role,
+		char.Appearance,
+		char.Description,
+		char.Occupation,
 		lon, lat, // PostGIS expects (longitude, latitude)
 		char.CreatedAt,
 	)
@@ -151,6 +155,7 @@ func (r *PostgresRepository) GetCharacter(ctx context.Context, characterID uuid.
 	query := `
 		SELECT 
 			c.character_id, c.user_id, c.world_id, c.name, 
+			COALESCE(c.role, ''), COALESCE(c.appearance::text, ''), COALESCE(c.description, ''), COALESCE(c.occupation, ''),
 			ST_Y(c.position::geometry) as latitude,
 			ST_X(c.position::geometry) as longitude,
 			c.created_at, c.last_played
@@ -165,6 +170,10 @@ func (r *PostgresRepository) GetCharacter(ctx context.Context, characterID uuid.
 		&char.UserID,
 		&char.WorldID,
 		&char.Name,
+		&char.Role,
+		&char.Appearance,
+		&char.Description,
+		&char.Occupation,
 		&lat,
 		&lon,
 		&char.CreatedAt,
@@ -193,6 +202,7 @@ func (r *PostgresRepository) GetUserCharacters(ctx context.Context, userID uuid.
 	query := `
 		SELECT 
 			c.character_id, c.user_id, c.world_id, c.name,
+			COALESCE(c.role, ''), COALESCE(c.appearance::text, ''), COALESCE(c.description, ''), COALESCE(c.occupation, ''),
 			ST_Y(c.position::geometry) as latitude,
 			ST_X(c.position::geometry) as longitude,
 			c.created_at, c.last_played
@@ -217,6 +227,10 @@ func (r *PostgresRepository) GetUserCharacters(ctx context.Context, userID uuid.
 			&char.UserID,
 			&char.WorldID,
 			&char.Name,
+			&char.Role,
+			&char.Appearance,
+			&char.Description,
+			&char.Occupation,
 			&lat,
 			&lon,
 			&char.CreatedAt,
@@ -244,6 +258,7 @@ func (r *PostgresRepository) GetCharacterByUserAndWorld(ctx context.Context, use
 	query := `
 		SELECT 
 			c.character_id, c.user_id, c.world_id, c.name,
+			COALESCE(c.role, ''), COALESCE(c.appearance::text, ''), COALESCE(c.description, ''), COALESCE(c.occupation, ''),
 			ST_Y(c.position::geometry) as latitude,
 			ST_X(c.position::geometry) as longitude,
 			c.created_at, c.last_played
@@ -258,6 +273,10 @@ func (r *PostgresRepository) GetCharacterByUserAndWorld(ctx context.Context, use
 		&char.UserID,
 		&char.WorldID,
 		&char.Name,
+		&char.Role,
+		&char.Appearance,
+		&char.Description,
+		&char.Occupation,
 		&lat,
 		&lon,
 		&char.CreatedAt,
