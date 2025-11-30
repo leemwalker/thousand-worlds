@@ -1,0 +1,112 @@
+# Development docker-compose with application services
+version: '3.8'
+
+services:
+  # Infrastructure services (from existing docker-compose.yml)
+  postgis:
+    image: postgis/postgis:16-3.4
+    container_name: mud_postgis
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: mud_core
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - mud_net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U admin -d mud_core" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mongo:
+    image: mongo:7.0
+    container_name: mud_mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - mud_net
+
+  nats:
+    image: nats:2.10-alpine
+    container_name: mud_nats
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+      - "9222:9222"
+    command: "-js -sd /data -m 8222 --ws_port 9222"
+    volumes:
+      - nats_data:/data
+    networks:
+      - mud_net
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: mud_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - mud_net
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: mud_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_ORIGINS=*
+      - OLLAMA_KEEP_ALIVE=10m
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_LOADED_MODELS=1
+    networks:
+      - mud_net
+
+  # Application services
+  game-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.game-server
+    container_name: mud_game_server
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://admin:password123@postgis:5432/mud_core?sslmode=disable
+      - REDIS_ADDR=redis:6379
+      - NATS_URL=nats://nats:4222
+      - OLLAMA_HOST=http://ollama:11434
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-key-change-in-production}
+      - PORT=8080
+    depends_on:
+      postgis:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      nats:
+        condition: service_started
+    networks:
+      - mud_net
+    restart: unless-stopped
+
+networks:
+  mud_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mongo_data:
+  nats_data:
+  redis_data:
+  ollama_models:

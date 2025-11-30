@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
-	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
@@ -27,7 +26,8 @@ func createTestAuthHandler(mockPub *MockPublisher) *AuthHandler {
 	// Use real auth components with test-friendly settings
 	encryptionKey := []byte("test-key-32-bytes-long-123456!") // 32 bytes for AES-256
 
-	tokenManager, _ := auth.NewTokenManager(encryptionKey, 24*time.Hour)
+	signingKey := []byte("test-signing-key-32-bytes-long!!")
+	tokenManager, _ := auth.NewTokenManager(signingKey, encryptionKey)
 	passwordHasher := auth.NewPasswordHasher()
 
 	// For SessionManager and RateLimiter, we'd need Redis mocks,

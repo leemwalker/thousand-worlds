@@ -1,0 +1,41 @@
+# .dockerignore
+.git
+.gitignore
+.env
+*.md
+README.md
+*.log
+.DS_Store
+
+# Test files
+*_test.go
+test/
+coverage.out
+
+# Build artifacts
+bin/
+dist/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/
+
+# Development scripts
+scripts/dev.sh
+scripts/verify_*.sh
+
+# Data files (if any)
+data/
+*.db
+*.sqlite

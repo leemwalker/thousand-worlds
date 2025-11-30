@@ -1,0 +1,23 @@
+[
+    {
+        "NodeID": "00000000-0000-0000-0000-000000000010",
+        "Name": "Iron Smelting",
+        "Description": "Extracting iron from ore.",
+        "TechLevel": "medieval",
+        "Tier": 1,
+        "ResearchTime": 3600000000000,
+        "IconPath": "icons/iron_ingot.png"
+    },
+    {
+        "NodeID": "00000000-0000-0000-0000-000000000011",
+        "Name": "Blacksmithing",
+        "Description": "Forging iron into tools and weapons.",
+        "TechLevel": "medieval",
+        "Tier": 1,
+        "Prerequisites": [
+            "00000000-0000-0000-0000-000000000010"
+        ],
+        "ResearchTime": 4800000000000,
+        "IconPath": "icons/anvil.png"
+    }
+]

@@ -76,6 +76,10 @@ services:
       - OLLAMA_ORIGINS=*
     networks:
       - mud_net
+    deploy:
+      resources:
+        limits:
+          memory: 8G
     # !!! UNCOMMENT BELOW FOR NVIDIA GPU SUPPORT !!!
     # deploy:
     #   resources:

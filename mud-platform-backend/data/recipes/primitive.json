@@ -1,0 +1,56 @@
+[
+    {
+        "RecipeID": "00000000-0000-0000-0000-000000000100",
+        "Name": "Stone Axe",
+        "Description": "A crude axe made of stone and wood.",
+        "Category": "tool",
+        "TechNodeID": "00000000-0000-0000-0000-000000000002",
+        "Ingredients": [
+            {
+                "ResourceID": "00000000-0000-0000-0000-000000000050",
+                "Quantity": 1
+            },
+            {
+                "ResourceID": "00000000-0000-0000-0000-000000000051",
+                "Quantity": 1
+            }
+        ],
+        "Output": {
+            "ItemID": "00000000-0000-0000-0000-000000000200",
+            "Quantity": 1,
+            "Quality": 1
+        },
+        "RequiredSkill": "survival",
+        "MinSkillLevel": 0,
+        "CraftingTime": 300000000000,
+        "BaseValue": 10,
+        "Difficulty": "trivial"
+    },
+    {
+        "RecipeID": "00000000-0000-0000-0000-000000000101",
+        "Name": "Clay Pot",
+        "Description": "A simple vessel for holding water or food.",
+        "Category": "consumable",
+        "TechNodeID": "00000000-0000-0000-0000-000000000003",
+        "Ingredients": [
+            {
+                "ResourceID": "00000000-0000-0000-0000-000000000052",
+                "Quantity": 2
+            }
+        ],
+        "RequiredStation": {
+            "StationType": "kiln",
+            "MinStationTier": 1
+        },
+        "Output": {
+            "ItemID": "00000000-0000-0000-0000-000000000201",
+            "Quantity": 1,
+            "Quality": 1
+        },
+        "RequiredSkill": "pottery",
+        "MinSkillLevel": 10,
+        "CraftingTime": 600000000000,
+        "BaseValue": 15,
+        "Difficulty": "easy"
+    }
+]

@@ -1,0 +1,44 @@
+[
+    {
+        "NodeID": "00000000-0000-0000-0000-000000000001",
+        "Name": "Fire Starting",
+        "Description": "The ability to create and maintain fire.",
+        "TechLevel": "primitive",
+        "Tier": 1,
+        "ResearchTime": 300000000000,
+        "IconPath": "icons/fire.png"
+    },
+    {
+        "NodeID": "00000000-0000-0000-0000-000000000002",
+        "Name": "Stone Tools",
+        "Description": "Shaping stone into useful implements.",
+        "TechLevel": "primitive",
+        "Tier": 1,
+        "ResearchTime": 600000000000,
+        "IconPath": "icons/stone_axe.png"
+    },
+    {
+        "NodeID": "00000000-0000-0000-0000-000000000003",
+        "Name": "Pottery",
+        "Description": "Firing clay to create vessels.",
+        "TechLevel": "primitive",
+        "Tier": 2,
+        "Prerequisites": [
+            "00000000-0000-0000-0000-000000000001"
+        ],
+        "ResearchTime": 1200000000000,
+        "IconPath": "icons/pottery.png"
+    },
+    {
+        "NodeID": "00000000-0000-0000-0000-000000000004",
+        "Name": "Basic Agriculture",
+        "Description": "Planting seeds and harvesting crops.",
+        "TechLevel": "primitive",
+        "Tier": 3,
+        "Prerequisites": [
+            "00000000-0000-0000-0000-000000000003"
+        ],
+        "ResearchTime": 2400000000000,
+        "IconPath": "icons/wheat.png"
+    }
+]
