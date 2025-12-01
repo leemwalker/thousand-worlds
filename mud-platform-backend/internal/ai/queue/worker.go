@@ -6,19 +6,26 @@ import (
 	"time"
 
 	"mud-platform-backend/internal/ai/dialogue"
+
+	"github.com/google/uuid"
 )
+
+// DialogueGenerator defines the interface for generating dialogue
+type DialogueGenerator interface {
+	GenerateDialogue(ctx context.Context, npcID, speakerID uuid.UUID, input string) (*dialogue.DialogueResponse, error)
+}
 
 // WorkerPool processes requests
 type WorkerPool struct {
 	queue     *DialogueQueue
 	semaphore chan struct{}
-	service   *dialogue.DialogueService
+	service   DialogueGenerator
 	quit      chan struct{}
 	wg        sync.WaitGroup
 }
 
 // NewWorkerPool creates a pool
-func NewWorkerPool(q *DialogueQueue, concurrency int, ds *dialogue.DialogueService) *WorkerPool {
+func NewWorkerPool(q *DialogueQueue, concurrency int, ds DialogueGenerator) *WorkerPool {
 	return &WorkerPool{
 		queue:     q,
 		semaphore: make(chan struct{}, concurrency),

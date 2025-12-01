@@ -1,9 +1,11 @@
-package auth
+package auth_test
 
 import (
 	"context"
 	"testing"
 	"time"
+
+	"mud-platform-backend/internal/auth"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -14,7 +16,7 @@ func TestRateLimiter_Allow(t *testing.T) {
 	client := setupTestRedis(t)
 	defer client.Close()
 
-	rl := NewRateLimiter(client)
+	rl := auth.NewRateLimiter(client)
 	ctx := context.Background()
 
 	t.Run("allows requests within limit", func(t *testing.T) {

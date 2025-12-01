@@ -1,15 +1,17 @@
-package auth
+package auth_test
 
 import (
 	"strings"
 	"testing"
+
+	"mud-platform-backend/internal/auth"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPasswordHasher_HashAndCompare(t *testing.T) {
-	ph := NewPasswordHasher()
+	ph := auth.NewPasswordHasher()
 
 	t.Run("hashes and verifies correct password", func(t *testing.T) {
 		password := "secure-password-123"

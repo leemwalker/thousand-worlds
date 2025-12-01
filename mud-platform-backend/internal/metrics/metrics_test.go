@@ -1,42 +1,59 @@
 package metrics
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewMetrics(t *testing.T) {
-	m := NewMetrics()
-	assert.NotNil(t, m)
-	assert.NotNil(t, m.HTTPRequestLatency)
-	assert.NotNil(t, m.ErrorRates)
-	assert.NotNil(t, m.CacheHitRates)
-	assert.NotNil(t, m.NPCFPS)
-	assert.NotNil(t, m.EventAppendRate)
-	assert.NotNil(t, m.ActiveConnections)
+func TestMiddleware(t *testing.T) {
+	handler := Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest("GET", "/test", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
-func TestMetrics_Registration(t *testing.T) {
-	// Create a new registry for testing to avoid global state pollution
-	reg := prometheus.NewRegistry()
-	m := NewMetrics()
+func TestRecordHubBroadcast(t *testing.T) {
+	assert.NotPanics(t, func() {
+		RecordHubBroadcast(100 * time.Millisecond)
+	})
+}
 
-	// Register all metrics
-	m.Register(reg)
+func TestRecordMessageProcessed(t *testing.T) {
+	assert.NotPanics(t, func() {
+		RecordMessageProcessed("chat")
+	})
+}
 
-	// Verify registration by checking if we can collect from them
-	// This is a bit indirect, but if they weren't registered or valid, usage might panic or fail
+func TestSetActiveConnections(t *testing.T) {
+	assert.NotPanics(t, func() {
+		SetActiveConnections(10)
+	})
+}
 
-	// Test Counter
-	m.EventAppendRate.Inc()
-	val := testutil.ToFloat64(m.EventAppendRate)
-	assert.Equal(t, 1.0, val)
+func TestRecordDBQuery(t *testing.T) {
+	assert.NotPanics(t, func() {
+		RecordDBQuery("select", "users", 50*time.Millisecond)
+	})
+}
 
-	// Test Gauge
-	m.ActiveConnections.WithLabelValues("websocket").Set(10)
-	val = testutil.ToFloat64(m.ActiveConnections.WithLabelValues("websocket"))
-	assert.Equal(t, 10.0, val)
+func TestRecordCacheHit(t *testing.T) {
+	assert.NotPanics(t, func() {
+		RecordCacheHit()
+	})
+}
+
+func TestRecordCacheMiss(t *testing.T) {
+	assert.NotPanics(t, func() {
+		RecordCacheMiss()
+	})
 }

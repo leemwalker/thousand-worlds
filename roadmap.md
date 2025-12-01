@@ -2811,7 +2811,7 @@ Files to Create:
 # Phase 7: Combat System (2-3 weeks)
 
 ## Phase 7.1: Action Queue System (1 week)
-### Status: ✅ Completed
+### Status: ⏳ Not Started
 ### Prompt:
 Following TDD principles, implement Phase 7.1 Action Queue System with Reaction Times:
 
@@ -2857,32 +2857,148 @@ Core Requirements:
      - Stunned: action fails, no queue entry
 
 3. Add action types with different characteristics:
-   - **Attack** (normal
+   - **Attack** (normal):
+     - Base damage, standard reaction time
+     - Stamina cost: 15
+     - Success depends on weapon skill + Might
+   - **Quick Attack**:
+     - 70% base damage, faster reaction time
+     - Stamina cost: 10
+     - Higher chance to interrupt opponent's action
+   - **Heavy Attack**:
+     - 150% base damage, slower reaction time
+     - Stamina cost: 25
+     - Lower accuracy but higher critical chance
+   - **Defend**:
+     - No damage, fast reaction time
+     - Reduces incoming damage by 50% until next action
+     - Stamina cost: 5
+     - Defending state cleared when next action executes
+   - **Flee**:
+     - Attempt to escape combat
+     - Slow reaction time (vulnerable during)
+     - Success chance: `(Agility / 100) × (1 - (enemyAgility / 200))`
+     - Stamina cost: 20
+   - **Use Item**:
+     - Consume item (potion, bandage, etc.)
+     - Fast reaction time
+     - Stamina cost: 5
+     - Item effects apply immediately
 
-   Acceptance Criteria:
-- Interview covers theme, tech level, geography, and culture comprehensively
-- LLM generates natural, conversational questions (not rigid forms)
-- Player responses extracted into structured WorldConfiguration
-- All required fields validated before world generation proceeds
-- Interview state persists and can resume after disconnection
+4. Prevent action spam (enforce minimum reaction time):
+   - Track last action time per combatant:
+     ```go
+     type Combatant struct {
+       EntityID         uuid.UUID
+       LastActionTime   time.Time
+       CurrentAction    *CombatAction
+       DefendingUntil   time.Time
+       StatusEffects    []*StatusEffect
+     }
+     ```
+   - Validation before queueing action:
+     ```go
+     func (cs *CombatService) CanQueueAction(combatant *Combatant, now time.Time) error {
+       if combatant.CurrentAction != nil && !combatant.CurrentAction.Resolved {
+         return ErrActionInProgress
+       }
+       
+       timeSinceLastAction := now.Sub(combatant.LastActionTime)
+       if timeSinceLastAction < MinReactionTime {
+         return ErrActionTooSoon
+       }
+       
+       return nil
+     }
+     ```
+   - Reject action if:
+     - Previous action not yet resolved
+     - Less than 200ms since last action
+     - Combatant is stunned
+
+5. Test queue ordering with multiple combatants:
+   - Scenario: 3 combatants in combat
+     - Player A queues Normal Attack at T=0 (Agility 60, reaction time 820ms)
+     - NPC B queues Quick Attack at T=100ms (Agility 40, reaction time 704ms)
+     - NPC C queues Heavy Attack at T=50ms (Agility 70, reaction time 1185ms)
+   - Expected execution order:
+     1. T=754ms: NPC B's Quick Attack (queued at 100ms + 704ms - 50ms early queue advantage)
+     2. T=820ms: Player A's Normal Attack
+     3. T=1235ms: NPC C's Heavy Attack
+   - Verify actions execute in correct chronological order
+   - Verify each action respects its calculated reaction time
+
+6. Implement combat state machine:
+   - Combat states:
+     - `Idle`: No combat active
+     - `InCombat`: Active combat, actions being queued/processed
+     - `Fleeing`: Attempting to escape
+     - `Defeated`: Combatant HP ≤ 0
+   - State transitions:
+     - Idle → InCombat: when attacked or initiating attack
+     - InCombat → Fleeing: when flee action succeeds
+     - InCombat → Defeated: when HP reaches 0
+     - Fleeing → InCombat: if flee fails
+     - InCombat → Idle: when all opponents defeated/fled
+
+7. Build action resolution system:
+   - Process queue every 50ms (game tick)
+   - For each action with ExecuteAt ≤ now:
+     - Validate combatant still alive and not stunned
+     - Check stamina available
+     - Execute action (resolve in Phase 7.2)
+     - Mark action as resolved
+     - Update LastActionTime
+     - Remove from queue
+   - Handle interrupted actions:
+     - If combatant takes heavy damage (>30% max HP) before action executes
+     - Chance to interrupt: `damagePercent × 0.5`
+     - Interrupted action fails, reaction time wasted
+
+Test Requirements (80%+ coverage):
+- CombatAction struct stores all required fields
+- CombatQueue maintains actions ordered by ExecuteAt time
+- Reaction time calculation applies Agility modifier correctly
+- Minimum reaction time (200ms) enforced
+- Quick attack has shorter reaction time than normal attack
+- Heavy attack has longer reaction time than normal attack
+- Defend action has fastest reaction time
+- CanQueueAction rejects spam attempts (<200ms since last action)
+- CanQueueAction rejects if previous action unresolved
+- CanQueueAction rejects if combatant stunned
+- Status effects (slowed, hasted) modify reaction times correctly
+- Multiple combatants' actions queue and execute in correct order
+- Action resolution processes queue every tick (50ms)
+- Resolved actions removed from queue
+- LastActionTime updated after action execution
+- Interrupted actions fail and are removed from queue
+- Combat state machine transitions correctly
+- Process 100 concurrent combatants' actions in < 100ms per tick
+
+Acceptance Criteria:
+- Actions queue with calculated reaction times based on Agility
+- Queue processes actions in chronological order (ExecuteAt)
+- Action spam prevented by minimum reaction time enforcement
+- Multiple action types supported with different characteristics
+- Combat state machine manages combat lifecycle
 - All tests pass with 80%+ coverage
 
 Dependencies:
-- Phase 6.1 (Ollama Integration) - LLM for conversational interview
-- PostgreSQL - store world_configurations table
+- Phase 2.1 (Character System) - Agility attribute
+- Phase 2.2 (Stamina System) - stamina costs
+- Phase 1 (Time System) - game time for action timing
 
 Files to Create:
-- `internal/worldgen/interview/types.go` - WorldInterview, WorldConfiguration structs
-- `internal/worldgen/interview/service.go` - Interview orchestration
-- `internal/worldgen/interview/questions.go` - Question templates by category
-- `internal/worldgen/interview/extraction.go` - Structured data extraction from conversation
-- `internal/worldgen/interview/validation.go` - Configuration validation
-- `internal/worldgen/interview/state.go` - Interview state persistence
-- `internal/worldgen/interview/repository.go` - Database storage
-- `internal/worldgen/interview/service_test.go` - Interview flow tests
-- `internal/worldgen/interview/extraction_test.go` - Data extraction tests
-- `internal/worldgen/interview/validation_test.go` - Validation tests
-- `migrations/postgres/XXX_world_configurations.sql` - Configuration table schema
+- `internal/combat/types.go` - CombatAction, Combatant, ActionType enums
+- `internal/combat/queue.go` - CombatQueue implementation
+- `internal/combat/reaction_time.go` - Reaction time calculations
+- `internal/combat/validation.go` - Action validation (spam prevention)
+- `internal/combat/state_machine.go` - Combat state management
+- `internal/combat/resolution.go` - Action resolution loop
+- `internal/combat/queue_test.go` - Queue ordering tests
+- `internal/combat/reaction_time_test.go` - Reaction time tests
+- `internal/combat/validation_test.go` - Spam prevention tests
+- `internal/combat/state_machine_test.go` - State transition tests
 
 ---
 
@@ -4102,7 +4218,7 @@ migrations/postgres/XXX_mineral_deposits.sql - Mineral deposits table
 ---
 
 ## Phase 8.3: Weather Simulation (1-2 weeks)
-### Status: ⏳ Not Started
+### Status: ✅ Completed
 ### Prompt:
 Following TDD principles, implement Phase 8.3 Weather Simulation with Atmospheric Dynamics:
 
@@ -4362,7 +4478,7 @@ Files to Create:
 ---
 
 ## Phase 8.4: Flora/Fauna Evolution (1-2 weeks)
-### Status: ⏳ Not Started
+### Status: ✅ Completed
 ### Prompt:
 Following TDD principles, implement Phase 8.4 Flora/Fauna Evolution Simulation:
 
@@ -4629,7 +4745,7 @@ Files to Create:
 # Phase 9: Crafting & Economy (3-4 weeks)
 
 ## Phase 9.1: Resource Distribution (1 week)
-### Status: ⏳ Not Started
+### Status: Completed
 ### Prompt:
 Following TDD principles, implement Phase 9.1 Resource Distribution with Biome-Based Placement:
 
@@ -4917,7 +5033,7 @@ Files to Create:
 ---
 
 ## Phase 9.2: Tech Trees & Recipes (2 weeks)
-### Status: ⏳ Not Started
+### Status: Completed
 ### Prompt:
 Following TDD principles, implement Phase 9.2 Tech Trees and Crafting Recipes:
 
@@ -6560,3 +6676,1008 @@ Files to Create:
 - `migrations/postgres/XXX_market_data.sql` - Market data and price history tables
 - `migrations/postgres/XXX_trade_routes.sql` - Trade routes table
 - `migrations/postgres/XXX_barter_offers.sql` - Barter offers table
+
+---
+
+# Phase 10: Frontend UI (5-7 weeks)
+
+## Phase 10.1: Core UI Components (2-3 weeks)
+### Status: ⏳ Not Started
+### Prompt:
+Following TDD principles, implement Phase 10.1 Core UI Components optimized for mobile with desktop support:
+
+Core Requirements:
+1. Design mobile-first UI layout with desktop responsive scaling:
+   - Mobile layout (primary target):
+     ```
+     ┌─────────────────────────┐
+     │  Status Bar (HP/Stam)   │ ← Fixed top, 60px
+     ├─────────────────────────┤
+     │                         │
+     │   Main Text Display     │ ← Scrollable, auto-scroll
+     │   (Game Output)         │   to bottom on new content
+     │                         │
+     │                         │
+     ├─────────────────────────┤
+     │  Command Input          │ ← Fixed bottom, 80px
+     │  [Text box] [Send]      │   with auto-complete
+     ├─────────────────────────┤
+     │ [Btn1] [Btn2] [Btn3]    │ ← Customizable buttons
+     │        [Joystick]       │   60px height
+     └─────────────────────────┘
+     ```
+   - Desktop layout (responsive):
+     ```
+     ┌──────────┬──────────────────────┬──────────┐
+     │          │   Status Bar         │          │
+     │  Left    ├──────────────────────┤  Right   │
+     │  Panel   │                      │  Panel   │
+     │  (Map)   │   Main Text Display  │  (Stats) │
+     │          │                      │          │
+     │  200px   │                      │  250px   │
+     │          ├──────────────────────┤          │
+     │          │  Command Input       │          │
+     └──────────┴──────────────────────┴──────────┘
+     ```
+   - Breakpoints:
+     - Mobile: 0-768px (single column, joystick visible)
+     - Tablet: 769-1024px (main + right panel)
+     - Desktop: 1025px+ (full three-column layout)
+   - SvelteKit responsive components:
+     ```svelte
+     <script>
+       import { onMount } from 'svelte';
+       import { writable } from 'svelte/store';
+       
+       let screenWidth = writable(window.innerWidth);
+       let isMobile = writable(window.innerWidth < 769);
+       
+       onMount(() => {
+         const handleResize = () => {
+           screenWidth.set(window.innerWidth);
+           isMobile.set(window.innerWidth < 769);
+         };
+         
+         window.addEventListener('resize', handleResize);
+         return () => window.removeEventListener('resize', handleResize);
+       });
+     </script>
+     
+     <div class="game-container" class:mobile={$isMobile}>
+       {#if $isMobile}
+         <MobileLayout />
+       {:else}
+         <DesktopLayout />
+       {/if}
+     </div>
+     ```
+
+2. Build command parser (natural language → game commands):
+   - Command parsing strategy:
+     - Support both natural language and shorthand commands
+     - Fuzzy matching for typos (Levenshtein distance < 3)
+     - Context-aware parsing (remembers last target, location)
+   - Command parser implementation:
+     ```typescript
+     interface ParsedCommand {
+       action: ActionType;
+       target?: string;
+       direction?: Direction;
+       quantity?: number;
+       items?: string[];
+       raw: string;
+       confidence: number; // 0.0 to 1.0
+     }
+     
+     class CommandParser {
+       private commandAliases: Map<string, string[]>;
+       private contextMemory: ParserContext;
+       
+       constructor() {
+         this.commandAliases = new Map([
+           ['look', ['l', 'examine', 'inspect', 'view']],
+           ['move', ['go', 'walk', 'run', 'travel', 'head']],
+           ['take', ['get', 'grab', 'pick', 'pickup']],
+           ['drop', ['release', 'discard', 'throw']],
+           ['attack', ['hit', 'fight', 'strike', 'kill']],
+           ['talk', ['speak', 'chat', 'say', 'tell']],
+           ['inventory', ['inv', 'i', 'items', 'bag']],
+           ['craft', ['make', 'create', 'build', 'forge']],
+           ['use', ['consume', 'activate', 'apply']],
+         ]);
+       }
+       
+       parse(input: string): ParsedCommand {
+         // Normalize input
+         const normalized = input.toLowerCase().trim();
+         
+         // Check for empty input
+         if (!normalized) {
+           return this.createError('Empty command');
+         }
+         
+         // Try exact command match first
+         const exactMatch = this.tryExactMatch(normalized);
+         if (exactMatch) return exactMatch;
+         
+         // Try natural language parsing
+         const nlpMatch = this.parseNaturalLanguage(normalized);
+         if (nlpMatch.confidence > 0.6) return nlpMatch;
+         
+         // Try fuzzy matching for typos
+         const fuzzyMatch = this.tryFuzzyMatch(normalized);
+         if (fuzzyMatch.confidence > 0.5) return fuzzyMatch;
+         
+         // Unknown command
+         return this.createError(`Unknown command: "${input}". Type "help" for commands.`);
+       }
+       
+       private parseNaturalLanguage(input: string): ParsedCommand {
+         // Movement patterns
+         if (/go|walk|move|head|travel/.test(input)) {
+           const direction = this.extractDirection(input);
+           if (direction) {
+             return {
+               action: 'move',
+               direction,
+               raw: input,
+               confidence: 0.9,
+             };
+           }
+         }
+         
+         // Taking items: "pick up the sword", "get iron ore"
+         if (/pick up|take|get|grab/.test(input)) {
+           const item = this.extractItemName(input);
+           return {
+             action: 'take',
+             target: item,
+             raw: input,
+             confidence: item ? 0.85 : 0.5,
+           };
+         }
+         
+         // Crafting: "make iron sword", "craft health potion"
+         if (/make|craft|create|forge/.test(input)) {
+           const item = this.extractItemName(input);
+           return {
+             action: 'craft',
+             target: item,
+             raw: input,
+             confidence: item ? 0.85 : 0.5,
+           };
+         }
+         
+         // Combat: "attack goblin", "fight the orc"
+         if (/attack|fight|hit|kill/.test(input)) {
+           const target = this.extractTarget(input);
+           return {
+             action: 'attack',
+             target: target || this.contextMemory.lastTarget,
+             raw: input,
+             confidence: target ? 0.85 : 0.6,
+           };
+         }
+         
+         // Talking: "talk to merchant", "speak with guard"
+         if (/talk|speak|chat/.test(input)) {
+           const target = this.extractTarget(input);
+           return {
+             action: 'talk',
+             target: target || this.contextMemory.lastNPC,
+             raw: input,
+             confidence: target ? 0.85 : 0.6,
+           };
+         }
+         
+         // Looking: "look at fountain", "examine the door"
+         if (/look|examine|inspect/.test(input)) {
+           const target = this.extractTarget(input);
+           return {
+             action: 'look',
+             target,
+             raw: input,
+             confidence: 0.8,
+           };
+         }
+         
+         return { action: 'unknown', raw: input, confidence: 0.0 };
+       }
+       
+       private extractDirection(input: string): Direction | undefined {
+         const directionMap: Record<string, Direction> = {
+           'north': 'N', 'n': 'N', 'up': 'UP', 'u': 'UP',
+           'south': 'S', 's': 'S', 'down': 'DOWN', 'd': 'DOWN',
+           'east': 'E', 'e': 'E',
+           'west': 'W', 'w': 'W',
+           'northeast': 'NE', 'ne': 'NE',
+           'northwest': 'NW', 'nw': 'NW',
+           'southeast': 'SE', 'se': 'SE',
+           'southwest': 'SW', 'sw': 'SW',
+         };
+         
+         for (const [key, direction] of Object.entries(directionMap)) {
+           if (input.includes(key)) {
+             return direction;
+           }
+         }
+         
+         return undefined;
+       }
+       
+       private extractItemName(input: string): string {
+         // Remove command words
+         let cleaned = input
+           .replace(/^(pick up|take|get|grab|make|craft|create|forge)\s+/i, '')
+           .replace(/^(the|a|an)\s+/i, '');
+         
+         return cleaned.trim();
+       }
+       
+       private extractTarget(input: string): string | undefined {
+         // Remove command words and articles
+         let cleaned = input
+           .replace(/^(talk|speak|chat|attack|fight|hit|look|examine)\s+/i, '')
+           .replace(/^(to|with|at|the|a|an)\s+/i, '');
+         
+         return cleaned.trim() || undefined;
+       }
+       
+       private tryFuzzyMatch(input: string): ParsedCommand {
+         const words = input.split(' ');
+         const firstWord = words[0];
+         
+         let bestMatch: string | null = null;
+         let bestDistance = Infinity;
+         
+         for (const [command, aliases] of this.commandAliases) {
+           const allVariants = [command, ...aliases];
+           
+           for (const variant of allVariants) {
+             const distance = this.levenshteinDistance(firstWord, variant);
+             
+             if (distance < bestDistance && distance <= 2) {
+               bestDistance = distance;
+               bestMatch = command;
+             }
+           }
+         }
+         
+         if (bestMatch) {
+           // Reconstruct command with corrected first word
+           const correctedInput = [bestMatch, ...words.slice(1)].join(' ');
+           return this.parse(correctedInput);
+         }
+         
+         return { action: 'unknown', raw: input, confidence: 0.0 };
+       }
+       
+       private levenshteinDistance(str1: string, str2: string): number {
+         const matrix: number[][] = [];
+         
+         for (let i = 0; i <= str2.length; i++) {
+           matrix[i] = [i];
+         }
+         
+         for (let j = 0; j <= str1.length; j++) {
+           matrix[0][j] = j;
+         }
+         
+         for (let i = 1; i <= str2.length; i++) {
+           for (let j = 1; j <= str1.length; j++) {
+             if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+               matrix[i][j] = matrix[i - 1][j - 1];
+             } else {
+               matrix[i][j] = Math.min(
+                 matrix[i - 1][j - 1] + 1,
+                 matrix[i][j - 1] + 1,
+                 matrix[i - 1][j] + 1
+               );
+             }
+           }
+         }
+         
+         return matrix[str2.length][str1.length];
+       }
+     }
+     ```
+
+3. Create output formatting (color-coded text, entity highlighting):
+   - Text formatting system:
+     ```typescript
+     interface TextSegment {
+       text: string;
+       color?: string;
+       bold?: boolean;
+       italic?: boolean;
+       entityID?: string; // For clickable entities
+       entityType?: 'npc' | 'item' | 'location' | 'resource';
+     }
+     
+     class OutputFormatter {
+       formatGameOutput(message: GameMessage): TextSegment[] {
+         const segments: TextSegment[] = [];
+         
+         switch (message.type) {
+           case 'movement':
+             segments.push(
+               { text: 'You move ', color: 'text-gray-300' },
+               { text: message.direction, color: 'text-blue-400', bold: true },
+               { text: '.', color: 'text-gray-300' }
+             );
+             break;
+             
+           case 'area_description':
+             segments.push(
+               { text: message.text, color: 'text-gray-100' }
+             );
+             
+             // Highlight entities in description
+             for (const entity of message.entities) {
+               this.highlightEntity(segments, entity);
+             }
+             break;
+             
+           case 'combat':
+             segments.push(
+               { text: 'You attack ', color: 'text-red-400' },
+               { 
+                 text: message.targetName,
+                 color: 'text-yellow-400',
+                 bold: true,
+                 entityID: message.targetID,
+                 entityType: 'npc'
+               },
+               { text: ` for `, color: 'text-red-400' },
+               { text: message.damage.toString(), color: 'text-orange-500', bold: true },
+               { text: ' damage!', color: 'text-red-400' }
+             );
+             break;
+             
+           case 'dialogue':
+             segments.push(
+               { 
+                 text: message.speakerName,
+                 color: 'text-cyan-400',
+                 bold: true,
+                 entityID: message.speakerID,
+                 entityType: 'npc'
+               },
+               { text: ' says: "', color: 'text-gray-300' },
+               { text: message.text, color: 'text-green-300', italic: true },
+               { text: '"', color: 'text-gray-300' }
+             );
+             break;
+             
+           case 'item_acquired':
+             segments.push(
+               { text: 'You obtained ', color: 'text-gray-300' },
+               {
+                 text: message.itemName,
+                 color: this.getItemRarityColor(message.itemRarity),
+                 bold: true,
+                 entityID: message.itemID,
+                 entityType: 'item'
+               },
+               { text: ` (×${message.quantity})`, color: 'text-gray-400' }
+             );
+             break;
+             
+           case 'crafting_success':
+             segments.push(
+               { text: 'You successfully crafted ', color: 'text-green-400' },
+               {
+                 text: message.itemName,
+                 color: this.getQualityColor(message.quality),
+                 bold: true
+               },
+               { text: '!', color: 'text-green-400' }
+             );
+             break;
+             
+           case 'error':
+             segments.push(
+               { text: message.text, color: 'text-red-500', bold: true }
+             );
+             break;
+             
+           case 'system':
+             segments.push(
+               { text: '[System] ', color: 'text-purple-400', bold: true },
+               { text: message.text, color: 'text-gray-300' }
+             );
+             break;
+         }
+         
+         return segments;
+       }
+       
+       private getItemRarityColor(rarity: string): string {
+         const rarityColors: Record<string, string> = {
+           'common': 'text-gray-100',
+           'uncommon': 'text-green-400',
+           'rare': 'text-blue-400',
+           'very_rare': 'text-purple-400',
+           'legendary': 'text-orange-500',
+         };
+         return rarityColors[rarity] || 'text-gray-100';
+       }
+       
+       private getQualityColor(quality: string): string {
+         const qualityColors: Record<string, string> = {
+           'poor': 'text-gray-400',
+           'common': 'text-gray-100',
+           'good': 'text-green-400',
+           'excellent': 'text-blue-400',
+           'masterwork': 'text-purple-500',
+         };
+         return qualityColors[quality] || 'text-gray-100';
+       }
+     }
+     ```
+   - Svelte component for formatted text:
+     ```svelte
+     <script lang="ts">
+       export let segments: TextSegment[];
+       
+       function handleEntityClick(segment: TextSegment) {
+         if (segment.entityID && segment.entityType) {
+           // Emit event for entity interaction
+           dispatch('entityClick', {
+             entityID: segment.entityID,
+             entityType: segment.entityType,
+           });
+         }
+       }
+     </script>
+     
+     <div class="output-line">
+       {#each segments as segment}
+         <span
+           class={segment.color}
+           class:font-bold={segment.bold}
+           class:italic={segment.italic}
+           class:cursor-pointer={segment.entityID}
+           class:hover:underline={segment.entityID}
+           on:click={() => handleEntityClick(segment)}
+         >
+           {segment.text}
+         </span>
+       {/each}
+     </div>
+     ```
+
+4. Implement map visualization (2D top-down with fog of war):
+   - Canvas-based map rendering:
+     ```typescript
+     class MapRenderer {
+       private canvas: HTMLCanvasElement;
+       private ctx: CanvasRenderingContext2D;
+       private tileSize: number = 10; // pixels per coordinate unit
+       private viewRadius: number = 50; // units visible around player
+       
+       constructor(canvas: HTMLCanvasElement) {
+         this.canvas = canvas;
+         this.ctx = canvas.getContext('2d')!;
+       }
+       
+       render(playerPos: Position, visibleArea: VisibleTile[]) {
+         const centerX = this.canvas.width / 2;
+         const centerY = this.canvas.height / 2;
+         
+         // Clear canvas
+         this.ctx.fillStyle = '#000000';
+         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+         
+         // Render fog of war first
+         this.renderFogOfWar(playerPos, visibleArea, centerX, centerY);
+         
+         // Render visible tiles
+         for (const tile of visibleArea) {
+           const screenX = centerX + (tile.x - playerPos.x) * this.tileSize;
+           const screenY = centerY + (tile.y - playerPos.y) * this.tileSize;
+           
+           this.renderTile(tile, screenX, screenY);
+         }
+         
+         // Render entities (NPCs, resources, players)
+         for (const tile of visibleArea) {
+           if (tile.entities.length > 0) {
+             const screenX = centerX + (tile.x - playerPos.x) * this.tileSize;
+             const screenY = centerY + (tile.y - playerPos.y) * this.tileSize;
+             
+             for (const entity of tile.entities) {
+               this.renderEntity(entity, screenX, screenY);
+             }
+           }
+         }
+         
+         // Render player (always centered)
+         this.renderPlayer(centerX, centerY);
+       }
+       
+       private renderFogOfWar(
+         playerPos: Position,
+         visibleArea: VisibleTile[],
+         centerX: number,
+         centerY: number
+       ) {
+         const visibleSet = new Set(visibleArea.map(t => `${t.x},${t.y}`));
+         
+         // Render fog for all tiles in view radius
+         for (let x = -this.viewRadius; x <= this.viewRadius; x++) {
+           for (let y = -this.viewRadius; y <= this.viewRadius; y++) {
+             const worldX = playerPos.x + x;
+             const worldY = playerPos.y + y;
+             
+             if (!visibleSet.has(`${worldX},${worldY}`)) {
+               const screenX = centerX + x * this.tileSize;
+               const screenY = centerY + y * this.tileSize;
+               
+               this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+               this.ctx.fillRect(
+                 screenX - this.tileSize / 2,
+                 screenY - this.tileSize / 2,
+                 this.tileSize,
+                 this.tileSize
+               );
+             }
+           }
+         }
+       }
+       
+       private renderTile(tile: VisibleTile, x: number, y: number) {
+         // Terrain color based on biome
+         this.ctx.fillStyle = this.getBiomeColor(tile.biome);
+         this.ctx.fillRect(
+           x - this.tileSize / 2,
+           y - this.tileSize / 2,
+           this.tileSize,
+           this.tileSize
+         );
+         
+         // Elevation shading
+         const elevationAlpha = Math.max(0, Math.min(0.3, tile.elevation / 5000));
+         this.ctx.fillStyle = `rgba(255, 255, 255, ${elevationAlpha})`;
+         this.ctx.fillRect(
+           x - this.tileSize / 2,
+           y - this.tileSize / 2,
+           this.tileSize,
+           this.tileSize
+         );
+       }
+       
+       private renderEntity(entity: MapEntity, x: number, y: number) {
+         const radius = this.tileSize / 3;
+         
+         this.ctx.beginPath();
+         this.ctx.arc(x, y, radius, 0, 2 * Math.PI);
+         this.ctx.fillStyle = this.getEntityColor(entity.type);
+         this.ctx.fill();
+         
+         // Entity outline
+         this.ctx.strokeStyle = '#FFFFFF';
+         this.ctx.lineWidth = 1;
+         this.ctx.stroke();
+       }
+       
+       private renderPlayer(x: number, y: number) {
+         const radius = this.tileSize / 2;
+         
+         // Player circle
+         this.ctx.beginPath();
+         this.ctx.arc(x, y, radius, 0, 2 * Math.PI);
+         this.ctx.fillStyle = '#00FF00';
+         this.ctx.fill();
+         
+         // Player outline
+         this.ctx.strokeStyle = '#FFFFFF';
+         this.ctx.lineWidth = 2;
+         this.ctx.stroke();
+         
+         // Direction indicator
+         this.ctx.beginPath();
+         this.ctx.moveTo(x, y);
+         this.ctx.lineTo(x, y - radius * 1.5);
+         this.ctx.strokeStyle = '#FFFFFF';
+         this.ctx.lineWidth = 2;
+         this.ctx.stroke();
+       }
+       
+       private getBiomeColor(biome: string): string {
+         const biomeColors: Record<string, string> = {
+           'forest': '#228B22',
+           'grassland': '#90EE90',
+           'desert': '#F4A460',
+           'mountain': '#808080',
+           'tundra': '#E0FFFF',
+           'ocean': '#4682B4',
+           'swamp': '#556B2F',
+         };
+         return biomeColors[biome] || '#333333';
+       }
+       
+       private getEntityColor(type: string): string {
+         const entityColors: Record<string, string> = {
+           'npc': '#FFFF00',
+           'player': '#00FFFF',
+           'resource': '#FFA500',
+           'monster': '#FF0000',
+         };
+         return entityColors[type] || '#FFFFFF';
+       }
+     }
+     ```
+
+5. Add inventory/character sheet UI:
+   - Inventory panel component:
+     ```svelte
+     <script lang="ts">
+       import { onMount } from 'svelte';
+       import type { InventoryItem, EquipmentSlot } from '$lib/types';
+       
+       export let inventory: InventoryItem[] = [];
+       export let equipment: Record<EquipmentSlot, InventoryItem | null> = {};
+       export let maxWeight: number = 100;
+       export let currentWeight: number = 0;
+       
+       let selectedItem: InventoryItem | null = null;
+       let showContextMenu: boolean = false;
+       let contextMenuPosition: { x: number; y: number } = { x: 0, y: 0 };
+       
+       function handleItemClick(item: InventoryItem, event: MouseEvent) {
+         selectedItem = item;
+         showContextMenu = true;
+         contextMenuPosition = { x: event.clientX, y: event.clientY };
+       }
+       
+       function handleUseItem() {
+         if (selectedItem) {
+           dispatch('useItem', { itemID: selectedItem.itemID });
+           showContextMenu = false;
+         }
+       }
+       
+       function handleDropItem() {
+         if (selectedItem) {
+           dispatch('dropItem', { itemID: selectedItem.itemID });
+           showContextMenu = false;
+         }
+       }
+       
+       function handleEquipItem() {
+         if (selectedItem) {
+           dispatch('equipItem', { itemID: selectedItem.itemID });
+           showContextMenu = false;
+         }
+       }
+       
+       $: weightPercentage = (currentWeight / maxWeight) * 100;
+       $: weightColor = weightPercentage > 90 ? 'text-red-500' : 
+                        weightPercentage > 70 ? 'text-yellow-500' : 'text-green-500';
+     </script>
+     
+     <div class="inventory-panel bg-gray-900 rounded-lg p-4">
+       <!-- Weight Display -->
+       <div class="weight-bar mb-4">
+         <div class="flex justify-between mb-1">
+           <span class="text-sm text-gray-300">Weight</span>
+           <span class="text-sm {weightColor}">
+             {currentWeight} / {maxWeight}
+           </span>
+         </div>
+         <div class="w-full bg-gray-700 rounded-full h-2">
+           <div
+             class="bg-blue-500 h-2 rounded-full transition-all"
+             style="width: {weightPercentage}%"
+           />
+         </div>
+       </div>
+       
+       <!-- Equipment Slots -->
+       <div class="equipment-slots mb-4">
+         <h3 class="text-lg font-bold text-gray-100 mb-2">Equipment</h3>
+         <div class="grid grid-cols-3 gap-2">
+           {#each Object.entries(equipment) as [slot, item]}
+             <div
+               class="equipment-slot bg-gray-800 rounded p-2 border border-gray-700 hover:border-blue-500 cursor-pointer"
+               on:click={() => item && handleItemClick(item, event)}
+             >
+               <div class="text-xs text-gray-400 mb-1">{slot}</div>
+               {#if item}
+                 <div class="text-sm text-gray-100">{item.name}</div>
+                 <div class="text-xs {getQualityColor(item.quality)}">
+                   {item.quality}
+                 </div>
+               {:else}
+                 <div class="text-xs text-gray-600">Empty</div>
+               {/if}
+             </div>
+           {/each}
+         </div>
+       </div>
+       
+       <!-- Inventory Items -->
+       <div class="inventory-items">
+         <h3 class="text-lg font-bold text-gray-100 mb-2">Inventory</h3>
+         <div class="grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
+           {#each inventory as item}
+             <div
+               class="inventory-item bg-gray-800 rounded p-2 border border-gray-700 hover:border-blue-500 cursor-pointer relative"
+               on:click={(e) => handleItemClick(item, e)}
+             >
+               <!-- Item icon/image placeholder -->
+               <div class="w-full aspect-square bg-gray-700 rounded mb-1">
+                 <span class="text-2xl">{item.icon || '📦'}</span>
+               </div>
+               
+               <!-- Item name -->
+               <div class="text-xs text-gray-100 truncate">{item.name}</div>
+               
+               <!-- Item quality -->
+               <div class="text-xs {getQualityColor(item.quality)}">
+                 {item.quality}
+               </div>
+               
+               <!-- Stack quantity -->
+               {#if item.quantity > 1}
+                 <div class="absolute top-1 right-1 bg-gray-900 rounded px-1 text-xs text-gray-300">
+                   ×{item.quantity}
+                 </div>
+               {/if}
+             </div>
+           {/each}
+         </div>
+       </div>
+       
+       <!-- Context Menu -->
+       {#if showContextMenu && selectedItem}
+         <div
+           class="context-menu fixed bg-gray-800 border border-gray-600 rounded shadow-lg z-50"
+           style="left: {contextMenuPosition.x}px; top: {contextMenuPosition.y}px"
+           on:mouseleave={() => showContextMenu = false}
+         >
+           <button
+             class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-gray-100"
+             on:click={handleUseItem}
+           >
+             Use
+           </button>
+           {#if selectedItem.equipable}
+             <button
+               class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-gray-100"
+               on:click={handleEquipItem}
+             >
+               Equip
+             </button>
+           {/if}
+           <button
+             class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-gray-100"
+             on:click={handleDropItem}
+           >
+             Drop
+           </button>
+         </div>
+       {/if}
+     </div>
+     ```
+
+6. Build behavioral drift monitor display:
+   - Drift monitor component (for inhabited NPCs):
+     ```svelte
+     <script lang="ts">
+       import type { DriftMetrics, BehavioralBaseline } from '$lib/types';
+       
+       export let baseline: BehavioralBaseline;
+       export let currentBehavior: BehavioralBaseline;
+       export let driftLevel: 'none' | 'subtle' | 'moderate' | 'severe';
+       export let relationshipImpacts: Array<{name: string, affinityDelta: number}>;
+       export let recentComments: Array<{speaker: string, comment: string}>;
+       
+       function calculateDrift(trait: keyof BehavioralBaseline): number {
+         return Math.abs(currentBehavior[trait] - baseline[trait]);
+       }
+       
+       function getDriftColor(drift: number): string {
+         if (drift < 0.3) return 'text-green-500';
+         if (drift < 0.5) return 'text-yellow-500';
+         if (drift < 0.7) return 'text-orange-500';
+         return 'text-red-500';
+       }
+       
+       function getDriftIcon(drift: number): string {
+         if (drift < 0.3) return '✓';
+         if (drift < 0.5) return '⚠';
+         if (drift < 0.7) return '⚠⚠';
+         return '⚠⚠⚠';
+       }
+     </script>
+     
+     <div class="drift-monitor bg-gray-900 rounded-lg p-4 border-2 {
+       driftLevel === 'severe' ? 'border-red-500' :
+       driftLevel === 'moderate' ? 'border-orange-500' :
+       driftLevel === 'subtle' ? 'border-yellow-500' :
+       'border-gray-700'
+     }">
+       <h3 class="text-lg font-bold text-gray-100 mb-3">
+         Personality Monitor
+         {#if driftLevel !== 'none'}
+           <span class="text-sm {
+             driftLevel === 'severe' ? 'text-red-500' :
+             driftLevel === 'moderate' ? 'text-orange-500' :
+             'text-yellow-500'
+           }">
+             ({driftLevel} drift)
+           </span>
+         {/if}
+       </h3>
+       
+       <!-- Behavioral Traits -->
+       <div class="traits-grid grid grid-cols-2 gap-3 mb-4">
+         {#each Object.entries(baseline) as [trait, baseValue]}
+           {@const currentValue = currentBehavior[trait]}
+           {@const drift = calculateDrift(trait)}
+           
+           <div class="trait-item">
+             <div class="flex justify-between items-center mb-1">
+               <span class="text-sm text-gray-300 capitalize">{trait}</span>
+               <span class="{getDriftColor(drift)} text-sm font-bold">
+                 {getDriftIcon(drift)}
+               </span>
+             </div>
+             
+             <!-- Baseline bar -->
+             <div class="relative h-4 bg-gray-700 rounded">
+               <!-- Original baseline -->
+               <div
+                 class="absolute top-0 left-0 h-full bg-gray-500 rounded opacity-50"
+                 style="width: {baseValue * 100}%"
+               />
+               
+               <!-- Current value -->
+               <div
+                 class="absolute top-0 left-0 h-full rounded transition-all {
+                   drift < 0.3 ? 'bg-green-500' :
+                   drift < 0.5 ? 'bg-yellow-500' :
+                   drift < 0.7 ? 'bg-orange-500' :
+                   'bg-red-500'
+                 }"
+                 style="width: {currentValue * 100}%"
+               />
+             </div>
+             
+             <div class="flex justify-between text-xs text-gray-400 mt-1">
+               <span>Base: {(baseValue * 100).toFixed(0)}%</span>
+               <span class="{getDriftColor(drift)}">
+                 Now: {(currentValue * 100).toFixed(0)}%
+                 {#if drift > 0.3}
+                   (Δ{(drift * 100).toFixed(0)}%)
+                 {/if}
+               </span>
+             </div>
+           </div>
+         {/each}
+       </div>
+       
+       <!-- Relationship Impacts -->
+       {#if relationshipImpacts.length > 0}
+         <div class="relationship-impacts mb-4">
+           <h4 class="text-sm font-bold text-gray-300 mb-2">Relationship Changes</h4>
+           <div class="space-y-1">
+             {#each relationshipImpacts as impact}
+               <div class="flex justify-between text-sm">
+                 <span class="text-gray-400">{impact.name}</span>
+                 <span class="{impact.affinityDelta < 0 ? 'text-red-400' : 'text-green-400'}">
+                   {impact.affinityDelta > 0 ? '+' : ''}{impact.affinityDelta}
+                 </span>
+               </div>
+             {/each}
+           </div>
+         </div>
+       {/if}
+       
+       <!-- Recent NPC Comments -->
+       {#if recentComments.length > 0}
+         <div class="recent-comments">
+           <h4 class="text-sm font-bold text-gray-300 mb-2">What Others Say</h4>
+           <div class="space-y-2 max-h-32 overflow-y-auto">
+             {#each recentComments as comment}
+               <div class="bg-gray-800 rounded p-2">
+                 <div class="text-xs text-cyan-400 font-bold">{comment.speaker}:</div>
+                 <div class="text-xs text-gray-300 italic">"{comment.comment}"</div>
+               </div>
+             {/each}
+           </div>
+         </div>
+       {/if}
+     </div>
+     ```
+
+7. Test mobile responsiveness:
+   - Mobile gesture tests:
+     - Touch input for command entry
+     - Swipe to scroll output text
+     - Pinch to zoom map (optional)
+     - Long-press for context menus
+   - Viewport tests:
+     - iPhone SE (375×667): verify layout fits
+     - iPhone 12 Pro (390×844): verify layout fits
+     - iPad (768×1024): verify responsive layout
+     - Desktop (1920×1080): verify full layout
+   - Performance tests:
+     - FPS stays >30 during map rendering
+     - Input lag <100ms on touch devices
+     - Scroll performance smooth (60fps)
+
+Test Requirements (80%+ coverage):
+- CommandParser correctly parses exact commands ("look", "move north")
+- CommandParser parses natural language ("pick up the sword", "talk to merchant")
+- Direction extraction identifies all compass directions (N, NE, E, SE, S, SW, W, NW, UP, DOWN)
+- Item name extraction removes command words and articles
+- Target extraction identifies NPCs and objects
+- Fuzzy matching corrects typos (Levenshtein distance ≤2)
+- Context memory remembers last target for "attack" without target specified
+- OutputFormatter applies correct colors for message types
+- Combat messages highlight damage in orange/red
+- Dialogue messages highlight speaker in cyan
+- Item rarity colors: common (gray), uncommon (green), rare (blue), very_rare (purple), legendary (orange)
+- Quality colors: poor (gray), common (white), good (green), excellent (blue), masterwork (purple)
+- MapRenderer centers player on canvas
+- MapRenderer applies fog of war to non-visible tiles
+- MapRenderer colors tiles by biome correctly
+- MapRenderer renders entities (NPCs, resources) as colored circles
+- Inventory panel displays weight as percentage of max
+- Inventory panel colors weight warning (>90% red, >70% yellow, <70% green)
+- Equipment slots show equipped items or "Empty"
+- Context menu appears on item click with Use/Equip/Drop options
+- Drift monitor calculates drift correctly (|current - baseline|)
+- Drift monitor colors traits: <0.3 green, 0.3-0.5 yellow, 0.5-0.7 orange, >0.7 red
+- Drift level indicator shows none/subtle/moderate/severe based on max drift
+- Relationship impacts display with correct +/- coloring
+- Recent comments scroll if >3 comments
+- Mobile layout (0-768px) shows single column with joystick
+- Desktop layout (1025px+) shows three columns with panels
+- Touch input registers correctly on mobile devices
+- Component renders in <100ms on mobile devices
+- FPS stays >30fps during map rendering on mobile
+
+Acceptance Criteria:
+- UI is responsive and works on mobile devices (375px to 1920px+)
+- Command parser understands natural language and shorthand commands
+- Output text is color-coded and entity-highlighted for readability
+- Map visualization shows player-centered 2D view with fog of war
+- Inventory/character sheet displays equipment and items clearly
+- Drift monitor (for inhabited NPCs) shows behavioral changes and relationship impacts
+- All components render performantly on mobile (<100ms, >30fps)
+- All tests pass with 80%+ coverage
+
+Dependencies:
+- Phase 3.3 (Relationships) - drift metrics for inhabited NPCs
+- Phase 2.1 (Character System) - attributes and stats display
+- Phase 9.1 (Resources) - inventory items
+- SvelteKit - frontend framework
+- TailwindCSS - styling
+- Canvas API - map rendering
+
+Files to Create:
+- `src/lib/components/Layout/MobileLayout.svelte` - Mobile single-column layout
+- `src/lib/components/Layout/DesktopLayout.svelte` - Desktop three-column layout
+- `src/lib/components/Layout/GameContainer.svelte` - Responsive container
+- `src/lib/components/Input/CommandInput.svelte` - Text input with autocomplete
+- `src/lib/components/Input/CommandParser.ts` - Command parsing logic
+- `src/lib/components/Output/TextDisplay.svelte` - Scrollable game output
+- `src/lib/components/Output/OutputFormatter.ts` - Text formatting and coloring
+- `src/lib/components/Output/FormattedText.svelte` - Colored text segments
+- `src/lib/components/Map/MapCanvas.svelte` - Canvas-based map
+- `src/lib/components/Map/MapRenderer.ts` - Map rendering logic
+- `src/lib/components/Inventory/InventoryPanel.svelte` - Inventory UI
+- `src/lib/components/Inventory/EquipmentSlots.svelte` - Equipment display
+- `src/lib/components/Character/StatusBar.svelte` - HP/Stamina/Focus bars
+- `src/lib/components/Character/CharacterSheet.svelte` - Full stats display
+- `src/lib/components/Drift/DriftMonitor.svelte` - Behavioral drift display
+- `src/lib/components/Input/CommandParser.test.ts` - Parser unit tests
+- `src/lib/components/Output/OutputFormatter.test.ts` - Formatter unit tests
+- `src/lib/components/Map/MapRenderer.test.ts` - Map rendering tests
+- `src/lib/components/Layout/Responsive.test.ts` - Responsive layout tests
+- `src/lib/types/ui.ts` - UI TypeScript types
+- `src/lib/stores/ui.ts` - Svelte stores for UI state

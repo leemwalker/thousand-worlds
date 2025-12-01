@@ -25,7 +25,7 @@ func TestGetEntryOptions_Success(t *testing.T) {
 		WorldID:         &worldID,
 		SentientSpecies: []string{"Human", "Elf", "Dwarf"},
 	}
-	repo.SaveConfiguration(worldID, config)
+	repo.SaveConfiguration(config)
 
 	// Get entry options
 	options, err := service.GetEntryOptions(ctx, worldID)
@@ -85,7 +85,7 @@ func TestGenerateRandomNPCs_CreatesUniqueNPCs(t *testing.T) {
 
 	// Assert
 	assert.Len(t, npcs, 5)
-	
+
 	// Verify each NPC has required fields
 	ids := make(map[string]bool)
 	for _, npc := range npcs {
@@ -94,7 +94,7 @@ func TestGenerateRandomNPCs_CreatesUniqueNPCs(t *testing.T) {
 		assert.NotEmpty(t, npc.Species, "NPC should have species")
 		assert.NotEmpty(t, npc.DNA, "NPC should have DNA")
 		assert.Contains(t, config.SentientSpecies, npc.Species, "Species should be from config")
-		
+
 		// Check ID uniqueness
 		assert.False(t, ids[npc.ID], "NPC IDs should be unique")
 		ids[npc.ID] = true
@@ -128,14 +128,14 @@ func TestGenerateRandomDNA_CreatesValidDNA(t *testing.T) {
 
 	// Assert genes are present
 	assert.NotEmpty(t, dna.Genes, "DNA should have genes")
-	
+
 	// Check for expected genes
 	expectedGenes := []string{
 		"height", "build", "muscle", "hair", "pigment",
 		"eye", "melanin", "strength", "reflex", "stamina",
 		"health", "cognition", "perception",
 	}
-	
+
 	for _, geneName := range expectedGenes {
 		gene, exists := dna.Genes[geneName]
 		assert.True(t, exists, "Should have gene: %s", geneName)
@@ -155,7 +155,7 @@ func TestNPCPreview_HasValidDNAEncoding(t *testing.T) {
 		WorldID:         &worldID,
 		SentientSpecies: []string{"Human"},
 	}
-	repo.SaveConfiguration(worldID, config)
+	repo.SaveConfiguration(config)
 
 	// Get entry options
 	options, err := service.GetEntryOptions(context.Background(), worldID)

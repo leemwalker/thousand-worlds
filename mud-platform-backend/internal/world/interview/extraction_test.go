@@ -8,6 +8,18 @@ import (
 	"github.com/google/uuid"
 )
 
+// MockLLM is a mock implementation of the LLM interface for testing
+type MockLLM struct {
+	GenerateFunc func(prompt string) (string, error)
+}
+
+func (m *MockLLM) Generate(prompt string) (string, error) {
+	if m.GenerateFunc != nil {
+		return m.GenerateFunc(prompt)
+	}
+	return "", nil
+}
+
 func TestExtractConfiguration_Success(t *testing.T) {
 	playerID := uuid.New()
 	interviewID := uuid.New()

@@ -1,8 +1,10 @@
-package auth
+package auth_test
 
 import (
 	"context"
 	"testing"
+
+	"mud-platform-backend/internal/auth"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,7 +14,7 @@ func TestSessionManager_Lifecycle(t *testing.T) {
 	client := setupTestRedis(t)
 	defer client.Close()
 
-	sm := NewSessionManager(client)
+	sm := auth.NewSessionManager(client)
 	ctx := context.Background()
 
 	t.Run("creates, retrieves, and invalidates session", func(t *testing.T) {

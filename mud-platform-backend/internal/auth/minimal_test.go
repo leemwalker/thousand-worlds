@@ -1,12 +1,14 @@
-package auth
+package auth_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
+	"mud-platform-backend/internal/auth"
 	"mud-platform-backend/internal/testutil"
+
+	"github.com/google/uuid"
 )
 
 // Test_MinimalCharacterCreate tests just character creation with minimal data
@@ -19,10 +21,10 @@ func Test_MinimalCharacterCreate(t *testing.T) {
 	defer testutil.CloseDB(t, db)
 	testutil.TruncateTables(t, db)
 
-	repo := NewPostgresRepository(db)
+	repo := auth.NewPostgresRepository(db)
 
 	// Create user
-	user := &User{
+	user := &auth.User{
 		UserID:    uuid.New(),
 		Email:     "minimal@example.com",
 		CreatedAt: time.Now(),
@@ -43,7 +45,7 @@ func Test_MinimalCharacterCreate(t *testing.T) {
 	}
 
 	// Create character with valid JSON appearance
-	char1 := &Character{
+	char1 := &auth.Character{
 		CharacterID: uuid.New(),
 		UserID:      user.UserID,
 		WorldID:     worldID,
@@ -68,7 +70,7 @@ func Test_MinimalCharacterCreate(t *testing.T) {
 		t.Fatalf("Failed to create world 2: %v", err)
 	}
 
-	char2 := &Character{
+	char2 := &auth.Character{
 		CharacterID: uuid.New(),
 		UserID:      user.UserID,
 		WorldID:     worldID2, // Different world

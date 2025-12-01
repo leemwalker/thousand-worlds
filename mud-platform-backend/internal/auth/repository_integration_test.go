@@ -1,4 +1,4 @@
-package auth
+package auth_test
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
 
+	"mud-platform-backend/internal/auth"
 	"mud-platform-backend/internal/testutil"
 )
 
@@ -16,14 +17,14 @@ import (
 type RepositoryIntegrationSuite struct {
 	suite.Suite
 	db   *sql.DB
-	repo *PostgresRepository
+	repo *auth.PostgresRepository
 }
 
 // SetupSuite runs once before all tests
 func (s *RepositoryIntegrationSuite) SetupSuite() {
 	s.db = testutil.SetupTestDB(s.T())
 	testutil.RunMigrations(s.T(), s.db)
-	s.repo = NewPostgresRepository(s.db)
+	s.repo = auth.NewPostgresRepository(s.db)
 }
 
 // TearDownSuite runs once after all tests
@@ -40,7 +41,7 @@ func (s *RepositoryIntegrationSuite) SetupTest() {
 func (s *RepositoryIntegrationSuite) TestCreateAndRetrieveUser() {
 	ctx := context.Background()
 
-	user := &User{
+	user := &auth.User{
 		UserID:    uuid.New(),
 		Email:     "test@example.com",
 		CreatedAt: time.Now(),
@@ -63,8 +64,8 @@ func (s *RepositoryIntegrationSuite) TestCreateAndRetrieveUser() {
 }
 
 // createTestUser is a helper to create a test user
-func (s *RepositoryIntegrationSuite) createTestUser() *User {
-	user := &User{
+func (s *RepositoryIntegrationSuite) createTestUser() *auth.User {
+	user := &auth.User{
 		UserID:    uuid.New(),
 		Email:     testutil.GenerateTestEmail(),
 		CreatedAt: time.Now(),
@@ -88,9 +89,9 @@ func (s *RepositoryIntegrationSuite) createTestWorld() uuid.UUID {
 
 // createTestCharacter is a helper to create a test character
 // Note: Creates its own world to respect UNIQUE(user_id, world_id) constraint
-func (s *RepositoryIntegrationSuite) createTestCharacter(userID uuid.UUID) *Character {
+func (s *RepositoryIntegrationSuite) createTestCharacter(userID uuid.UUID) *auth.Character {
 	worldID := s.createTestWorld()
-	char := &Character{
+	char := &auth.Character{
 		CharacterID: uuid.New(),
 		UserID:      userID,
 		WorldID:     worldID,
@@ -114,7 +115,7 @@ func (s *RepositoryIntegrationSuite) TestCreateCharacterWithAllFields() {
 	user := s.createTestUser()
 
 	// Create character with all fields
-	char := &Character{
+	char := &auth.Character{
 		CharacterID: uuid.New(),
 		UserID:      user.UserID,
 		WorldID:     s.createTestWorld(),
@@ -123,7 +124,7 @@ func (s *RepositoryIntegrationSuite) TestCreateCharacterWithAllFields() {
 		Appearance:  `{"hair":"brown","eyes":"blue","height":"tall"}`,
 		Description: "A brave adventurer seeking fortune and glory",
 		Occupation:  "Warrior",
-		Position: &Position{
+		Position: &auth.Position{
 			Latitude:  45.5,
 			Longitude: -122.6,
 		},
@@ -152,13 +153,13 @@ func (s *RepositoryIntegrationSuite) TestWatcherCharacterCreation() {
 
 	user := s.createTestUser()
 
-	watcher := &Character{
+	watcher := &auth.Character{
 		CharacterID: uuid.New(),
 		UserID:      user.UserID,
 		WorldID:     s.createTestWorld(),
 		Name:        "Watcher",
 		Role:        "watcher",
-		Appearance:  "",  // Watchers don't need appearance
+		Appearance:  "", // Watchers don't need appearance
 		Description: "An invisible observer",
 		Occupation:  "Watcher",
 		CreatedAt:   time.Now(),
@@ -208,7 +209,7 @@ func (s *RepositoryIntegrationSuite) TestGetCharacterByUserAndWorld() {
 	worldID := s.createTestWorld()
 
 	// Create character in specific world
-	char := &Character{
+	char := &auth.Character{
 		CharacterID: uuid.New(),
 		UserID:      user.UserID,
 		WorldID:     worldID,
@@ -241,7 +242,7 @@ func (s *RepositoryIntegrationSuite) TestUpdateCharacter() {
 
 	// Update character
 	char.Name = "UpdatedName"
-	char.Position = &Position{
+	char.Position = &auth.Position{
 		Latitude:  40.7,
 		Longitude: -74.0,
 	}
@@ -266,7 +267,7 @@ func (s *RepositoryIntegrationSuite) TestDuplicateEmailError() {
 
 	email := "duplicate@example.com"
 
-	user1 := &User{
+	user1 := &auth.User{
 		UserID:    uuid.New(),
 		Email:     email,
 		CreatedAt: time.Now(),
@@ -276,7 +277,7 @@ func (s *RepositoryIntegrationSuite) TestDuplicateEmailError() {
 	s.NoError(err)
 
 	// Try to create another user with same email
-	user2 := &User{
+	user2 := &auth.User{
 		UserID:    uuid.New(),
 		Email:     email,
 		CreatedAt: time.Now(),
@@ -284,7 +285,7 @@ func (s *RepositoryIntegrationSuite) TestDuplicateEmailError() {
 
 	err = s.repo.CreateUser(ctx, user2)
 	s.Error(err)
-	s.Equal(ErrDuplicateEmail, err)
+	s.Equal(auth.ErrDuplicateEmail, err)
 }
 
 // TestCharacterNotFound tests error handling for non-existent characters
@@ -296,7 +297,7 @@ func (s *RepositoryIntegrationSuite) TestCharacterNotFound() {
 	char, err := s.repo.GetCharacter(ctx, nonExistentID)
 	s.Error(err)
 	s.Nil(char)
-	s.Equal(ErrCharacterNotFound, err)
+	s.Equal(auth.ErrCharacterNotFound, err)
 }
 
 // TestRunRepositoryIntegrationSuite runs the integration test suite
