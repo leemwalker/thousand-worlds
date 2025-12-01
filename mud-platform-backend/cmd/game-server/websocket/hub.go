@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+	"time"
 
+	"mud-platform-backend/internal/metrics"
 	"mud-platform-backend/internal/spatial"
 
 	"github.com/google/uuid"
@@ -73,6 +75,7 @@ func (h *Hub) Run(ctx context.Context) {
 			// Position will be updated when character moves
 			h.SpatialIndex.Insert(client.CharacterID, spatial.Position{X: 0, Y: 0})
 			h.mu.Unlock()
+			metrics.SetActiveConnections(len(h.Clients))
 			log.Printf("Client registered: %s (character: %s)", client.ID, client.CharacterID)
 
 		case client := <-h.Unregister:
@@ -84,6 +87,7 @@ func (h *Hub) Run(ctx context.Context) {
 				close(client.Send)
 			}
 			h.mu.Unlock()
+			metrics.SetActiveConnections(len(h.Clients))
 			log.Printf("Client unregistered: %s", client.ID)
 
 		case wrapper := <-h.HandleMessage:
@@ -155,6 +159,12 @@ func (h *Hub) UpdateCharacterPosition(characterID uuid.UUID, x, y float64) {
 // Performance: O(k/W) where k = clients in area, W = worker count
 // Uses concurrent workers for parallel message sending
 func (h *Hub) BroadcastToArea(center spatial.Position, radius float64, msgType string, data interface{}) {
+	start := time.Now()
+	defer func() {
+		metrics.RecordHubBroadcast(time.Since(start))
+		metrics.RecordMessageProcessed(msgType)
+	}()
+
 	// Query spatial index for nearby entities (O(k))
 	entityIDs := h.SpatialIndex.QueryRadius(center, radius)
 

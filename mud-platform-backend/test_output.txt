@@ -1,0 +1,39 @@
+=== RUN   TestComprehensiveIntegration
+--- FAIL: TestComprehensiveIntegration (0.00s)
+panic: rootless Docker not found [recovered, repanicked]
+
+goroutine 35 [running]:
+testing.tRunner.func1.2({0x107535620, 0xc0002880d8})
+	/usr/local/Cellar/go/1.25.4/libexec/src/testing/testing.go:1872 +0x237
+testing.tRunner.func1()
+	/usr/local/Cellar/go/1.25.4/libexec/src/testing/testing.go:1875 +0x35b
+panic({0x107535620?, 0xc0002880d8?})
+	/usr/local/Cellar/go/1.25.4/libexec/src/runtime/panic.go:783 +0x132
+github.com/testcontainers/testcontainers-go/internal/core.MustExtractDockerHost.func1()
+	/Users/walker/go/pkg/mod/github.com/testcontainers/testcontainers-go@v0.40.0/internal/core/docker_host.go:91 +0x65
+sync.(*Once).doSlow(0xc0002cdd08?, 0xc0002cdd58?)
+	/usr/local/Cellar/go/1.25.4/libexec/src/sync/once.go:78 +0xac
+sync.(*Once).Do(...)
+	/usr/local/Cellar/go/1.25.4/libexec/src/sync/once.go:69
+github.com/testcontainers/testcontainers-go/internal/core.MustExtractDockerHost({0x107644f78?, 0x107ab3180?})
+	/Users/walker/go/pkg/mod/github.com/testcontainers/testcontainers-go@v0.40.0/internal/core/docker_host.go:88 +0x49
+github.com/testcontainers/testcontainers-go/internal/core.NewClient({0x107644f78, 0x107ab3180}, {0x0, 0x0, 0x0?})
+	/Users/walker/go/pkg/mod/github.com/testcontainers/testcontainers-go@v0.40.0/internal/core/client.go:17 +0x88
+github.com/testcontainers/testcontainers-go.NewDockerClientWithOpts({0x107644f78, 0x107ab3180}, {0x0, 0x0, 0x0})
+	/Users/walker/go/pkg/mod/github.com/testcontainers/testcontainers-go@v0.40.0/docker_client.go:118 +0x71
+github.com/testcontainers/testcontainers-go.NewDockerProvider({0xc0002801a0, 0x2, 0x1073a222a?})
+	/Users/walker/go/pkg/mod/github.com/testcontainers/testcontainers-go@v0.40.0/provider.go:144 +0x112
+github.com/testcontainers/testcontainers-go.ProviderType.GetProvider(0x0, {0xc0000d5028, 0x1, 0x0?})
+	/Users/walker/go/pkg/mod/github.com/testcontainers/testcontainers-go@v0.40.0/provider.go:115 +0x8b5
+github.com/testcontainers/testcontainers-go.GenericContainer({_, _}, {{{{0x0, 0x0}, {0x0, 0x0}, {0x0, 0x0}, {0x0, 0x0}, ...}, ...}, ...})
+	/Users/walker/go/pkg/mod/github.com/testcontainers/testcontainers-go@v0.40.0/generic.go:62 +0x139
+mud-platform-backend/internal/integration_test_test.setupRedis({0x107644f78, 0x107ab3180})
+	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/integration_test/comprehensive_test.go:141 +0x166
+mud-platform-backend/internal/integration_test_test.TestComprehensiveIntegration(0xc0002c21c0)
+	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/integration_test/comprehensive_test.go:38 +0xb8
+testing.tRunner(0xc0002c21c0, 0x107638ce0)
+	/usr/local/Cellar/go/1.25.4/libexec/src/testing/testing.go:1934 +0xea
+created by testing.(*T).Run in goroutine 1
+	/usr/local/Cellar/go/1.25.4/libexec/src/testing/testing.go:1997 +0x465
+FAIL	mud-platform-backend/internal/integration_test	0.995s
+FAIL

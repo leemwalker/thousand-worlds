@@ -22,6 +22,7 @@ import (
 	"mud-platform-backend/internal/game/entry"
 	"mud-platform-backend/internal/game/processor"
 	"mud-platform-backend/internal/lobby"
+	"mud-platform-backend/internal/metrics"
 	"mud-platform-backend/internal/repository"
 	"mud-platform-backend/internal/world/interview"
 )
@@ -155,6 +156,9 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
+	r.Use(func(next http.Handler) http.Handler {
+		return metrics.Middleware(next)
+	})
 
 	// CORS configuration
 	r.Use(cors.Handler(cors.Options{
@@ -165,6 +169,9 @@ func main() {
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
+
+	// Metrics endpoint
+	r.Handle("/metrics", metrics.Handler())
 
 	// API Routes
 	r.Route("/api", func(r chi.Router) {
