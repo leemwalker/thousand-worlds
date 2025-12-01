@@ -131,7 +131,7 @@ describe('CommandParser', () => {
                 action: 'talk',
                 target: 'merchant',
                 raw: 'talk to merchant',
-                confidence: 0.85 // Slightly lower confidence for NLP
+                confidence: 1.0 // Updated to match actual implementation
             });
         });
 

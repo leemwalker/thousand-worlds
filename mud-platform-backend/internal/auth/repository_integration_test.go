@@ -3,11 +3,17 @@ package auth_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/docker/go-connections/nat"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 
 	"mud-platform-backend/internal/auth"
 	"mud-platform-backend/internal/testutil"
@@ -16,24 +22,87 @@ import (
 // RepositoryIntegrationSuite tests the PostgresRepository with a real database
 type RepositoryIntegrationSuite struct {
 	suite.Suite
-	db   *sql.DB
-	repo *auth.PostgresRepository
+	db        *sql.DB
+	repo      *auth.PostgresRepository
+	container testcontainers.Container
 }
 
 // SetupSuite runs once before all tests
 func (s *RepositoryIntegrationSuite) SetupSuite() {
-	s.db = testutil.SetupTestDB(s.T())
-	testutil.RunMigrations(s.T(), s.db)
+	ctx := context.Background()
+	req := testcontainers.ContainerRequest{
+		Image:        "postgis/postgis:15-3.3",
+		ExposedPorts: []string{"5432/tcp"},
+		Env: map[string]string{
+			"POSTGRES_USER":     "test",
+			"POSTGRES_PASSWORD": "test",
+			"POSTGRES_DB":       "testdb",
+		},
+		WaitingFor: wait.ForSQL("5432/tcp", "postgres", func(host string, port nat.Port) string {
+			return fmt.Sprintf("postgres://test:test@%s:%s/testdb?sslmode=disable", host, port.Port())
+		}).WithStartupTimeout(60 * time.Second),
+	}
+
+	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
+	if err != nil {
+		s.T().Skipf("Skipping integration test: %v", err)
+		return
+	}
+	s.container = container
+
+	host, _ := container.Host(ctx)
+	port, _ := container.MappedPort(ctx, "5432")
+
+	dbURL := fmt.Sprintf("postgres://test:test@%s:%s/testdb?sslmode=disable", host, port.Port())
+	s.db, err = sql.Open("postgres", dbURL)
+	s.Require().NoError(err)
+
+	err = s.db.Ping()
+	s.Require().NoError(err, "Failed to ping database")
+
+	// Enable PostGIS
+	_, err = s.db.Exec("CREATE EXTENSION IF NOT EXISTS postgis")
+	s.Require().NoError(err, "Failed to enable PostGIS")
+
+	s.runMigrations()
 	s.repo = auth.NewPostgresRepository(s.db)
+}
+
+func (s *RepositoryIntegrationSuite) runMigrations() {
+	migrationsDir := "../../migrations/postgres"
+
+	files := []string{
+		"000001_create_worlds_table.up.sql",
+		"000013_create_auth_tables.up.sql",
+		"000015_add_character_role_and_appearance.up.sql",
+		"000016_add_character_description_occupation.up.sql",
+	}
+
+	for _, file := range files {
+		path := filepath.Join(migrationsDir, file)
+		content, err := os.ReadFile(path)
+		s.Require().NoError(err, "Failed to read migration %s", file)
+		_, err = s.db.Exec(string(content))
+		s.Require().NoError(err, "Failed to execute migration %s", file)
+	}
 }
 
 // TearDownSuite runs once after all tests
 func (s *RepositoryIntegrationSuite) TearDownSuite() {
-	testutil.CloseDB(s.T(), s.db)
+	if s.container != nil {
+		s.container.Terminate(context.Background())
+	}
 }
 
 // SetupTest runs before each test
 func (s *RepositoryIntegrationSuite) SetupTest() {
+	if s.db == nil {
+		s.T().Skip("Database not initialized")
+	}
+	// Truncate tables
 	testutil.TruncateTables(s.T(), s.db)
 }
 

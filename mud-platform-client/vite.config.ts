@@ -60,10 +60,21 @@ export default defineConfig({
                         options: {
                             cacheName: 'static-resources'
                         }
+                    },
+                    {
+                        urlPattern: /\.(?:woff|woff2|ttf|eot)$/,
+                        handler: 'CacheFirst',
+                        options: {
+                            cacheName: 'font-cache',
+                            expiration: {
+                                maxEntries: 50,
+                                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+                            }
+                        }
                     }
                 ],
                 // Don't cache WebSocket connections
-                navigateFallback: null,
+                navigateFallback: '/offline.html',
                 cleanupOutdatedCaches: true
             },
             devOptions: {
