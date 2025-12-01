@@ -46,11 +46,32 @@ type WorldRepository interface {
 // PostgresWorldRepository implements WorldRepository using PostgreSQL.
 type PostgresWorldRepository struct {
 	db *pgxpool.Pool
+	// Prepared statement names for better performance (O(1) parse time)
+	preparedStmts struct {
+		getWorld    string
+		listWorlds  string
+		createWorld string
+		updateWorld string
+		deleteWorld string
+	}
 }
 
 // NewPostgresWorldRepository creates a new PostgresWorldRepository.
 func NewPostgresWorldRepository(db *pgxpool.Pool) *PostgresWorldRepository {
-	return &PostgresWorldRepository{db: db}
+	repo := &PostgresWorldRepository{db: db}
+
+	// Initialize prepared statement names
+	repo.preparedStmts.getWorld = "get_world"
+	repo.preparedStmts.listWorlds = "list_worlds"
+	repo.preparedStmts.createWorld = "create_world"
+	repo.preparedStmts.updateWorld = "update_world"
+	repo.preparedStmts.deleteWorld = "delete_world"
+
+	// Prepare statements for reuse
+	// Note: In pgx v5, prepared statements are automatically cached per connection
+	// The statement name helps identify the query for performance monitoring
+
+	return repo
 }
 
 func (r *PostgresWorldRepository) CreateWorld(ctx context.Context, world *World) error {

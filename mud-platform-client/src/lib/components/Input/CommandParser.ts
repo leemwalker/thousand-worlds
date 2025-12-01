@@ -1,12 +1,17 @@
-export type ActionType = 'move' | 'look' | 'take' | 'drop' | 'attack' | 'talk' | 'inventory' | 'craft' | 'use' | 'unknown';
+export type ActionType =
+    | 'north' | 'northeast' | 'east' | 'southeast' | 'south' | 'southwest' | 'west' | 'northwest' | 'up' | 'down'
+    | 'open' | 'enter' | 'look' | 'say' | 'whisper' | 'tell' | 'who'
+    | 'take' | 'drop' | 'attack' | 'talk' | 'inventory' | 'craft' | 'use' | 'unknown';
 export type Direction = 'N' | 'S' | 'E' | 'W' | 'NE' | 'NW' | 'SE' | 'SW' | 'UP' | 'DOWN';
 
 export interface ParsedCommand {
     action: ActionType;
     target?: string;
-    direction?: Direction;
+    // direction?: Direction; // Deprecated
     quantity?: number;
     items?: string[];
+    message?: string;
+    recipient?: string;
     raw: string;
     confidence: number; // 0.0 to 1.0
 }
@@ -24,12 +29,27 @@ export class CommandParser {
     constructor(context: ParserContext = {}) {
         this.contextMemory = context;
         this.commandAliases = new Map([
+            ['north', ['n']],
+            ['northeast', ['ne']],
+            ['east', ['e']],
+            ['southeast', ['se']],
+            ['south', ['s']],
+            ['southwest', ['sw']],
+            ['west', ['w']],
+            ['northwest', ['nw']],
+            ['up', ['u']],
+            ['down', ['d', 'dn']],
+            ['open', []],
+            ['enter', ['go in', 'step through']],
             ['look', ['l', 'examine', 'inspect', 'view']],
-            ['move', ['go', 'walk', 'run', 'travel', 'head']],
+            ['say', ['speak']],
+            ['whisper', ['psst']],
+            ['tell', ['message', 'msg', 'pm']],
+            ['who', ['players', 'online']],
             ['take', ['get', 'grab', 'pick', 'pickup']],
             ['drop', ['release', 'discard', 'throw']],
             ['attack', ['hit', 'fight', 'strike', 'kill']],
-            ['talk', ['speak', 'chat', 'say', 'tell']],
+            ['talk', ['chat']],
             ['inventory', ['inv', 'i', 'items', 'bag']],
             ['craft', ['make', 'create', 'build', 'forge']],
             ['use', ['consume', 'activate', 'apply']],
@@ -42,23 +62,30 @@ export class CommandParser {
 
     parse(input: string): ParsedCommand {
         // Normalize input
-        const normalized = input.toLowerCase().trim();
+        const normalized = input.trim(); // Don't lowercase yet to preserve message case
 
         // Check for empty input
         if (!normalized) {
             return this.createError('Empty command');
         }
 
+        // Check for quoted speech
+        const quoted = this.parseQuotedSpeech(normalized);
+        if (quoted) return quoted;
+
+        // Lowercase for command matching
+        const lowerInput = normalized.toLowerCase();
+
         // Try exact command match first
-        const exactMatch = this.tryExactMatch(normalized);
+        const exactMatch = this.tryExactMatch(lowerInput, normalized);
         if (exactMatch) return exactMatch;
 
         // Try natural language parsing
-        const nlpMatch = this.parseNaturalLanguage(normalized);
+        const nlpMatch = this.parseNaturalLanguage(lowerInput, normalized);
         if (nlpMatch.confidence > 0.6) return nlpMatch;
 
         // Try fuzzy matching for typos
-        const fuzzyMatch = this.tryFuzzyMatch(normalized);
+        const fuzzyMatch = this.tryFuzzyMatch(lowerInput);
         if (fuzzyMatch.confidence > 0.5) return fuzzyMatch;
 
         // Unknown command
@@ -73,52 +100,67 @@ export class CommandParser {
         };
     }
 
-    private tryExactMatch(input: string): ParsedCommand | null {
-        const words = input.split(' ');
+    private parseQuotedSpeech(input: string): ParsedCommand | null {
+        if (input.startsWith('"') || input.startsWith("'")) {
+            const message = input.substring(1).trim();
+            return {
+                action: 'say',
+                message,
+                raw: input,
+                confidence: 1.0
+            };
+        }
+        return null;
+    }
+
+    private tryExactMatch(lowerInput: string, originalInput: string): ParsedCommand | null {
+        const words = lowerInput.split(' ');
         const command = words[0];
         const args = words.slice(1).join(' ');
 
+        // Get original args to preserve case for messages
+        const originalWords = originalInput.split(' ');
+        const originalArgs = originalWords.slice(1).join(' ');
+
         for (const [action, aliases] of this.commandAliases) {
             if (action === command || aliases.includes(command)) {
-                // Special handling for move directions as single letters
-                if (action === 'move' && !args) {
-                    // If just "n", "s", etc.
-                    const dir = this.extractDirection(command);
-                    if (dir) {
-                        return { action: 'move', direction: dir, raw: input, confidence: 1.0 };
-                    }
-                }
-
-                return this.parseActionArgs(action as ActionType, args, input);
+                return this.parseActionArgs(action as ActionType, args, originalArgs, originalInput);
             }
-        }
-
-        // Check if input is just a direction
-        const dir = this.extractDirection(command);
-        if (dir && !args) {
-            return { action: 'move', direction: dir, raw: input, confidence: 1.0 };
         }
 
         return null;
     }
 
-    private parseActionArgs(action: ActionType, args: string, raw: string): ParsedCommand {
+    private parseActionArgs(action: ActionType, args: string, originalArgs: string, raw: string): ParsedCommand {
         const result: ParsedCommand = { action, raw, confidence: 1.0 };
 
         switch (action) {
-            case 'move':
-                result.direction = this.extractDirection(args);
+            case 'say':
+                result.message = originalArgs;
                 break;
+            case 'whisper':
+                // Format: whisper <recipient> <message>
+                const whisperParts = originalArgs.split(' ');
+                if (whisperParts.length >= 2) {
+                    result.recipient = whisperParts[0];
+                    result.message = whisperParts.slice(1).join(' ');
+                }
+                break;
+            case 'tell':
+                // Format: tell <recipient> <message>
+                const tellParts = originalArgs.split(' ');
+                if (tellParts.length >= 2) {
+                    result.recipient = tellParts[0];
+                    result.message = tellParts.slice(1).join(' ');
+                }
+                break;
+            case 'open':
+            case 'enter':
             case 'take':
             case 'craft':
-                // Use extractItemName to clean "the", "a", "an"
-                // For "pick up", the command "pick" is consumed, args is "up the sword"
-                // extractItemName removes "pick up" etc, but here we just have args.
-                // We need a helper that just cleans articles and prepositions if they are at the start.
-                result.target = this.cleanArgs(args);
-                break;
             case 'drop':
             case 'use':
+            case 'look':
                 result.target = this.cleanArgs(args);
                 break;
             case 'attack':
@@ -126,9 +168,6 @@ export class CommandParser {
                 break;
             case 'talk':
                 result.target = this.cleanArgs(args) || this.contextMemory.lastNPC;
-                break;
-            case 'look':
-                result.target = this.cleanArgs(args);
                 break;
         }
 
@@ -147,17 +186,20 @@ export class CommandParser {
         return cleaned.trim() || undefined;
     }
 
-    private parseNaturalLanguage(input: string): ParsedCommand {
-        // Movement patterns
+    private parseNaturalLanguage(input: string, originalInput: string): ParsedCommand {
+        // Movement patterns: "go north", "walk east"
         if (/go|walk|move|head|travel/.test(input)) {
-            const direction = this.extractDirection(input);
-            if (direction) {
-                return {
-                    action: 'move',
-                    direction,
-                    raw: input,
-                    confidence: 0.9,
-                };
+            for (const [action, aliases] of this.commandAliases) {
+                if (['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest', 'up', 'down'].includes(action)) {
+                    // Check if direction is in input
+                    if (input.includes(action) || aliases.some(a => input.includes(` ${a} `) || input.endsWith(` ${a}`))) {
+                        return {
+                            action: action as ActionType,
+                            raw: originalInput,
+                            confidence: 0.9,
+                        };
+                    }
+                }
             }
         }
 
@@ -167,40 +209,29 @@ export class CommandParser {
             return {
                 action: 'take',
                 target: item,
-                raw: input,
-                confidence: item ? 0.85 : 0.5,
+                raw: originalInput,
+                confidence: 0.85,
             };
         }
 
-        // Crafting: "make iron sword", "craft health potion"
-        if (/make|craft|create|forge/.test(input)) {
-            const item = this.extractItemName(input);
+        // Dropping items
+        if (/drop|throw away|discard/.test(input)) {
+            const item = input.replace(/^(drop|throw away|discard)\s+/i, '').replace(/^(the|a|an)\s+/i, '').trim();
             return {
-                action: 'craft',
+                action: 'drop',
                 target: item,
-                raw: input,
-                confidence: item ? 0.85 : 0.5,
+                raw: originalInput,
+                confidence: 0.85,
             };
         }
 
-        // Combat: "attack goblin", "fight the orc"
-        if (/attack|fight|hit|kill/.test(input)) {
-            const target = this.extractTarget(input);
-            return {
-                action: 'attack',
-                target: target || this.contextMemory.lastTarget,
-                raw: input,
-                confidence: target ? 0.85 : 0.6,
-            };
-        }
-
-        // Talking: "talk to merchant", "speak with guard"
+        // Talking
         if (/talk|speak|chat/.test(input)) {
             const target = this.extractTarget(input);
             return {
                 action: 'talk',
                 target: target || this.contextMemory.lastNPC,
-                raw: input,
+                raw: originalInput,
                 confidence: target ? 0.85 : 0.6,
             };
         }
@@ -211,36 +242,12 @@ export class CommandParser {
             return {
                 action: 'look',
                 target,
-                raw: input,
+                raw: originalInput,
                 confidence: 0.8,
             };
         }
 
-        return { action: 'unknown', raw: input, confidence: 0.0 };
-    }
-
-    private extractDirection(input: string): Direction | undefined {
-        const directionMap: Record<string, Direction> = {
-            'north': 'N', 'n': 'N', 'up': 'UP', 'u': 'UP',
-            'south': 'S', 's': 'S', 'down': 'DOWN', 'd': 'DOWN',
-            'east': 'E', 'e': 'E',
-            'west': 'W', 'w': 'W',
-            'northeast': 'NE', 'ne': 'NE',
-            'northwest': 'NW', 'nw': 'NW',
-            'southeast': 'SE', 'se': 'SE',
-            'southwest': 'SW', 'sw': 'SW',
-        };
-
-        // Check for exact matches or "go [direction]"
-        for (const [key, direction] of Object.entries(directionMap)) {
-            // Word boundary check to avoid matching "news" as "n" or "ne"
-            const regex = new RegExp(`\\b${key}\\b`, 'i');
-            if (regex.test(input)) {
-                return direction;
-            }
-        }
-
-        return undefined;
+        return { action: 'unknown', raw: originalInput, confidence: 0.0 };
     }
 
     private extractItemName(input: string): string {

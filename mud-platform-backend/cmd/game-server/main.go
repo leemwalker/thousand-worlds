@@ -116,9 +116,28 @@ func main() {
 	// Initialize game processor
 	gameProcessor := processor.NewGameProcessor()
 
-	// Create WebSocket hub
+	// Create and start the Hub
 	hub := websocket.NewHub(gameProcessor)
+	gameProcessor.SetHub(hub)
 	go hub.Run(ctx)
+
+	// Create health check handler
+	healthHandler := api.NewHealthHandler()
+
+	// Update connected users count periodically
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				count := int64(hub.GetClientCount())
+				healthHandler.SetConnectedUsers(count)
+			}
+		}
+	}()
 
 	// Initialize handlers
 	authHandler := api.NewAuthHandler(authService, sessionManager, rateLimiter)

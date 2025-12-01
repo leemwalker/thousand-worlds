@@ -1,4 +1,5 @@
 import { writable, get } from 'svelte/store';
+import { commandQueue } from './command-queue';
 
 export interface ServerMessage {
     type: string;
@@ -22,6 +23,9 @@ export class GameWebSocket {
     // Store for connection status
     public connected = writable<boolean>(false);
 
+    // Store for pending command count
+    public pendingCommands = writable<number>(0);
+
     // Message handler
     private messageHandlers: Set<(msg: ServerMessage) => void> = new Set();
 
@@ -39,6 +43,9 @@ export class GameWebSocket {
                 console.log('WebSocket connected');
                 this.connected.set(true);
                 this.reconnectAttempts = 0;
+
+                // Process any queued commands
+                this.processQueuedCommands();
             };
 
             this.ws.onmessage = (event) => {
@@ -84,6 +91,48 @@ export class GameWebSocket {
         };
 
         this.ws.send(JSON.stringify(message));
+    }
+
+    async sendCommandWithQueue(command: CommandData): Promise<void> {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            // Queue command for later
+            await commandQueue.enqueue(command);
+            await this.updatePendingCount();
+            console.log('Command queued for later sending');
+            return;
+        }
+
+        this.sendCommand(command);
+    }
+
+    private async processQueuedCommands(): Promise<void> {
+        try {
+            await commandQueue.processQueue(async (cmd) => {
+                return new Promise((resolve, reject) => {
+                    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+                        reject(new Error('WebSocket not connected'));
+                        return;
+                    }
+
+                    const message = {
+                        type: 'command',
+                        data: cmd
+                    };
+
+                    this.ws.send(JSON.stringify(message));
+                    resolve();
+                });
+            });
+
+            await this.updatePendingCount();
+        } catch (error) {
+            console.error('Error processing queued commands:', error);
+        }
+    }
+
+    private async updatePendingCount(): Promise<void> {
+        const count = await commandQueue.getPendingCount();
+        this.pendingCommands.set(count);
     }
 
     onMessage(handler: (msg: ServerMessage) => void): () => void {

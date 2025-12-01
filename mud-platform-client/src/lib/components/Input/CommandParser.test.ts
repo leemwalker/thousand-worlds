@@ -9,22 +9,34 @@ describe('CommandParser', () => {
     });
 
     describe('Exact Matching', () => {
-        it('should parse simple movement commands', () => {
-            const result = parser.parse('move north');
+        it('should parse cardinal directions', () => {
+            const directions = ['north', 'n', 'northeast', 'ne', 'east', 'e', 'southeast', 'se',
+                'south', 's', 'southwest', 'sw', 'west', 'w', 'northwest', 'nw',
+                'up', 'u', 'down', 'd'];
+
+            directions.forEach(dir => {
+                const result = parser.parse(dir);
+                expect(result.action).toBeDefined();
+                expect(result.confidence).toBe(1.0);
+            });
+        });
+
+        it('should parse open command', () => {
+            const result = parser.parse('open door');
             expect(result).toEqual({
-                action: 'move',
-                direction: 'N',
-                raw: 'move north',
+                action: 'open',
+                target: 'door',
+                raw: 'open door',
                 confidence: 1.0
             });
         });
 
-        it('should parse shorthand movement', () => {
-            const result = parser.parse('n');
+        it('should parse enter command', () => {
+            const result = parser.parse('enter portal');
             expect(result).toEqual({
-                action: 'move',
-                direction: 'N',
-                raw: 'n',
+                action: 'enter',
+                target: 'portal',
+                raw: 'enter portal',
                 confidence: 1.0
             });
         });
@@ -47,6 +59,59 @@ describe('CommandParser', () => {
                 confidence: 1.0
             });
         });
+
+        it('should parse who command', () => {
+            const result = parser.parse('who');
+            expect(result).toEqual({
+                action: 'who',
+                raw: 'who',
+                confidence: 1.0
+            });
+        });
+    });
+
+    describe('Communication', () => {
+        it('should parse say command', () => {
+            const result = parser.parse('say hello world');
+            expect(result).toEqual({
+                action: 'say',
+                message: 'hello world',
+                raw: 'say hello world',
+                confidence: 1.0
+            });
+        });
+
+        it('should parse quoted speech', () => {
+            const result = parser.parse('"hello world');
+            expect(result).toEqual({
+                action: 'say',
+                message: 'hello world',
+                raw: '"hello world',
+                confidence: 1.0
+            });
+        });
+
+        it('should parse whisper command', () => {
+            const result = parser.parse('whisper bob secret message');
+            expect(result).toEqual({
+                action: 'whisper',
+                recipient: 'bob',
+                message: 'secret message',
+                raw: 'whisper bob secret message',
+                confidence: 1.0
+            });
+        });
+
+        it('should parse tell command', () => {
+            const result = parser.parse('tell alice are you there?');
+            expect(result).toEqual({
+                action: 'tell',
+                recipient: 'alice',
+                message: 'are you there?',
+                raw: 'tell alice are you there?',
+                confidence: 1.0
+            });
+        });
     });
 
     describe('Natural Language Parsing', () => {
@@ -66,29 +131,22 @@ describe('CommandParser', () => {
                 action: 'talk',
                 target: 'merchant',
                 raw: 'talk to merchant',
-                confidence: 1.0
+                confidence: 0.85 // Slightly lower confidence for NLP
             });
         });
 
-        it('should parse "go north"', () => {
+        it('should parse "go north" as north command', () => {
             const result = parser.parse('go north');
             expect(result).toEqual({
-                action: 'move',
-                direction: 'N',
+                action: 'north',
                 raw: 'go north',
-                confidence: 1.0
+                confidence: 0.9
             });
         });
     });
 
     describe('Fuzzy Matching', () => {
         it('should fix typos in commands', () => {
-            const result = parser.parse('mvoe north');
-            expect(result.action).toBe('move');
-            expect(result.direction).toBe('N');
-        });
-
-        it('should fix typos in look', () => {
             const result = parser.parse('loko');
             expect(result.action).toBe('look');
         });

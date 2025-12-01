@@ -24,6 +24,13 @@ const (
 	maxMessageSize = 512 * 1024 // 512 KB
 )
 
+// GameClient defines the interface for a client connection
+type GameClient interface {
+	GetCharacterID() uuid.UUID
+	SendGameMessage(msgType, text string, metadata map[string]interface{})
+	SendStateUpdate(state *StateUpdateData)
+}
+
 // Client represents a WebSocket client connection
 type Client struct {
 	ID          uuid.UUID
@@ -45,6 +52,11 @@ func NewClient(hub *Hub, conn *websocket.Conn, userID, characterID uuid.UUID) *C
 		Conn:        conn,
 		Send:        make(chan []byte, 256),
 	}
+}
+
+// GetCharacterID returns the character ID associated with the client
+func (c *Client) GetCharacterID() uuid.UUID {
+	return c.CharacterID
 }
 
 // ReadPump pumps messages from the WebSocket connection to the hub

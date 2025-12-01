@@ -93,8 +93,8 @@ func TestGameWebSocket_SendCommand_Success(t *testing.T) {
 
 	// Send command
 	cmd := &Command{
-		Action:    "move",
-		Direction: "north",
+		Action:  "say",
+		Message: "hello world",
 	}
 	err = ws.SendCommand(cmd)
 	require.NoError(t, err)
@@ -102,8 +102,8 @@ func TestGameWebSocket_SendCommand_Success(t *testing.T) {
 	// Verify command was received
 	select {
 	case received := <-receivedCommand:
-		assert.Equal(t, "move", received.Action)
-		assert.Equal(t, "north", received.Direction)
+		assert.Equal(t, "say", received.Action)
+		assert.Equal(t, "hello world", received.Message)
 	case <-time.After(1 * time.Second):
 		t.Fatal("Timeout waiting for command")
 	}

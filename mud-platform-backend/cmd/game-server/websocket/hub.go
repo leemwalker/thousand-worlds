@@ -6,6 +6,8 @@ import (
 	"log"
 	"sync"
 
+	"mud-platform-backend/internal/spatial"
+
 	"github.com/google/uuid"
 )
 
@@ -19,6 +21,10 @@ type ClientMessageWrapper struct {
 type Hub struct {
 	// Registered clients by character ID
 	Clients map[uuid.UUID]*Client
+
+	// Spatial index for efficient area queries
+	// Reduces nearby player lookups from O(N) to O(k)
+	SpatialIndex *spatial.SpatialGrid
 
 	// Inbound messages from clients
 	HandleMessage chan *ClientMessageWrapper
@@ -37,18 +43,20 @@ type Hub struct {
 
 // MessageProcessor handles game logic for messages
 type MessageProcessor interface {
-	ProcessCommand(ctx context.Context, client *Client, cmd *CommandData) error
+	ProcessCommand(ctx context.Context, client GameClient, cmd *CommandData) error
 }
 
 // NewHub creates a new WebSocket hub
 func NewHub(processor MessageProcessor) *Hub {
-	return &Hub{
+	hub := &Hub{
 		Clients:       make(map[uuid.UUID]*Client),
+		SpatialIndex:  spatial.NewSpatialGrid(100.0), // 100m cells
 		HandleMessage: make(chan *ClientMessageWrapper, 256),
 		Register:      make(chan *Client),
 		Unregister:    make(chan *Client),
 		Processor:     processor,
 	}
+	return hub
 }
 
 // Run starts the hub's main loop
@@ -61,6 +69,9 @@ func (h *Hub) Run(ctx context.Context) {
 		case client := <-h.Register:
 			h.mu.Lock()
 			h.Clients[client.CharacterID] = client
+			// Add to spatial index with default position (0, 0)
+			// Position will be updated when character moves
+			h.SpatialIndex.Insert(client.CharacterID, spatial.Position{X: 0, Y: 0})
 			h.mu.Unlock()
 			log.Printf("Client registered: %s (character: %s)", client.ID, client.CharacterID)
 
@@ -68,6 +79,8 @@ func (h *Hub) Run(ctx context.Context) {
 			h.mu.Lock()
 			if _, ok := h.Clients[client.CharacterID]; ok {
 				delete(h.Clients, client.CharacterID)
+				// Remove from spatial index
+				h.SpatialIndex.Remove(client.CharacterID)
 				close(client.Send)
 			}
 			h.mu.Unlock()
@@ -130,4 +143,83 @@ func (h *Hub) GetClientByCharacter(characterID uuid.UUID) (*Client, bool) {
 	defer h.mu.RUnlock()
 	client, ok := h.Clients[characterID]
 	return client, ok
+}
+
+// UpdateCharacterPosition updates a character's position in the spatial index
+// This should be called whenever a character moves
+func (h *Hub) UpdateCharacterPosition(characterID uuid.UUID, x, y float64) {
+	h.SpatialIndex.Insert(characterID, spatial.Position{X: x, Y: y})
+}
+
+// BroadcastToArea sends a message to all clients within a radius
+// Performance: O(k/W) where k = clients in area, W = worker count
+// Uses concurrent workers for parallel message sending
+func (h *Hub) BroadcastToArea(center spatial.Position, radius float64, msgType string, data interface{}) {
+	// Query spatial index for nearby entities (O(k))
+	entityIDs := h.SpatialIndex.QueryRadius(center, radius)
+
+	h.mu.RLock()
+	// Build list of clients to notify
+	clients := make([]*Client, 0, len(entityIDs))
+	for _, entityID := range entityIDs {
+		if client, ok := h.Clients[entityID]; ok {
+			clients = append(clients, client)
+		}
+	}
+	h.mu.RUnlock()
+
+	if len(clients) == 0 {
+		return
+	}
+
+	// Use concurrent workers for large broadcasts
+	const workerThreshold = 10
+	if len(clients) < workerThreshold {
+		// Small broadcast - send serially (avoid goroutine overhead)
+		for _, client := range clients {
+			client.SendMessage(msgType, data)
+		}
+		return
+	}
+
+	// Large broadcast - use worker pool for parallelization
+	h.broadcastConcurrent(clients, msgType, data)
+}
+
+// broadcastConcurrent sends messages to clients using a worker pool
+// Parallelizes message sending to reduce total broadcast time
+func (h *Hub) broadcastConcurrent(clients []*Client, msgType string, data interface{}) {
+	const numWorkers = 4 // Tune based on CPU cores
+
+	// Create job channel
+	jobs := make(chan *Client, len(clients))
+	var wg sync.WaitGroup
+
+	// Start workers
+	for w := 0; w < numWorkers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for client := range jobs {
+				client.SendMessage(msgType, data)
+			}
+		}()
+	}
+
+	// Distribute jobs to workers
+	for _, client := range clients {
+		jobs <- client
+	}
+	close(jobs)
+
+	// Wait for all workers to complete
+	wg.Wait()
+}
+
+// GetClientCount returns the current number of connected clients
+// Thread-safe method for health checks and metrics
+func (h *Hub) GetClientCount() int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return len(h.Clients)
 }

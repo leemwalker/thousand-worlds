@@ -23,7 +23,8 @@ type GameWebSocket struct {
 type Command struct {
 	Action    string `json:"action"`
 	Target    string `json:"target,omitempty"`
-	Direction string `json:"direction,omitempty"`
+	Message   string `json:"message,omitempty"`
+	Recipient string `json:"recipient,omitempty"`
 	Quantity  int    `json:"quantity,omitempty"`
 }
 

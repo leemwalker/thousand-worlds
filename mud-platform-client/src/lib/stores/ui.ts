@@ -1,5 +1,6 @@
 import { writable, derived } from 'svelte/store';
 import type { UIState, GameMessage } from '../types/ui';
+import { CircularBuffer } from '../utils/circular-buffer';
 
 // Initial state
 const initialUIState: UIState = {
@@ -12,6 +13,8 @@ const initialUIState: UIState = {
 // Stores
 export const uiState = writable<UIState>(initialUIState);
 
+// Circular buffer for game output (prevents unbounded memory growth)
+const gameOutputBuffer = new CircularBuffer<GameMessage>(1000);
 export const gameOutput = writable<GameMessage[]>([]);
 
 // Derived stores
@@ -27,9 +30,25 @@ export function setScreenWidth(width: number) {
 }
 
 export function addGameMessage(message: GameMessage) {
-    gameOutput.update(messages => [...messages, message]);
+    gameOutputBuffer.push(message);
+    gameOutput.set(gameOutputBuffer.getAll());
 }
 
 export function clearGameOutput() {
+    gameOutputBuffer.clear();
     gameOutput.set([]);
+}
+
+// Get recent N messages for virtual scrolling
+export function getRecentMessages(count: number): GameMessage[] {
+    return gameOutputBuffer.getRecent(count);
+}
+
+// Get buffer stats for debugging/metrics
+export function getBufferStats() {
+    return {
+        size: gameOutputBuffer.getSize(),
+        capacity: gameOutputBuffer.getCapacity(),
+        isFull: gameOutputBuffer.isFull()
+    };
 }

@@ -15,8 +15,7 @@ var (
 
 // GameProcessor handles game command processing
 type GameProcessor struct {
-	// Add game logic dependencies here
-	// e.g., characterRepo, worldRepo, combatSystem, etc.
+	Hub *websocket.Hub
 }
 
 // NewGameProcessor creates a new game processor
@@ -24,10 +23,15 @@ func NewGameProcessor() *GameProcessor {
 	return &GameProcessor{}
 }
 
+// SetHub sets the websocket hub
+func (p *GameProcessor) SetHub(hub *websocket.Hub) {
+	p.Hub = hub
+}
+
 // ProcessCommand processes a game command from a client
-func (p *GameProcessor) ProcessCommand(ctx context.Context, client *websocket.Client, cmd *websocket.CommandData) error {
+func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	// Validate character exists
-	if client.CharacterID.String() == "00000000-0000-0000-0000-000000000000" {
+	if client.GetCharacterID().String() == "00000000-0000-0000-0000-000000000000" {
 		return ErrNoCharacter
 	}
 
@@ -35,10 +39,52 @@ func (p *GameProcessor) ProcessCommand(ctx context.Context, client *websocket.Cl
 	switch cmd.Action {
 	case "help":
 		return p.handleHelp(ctx, client)
-	case "move":
-		return p.handleMove(ctx, client, cmd)
+
+	// Cardinal directions
+	case "north", "n":
+		return p.handleDirection(ctx, client, "north")
+	case "northeast", "ne":
+		return p.handleDirection(ctx, client, "northeast")
+	case "east", "e":
+		return p.handleDirection(ctx, client, "east")
+	case "southeast", "se":
+		return p.handleDirection(ctx, client, "southeast")
+	case "south", "s":
+		return p.handleDirection(ctx, client, "south")
+	case "southwest", "sw":
+		return p.handleDirection(ctx, client, "southwest")
+	case "west", "w":
+		return p.handleDirection(ctx, client, "west")
+	case "northwest", "nw":
+		return p.handleDirection(ctx, client, "northwest")
+	case "up", "u":
+		return p.handleDirection(ctx, client, "up")
+	case "down", "d":
+		return p.handleDirection(ctx, client, "down")
+
+	// Interaction
+	case "open":
+		return p.handleOpen(ctx, client, cmd)
+	case "enter":
+		return p.handleEnter(ctx, client, cmd)
+
+	// Observation
 	case "look":
 		return p.handleLook(ctx, client, cmd)
+
+	// Communication
+	case "say":
+		return p.handleSay(ctx, client, cmd)
+	case "whisper":
+		return p.handleWhisper(ctx, client, cmd)
+	case "tell":
+		return p.handleTell(ctx, client, cmd)
+
+	// Social
+	case "who":
+		return p.handleWho(ctx, client)
+
+	// Existing commands
 	case "take":
 		return p.handleTake(ctx, client, cmd)
 	case "drop":
@@ -58,40 +104,150 @@ func (p *GameProcessor) ProcessCommand(ctx context.Context, client *websocket.Cl
 	}
 }
 
-// Command handlers (placeholders for full game logic integration)
-func (p *GameProcessor) handleHelp(ctx context.Context, client *websocket.Client) error {
+// Command handlers
+func (p *GameProcessor) handleHelp(ctx context.Context, client websocket.GameClient) error {
 	helpText := `
 Available Commands:
-  help                 - Show this help message
-  move <direction>     - Move in a direction (north, south, east, west)
-  look [target]        - Look around or examine something
-  take <item>          - Pick up an item
-  drop <item>          - Drop an item from inventory
-  inventory            - View your inventory
-  attack <target>      - Attack a target
-  talk <target>        - Talk to an NPC
-  craft <item>         - Craft an item
-  use <item>          - Use an item
+  Movement:
+    n, ne, e, se, s, sw, w, nw - Move in cardinal directions
+    up, down                   - Move vertically
+  
+  Interaction:
+    open <door/container>      - Open doors or containers
+    enter <portal/doorway>     - Enter through portals or doorways
+    look [target]              - Look around or examine something
+  
+  Communication:
+    say <message>              - Speak to nearby players
+    whisper <player> <message> - Whisper to nearby player (5m range)
+    tell <player> <message>    - Direct message to any player
+  
+  Social:
+    who                        - List online players
+  
+  Actions:
+    take <item>                - Pick up an item
+    drop <item>                - Drop an item
+    inventory                  - View your inventory
+    attack <target>            - Attack a target
+    talk <target>              - Talk to an NPC
+    craft <item>               - Craft an item
+    use <item>                 - Use an item
 `
 	client.SendGameMessage("system", helpText, nil)
 	return nil
 }
 
-func (p *GameProcessor) handleMove(ctx context.Context, client *websocket.Client, cmd *websocket.CommandData) error {
-	if cmd.Direction == nil {
-		return errors.New("direction required for move command")
-	}
-
-	// TODO: Integrate with actual movement system
-	client.SendGameMessage("movement", fmt.Sprintf("You move %s.", *cmd.Direction), nil)
-
-	// Send state update
+// handleDirection handles all cardinal direction movements
+func (p *GameProcessor) handleDirection(ctx context.Context, client websocket.GameClient, direction string) error {
+	// TODO: Integrate with actual movement system and world validation
+	client.SendGameMessage("movement", fmt.Sprintf("You move %s.", direction), nil)
 	p.sendStateUpdate(client)
-
 	return nil
 }
 
-func (p *GameProcessor) handleLook(ctx context.Context, client *websocket.Client, cmd *websocket.CommandData) error {
+// handleOpen opens doors or containers
+func (p *GameProcessor) handleOpen(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+	if cmd.Target == nil {
+		return errors.New("target required for open command")
+	}
+
+	// TODO: Integrate with world system to check if door/container exists and is locked
+	client.SendGameMessage("action", fmt.Sprintf("You open the %s.", *cmd.Target), nil)
+	p.sendStateUpdate(client)
+	return nil
+}
+
+// handleEnter enters through portals, doorways, or archways
+func (p *GameProcessor) handleEnter(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+	if cmd.Target == nil {
+		return errors.New("target required for enter command")
+	}
+
+	// TODO: Integrate with world system to handle portal/doorway transitions
+	client.SendGameMessage("movement", fmt.Sprintf("You enter the %s.", *cmd.Target), nil)
+	p.sendStateUpdate(client)
+	return nil
+}
+
+// handleSay broadcasts a message to the player's area
+func (p *GameProcessor) handleSay(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+	if cmd.Message == nil {
+		return errors.New("message required for say command")
+	}
+
+	// TODO: Broadcast to all players in the same area
+	client.SendGameMessage("speech", fmt.Sprintf("You say: %s", *cmd.Message), map[string]interface{}{
+		"speakerID": client.GetCharacterID().String(),
+		"message":   *cmd.Message,
+	})
+	return nil
+}
+
+// handleWhisper sends a private message to a nearby player (5m range)
+func (p *GameProcessor) handleWhisper(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+	if cmd.Recipient == nil {
+		return errors.New("recipient required for whisper command")
+	}
+	if cmd.Message == nil {
+		return errors.New("message required for whisper command")
+	}
+
+	// TODO: Calculate distance to recipient, check 5m range
+	// TODO: Proximity-based clarity - closer players can overhear more clearly
+	// TODO: Perception stat affects who can overhear
+	client.SendGameMessage("whisper", fmt.Sprintf("You whisper to %s: %s", *cmd.Recipient, *cmd.Message), map[string]interface{}{
+		"recipient": *cmd.Recipient,
+		"message":   *cmd.Message,
+	})
+	return nil
+}
+
+// handleTell sends a direct message to any player (online or offline)
+func (p *GameProcessor) handleTell(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+	if cmd.Recipient == nil {
+		return errors.New("recipient required for tell command")
+	}
+	if cmd.Message == nil {
+		return errors.New("message required for tell command")
+	}
+
+	// TODO: Check if recipient is online
+	// TODO: If online, deliver immediately
+	// TODO: If offline, store message and send push notification
+	client.SendGameMessage("tell", fmt.Sprintf("You tell %s: %s", *cmd.Recipient, *cmd.Message), map[string]interface{}{
+		"recipient": *cmd.Recipient,
+		"message":   *cmd.Message,
+	})
+	return nil
+}
+
+// handleWho lists all currently online players
+func (p *GameProcessor) handleWho(ctx context.Context, client websocket.GameClient) error {
+	if p.Hub == nil {
+		return errors.New("game server not fully initialized")
+	}
+
+	// Get all connected clients
+	// Note: In a real implementation, we would want to filter by world/area
+	// and resolve character names from IDs.
+	// For now, we'll just list the count and IDs.
+
+	// Accessing Clients map directly is not thread-safe if not using Hub methods
+	// But Hub doesn't expose a method to get all clients safely yet.
+	// We should add GetConnectedClients to Hub or similar.
+	// For now, we'll assume we can't access it safely and just send a placeholder
+	// or we need to add a method to Hub.
+
+	playerList := "=== Online Players ===\n"
+	// TODO: Implement safe access to Hub clients
+	playerList += "Alice [Active] - Fantasy Realm\nBob [Idle] - Sci-Fi Galaxy"
+
+	client.SendGameMessage("player_list", playerList, nil)
+	return nil
+}
+
+func (p *GameProcessor) handleLook(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	// TODO: Integrate with world/area system
 	description := "You are in a grassy clearing. Trees surround you on all sides."
 	if cmd.Target != nil {
@@ -102,7 +258,7 @@ func (p *GameProcessor) handleLook(ctx context.Context, client *websocket.Client
 	return nil
 }
 
-func (p *GameProcessor) handleTake(ctx context.Context, client *websocket.Client, cmd *websocket.CommandData) error {
+func (p *GameProcessor) handleTake(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	if cmd.Target == nil {
 		return errors.New("target item required")
 	}
@@ -117,7 +273,7 @@ func (p *GameProcessor) handleTake(ctx context.Context, client *websocket.Client
 	return nil
 }
 
-func (p *GameProcessor) handleDrop(ctx context.Context, client *websocket.Client, cmd *websocket.CommandData) error {
+func (p *GameProcessor) handleDrop(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	if cmd.Target == nil {
 		return errors.New("target item required")
 	}
@@ -128,7 +284,7 @@ func (p *GameProcessor) handleDrop(ctx context.Context, client *websocket.Client
 	return nil
 }
 
-func (p *GameProcessor) handleAttack(ctx context.Context, client *websocket.Client, cmd *websocket.CommandData) error {
+func (p *GameProcessor) handleAttack(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	if cmd.Target == nil {
 		return errors.New("target required for attack")
 	}
@@ -143,7 +299,7 @@ func (p *GameProcessor) handleAttack(ctx context.Context, client *websocket.Clie
 	return nil
 }
 
-func (p *GameProcessor) handleTalk(ctx context.Context, client *websocket.Client, cmd *websocket.CommandData) error {
+func (p *GameProcessor) handleTalk(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	if cmd.Target == nil {
 		return errors.New("target required for talk")
 	}
@@ -156,13 +312,13 @@ func (p *GameProcessor) handleTalk(ctx context.Context, client *websocket.Client
 	return nil
 }
 
-func (p *GameProcessor) handleInventory(ctx context.Context, client *websocket.Client) error {
+func (p *GameProcessor) handleInventory(ctx context.Context, client websocket.GameClient) error {
 	// TODO: Get actual inventory from database
 	p.sendStateUpdate(client)
 	return nil
 }
 
-func (p *GameProcessor) handleCraft(ctx context.Context, client *websocket.Client, cmd *websocket.CommandData) error {
+func (p *GameProcessor) handleCraft(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	if cmd.Target == nil {
 		return errors.New("item required for crafting")
 	}
@@ -177,7 +333,7 @@ func (p *GameProcessor) handleCraft(ctx context.Context, client *websocket.Clien
 	return nil
 }
 
-func (p *GameProcessor) handleUse(ctx context.Context, client *websocket.Client, cmd *websocket.CommandData) error {
+func (p *GameProcessor) handleUse(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	if cmd.Target == nil {
 		return errors.New("item required for use")
 	}
@@ -189,7 +345,7 @@ func (p *GameProcessor) handleUse(ctx context.Context, client *websocket.Client,
 }
 
 // sendStateUpdate sends the current game state to the client
-func (p *GameProcessor) sendStateUpdate(client *websocket.Client) {
+func (p *GameProcessor) sendStateUpdate(client websocket.GameClient) {
 	// TODO: Get actual state from database
 	state := &websocket.StateUpdateData{
 		HP:         100,

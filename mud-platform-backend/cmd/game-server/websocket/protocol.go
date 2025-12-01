@@ -25,8 +25,9 @@ type ClientMessage struct {
 type CommandData struct {
 	Action    string  `json:"action"`
 	Target    *string `json:"target,omitempty"`
-	Direction *string `json:"direction,omitempty"`
 	Quantity  *int    `json:"quantity,omitempty"`
+	Message   *string `json:"message,omitempty"`   // For say, whisper, tell commands
+	Recipient *string `json:"recipient,omitempty"` // For whisper, tell commands
 }
 
 // ServerMessage represents a message from server to client
