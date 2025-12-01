@@ -16,7 +16,7 @@ type LLMClient interface {
 // InterviewService manages the interview process
 type InterviewService struct {
 	client    LLMClient
-	repo      *Repository
+	repo      RepositoryInterface
 	extractor *ExtractionService
 	sessions  map[uuid.UUID]*InterviewSession // In-memory fallback for tests
 }
@@ -32,7 +32,7 @@ func NewService(client LLMClient) *InterviewService {
 }
 
 // NewServiceWithRepository creates a new service with repository support
-func NewServiceWithRepository(client LLMClient, repo *Repository) *InterviewService {
+func NewServiceWithRepository(client LLMClient, repo RepositoryInterface) *InterviewService {
 	return &InterviewService{
 		client:    client,
 		repo:      repo,

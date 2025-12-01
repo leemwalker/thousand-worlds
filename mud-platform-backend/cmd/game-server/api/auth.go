@@ -125,8 +125,17 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 // GetMe returns the current authenticated user
 func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	userID := getUserIDFromContext(r.Context())
+	
+	// Get user from database to return full details
+	user, err := h.authService.GetUserByID(r.Context(), userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to retrieve user")
+		return
+	}
+	
 	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"user_id": userID,
+		"user_id": user.UserID,
+		"email":   user.Email,
 	})
 }
 

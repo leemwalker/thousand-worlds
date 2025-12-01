@@ -164,7 +164,7 @@ func TestNPCPreview_HasValidDNAEncoding(t *testing.T) {
 	// Verify DNA encoding is valid JSON
 	for _, npc := range options.AvailableNPCs {
 		assert.NotEmpty(t, npc.DNA)
-		// DNA should be valid JSON (would fail if we tried to unmarshal, but we know it's valid based on generation)
-		assert.Contains(t, npc.DNA, "Genes", "DNA should contain Genes field")
+		// DNA should be valid JSON (lowercase "genes" due to struct tags)
+		assert.Contains(t, npc.DNA, "genes", "DNA should contain genes field")
 	}
 }

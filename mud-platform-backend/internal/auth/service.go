@@ -102,6 +102,11 @@ func (s *Service) Login(ctx context.Context, email, password string) (string, *U
 	return token, user, nil
 }
 
+// GetUserByID retrieves a user by their ID
+func (s *Service) GetUserByID(ctx context.Context, userID uuid.UUID) (*User, error) {
+	return s.repo.GetUserByID(ctx, userID)
+}
+
 // GenerateToken creates a new JWT token
 func (s *Service) GenerateToken(userID, characterID uuid.UUID) (string, error) {
 	claims := &Claims{
