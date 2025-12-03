@@ -4,7 +4,7 @@ package interview
 var AllTopics = []Topic{
 	// Core Concept
 	{Category: CategoryTheme, Name: "Core Concept", Description: "Describe the world's theme, tone, and key inspirations in one sentence."},
-	
+
 	// Sentient Life
 	{Category: CategoryCulture, Name: "Sentient Species", Description: "Who are the sentient people of this world? (Humans, Elves, Aliens, Robots, etc.)"},
 
@@ -16,6 +16,9 @@ var AllTopics = []Topic{
 
 	// Conflict
 	{Category: CategoryTheme, Name: "Conflict", Description: "What is the central conflict or tension driving events in this world?"},
+
+	// World Name (Final Question)
+	{Category: CategoryTheme, Name: "World Name", Description: "What should this world be called? Generate 2 creative, unique name suggestions based on the world's theme, tone, and characteristics."},
 }
 
 // GetTopicsByCategory returns topics filtered by category

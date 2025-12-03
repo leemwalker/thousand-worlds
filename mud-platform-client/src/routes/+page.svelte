@@ -5,6 +5,7 @@
   import { gameWebSocket } from "$lib/services/websocket";
 
   let email = "";
+  let username = "";
   let password = "";
   let isLogin = true;
   let error = "";
@@ -46,7 +47,7 @@
         goto("/game");
       } else {
         // Register
-        await gameAPI.register(email, password);
+        await gameAPI.register(email, username, password);
 
         // Auto-login after registration
         const response = await gameAPI.login(email, password);
@@ -55,7 +56,17 @@
       }
     } catch (err: any) {
       console.error("Form submission error:", err);
-      error = err.message || "An error occurred";
+      // Handle various error formats
+      if (typeof err === "string") {
+        error = err;
+      } else if (err.message) {
+        error = err.message;
+      } else if (err.error) {
+        error = err.error;
+      } else {
+        error = "An error occurred. Please try again.";
+      }
+
       if (err.name === "DOMException") {
         error += " (Browser validation error)";
       }
@@ -109,6 +120,28 @@
           placeholder="your@email.com"
         />
       </div>
+
+      {#if !isLogin}
+        <div>
+          <label
+            for="username"
+            class="block text-sm font-medium text-gray-300 mb-2"
+          >
+            Username
+          </label>
+          <input
+            id="username"
+            type="text"
+            bind:value={username}
+            required
+            disabled={loading}
+            minlength="3"
+            maxlength="20"
+            class="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded text-gray-100 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+            placeholder="Username"
+          />
+        </div>
+      {/if}
 
       <div>
         <label

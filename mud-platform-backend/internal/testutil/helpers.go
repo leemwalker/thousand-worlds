@@ -21,6 +21,7 @@ func CreateTestUser(t *testing.T, repo auth.Repository) *auth.User {
 	user := &auth.User{
 		UserID:    uuid.New(),
 		Email:     GenerateTestEmail(),
+		Username:  "TestUser" + uuid.New().String()[:8],
 		CreatedAt: time.Now(),
 	}
 
@@ -54,6 +55,7 @@ func CreateUserAndLogin(t *testing.T, baseURL string) (email string, token strin
 	// Register
 	registerReq := map[string]string{
 		"email":    email,
+		"username": "TestUser" + uuid.New().String()[:8],
 		"password": password,
 	}
 	registerResp := PostJSON(t, http.DefaultClient, baseURL+"/api/auth/register", registerReq)

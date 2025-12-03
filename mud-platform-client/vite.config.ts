@@ -83,6 +83,9 @@ export default defineConfig({
         })
     ],
     server: {
+        host: '0.0.0.0', // Listen on all network interfaces for mobile access
+        port: 5173,
+        strictPort: true, // Fail if port is already in use
         proxy: {
             '/api': {
                 target: 'http://localhost:8080',

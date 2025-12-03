@@ -83,6 +83,7 @@ func TestAuthHandler_Register(t *testing.T) {
 	t.Run("Successful Registration", func(t *testing.T) {
 		payload := RegisterRequest{
 			Email:    "newuser@example.com",
+			Username: "newuser",
 			Password: "Password123", // Now needs uppercase, lowercase, and digit
 		}
 		body, _ := json.Marshal(payload)
@@ -97,12 +98,14 @@ func TestAuthHandler_Register(t *testing.T) {
 		err := json.NewDecoder(w.Body).Decode(&resp)
 		assert.NoError(t, err)
 		assert.Equal(t, payload.Email, resp.Email)
+		assert.Equal(t, payload.Username, resp.Username)
 		assert.Empty(t, resp.PasswordHash) // Should not return hash
 	})
 
 	t.Run("Invalid Input", func(t *testing.T) {
 		payload := RegisterRequest{
 			Email:    "",
+			Username: "",
 			Password: "short",
 		}
 		body, _ := json.Marshal(payload)
@@ -127,7 +130,7 @@ func TestAuthHandler_Login(t *testing.T) {
 
 	// Create a user first
 	ctx := context.Background()
-	_, err := service.Register(ctx, "existing@example.com", "Password123")
+	_, err := service.Register(ctx, "existing@example.com", "existinguser", "Password123")
 	assert.NoError(t, err)
 
 	t.Run("Successful Login", func(t *testing.T) {

@@ -54,6 +54,9 @@ type WorldConfiguration struct {
 	WorldID     *uuid.UUID // Optional, set when world is generated
 	CreatedBy   uuid.UUID
 
+	// Identity
+	WorldName string
+
 	// Theme
 	Theme          string
 	Tone           string

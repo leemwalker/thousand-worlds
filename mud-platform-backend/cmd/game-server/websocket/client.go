@@ -27,6 +27,9 @@ const (
 // GameClient defines the interface for a client connection
 type GameClient interface {
 	GetCharacterID() uuid.UUID
+	GetWorldID() uuid.UUID
+	GetUserID() uuid.UUID
+	GetUsername() string
 	SendGameMessage(msgType, text string, metadata map[string]interface{})
 	SendStateUpdate(state *StateUpdateData)
 }
@@ -36,6 +39,8 @@ type Client struct {
 	ID          uuid.UUID
 	CharacterID uuid.UUID
 	UserID      uuid.UUID
+	Username    string
+	WorldID     uuid.UUID
 	Hub         *Hub
 	Conn        *websocket.Conn
 	Send        chan []byte
@@ -43,11 +48,13 @@ type Client struct {
 }
 
 // NewClient creates a new WebSocket client
-func NewClient(hub *Hub, conn *websocket.Conn, userID, characterID uuid.UUID) *Client {
+func NewClient(hub *Hub, conn *websocket.Conn, userID, characterID, worldID uuid.UUID, username string) *Client {
 	return &Client{
 		ID:          uuid.New(),
 		CharacterID: characterID,
 		UserID:      userID,
+		Username:    username,
+		WorldID:     worldID,
 		Hub:         hub,
 		Conn:        conn,
 		Send:        make(chan []byte, 256),
@@ -57,6 +64,21 @@ func NewClient(hub *Hub, conn *websocket.Conn, userID, characterID uuid.UUID) *C
 // GetCharacterID returns the character ID associated with the client
 func (c *Client) GetCharacterID() uuid.UUID {
 	return c.CharacterID
+}
+
+// GetWorldID returns the world ID associated with the client
+func (c *Client) GetWorldID() uuid.UUID {
+	return c.WorldID
+}
+
+// GetUserID returns the user ID associated with the client
+func (c *Client) GetUserID() uuid.UUID {
+	return c.UserID
+}
+
+// GetUsername returns the username associated with the client
+func (c *Client) GetUsername() string {
+	return c.Username
 }
 
 // ReadPump pumps messages from the WebSocket connection to the hub

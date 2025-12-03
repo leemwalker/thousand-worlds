@@ -49,6 +49,9 @@ func ValidateConfiguration(config *WorldConfiguration) []ValidationError {
 	// Validate species
 	errors = append(errors, validateSpecies(config)...)
 
+	// Validate world name
+	errors = append(errors, validateWorldName(config)...)
+
 	return errors
 }
 
@@ -128,11 +131,52 @@ func validateMagicLevel(config *WorldConfiguration) []ValidationError {
 func validateSpecies(config *WorldConfiguration) []ValidationError {
 	var errors []ValidationError
 
-	if config.SentientSpecies == nil || len(config.SentientSpecies) == 0 {
+	if len(config.SentientSpecies) == 0 {
 		errors = append(errors, ValidationError{
 			Field:   "SentientSpecies",
 			Message: "At least one sentient species is required",
 		})
+	}
+
+	return errors
+}
+
+// validateWorldName checks that world name is valid
+func validateWorldName(config *WorldConfiguration) []ValidationError {
+	var errors []ValidationError
+
+	name := strings.TrimSpace(config.WorldName)
+
+	// Check if name is empty
+	if name == "" {
+		errors = append(errors, ValidationError{
+			Field:   "WorldName",
+			Message: "World name is required",
+		})
+		return errors
+	}
+
+	// Check length (1-100 characters)
+	if len(name) > 100 {
+		errors = append(errors, ValidationError{
+			Field:   "WorldName",
+			Message: "World name must be 100 characters or less",
+		})
+	}
+
+	// Check valid characters (letters, numbers, spaces, hyphens, apostrophes)
+	for _, r := range name {
+		valid := (r >= 'a' && r <= 'z') ||
+			(r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') ||
+			r == ' ' || r == '-' || r == '\'' || r == '\u2019' // regular apostrophe and right single quotation mark
+		if !valid {
+			errors = append(errors, ValidationError{
+				Field:   "WorldName",
+				Message: "World name can only contain letters, numbers, spaces, hyphens, and apostrophes",
+			})
+			break
+		}
 	}
 
 	return errors

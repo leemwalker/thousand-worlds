@@ -13,6 +13,7 @@ type MockRepository struct {
 	users      map[uuid.UUID]*User
 	characters map[uuid.UUID]*Character
 	userEmails map[string]uuid.UUID // email -> userID
+	usernames  map[string]uuid.UUID // username -> userID
 	mu         sync.RWMutex
 }
 
@@ -22,6 +23,7 @@ func NewMockRepository() *MockRepository {
 		users:      make(map[uuid.UUID]*User),
 		characters: make(map[uuid.UUID]*Character),
 		userEmails: make(map[string]uuid.UUID),
+		usernames:  make(map[string]uuid.UUID),
 	}
 }
 
@@ -37,6 +39,7 @@ func (r *MockRepository) CreateUser(ctx context.Context, user *User) error {
 
 	r.users[user.UserID] = user
 	r.userEmails[user.Email] = user.UserID
+	r.usernames[user.Username] = user.UserID
 	return nil
 }
 
@@ -62,6 +65,18 @@ func (r *MockRepository) GetUserByEmail(ctx context.Context, email string) (*Use
 		return nil, nil // Not found is not an error for this method
 	}
 
+	return r.users[userID], nil
+}
+
+// GetUserByUsername retrieves a user by username
+func (r *MockRepository) GetUserByUsername(ctx context.Context, username string) (*User, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	userID, exists := r.usernames[username]
+	if !exists {
+		return nil, ErrUserNotFound
+	}
 	return r.users[userID], nil
 }
 

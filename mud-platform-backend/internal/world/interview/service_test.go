@@ -233,6 +233,9 @@ func TestCompleteInterview(t *testing.T) {
 	session, _, err := service.StartInterview(userID)
 	require.NoError(t, err)
 
+	// Add world name answer (required for validation)
+	session.State.Answers["World Name"] = "Test Fantasy World"
+
 	// Manually mark session as complete for testing
 	session.State.IsComplete = true
 	repo.UpdateInterview(session)
@@ -242,4 +245,5 @@ func TestCompleteInterview(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, config)
 	assert.Equal(t, "Fantasy", config.Theme)
+	assert.Equal(t, "Test Fantasy World", config.WorldName)
 }

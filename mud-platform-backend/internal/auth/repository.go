@@ -31,15 +31,17 @@ func NewPostgresRepository(db *sql.DB) *PostgresRepository {
 // CreateUser creates a new user in the database
 func (r *PostgresRepository) CreateUser(ctx context.Context, user *User) error {
 	query := `
-		INSERT INTO users (user_id, email, password_hash, created_at)
-		VALUES ($1, LOWER($2), $3, $4)
+		INSERT INTO users (user_id, email, username, password_hash, created_at, last_world_id)
+		VALUES ($1, LOWER($2), $3, $4, $5, $6)
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
 		user.UserID,
 		user.Email,
+		user.Username,
 		user.PasswordHash,
 		user.CreatedAt,
+		user.LastWorldID,
 	)
 
 	if err != nil {
@@ -58,7 +60,7 @@ func (r *PostgresRepository) CreateUser(ctx context.Context, user *User) error {
 // GetUserByID retrieves a user by ID
 func (r *PostgresRepository) GetUserByID(ctx context.Context, userID uuid.UUID) (*User, error) {
 	query := `
-		SELECT user_id, email, password_hash, created_at, last_login
+		SELECT user_id, email, username, password_hash, created_at, last_login, last_world_id
 		FROM users
 		WHERE user_id = $1
 	`
@@ -67,9 +69,11 @@ func (r *PostgresRepository) GetUserByID(ctx context.Context, userID uuid.UUID) 
 	err := r.db.QueryRowContext(ctx, query, userID).Scan(
 		&user.UserID,
 		&user.Email,
+		&user.Username,
 		&user.PasswordHash,
 		&user.CreatedAt,
 		&user.LastLogin,
+		&user.LastWorldID,
 	)
 
 	if err == sql.ErrNoRows {
@@ -82,7 +86,7 @@ func (r *PostgresRepository) GetUserByID(ctx context.Context, userID uuid.UUID) 
 // GetUserByEmail retrieves a user by email
 func (r *PostgresRepository) GetUserByEmail(ctx context.Context, email string) (*User, error) {
 	query := `
-		SELECT user_id, email, password_hash, created_at, last_login
+		SELECT user_id, email, username, password_hash, created_at, last_login, last_world_id
 		FROM users
 		WHERE email = LOWER($1)
 	`
@@ -91,9 +95,37 @@ func (r *PostgresRepository) GetUserByEmail(ctx context.Context, email string) (
 	err := r.db.QueryRowContext(ctx, query, email).Scan(
 		&user.UserID,
 		&user.Email,
+		&user.Username,
 		&user.PasswordHash,
 		&user.CreatedAt,
 		&user.LastLogin,
+		&user.LastWorldID,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, ErrUserNotFound
+	}
+
+	return &user, err
+}
+
+// GetUserByUsername retrieves a user by username
+func (r *PostgresRepository) GetUserByUsername(ctx context.Context, username string) (*User, error) {
+	query := `
+		SELECT user_id, email, username, password_hash, created_at, last_login, last_world_id
+		FROM users
+		WHERE username = $1
+	`
+
+	var user User
+	err := r.db.QueryRowContext(ctx, query, username).Scan(
+		&user.UserID,
+		&user.Email,
+		&user.Username,
+		&user.PasswordHash,
+		&user.CreatedAt,
+		&user.LastLogin,
+		&user.LastWorldID,
 	)
 
 	if err == sql.ErrNoRows {
@@ -107,7 +139,7 @@ func (r *PostgresRepository) GetUserByEmail(ctx context.Context, email string) (
 func (r *PostgresRepository) UpdateUser(ctx context.Context, user *User) error {
 	query := `
 		UPDATE users
-		SET email = LOWER($2), password_hash = $3, last_login = $4
+		SET email = LOWER($2), password_hash = $3, last_login = $4, last_world_id = $5
 		WHERE user_id = $1
 	`
 
@@ -116,6 +148,7 @@ func (r *PostgresRepository) UpdateUser(ctx context.Context, user *User) error {
 		user.Email,
 		user.PasswordHash,
 		user.LastLogin,
+		user.LastWorldID,
 	)
 
 	return err

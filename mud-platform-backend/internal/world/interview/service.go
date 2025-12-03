@@ -3,6 +3,7 @@ package interview
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,29 +16,32 @@ type LLMClient interface {
 
 // InterviewService manages the interview process
 type InterviewService struct {
-	client    LLMClient
-	repo      RepositoryInterface
-	extractor *ExtractionService
-	sessions  map[uuid.UUID]*InterviewSession // In-memory fallback for tests
+	client        LLMClient
+	repo          RepositoryInterface
+	extractor     *ExtractionService
+	nameGenerator *NameGenerator
+	sessions      map[uuid.UUID]*InterviewSession // In-memory fallback for tests
 }
 
 // NewService creates a new service
 func NewService(client LLMClient) *InterviewService {
 	return &InterviewService{
-		client:    client,
-		repo:      nil, // For backward compatibility with tests
-		extractor: NewExtractionService(client),
-		sessions:  make(map[uuid.UUID]*InterviewSession),
+		client:        client,
+		repo:          nil, // For backward compatibility with tests
+		extractor:     NewExtractionService(client),
+		nameGenerator: NewNameGenerator(client),
+		sessions:      make(map[uuid.UUID]*InterviewSession),
 	}
 }
 
 // NewServiceWithRepository creates a new service with repository support
 func NewServiceWithRepository(client LLMClient, repo RepositoryInterface) *InterviewService {
 	return &InterviewService{
-		client:    client,
-		repo:      repo,
-		extractor: NewExtractionService(client),
-		sessions:  make(map[uuid.UUID]*InterviewSession), // Keep for fallback
+		client:        client,
+		repo:          repo,
+		extractor:     NewExtractionService(client),
+		nameGenerator: NewNameGenerator(client),
+		sessions:      make(map[uuid.UUID]*InterviewSession), // Keep for fallback
 	}
 }
 
@@ -103,8 +107,62 @@ func (s *InterviewService) ProcessResponse(sessionID uuid.UUID, response string)
 		return "The interview is already complete.", true, nil
 	}
 
-	// 1. Save answer for current topic
+	// Get current topic
 	currentTopic := AllTopics[session.State.CurrentTopicIndex]
+
+	// Special handling for World Name topic
+	if currentTopic.Name == "World Name" && s.repo != nil {
+		// Validate the provided name
+		trimmedName := strings.TrimSpace(response)
+
+		// Check if name is empty
+		if trimmedName == "" {
+			return "Please provide a name for your world.", false, nil
+		}
+
+		// Check if name is valid using validation logic
+		tempConfig := &WorldConfiguration{WorldName: trimmedName}
+		validationErrors := validateWorldName(tempConfig)
+		if len(validationErrors) > 0 {
+			return fmt.Sprintf("That name is not valid: %s. Please provide a different name.", validationErrors[0].Message), false, nil
+		}
+
+		// Check if name is already taken
+		isTaken, err := s.repo.IsWorldNameTaken(trimmedName)
+		if err != nil {
+			return "", false, fmt.Errorf("failed to check name uniqueness: %w", err)
+		}
+
+		if isTaken {
+			// Generate new suggestions
+			names, genErr := s.nameGenerator.GenerateWorldNames(session, 2)
+			if genErr != nil || len(names) == 0 {
+				return "That name is already taken. Please choose a different name for your world.", false, nil
+			}
+
+			// Filter suggestions for uniqueness
+			uniqueNames := make([]string, 0, len(names))
+			for _, name := range names {
+				taken, _ := s.repo.IsWorldNameTaken(name)
+				if !taken {
+					uniqueNames = append(uniqueNames, name)
+					if len(uniqueNames) >= 2 {
+						break
+					}
+				}
+			}
+
+			if len(uniqueNames) >= 2 {
+				return fmt.Sprintf("That name is already taken. How about %s or %s instead?", uniqueNames[0], uniqueNames[1]), false, nil
+			} else if len(uniqueNames) == 1 {
+				return fmt.Sprintf("That name is already taken. How about %s instead?", uniqueNames[0]), false, nil
+			} else {
+				return "That name is already taken. Please choose a different name for your world.", false, nil
+			}
+		}
+	}
+
+	// 1. Save answer for current topic
 	session.State.Answers[currentTopic.Name] = response
 
 	// 2. Update history
@@ -141,6 +199,15 @@ func (s *InterviewService) ProcessResponse(sessionID uuid.UUID, response string)
 
 	// 6. Generate next question
 	prompt := BuildInterviewPrompt(session.State, nextTopic, session.History)
+
+	// Special handling for World Name topic generation
+	if nextTopic.Name == "World Name" && s.nameGenerator != nil {
+		names, err := s.nameGenerator.GenerateWorldNames(session, 2)
+		if err == nil && len(names) >= 2 {
+			prompt += fmt.Sprintf("\n\nIMPORTANT: The user is being asked to name the world. Suggest these two names: %s and %s. The question should be: \"What is this world called? Here are some suggestions, %s or %s.\"", names[0], names[1], names[0], names[1])
+		}
+	}
+
 	question, err := s.client.Generate(prompt)
 	if err != nil {
 		return "", false, err
@@ -167,6 +234,15 @@ func (s *InterviewService) ResumeInterview(sessionID uuid.UUID) (*InterviewSessi
 	// Generate next question based on current state
 	currentTopic := AllTopics[session.State.CurrentTopicIndex]
 	prompt := BuildInterviewPrompt(session.State, currentTopic, session.History)
+
+	// Special handling for World Name topic generation
+	if currentTopic.Name == "World Name" && s.nameGenerator != nil {
+		names, err := s.nameGenerator.GenerateWorldNames(session, 2)
+		if err == nil && len(names) >= 2 {
+			prompt += fmt.Sprintf("\n\nIMPORTANT: The user is being asked to name the world. Suggest these two names: %s and %s. The question should be: \"What is this world called? Here are some suggestions, %s or %s.\"", names[0], names[1], names[0], names[1])
+		}
+	}
+
 	question, err := s.client.Generate(prompt)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to generate question: %w", err)

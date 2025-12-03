@@ -11,6 +11,7 @@ import (
 	"mud-platform-backend/cmd/game-server/websocket"
 	"mud-platform-backend/internal/auth"
 	"mud-platform-backend/internal/game/processor"
+	"mud-platform-backend/internal/repository"
 	"mud-platform-backend/internal/spatial"
 
 	"github.com/alicebob/miniredis/v2"
@@ -20,6 +21,23 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// MockWorldRepository for testing
+type MockWorldRepository struct{}
+
+func (m *MockWorldRepository) CreateWorld(ctx context.Context, world *repository.World) error {
+	return nil
+}
+func (m *MockWorldRepository) GetWorld(ctx context.Context, worldID uuid.UUID) (*repository.World, error) {
+	return nil, nil
+}
+func (m *MockWorldRepository) ListWorlds(ctx context.Context) ([]repository.World, error) {
+	return nil, nil
+}
+func (m *MockWorldRepository) UpdateWorld(ctx context.Context, world *repository.World) error {
+	return nil
+}
+func (m *MockWorldRepository) DeleteWorld(ctx context.Context, worldID uuid.UUID) error { return nil }
 
 // TestComprehensiveIntegration covers critical paths:
 // 1. 1000 concurrent users
@@ -46,7 +64,10 @@ func TestComprehensiveIntegration(t *testing.T) {
 	// 2. Setup Services
 	sessionManager := auth.NewSessionManager(redisClient)
 	rateLimiter := auth.NewRateLimiter(redisClient)
-	gameProc := processor.NewGameProcessor()
+
+	authRepo := auth.NewMockRepository()
+	worldRepo := &MockWorldRepository{}
+	gameProc := processor.NewGameProcessor(authRepo, worldRepo, nil)
 	hub := websocket.NewHub(gameProc)
 	gameProc.SetHub(hub)
 

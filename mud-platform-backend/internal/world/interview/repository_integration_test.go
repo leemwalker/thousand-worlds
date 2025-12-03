@@ -77,6 +77,7 @@ func (s *RepositoryIntegrationSuite) runMigrations() {
 		"000001_create_worlds_table.up.sql",
 		"000013_create_auth_tables.up.sql",
 		"000014_create_interview_tables.up.sql",
+		"000015_add_world_name_to_configurations.up.sql",
 	}
 
 	for _, file := range files {
@@ -192,6 +193,7 @@ func (s *RepositoryIntegrationSuite) TestSaveAndGetConfiguration() {
 		ID:              uuid.New(),
 		InterviewID:     interviewID,
 		CreatedBy:       playerID,
+		WorldName:       "Test World",
 		Theme:           "Fantasy",
 		TechLevel:       "medieval",
 		PlanetSize:      "medium",

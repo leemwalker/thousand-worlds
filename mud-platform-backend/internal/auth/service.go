@@ -38,8 +38,8 @@ func NewService(config *Config, repo Repository) *Service {
 }
 
 // Register creates a new user account
-func (s *Service) Register(ctx context.Context, email, password string) (*User, error) {
-	// Check if user exists
+func (s *Service) Register(ctx context.Context, email, username, password string) (*User, error) {
+	// Check if user exists by email
 	existing, err := s.repo.GetUserByEmail(ctx, email)
 	if err == nil && existing != nil {
 		return nil, ErrUserExists
@@ -60,6 +60,7 @@ func (s *Service) Register(ctx context.Context, email, password string) (*User, 
 	user := &User{
 		UserID:       uuid.New(),
 		Email:        email,
+		Username:     username,
 		PasswordHash: hashedPassword,
 		CreatedAt:    time.Now().UTC(),
 	}

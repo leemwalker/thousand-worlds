@@ -12,6 +12,7 @@ func TestValidateConfiguration_Valid(t *testing.T) {
 		InterviewID: uuid.New(),
 		CreatedBy:   uuid.New(),
 		// Required fields
+		WorldName:       "Test World",
 		Theme:           "high fantasy",
 		TechLevel:       "medieval",
 		PlanetSize:      "Earth-sized",
@@ -34,6 +35,7 @@ func TestValidateConfiguration_MissingTheme(t *testing.T) {
 		ID:              uuid.New(),
 		InterviewID:     uuid.New(),
 		CreatedBy:       uuid.New(),
+		WorldName:       "Test World",
 		Theme:           "", // Missing
 		TechLevel:       "medieval",
 		PlanetSize:      "Earth-sized",
@@ -62,6 +64,7 @@ func TestValidateConfiguration_MissingTechLevel(t *testing.T) {
 		ID:              uuid.New(),
 		InterviewID:     uuid.New(),
 		CreatedBy:       uuid.New(),
+		WorldName:       "Test World",
 		Theme:           "sci-fi",
 		TechLevel:       "", // Missing
 		PlanetSize:      "Earth-sized",
@@ -90,6 +93,7 @@ func TestValidateConfiguration_MissingPlanetSize(t *testing.T) {
 		ID:              uuid.New(),
 		InterviewID:     uuid.New(),
 		CreatedBy:       uuid.New(),
+		WorldName:       "Test World",
 		Theme:           "fantasy",
 		TechLevel:       "medieval",
 		PlanetSize:      "", // Missing
@@ -118,6 +122,7 @@ func TestValidateConfiguration_MissingSentientSpecies(t *testing.T) {
 		ID:              uuid.New(),
 		InterviewID:     uuid.New(),
 		CreatedBy:       uuid.New(),
+		WorldName:       "Test World",
 		Theme:           "fantasy",
 		TechLevel:       "medieval",
 		PlanetSize:      "Earth-sized",
@@ -146,6 +151,7 @@ func TestValidateConfiguration_EmptySentientSpecies(t *testing.T) {
 		ID:              uuid.New(),
 		InterviewID:     uuid.New(),
 		CreatedBy:       uuid.New(),
+		WorldName:       "Test World",
 		Theme:           "fantasy",
 		TechLevel:       "medieval",
 		PlanetSize:      "Earth-sized",
@@ -202,6 +208,7 @@ func TestValidateTechLevel_Valid(t *testing.T) {
 			ID:              uuid.New(),
 			InterviewID:     uuid.New(),
 			CreatedBy:       uuid.New(),
+			WorldName:       "Test World",
 			Theme:           "fantasy",
 			TechLevel:       techLevel,
 			PlanetSize:      "Earth-sized",
@@ -222,6 +229,7 @@ func TestValidateTechLevel_Invalid(t *testing.T) {
 		ID:              uuid.New(),
 		InterviewID:     uuid.New(),
 		CreatedBy:       uuid.New(),
+		WorldName:       "Test World",
 		Theme:           "fantasy",
 		TechLevel:       "super_advanced_alien_tech", // Invalid
 		PlanetSize:      "Earth-sized",
@@ -255,6 +263,7 @@ func TestValidateMagicLevel_Valid(t *testing.T) {
 			ID:              uuid.New(),
 			InterviewID:     uuid.New(),
 			CreatedBy:       uuid.New(),
+			WorldName:       "Test World",
 			Theme:           "fantasy",
 			TechLevel:       "medieval",
 			MagicLevel:      magicLevel,
@@ -276,6 +285,7 @@ func TestValidateMagicLevel_Invalid(t *testing.T) {
 		ID:              uuid.New(),
 		InterviewID:     uuid.New(),
 		CreatedBy:       uuid.New(),
+		WorldName:       "Test World",
 		Theme:           "fantasy",
 		TechLevel:       "medieval",
 		MagicLevel:      "super_magic", // Invalid

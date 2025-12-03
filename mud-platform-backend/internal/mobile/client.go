@@ -93,9 +93,10 @@ func handleErrorResponse(resp *http.Response) error {
 }
 
 // Register creates a new user account
-func (c *Client) Register(ctx context.Context, email, password string) (*User, error) {
+func (c *Client) Register(ctx context.Context, email, username, password string) (*User, error) {
 	reqBody := map[string]string{
 		"email":    email,
+		"username": username,
 		"password": password,
 	}
 

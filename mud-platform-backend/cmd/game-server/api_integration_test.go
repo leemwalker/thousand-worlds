@@ -21,8 +21,8 @@ import (
 	"mud-platform-backend/internal/testutil"
 	"mud-platform-backend/internal/world/interview"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // APIIntegrationSuite tests the complete API integration
@@ -122,6 +122,7 @@ func (s *APIIntegrationSuite) TearDownSuite() {
 		s.pool.Close()
 	}
 }
+
 // SetupTest runs before each test
 func (s *APIIntegrationSuite) SetupTest() {
 	testutil.TruncateTables(s.T(), s.db)
@@ -149,6 +150,7 @@ func (s *APIIntegrationSuite) TestAuthRegister_Success() {
 	// Prepare request
 	registerReq := map[string]string{
 		"email":    "newuser@example.com",
+		"username": "NewUser",
 		"password": "Password123",
 	}
 
@@ -187,6 +189,7 @@ func (s *APIIntegrationSuite) TestAuthRegister_DuplicateEmail() {
 	// Create first user
 	registerReq := map[string]string{
 		"email":    "duplicate@example.com",
+		"username": "DuplicateUser",
 		"password": "Password123",
 	}
 	resp1 := testutil.PostJSON(s.T(), s.client, s.baseURL+"/api/auth/register", registerReq)
@@ -204,6 +207,7 @@ func (s *APIIntegrationSuite) TestAuthRegister_DuplicateEmail() {
 func (s *APIIntegrationSuite) TestAuthRegister_InvalidEmail() {
 	registerReq := map[string]string{
 		"email":    "not-an-email",
+		"username": "InvalidEmailUser",
 		"password": "Password123",
 	}
 	resp := testutil.PostJSON(s.T(), s.client, s.baseURL+"/api/auth/register", registerReq)
@@ -216,6 +220,7 @@ func (s *APIIntegrationSuite) TestAuthRegister_InvalidEmail() {
 func (s *APIIntegrationSuite) TestAuthRegister_WeakPassword() {
 	registerReq := map[string]string{
 		"email":    "weak@example.com",
+		"username": "WeakPassUser",
 		"password": "short",
 	}
 	resp := testutil.PostJSON(s.T(), s.client, s.baseURL+"/api/auth/register", registerReq)
@@ -232,6 +237,7 @@ func (s *APIIntegrationSuite) TestAuthLogin_Success() {
 	password := "Password123"
 	registerReq := map[string]string{
 		"email":    email,
+		"username": "LoginTestUser",
 		"password": password,
 	}
 	regResp := testutil.PostJSON(s.T(), s.client, s.baseURL+"/api/auth/register", registerReq)
@@ -259,6 +265,7 @@ func (s *APIIntegrationSuite) TestAuthLogin_InvalidCredentials() {
 	// Register user
 	registerReq := map[string]string{
 		"email":    "badpass@example.com",
+		"username": "BadPassUser",
 		"password": "Password123",
 	}
 	regResp := testutil.PostJSON(s.T(), s.client, s.baseURL+"/api/auth/register", registerReq)
@@ -396,7 +403,7 @@ func (s *APIIntegrationSuite) TestCreateCharacter_Success() {
 
 	var respData map[string]interface{}
 	testutil.DecodeJSON(s.T(), resp, &respData)
-	
+
 	// Check nested character object
 	charData, ok := respData["character"].(map[string]interface{})
 	s.True(ok, "Response should contain character object")
@@ -419,7 +426,7 @@ func (s *APIIntegrationSuite) TestCreateCharacter_WatcherMode() {
 	s.Equal(201, resp.StatusCode)
 	var respData map[string]interface{}
 	testutil.DecodeJSON(s.T(), resp, &respData)
-	
+
 	charData, ok := respData["character"].(map[string]interface{})
 	s.True(ok, "Response should contain character object")
 	s.Equal("watcher", charData["role"])
@@ -443,7 +450,7 @@ func (s *APIIntegrationSuite) TestCreateCharacter_NPCTakeover() {
 	s.Equal(201, resp.StatusCode)
 	var respData map[string]interface{}
 	testutil.DecodeJSON(s.T(), resp, &respData)
-	
+
 	charData, ok := respData["character"].(map[string]interface{})
 	s.True(ok, "Response should contain character object")
 	s.Equal("Blacksmith", charData["occupation"])
@@ -501,7 +508,7 @@ func (s *APIIntegrationSuite) TestGetCharacters_Empty() {
 	s.Equal(200, resp.StatusCode)
 	var respData map[string]interface{}
 	testutil.DecodeJSON(s.T(), resp, &respData)
-	
+
 	chars, ok := respData["characters"].([]interface{})
 	// It might be nil or empty list
 	if ok {
@@ -534,7 +541,7 @@ func (s *APIIntegrationSuite) TestGetCharacters_MultipleCharacters() {
 	s.Equal(200, resp.StatusCode)
 	var respData map[string]interface{}
 	testutil.DecodeJSON(s.T(), resp, &respData)
-	
+
 	chars, ok := respData["characters"].([]interface{})
 	s.True(ok, "Response should contain characters list")
 	s.Len(chars, 3, "Should return 3 characters")
@@ -558,7 +565,7 @@ func (s *APIIntegrationSuite) TestJoinGame_Success() {
 	var respData map[string]interface{}
 	testutil.DecodeJSON(s.T(), charResp, &respData)
 	charResp.Body.Close()
-	
+
 	charData := respData["character"].(map[string]interface{})
 
 	// Join game
@@ -626,7 +633,7 @@ func (s *APIIntegrationSuite) TestListWorlds_WithWorlds() {
 
 func (s *APIIntegrationSuite) TestGetEntryOptions_Success() {
 	_, token := testutil.CreateUserAndLogin(s.T(), s.baseURL)
-	
+
 	// Get user ID from email (helper doesn't return ID, but we can query it or just use a random one for config creator)
 	// Actually, we need the world ID.
 	worldID := testutil.CreateTestWorld(s.T(), s.db)
@@ -655,6 +662,7 @@ func (s *APIIntegrationSuite) TestGetEntryOptions_Success() {
 	query := `
 		INSERT INTO world_configurations (
 			id, interview_id, world_id, created_by,
+			world_name,
 			theme, tone, inspirations, unique_aspect, major_conflicts,
 			tech_level, magic_level, advanced_tech, magic_impact,
 			planet_size, climate_range, land_water_ratio, unique_features, extreme_environments,
@@ -663,6 +671,7 @@ func (s *APIIntegrationSuite) TestGetEntryOptions_Success() {
 			created_at
 		) VALUES (
 			$1, $2, $3, $4,
+			'Test World',
 			'Fantasy', 'Dark', '[]', 'Magic', '[]',
 			'medieval', 'high', '', 'high',
 			'medium', 'temperate', '50/50', '[]', '[]',
@@ -685,11 +694,11 @@ func (s *APIIntegrationSuite) TestGetEntryOptions_Success() {
 
 	s.True(respData["can_enter_as_watcher"].(bool))
 	s.True(respData["can_create_custom"].(bool))
-	
+
 	npcs, ok := respData["available_npcs"].([]interface{})
 	s.True(ok, "Should have available_npcs list")
 	s.NotEmpty(npcs, "Should have generated NPCs")
-	
+
 	// Check first NPC
 	npc := npcs[0].(map[string]interface{})
 	s.NotEmpty(npc["id"])

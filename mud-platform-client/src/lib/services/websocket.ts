@@ -30,17 +30,27 @@ export class GameWebSocket {
     private messageHandlers: Set<(msg: ServerMessage) => void> = new Set();
 
     connect(token: string, characterId?: string): void {
+        console.log('[WebSocket] Attempting to connect...', { token: token.substring(0, 20) + '...', characterId });
         this.token = token;
-        let wsUrl = `ws://localhost:8080/api/game/ws?token=${encodeURIComponent(token)}`;
+
+        // Use the same host that served the page, but with ws:// protocol
+        // This works for both localhost development and mobile access via LAN IP
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.hostname + ':8080'; // Backend always on 8080
+        let wsUrl = `${protocol}//${host}/api/game/ws?token=${encodeURIComponent(token)}`;
+
         if (characterId) {
             wsUrl += `&character_id=${encodeURIComponent(characterId)}`;
         }
 
+        console.log('[WebSocket] URL:', wsUrl);
+
         try {
             this.ws = new WebSocket(wsUrl);
+            console.log('[WebSocket] WebSocket object created');
 
             this.ws.onopen = () => {
-                console.log('WebSocket connected');
+                console.log('[WebSocket] Connection opened!');
                 this.connected.set(true);
                 this.reconnectAttempts = 0;
 
@@ -51,23 +61,24 @@ export class GameWebSocket {
             this.ws.onmessage = (event) => {
                 try {
                     const message: ServerMessage = JSON.parse(event.data);
+                    console.log('[WebSocket] Message received:', message);
                     this.handleMessage(message);
                 } catch (error) {
-                    console.error('Failed to parse message:', error);
+                    console.error('[WebSocket] Failed to parse message:', error);
                 }
             };
 
             this.ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
+                console.error('[WebSocket] Error:', error);
             };
 
             this.ws.onclose = () => {
-                console.log('WebSocket disconnected');
+                console.log('[WebSocket] Connection closed');
                 this.connected.set(false);
                 this.attemptReconnect();
             };
         } catch (error) {
-            console.error('Failed to connect WebSocket:', error);
+            console.error('[WebSocket] Failed to create WebSocket:', error);
         }
     }
 

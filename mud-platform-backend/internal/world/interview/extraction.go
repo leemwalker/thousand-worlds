@@ -44,6 +44,11 @@ func (e *ExtractionService) ExtractConfiguration(session *InterviewSession, play
 	config.CreatedBy = playerID
 	config.CreatedAt = time.Now()
 
+	// Extract world name from the "World Name" topic
+	if worldName, ok := session.State.Answers["World Name"]; ok {
+		config.WorldName = strings.TrimSpace(worldName)
+	}
+
 	// Derive generation parameters
 	if err := deriveGenerationParameters(config); err != nil {
 		return nil, fmt.Errorf("failed to derive generation parameters: %w", err)

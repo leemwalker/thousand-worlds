@@ -19,14 +19,16 @@ type LoginResponse struct {
 
 // ErrorResponse represents an API error response
 type ErrorResponse struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	ErrorData struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	} `json:"error"`
 }
 
 // Error implements the error interface for ErrorResponse
 func (e *ErrorResponse) Error() string {
-	if e.Message != "" {
-		return e.Message
+	if e.ErrorData.Message != "" {
+		return e.ErrorData.Message
 	}
-	return e.Code
+	return e.ErrorData.Code
 }

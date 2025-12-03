@@ -28,6 +28,7 @@ func NewAuthHandler(authService *auth.Service, sessionManager *auth.SessionManag
 // RegisterRequest represents a registration request
 type RegisterRequest struct {
 	Email    string `json:"email"`
+	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
@@ -47,7 +48,7 @@ type LoginResponse struct {
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		errors.RespondWithError(w, errors.Wrap(errors.ErrInvalidInput, 
+		errors.RespondWithError(w, errors.Wrap(errors.ErrInvalidInput,
 			"Failed to parse request body", err))
 		return
 	}
@@ -55,10 +56,11 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// Validate input using validation layer
 	validator := validation.New()
 	validationErrs := &validation.ValidationErrors{}
-	
+
 	validationErrs.Add(validator.ValidateEmail(req.Email))
+	validationErrs.Add(validator.ValidateRequired(req.Username, "username"))
 	validationErrs.Add(validator.ValidatePassword(req.Password))
-	
+
 	if validationErrs.HasErrors() {
 		errors.RespondWithError(w, errors.Wrap(errors.ErrInvalidInput,
 			validationErrs.Error(), nil))
@@ -66,7 +68,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create user
-	user, err := h.authService.Register(r.Context(), req.Email, req.Password)
+	user, err := h.authService.Register(r.Context(), req.Email, req.Username, req.Password)
 	if err != nil {
 		if err == auth.ErrUserExists {
 			errors.RespondWithError(w, errors.Wrap(errors.ErrConflict,
@@ -93,10 +95,10 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Validate input
 	validator := validation.New()
 	validationErrs := &validation.ValidationErrors{}
-	
+
 	validationErrs.Add(validator.ValidateRequired(req.Email, "email"))
 	validationErrs.Add(validator.ValidateRequired(req.Password, "password"))
-	
+
 	if validationErrs.HasErrors() {
 		errors.RespondWithError(w, errors.Wrap(errors.ErrInvalidInput,
 			validationErrs.Error(), nil))
@@ -125,14 +127,14 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 // GetMe returns the current authenticated user
 func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	userID := getUserIDFromContext(r.Context())
-	
+
 	// Get user from database to return full details
 	user, err := h.authService.GetUserByID(r.Context(), userID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to retrieve user")
 		return
 	}
-	
+
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"user_id": user.UserID,
 		"email":   user.Email,

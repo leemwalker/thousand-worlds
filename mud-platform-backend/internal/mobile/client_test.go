@@ -51,6 +51,7 @@ func TestClient_Register_Success(t *testing.T) {
 		var req map[string]string
 		json.NewDecoder(r.Body).Decode(&req)
 		assert.Equal(t, "test@example.com", req["email"])
+		assert.Equal(t, "TestUser", req["username"])
 		assert.Equal(t, "Password123", req["password"])
 
 		// Send response
@@ -64,7 +65,7 @@ func TestClient_Register_Success(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL)
-	user, err := client.Register(context.Background(), "test@example.com", "Password123")
+	user, err := client.Register(context.Background(), "test@example.com", "TestUser", "Password123")
 
 	require.NoError(t, err)
 	assert.Equal(t, "user-123", user.UserID)
@@ -76,14 +77,16 @@ func TestClient_Register_DuplicateEmail(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusConflict)
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code":    "CONFLICT",
-			"message": "User already exists",
+			"error": map[string]interface{}{
+				"code":    "CONFLICT",
+				"message": "User already exists",
+			},
 		})
 	}))
 	defer server.Close()
 
 	client := NewClient(server.URL)
-	user, err := client.Register(context.Background(), "duplicate@example.com", "Password123")
+	user, err := client.Register(context.Background(), "duplicate@example.com", "DuplicateUser", "Password123")
 
 	require.Error(t, err)
 	assert.Nil(t, user)
@@ -95,14 +98,16 @@ func TestClient_Register_InvalidEmail(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code":    "INVALID_INPUT",
-			"message": "Invalid email format",
+			"error": map[string]interface{}{
+				"code":    "INVALID_INPUT",
+				"message": "Invalid email format",
+			},
 		})
 	}))
 	defer server.Close()
 
 	client := NewClient(server.URL)
-	user, err := client.Register(context.Background(), "not-an-email", "Password123")
+	user, err := client.Register(context.Background(), "not-an-email", "InvalidEmailUser", "Password123")
 
 	require.Error(t, err)
 	assert.Nil(t, user)
@@ -114,14 +119,16 @@ func TestClient_Register_WeakPassword(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code":    "INVALID_INPUT",
-			"message": "Password must be at least 8 characters",
+			"error": map[string]interface{}{
+				"code":    "INVALID_INPUT",
+				"message": "Password must be at least 8 characters",
+			},
 		})
 	}))
 	defer server.Close()
 
 	client := NewClient(server.URL)
-	user, err := client.Register(context.Background(), "test@example.com", "short")
+	user, err := client.Register(context.Background(), "test@example.com", "WeakPassUser", "short")
 
 	require.Error(t, err)
 	assert.Nil(t, user)
@@ -161,8 +168,10 @@ func TestClient_Login_InvalidCredentials(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code":    "UNAUTHORIZED",
-			"message": "Invalid credentials",
+			"error": map[string]interface{}{
+				"code":    "UNAUTHORIZED",
+				"message": "Invalid credentials",
+			},
 		})
 	}))
 	defer server.Close()
@@ -205,8 +214,10 @@ func TestClient_GetMe_Unauthorized(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code":    "UNAUTHORIZED",
-			"message": "Invalid or expired token",
+			"error": map[string]interface{}{
+				"code":    "UNAUTHORIZED",
+				"message": "Invalid or expired token",
+			},
 		})
 	}))
 	defer server.Close()

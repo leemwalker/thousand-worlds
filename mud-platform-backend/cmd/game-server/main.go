@@ -114,8 +114,11 @@ func main() {
 		rateLimiter = auth.NewRateLimiter(redisClient)
 	}
 
+	// Initialize look service for lobby commands
+	lookService := lobby.NewLookService(authRepo, worldRepo, interviewRepo)
+
 	// Initialize game processor
-	gameProcessor := processor.NewGameProcessor()
+	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService)
 
 	// Create and start the Hub
 	hub := websocket.NewHub(gameProcessor)
@@ -140,24 +143,36 @@ func main() {
 		}
 	}()
 
+	// Initialize DescriptionGenerator
+	descGen := lobby.NewDescriptionGenerator(worldRepo, authRepo)
+
 	// Initialize handlers
 	authHandler := api.NewAuthHandler(authService, sessionManager, rateLimiter)
 	interviewHandler := api.NewInterviewHandler(interviewService)
 	sessionHandler := api.NewSessionHandler(authRepo)
 	entryHandler := api.NewEntryHandler(entryService)
 	worldHandler := api.NewWorldHandler(worldRepo)
-	wsHandler := websocket.NewHandler(hub, lobbyService)
+	wsHandler := websocket.NewHandler(hub, lobbyService, authRepo, descGen)
 
 	// Router setup
 	r := chi.NewRouter()
 
-	// Middleware
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+	// Request logging
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+
+	// Custom metrics middleware - but NOT for WebSocket (it breaks hijacking)
 	r.Use(func(next http.Handler) http.Handler {
-		return metrics.Middleware(next)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Skip metrics wrapping for WebSocket to preserve hijacker
+			if r.URL.Path == "/api/game/ws" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			metrics.Middleware(next).ServeHTTP(w, r)
+		})
 	})
 
 	// CORS configuration

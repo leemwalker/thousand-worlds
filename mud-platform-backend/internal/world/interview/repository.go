@@ -215,6 +215,7 @@ func (r *Repository) SaveConfiguration(config *WorldConfiguration) error {
 	query := `
 		INSERT INTO world_configurations (
 			id, interview_id, world_id, created_by,
+			world_name,
 			theme, tone, inspirations, unique_aspect, major_conflicts,
 			tech_level, magic_level, advanced_tech, magic_impact,
 			planet_size, climate_range, land_water_ratio, unique_features, extreme_environments,
@@ -223,17 +224,19 @@ func (r *Repository) SaveConfiguration(config *WorldConfiguration) error {
 			created_at
 		) VALUES (
 			$1, $2, $3, $4,
-			$5, $6, $7, $8, $9,
-			$10, $11, $12, $13,
-			$14, $15, $16, $17, $18,
-			$19, $20, $21, $22, $23, $24,
-			$25, $26, $27,
-			$28
+			$5,
+			$6, $7, $8, $9, $10,
+			$11, $12, $13, $14,
+			$15, $16, $17, $18, $19,
+			$20, $21, $22, $23, $24, $25,
+			$26, $27, $28,
+			$29
 		)
 	`
 
 	_, err := r.db.Exec(query,
 		config.ID, config.InterviewID, config.WorldID, config.CreatedBy,
+		config.WorldName,
 		config.Theme, config.Tone, inspirationsJSON, config.UniqueAspect, conflictsJSON,
 		config.TechLevel, config.MagicLevel, config.AdvancedTech, config.MagicImpact,
 		config.PlanetSize, config.ClimateRange, config.LandWaterRatio, featuresJSON, extremeEnvJSON,
@@ -253,6 +256,7 @@ func (r *Repository) SaveConfiguration(config *WorldConfiguration) error {
 func (r *Repository) GetConfiguration(id uuid.UUID) (*WorldConfiguration, error) {
 	query := `
 		SELECT id, interview_id, world_id, created_by,
+		       world_name,
 		       theme, tone, inspirations, unique_aspect, major_conflicts,
 		       tech_level, magic_level, advanced_tech, magic_impact,
 		       planet_size, climate_range, land_water_ratio, unique_features, extreme_environments,
@@ -270,6 +274,7 @@ func (r *Repository) GetConfiguration(id uuid.UUID) (*WorldConfiguration, error)
 func (r *Repository) GetConfigurationByInterview(interviewID uuid.UUID) (*WorldConfiguration, error) {
 	query := `
 		SELECT id, interview_id, world_id, created_by,
+		       world_name,
 		       theme, tone, inspirations, unique_aspect, major_conflicts,
 		       tech_level, magic_level, advanced_tech, magic_impact,
 		       planet_size, climate_range, land_water_ratio, unique_features, extreme_environments,
@@ -287,6 +292,7 @@ func (r *Repository) GetConfigurationByInterview(interviewID uuid.UUID) (*WorldC
 func (r *Repository) GetConfigurationByWorldID(worldID uuid.UUID) (*WorldConfiguration, error) {
 	query := `
 		SELECT id, interview_id, world_id, created_by,
+		       world_name,
 		       theme, tone, inspirations, unique_aspect, major_conflicts,
 		       tech_level, magic_level, advanced_tech, magic_impact,
 		       planet_size, climate_range, land_water_ratio, unique_features, extreme_environments,
@@ -310,6 +316,7 @@ func (r *Repository) scanConfiguration(row *sql.Row) (*WorldConfiguration, error
 
 	err := row.Scan(
 		&config.ID, &config.InterviewID, &worldID, &config.CreatedBy,
+		&config.WorldName,
 		&config.Theme, &config.Tone, &inspirationsJSON, &config.UniqueAspect, &conflictsJSON,
 		&config.TechLevel, &config.MagicLevel, &config.AdvancedTech, &config.MagicImpact,
 		&config.PlanetSize, &config.ClimateRange, &config.LandWaterRatio, &featuresJSON, &extremeEnvJSON,
@@ -372,4 +379,15 @@ func (r *Repository) SaveSession(session *InterviewSession) error {
 	return r.SaveInterview(session)
 }
 
+// IsWorldNameTaken checks if a world name already exists (case-insensitive)
+func (r *Repository) IsWorldNameTaken(name string) (bool, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM world_configurations WHERE LOWER(world_name) = LOWER($1)`
 
+	err := r.db.QueryRow(query, name).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("failed to check world name: %w", err)
+	}
+
+	return count > 0, nil
+}

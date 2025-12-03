@@ -2,6 +2,7 @@
     import { onMount, onDestroy } from "svelte";
     import { goto } from "$app/navigation";
     import { gameAPI } from "$lib/services/api";
+    import { gameWebSocket, type ServerMessage } from "$lib/services/websocket";
     import WorldEntry from "$lib/components/WorldEntry.svelte";
 
     // Onboarding state
@@ -120,13 +121,20 @@
     }
 
     async function joinLobby(token: string) {
+        console.log(
+            "[Lobby] Joining lobby with token:",
+            token.substring(0, 20) + "...",
+        );
         try {
             // Join Lobby (backend handles Ghost creation or existing character)
             // Lobby ID is 00000000-0000-0000-0000-000000000000, but we just connect without character_id to auto-join lobby
             // Wait, handler logic: if character_id is nil, join lobby.
 
+            console.log("[Lobby] Disconnecting existing WebSocket...");
             gameWebSocket.disconnect();
             await new Promise((resolve) => setTimeout(resolve, 100));
+
+            console.log("[Lobby] Connecting to WebSocket...");
             gameWebSocket.connect(token); // No character ID -> Lobby
 
             onboardingStep = "lobby";
@@ -136,8 +144,9 @@
                 "system",
                 "Type 'create world' to start a new world interview.",
             );
+            console.log("[Lobby] Lobby join complete");
         } catch (error) {
-            console.error("Failed to join lobby:", error);
+            console.error("[Lobby] Failed to join lobby:", error);
             addMessage("error", "Failed to join lobby.");
         }
     }
@@ -322,29 +331,36 @@
 
         // Lobby specific commands
         if (onboardingStep === "lobby") {
+            // Format lobby commands properly for backend
+            const command: any = { action };
+
             if (action === "create" && rest[0] === "world") {
-                const token = gameAPI.getToken();
-                if (token) startWorldInterview(token);
+                command.action = "create";
+                command.target = "world";
+                gameWebSocket.sendCommand(command);
                 commandInput = "";
                 return;
             }
-            if (action === "worlds") {
-                listWorlds();
+
+            if (action === "enter" && rest.length > 0) {
+                command.action = "enter";
+                command.target = rest[0];
+                gameWebSocket.sendCommand(command);
                 commandInput = "";
                 return;
             }
-            if (action === "enter") {
-                // enter <world_id> or enter <world_name> (if implemented)
-                // For now assume world_id or index
-                // Since we don't have easy index mapping, let's just use ID or name match
-                // Actually, let's just trigger the modal if they type 'enter' without args?
-                // Or list worlds and let them click?
-                // I'll implement 'enter <world_id>'
-                if (rest.length > 0) {
-                    enterWorld(rest[0]);
-                } else {
-                    addMessage("system", "Usage: enter <world_id>");
-                }
+
+            if (["look", "l", "who", "help"].includes(action)) {
+                command.action = action;
+                gameWebSocket.sendCommand(command);
+                commandInput = "";
+                return;
+            }
+
+            if (action === "say" && rest.length > 0) {
+                command.action = "say";
+                command.message = rest.join(" ");
+                gameWebSocket.sendCommand(command);
                 commandInput = "";
                 return;
             }
@@ -633,7 +649,17 @@
     function handleServerMessage(msg: ServerMessage) {
         switch (msg.type) {
             case "game_message":
-                addMessage(msg.data.type, msg.data.text);
+                const type = msg.data.type;
+                if (type === "trigger_entry_options") {
+                    const worldId =
+                        msg.data.metadata?.world_id || msg.data.text;
+                    enterWorld(worldId);
+                } else if (type === "start_interview") {
+                    const token = gameAPI.getToken();
+                    if (token) startWorldInterview(token);
+                } else {
+                    addMessage(type, msg.data.text);
+                }
                 break;
             case "error":
                 addMessage("error", msg.data.message);

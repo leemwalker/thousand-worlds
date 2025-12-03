@@ -10,13 +10,32 @@ import (
 	"time"
 
 	"mud-platform-backend/cmd/game-server/websocket"
+	"mud-platform-backend/internal/auth"
 	"mud-platform-backend/internal/game/processor"
+	"mud-platform-backend/internal/repository"
 	"mud-platform-backend/internal/spatial"
 
 	"github.com/google/uuid"
 	ws "github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 )
+
+// MockWorldRepository for testing
+type MockWorldRepository struct{}
+
+func (m *MockWorldRepository) CreateWorld(ctx context.Context, world *repository.World) error {
+	return nil
+}
+func (m *MockWorldRepository) GetWorld(ctx context.Context, worldID uuid.UUID) (*repository.World, error) {
+	return nil, nil
+}
+func (m *MockWorldRepository) ListWorlds(ctx context.Context) ([]repository.World, error) {
+	return nil, nil
+}
+func (m *MockWorldRepository) UpdateWorld(ctx context.Context, world *repository.World) error {
+	return nil
+}
+func (m *MockWorldRepository) DeleteWorld(ctx context.Context, worldID uuid.UUID) error { return nil }
 
 // TestHub_LoadTest_1000Clients tests Hub performance with 1000 concurrent clients
 // Verifies spatial partitioning provides O(k) area broadcast vs O(N)
@@ -29,7 +48,9 @@ func TestHub_LoadTest_1000Clients(t *testing.T) {
 	const numMessages = 10
 
 	// Create Hub with game processor
-	gameProc := processor.NewGameProcessor()
+	authRepo := auth.NewMockRepository()
+	worldRepo := &MockWorldRepository{}
+	gameProc := processor.NewGameProcessor(authRepo, worldRepo, nil)
 	hub := websocket.NewHub(gameProc)
 	gameProc.SetHub(hub)
 
@@ -181,7 +202,9 @@ func TestHub_LoadTest_1000Clients(t *testing.T) {
 
 // BenchmarkHub_BroadcastToArea benchmarks area broadcasting performance
 func BenchmarkHub_BroadcastToArea(b *testing.B) {
-	gameProc := processor.NewGameProcessor()
+	authRepo := auth.NewMockRepository()
+	worldRepo := &MockWorldRepository{}
+	gameProc := processor.NewGameProcessor(authRepo, worldRepo, nil)
 	hub := websocket.NewHub(gameProc)
 	gameProc.SetHub(hub)
 
@@ -227,7 +250,9 @@ func BenchmarkHub_BroadcastToArea(b *testing.B) {
 
 // BenchmarkHub_BroadcastToAll benchmarks full broadcast (baseline)
 func BenchmarkHub_BroadcastToAll(b *testing.B) {
-	gameProc := processor.NewGameProcessor()
+	authRepo := auth.NewMockRepository()
+	worldRepo := &MockWorldRepository{}
+	gameProc := processor.NewGameProcessor(authRepo, worldRepo, nil)
 	hub := websocket.NewHub(gameProc)
 
 	ctx, cancel := context.WithCancel(context.Background())

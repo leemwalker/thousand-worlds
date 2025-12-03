@@ -55,23 +55,23 @@ func (h *SessionHandler) CreateCharacter(w http.ResponseWriter, r *http.Request)
 	// Validate inputs using validation layer
 	validator := validation.New()
 	validationErrs := &validation.ValidationErrors{}
-	
+
 	validationErrs.Add(validator.ValidateRequired(req.Name, "name"))
 	validationErrs.Add(validator.ValidateStringLength(req.Name, "name", 1, 50))
 	validationErrs.Add(validator.ValidateUUID(req.WorldID, "world_id"))
-	
+
 	if req.Role != "" {
 		validationErrs.Add(validator.ValidateOneOf(req.Role, "role", []string{"player", "watcher", "admin"}))
 	}
-	
+
 	if req.Description != "" {
 		validationErrs.Add(validator.ValidateStringLength(req.Description, "description", 0, 500))
 	}
-	
+
 	if req.Occupation != "" {
 		validationErrs.Add(validator.ValidateStringLength(req.Occupation, "occupation", 0, 100))
 	}
-	
+
 	if validationErrs.HasErrors() {
 		errors.RespondWithError(w, errors.Wrap(errors.ErrInvalidInput,
 			validationErrs.Error(), nil))
@@ -197,7 +197,13 @@ func (h *SessionHandler) JoinGame(w http.ResponseWriter, r *http.Request) {
 	// 1. Load world state
 	// 2. Set character spawn position
 	// 3. Initialize game session
-	// For now, just return success
+	// Update user's LastWorldID
+	user, err := h.authRepo.GetUserByID(r.Context(), userID)
+	if err == nil {
+		user.LastWorldID = &char.WorldID
+		// We ignore the error here as it's non-critical for gameplay
+		_ = h.authRepo.UpdateUser(r.Context(), user)
+	}
 
 	respondJSON(w, http.StatusOK, JoinGameResponse{
 		Character: char,

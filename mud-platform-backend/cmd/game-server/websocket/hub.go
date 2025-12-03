@@ -233,3 +233,29 @@ func (h *Hub) GetClientCount() int {
 	defer h.mu.RUnlock()
 	return len(h.Clients)
 }
+
+// GetClientsByWorldID returns all clients in a specific world
+func (h *Hub) GetClientsByWorldID(worldID uuid.UUID) []*Client {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	var clients []*Client
+	for _, client := range h.Clients {
+		if client.WorldID == worldID {
+			clients = append(clients, client)
+		}
+	}
+	return clients
+}
+
+// GetAllClients returns all connected clients
+func (h *Hub) GetAllClients() []*Client {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	clients := make([]*Client, 0, len(h.Clients))
+	for _, client := range h.Clients {
+		clients = append(clients, client)
+	}
+	return clients
+}

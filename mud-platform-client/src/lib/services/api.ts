@@ -32,13 +32,13 @@ export class GameAPI {
         localStorage.removeItem('auth_token');
     }
 
-    async register(email: string, password: string): Promise<User> {
+    async register(email: string, username: string, password: string): Promise<User> {
         const response = await fetch(`${API_URL}/auth/register`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ email, password }),
+            body: JSON.stringify({ email, username, password }),
         });
 
         if (!response.ok) {

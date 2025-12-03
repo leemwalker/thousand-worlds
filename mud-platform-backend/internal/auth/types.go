@@ -11,9 +11,11 @@ import (
 type User struct {
 	UserID       uuid.UUID  `json:"user_id"`
 	Email        string     `json:"email"`
+	Username     string     `json:"username"`
 	PasswordHash string     `json:"-"` // Never expose password hash
 	CreatedAt    time.Time  `json:"created_at"`
 	LastLogin    *time.Time `json:"last_login,omitempty"`
+	LastWorldID  *uuid.UUID `json:"last_world_id,omitempty"`
 }
 
 // Character represents a player character
@@ -22,8 +24,8 @@ type Character struct {
 	UserID      uuid.UUID  `json:"user_id"`
 	WorldID     uuid.UUID  `json:"world_id"`
 	Name        string     `json:"name"`
-	Role        string     `json:"role"`                   // player, watcher, admin
-	Appearance  string     `json:"appearance,omitempty"`   // JSON string of appearance data
+	Role        string     `json:"role"`                 // player, watcher, admin
+	Appearance  string     `json:"appearance,omitempty"` // JSON string of appearance data
 	Description string     `json:"description,omitempty"`
 	Occupation  string     `json:"occupation,omitempty"`
 	Position    *Position  `json:"position,omitempty"`
@@ -43,6 +45,7 @@ type Repository interface {
 	CreateUser(ctx context.Context, user *User) error
 	GetUserByID(ctx context.Context, userID uuid.UUID) (*User, error)
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
+	GetUserByUsername(ctx context.Context, username string) (*User, error)
 	UpdateUser(ctx context.Context, user *User) error
 
 	// Character operations

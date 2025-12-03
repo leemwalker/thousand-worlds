@@ -27,10 +27,8 @@ func NewMockRepository() *MockRepository {
 func (m *MockRepository) SaveConfiguration(config *WorldConfiguration) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
-	if config.WorldID != nil {
-		m.configurations[*config.WorldID] = config
-	}
+
+	m.configurations[config.ID] = config
 	return nil
 }
 
@@ -39,11 +37,13 @@ func (m *MockRepository) GetConfigurationByWorldID(worldID uuid.UUID) (*WorldCon
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	config, exists := m.configurations[worldID]
-	if !exists {
-		return nil, fmt.Errorf("configuration not found for world %s", worldID)
+	// Iterate through all configurations to find the one with the matching WorldID
+	for _, config := range m.configurations {
+		if config.WorldID != nil && *config.WorldID == worldID {
+			return config, nil
+		}
 	}
-	return config, nil
+	return nil, fmt.Errorf("configuration not found for world %s", worldID)
 }
 
 // SaveInterview saves an interview session
@@ -58,7 +58,7 @@ func (m *MockRepository) SaveInterview(session *InterviewSession) error {
 func (m *MockRepository) GetInterview(id uuid.UUID) (*InterviewSession, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	session, exists := m.sessions[id]
 	if !exists {
 		return nil, fmt.Errorf("session not found")
@@ -78,7 +78,7 @@ func (m *MockRepository) UpdateInterview(session *InterviewSession) error {
 func (m *MockRepository) GetActiveInterviewByPlayer(playerID uuid.UUID) (*InterviewSession, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	for _, session := range m.sessions {
 		if session.PlayerID == playerID && !session.State.IsComplete {
 			return session, nil
@@ -106,3 +106,36 @@ func (m *MockRepository) GetActiveSessionForUser(ctx context.Context, userID uui
 	return m.GetActiveInterviewByPlayer(userID)
 }
 
+// IsWorldNameTaken checks if a world name already exists (case-insensitive)
+func (m *MockRepository) IsWorldNameTaken(name string) (bool, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	// Check all configurations for matching name (case-insensitive)
+	for _, config := range m.configurations {
+		if config != nil && len(config.WorldName) > 0 {
+			// Simple case-insensitive comparison for mock
+			if len(name) == len(config.WorldName) {
+				match := true
+				for i := range name {
+					c1, c2 := name[i], config.WorldName[i]
+					// Convert to lowercase ASCII
+					if c1 >= 'A' && c1 <= 'Z' {
+						c1 += 'a' - 'A'
+					}
+					if c2 >= 'A' && c2 <= 'Z' {
+						c2 += 'a' - 'A'
+					}
+					if c1 != c2 {
+						match = false
+						break
+					}
+				}
+				if match {
+					return true, nil
+				}
+			}
+		}
+	}
+	return false, nil
+}

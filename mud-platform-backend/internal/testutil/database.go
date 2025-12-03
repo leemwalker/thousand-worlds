@@ -37,7 +37,8 @@ func TruncateTables(t *testing.T, db *sql.DB) {
 	tables := []string{
 		"characters",
 		"users",
-		"interviews",
+		"world_interviews",
+		"world_configurations",
 		"worlds",
 	}
 
@@ -59,9 +60,15 @@ func RunMigrations(t *testing.T, db *sql.DB) {
 	require.NoError(t, err, "Failed to enable PostGIS")
 
 	migrationFiles := []string{
-		"migrations/postgres/000013_create_auth_tables.up.sql",
-		"migrations/postgres/000015_add_character_role_and_appearance.up.sql",
-		"migrations/postgres/000016_add_character_description_occupation.up.sql",
+		"../../migrations/postgres/000013_create_auth_tables.up.sql",
+		"../../migrations/postgres/000014_create_interview_tables.up.sql",
+		"../../migrations/postgres/000015_add_character_role_and_appearance.up.sql",
+		"../../migrations/postgres/000016_add_character_description_occupation.up.sql",
+		"../../migrations/postgres/000017_add_performance_indexes.up.sql",
+		"../../migrations/postgres/000018_create_lobby_world.up.sql",
+		"../../migrations/postgres/000019_add_username_to_users.up.sql",
+		"../../migrations/postgres/000020_add_world_name_to_configurations.up.sql",
+		"../../migrations/postgres/000021_add_last_world_id_to_users.up.sql",
 	}
 
 	for _, file := range migrationFiles {

@@ -98,8 +98,10 @@ func TestClient_CreateCharacter_MissingName(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code":    "INVALID_INPUT",
-			"message": "Name is required",
+			"error": map[string]interface{}{
+				"code":    "INVALID_INPUT",
+				"message": "Name is required",
+			},
 		})
 	}))
 	defer server.Close()
@@ -124,8 +126,10 @@ func TestClient_CreateCharacter_Unauthorized(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code":    "UNAUTHORIZED",
-			"message": "Missing or invalid token",
+			"error": map[string]interface{}{
+				"code":    "UNAUTHORIZED",
+				"message": "Missing or invalid token",
+			},
 		})
 	}))
 	defer server.Close()
@@ -245,8 +249,10 @@ func TestClient_JoinGame_InvalidCharacter(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code":    "NOT_FOUND",
-			"message": "Character not found",
+			"error": map[string]interface{}{
+				"code":    "NOT_FOUND",
+				"message": "Character not found",
+			},
 		})
 	}))
 	defer server.Close()
