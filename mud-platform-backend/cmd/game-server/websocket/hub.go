@@ -84,7 +84,7 @@ func (h *Hub) Run(ctx context.Context) {
 				delete(h.Clients, client.CharacterID)
 				// Remove from spatial index
 				h.SpatialIndex.Remove(client.CharacterID)
-				close(client.Send)
+				client.SafeClose()
 			}
 			h.mu.Unlock()
 			metrics.SetActiveConnections(len(h.Clients))
@@ -100,6 +100,7 @@ func (h *Hub) Run(ctx context.Context) {
 func (h *Hub) handleClientMessage(ctx context.Context, wrapper *ClientMessageWrapper) {
 	switch wrapper.Message.Type {
 	case MessageTypeCommand:
+		log.Printf("[HUB] Received command data: %s", string(wrapper.Message.Data))
 		var cmd CommandData
 		if err := json.Unmarshal(wrapper.Message.Data, &cmd); err != nil {
 			wrapper.Client.SendError("Invalid command format")

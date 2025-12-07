@@ -32,6 +32,14 @@ type GameClient interface {
 	GetUsername() string
 	SendGameMessage(msgType, text string, metadata map[string]interface{})
 	SendStateUpdate(state *StateUpdateData)
+
+	// Reply command support
+	GetLastTellSender() string
+	SetLastTellSender(username string)
+	ClearLastTellSender()
+
+	SetCharacterID(id uuid.UUID)
+	SetWorldID(id uuid.UUID)
 }
 
 // Client represents a WebSocket client connection
@@ -45,6 +53,11 @@ type Client struct {
 	Conn        *websocket.Conn
 	Send        chan []byte
 	mu          sync.Mutex
+	isClosed    bool
+
+	// Reply command state
+	LastTellSender   string       // Username of last player who sent us a tell
+	LastTellSenderMu sync.RWMutex // Protects LastTellSender for thread-safe access
 }
 
 // NewClient creates a new WebSocket client
@@ -58,6 +71,7 @@ func NewClient(hub *Hub, conn *websocket.Conn, userID, characterID, worldID uuid
 		Hub:         hub,
 		Conn:        conn,
 		Send:        make(chan []byte, 256),
+		isClosed:    false,
 	}
 }
 
@@ -66,9 +80,19 @@ func (c *Client) GetCharacterID() uuid.UUID {
 	return c.CharacterID
 }
 
+// SetCharacterID sets the character ID associated with the client
+func (c *Client) SetCharacterID(id uuid.UUID) {
+	c.CharacterID = id
+}
+
 // GetWorldID returns the world ID associated with the client
 func (c *Client) GetWorldID() uuid.UUID {
 	return c.WorldID
+}
+
+// SetWorldID sets the world ID associated with the client
+func (c *Client) SetWorldID(id uuid.UUID) {
+	c.WorldID = id
 }
 
 // GetUserID returns the user ID associated with the client
@@ -79,6 +103,27 @@ func (c *Client) GetUserID() uuid.UUID {
 // GetUsername returns the username associated with the client
 func (c *Client) GetUsername() string {
 	return c.Username
+}
+
+// SetLastTellSender updates who last sent this client a tell (thread-safe)
+func (c *Client) SetLastTellSender(username string) {
+	c.LastTellSenderMu.Lock()
+	defer c.LastTellSenderMu.Unlock()
+	c.LastTellSender = username
+}
+
+// GetLastTellSender retrieves who last sent this client a tell (thread-safe)
+func (c *Client) GetLastTellSender() string {
+	c.LastTellSenderMu.RLock()
+	defer c.LastTellSenderMu.RUnlock()
+	return c.LastTellSender
+}
+
+// ClearLastTellSender clears the last tell sender state
+func (c *Client) ClearLastTellSender() {
+	c.LastTellSenderMu.Lock()
+	defer c.LastTellSenderMu.Unlock()
+	c.LastTellSender = ""
 }
 
 // ReadPump pumps messages from the WebSocket connection to the hub
@@ -163,6 +208,16 @@ func (c *Client) WritePump() {
 	}
 }
 
+// SafeClose safely closes the send channel
+func (c *Client) SafeClose() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !c.isClosed {
+		close(c.Send)
+		c.isClosed = true
+	}
+}
+
 // SendMessage sends a server message to the client
 func (c *Client) SendMessage(msgType string, data interface{}) error {
 	msg := ServerMessage{
@@ -178,13 +233,19 @@ func (c *Client) SendMessage(msgType string, data interface{}) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	if c.isClosed {
+		return websocket.ErrCloseSent
+	}
+
 	select {
 	case c.Send <- jsonData:
 		return nil
 	default:
 		// Channel is full, client too slow
+		log.Printf("[WS] WARNING: Dropped message for client %s (character: %s) - Send channel full (256 buffer). Message type: %s", c.ID, c.CharacterID, msgType)
 		return websocket.ErrCloseSent
 	}
+
 }
 
 // SendError sends an error message to the client

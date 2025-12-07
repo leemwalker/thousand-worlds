@@ -92,3 +92,31 @@ type WorldConfiguration struct {
 
 	CreatedAt time.Time
 }
+
+// Status represents the state of an interview
+type Status string
+
+const (
+	StatusNotStarted Status = "not_started"
+	StatusInProgress Status = "in_progress"
+	StatusCompleted  Status = "completed"
+)
+
+// Interview represents a world creation interview
+type Interview struct {
+	ID                   uuid.UUID
+	UserID               uuid.UUID
+	Status               Status
+	CurrentQuestionIndex int
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+}
+
+// Answer represents a user's answer to an interview question
+type Answer struct {
+	ID            uuid.UUID
+	InterviewID   uuid.UUID
+	QuestionIndex int
+	AnswerText    string
+	CreatedAt     time.Time
+}

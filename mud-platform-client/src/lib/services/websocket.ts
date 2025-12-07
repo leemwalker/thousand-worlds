@@ -6,19 +6,22 @@ export interface ServerMessage {
     data: any;
 }
 
-export interface CommandData {
-    action: string;
-    target?: string;
-    direction?: string;
-    quantity?: number;
+// Command message structure - send raw text to backend
+export interface CommandMessage {
+    type: 'command';
+    data: {
+        text: string;
+    };
 }
 
 export class GameWebSocket {
     private ws: WebSocket | null = null;
-    private token: string = '';
     private reconnectAttempts = 0;
     private maxReconnectAttempts = 5;
     private reconnectDelay = 1000;
+
+    private currentCharacterId: string | undefined;
+    private isIntentionalDisconnect = false;
 
     // Store for connection status
     public connected = writable<boolean>(false);
@@ -29,18 +32,22 @@ export class GameWebSocket {
     // Message handler
     private messageHandlers: Set<(msg: ServerMessage) => void> = new Set();
 
-    connect(token: string, characterId?: string): void {
-        console.log('[WebSocket] Attempting to connect...', { token: token.substring(0, 20) + '...', characterId });
-        this.token = token;
+    connect(characterId?: string): void {
+        console.log('[WebSocket] Attempting to connect...', { characterId });
+        this.isIntentionalDisconnect = false;
+
+        if (characterId) {
+            this.currentCharacterId = characterId;
+        }
 
         // Use the same host that served the page, but with ws:// protocol
         // This works for both localhost development and mobile access via LAN IP
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.hostname + ':8080'; // Backend always on 8080
-        let wsUrl = `${protocol}//${host}/api/game/ws?token=${encodeURIComponent(token)}`;
+        let wsUrl = `${protocol}//${host}/api/game/ws`; // Cookie sent automatically!
 
-        if (characterId) {
-            wsUrl += `&character_id=${encodeURIComponent(characterId)}`;
+        if (this.currentCharacterId) {
+            wsUrl += `?character_id=${encodeURIComponent(this.currentCharacterId)}`;
         }
 
         console.log('[WebSocket] URL:', wsUrl);
@@ -75,7 +82,9 @@ export class GameWebSocket {
             this.ws.onclose = () => {
                 console.log('[WebSocket] Connection closed');
                 this.connected.set(false);
-                this.attemptReconnect();
+                if (!this.isIntentionalDisconnect) {
+                    this.attemptReconnect();
+                }
             };
         } catch (error) {
             console.error('[WebSocket] Failed to create WebSocket:', error);
@@ -83,6 +92,7 @@ export class GameWebSocket {
     }
 
     disconnect(): void {
+        this.isIntentionalDisconnect = true;
         if (this.ws) {
             this.ws.close();
             this.ws = null;
@@ -90,44 +100,44 @@ export class GameWebSocket {
         this.connected.set(false);
     }
 
-    sendCommand(command: CommandData): void {
+    sendRawCommand(text: string): void {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
             console.error('WebSocket not connected');
             return;
         }
 
-        const message = {
+        const message: CommandMessage = {
             type: 'command',
-            data: command,
+            data: { text },
         };
 
         this.ws.send(JSON.stringify(message));
     }
 
-    async sendCommandWithQueue(command: CommandData): Promise<void> {
+    async sendCommandWithQueue(text: string): Promise<void> {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
             // Queue command for later
-            await commandQueue.enqueue(command);
+            await commandQueue.enqueue(text);
             await this.updatePendingCount();
             console.log('Command queued for later sending');
             return;
         }
 
-        this.sendCommand(command);
+        this.sendRawCommand(text);
     }
 
     private async processQueuedCommands(): Promise<void> {
         try {
-            await commandQueue.processQueue(async (cmd) => {
+            await commandQueue.processQueue(async (text) => {
                 return new Promise((resolve, reject) => {
                     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
                         reject(new Error('WebSocket not connected'));
                         return;
                     }
 
-                    const message = {
+                    const message: CommandMessage = {
                         type: 'command',
-                        data: cmd
+                        data: { text }
                     };
 
                     this.ws.send(JSON.stringify(message));
@@ -178,9 +188,7 @@ export class GameWebSocket {
         console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
 
         setTimeout(() => {
-            if (this.token) {
-                this.connect(this.token);
-            }
+            this.connect(this.currentCharacterId);
         }, delay);
     }
 }

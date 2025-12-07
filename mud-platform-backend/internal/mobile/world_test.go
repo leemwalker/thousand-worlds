@@ -69,8 +69,10 @@ func TestClient_ListWorlds_Unauthorized(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"code":    "UNAUTHORIZED",
-			"message": "Missing or invalid token",
+			"error": map[string]interface{}{
+				"code":    "UNAUTHORIZED",
+				"message": "Missing or invalid token",
+			},
 		})
 	}))
 	defer server.Close()

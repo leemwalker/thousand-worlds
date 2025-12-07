@@ -19,14 +19,16 @@ const (
 
 // World represents a game world with its spatial properties.
 type World struct {
-	ID        uuid.UUID
-	Name      string
-	Shape     WorldShape
-	Radius    *float64 // for sphere worlds (meters)
-	BoundsMin *Vector3 // for cube worlds
-	BoundsMax *Vector3 // for cube worlds
-	Metadata  map[string]interface{}
-	CreatedAt time.Time
+	ID            uuid.UUID
+	Name          string
+	OwnerID       uuid.UUID // User who created/owns this world
+	Shape         WorldShape
+	Radius        *float64 // for sphere worlds (meters)
+	Circumference *float64 // for sphere worlds (meters)
+	BoundsMin     *Vector3 // for cube worlds
+	BoundsMax     *Vector3 // for cube worlds
+	Metadata      map[string]interface{}
+	CreatedAt     time.Time
 }
 
 // Vector3 represents a 3D vector.
@@ -39,6 +41,7 @@ type WorldRepository interface {
 	CreateWorld(ctx context.Context, world *World) error
 	GetWorld(ctx context.Context, worldID uuid.UUID) (*World, error)
 	ListWorlds(ctx context.Context) ([]World, error)
+	GetWorldsByOwner(ctx context.Context, ownerID uuid.UUID) ([]World, error)
 	UpdateWorld(ctx context.Context, world *World) error
 	DeleteWorld(ctx context.Context, worldID uuid.UUID) error
 }
@@ -76,8 +79,8 @@ func NewPostgresWorldRepository(db *pgxpool.Pool) *PostgresWorldRepository {
 
 func (r *PostgresWorldRepository) CreateWorld(ctx context.Context, world *World) error {
 	query := `
-		INSERT INTO worlds (id, name, shape, radius, bounds_min_x, bounds_min_y, bounds_min_z, bounds_max_x, bounds_max_y, bounds_max_z, metadata)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		INSERT INTO worlds (id, name, owner_id, shape, radius, circumference, bounds_min_x, bounds_min_y, bounds_min_z, bounds_max_x, bounds_max_y, bounds_max_z, metadata)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 
 	var boundsMinX, boundsMinY, boundsMinZ, boundsMaxX, boundsMaxY, boundsMaxZ *float64
@@ -93,7 +96,7 @@ func (r *PostgresWorldRepository) CreateWorld(ctx context.Context, world *World)
 	}
 
 	_, err := r.db.Exec(ctx, query,
-		world.ID, world.Name, world.Shape, world.Radius,
+		world.ID, world.Name, world.OwnerID, world.Shape, world.Radius, world.Circumference,
 		boundsMinX, boundsMinY, boundsMinZ,
 		boundsMaxX, boundsMaxY, boundsMaxZ,
 		world.Metadata,
@@ -103,7 +106,7 @@ func (r *PostgresWorldRepository) CreateWorld(ctx context.Context, world *World)
 
 func (r *PostgresWorldRepository) GetWorld(ctx context.Context, worldID uuid.UUID) (*World, error) {
 	query := `
-		SELECT id, name, shape, radius, bounds_min_x, bounds_min_y, bounds_min_z, bounds_max_x, bounds_max_y, bounds_max_z, metadata, created_at
+		SELECT id, name, owner_id, shape, radius, circumference, bounds_min_x, bounds_min_y, bounds_min_z, bounds_max_x, bounds_max_y, bounds_max_z, metadata, created_at
 		FROM worlds
 		WHERE id = $1
 	`
@@ -112,7 +115,7 @@ func (r *PostgresWorldRepository) GetWorld(ctx context.Context, worldID uuid.UUI
 	var boundsMinX, boundsMinY, boundsMinZ, boundsMaxX, boundsMaxY, boundsMaxZ *float64
 
 	err := r.db.QueryRow(ctx, query, worldID).Scan(
-		&world.ID, &world.Name, &world.Shape, &world.Radius,
+		&world.ID, &world.Name, &world.OwnerID, &world.Shape, &world.Radius, &world.Circumference,
 		&boundsMinX, &boundsMinY, &boundsMinZ,
 		&boundsMaxX, &boundsMaxY, &boundsMaxZ,
 		&world.Metadata, &world.CreatedAt,
@@ -134,8 +137,9 @@ func (r *PostgresWorldRepository) GetWorld(ctx context.Context, worldID uuid.UUI
 
 func (r *PostgresWorldRepository) ListWorlds(ctx context.Context) ([]World, error) {
 	query := `
-		SELECT id, name, shape, radius, bounds_min_x, bounds_min_y, bounds_min_z, bounds_max_x, bounds_max_y, bounds_max_z, metadata, created_at
+		SELECT id, name, owner_id, shape, radius, circumference, bounds_min_x, bounds_min_y, bounds_min_z, bounds_max_x, bounds_max_y, bounds_max_z, metadata, created_at
 		FROM worlds
+		WHERE is_system_world = FALSE
 		ORDER BY created_at DESC
 	`
 
@@ -151,7 +155,49 @@ func (r *PostgresWorldRepository) ListWorlds(ctx context.Context) ([]World, erro
 		var boundsMinX, boundsMinY, boundsMinZ, boundsMaxX, boundsMaxY, boundsMaxZ *float64
 
 		err := rows.Scan(
-			&world.ID, &world.Name, &world.Shape, &world.Radius,
+			&world.ID, &world.Name, &world.OwnerID, &world.Shape, &world.Radius, &world.Circumference,
+			&boundsMinX, &boundsMinY, &boundsMinZ,
+			&boundsMaxX, &boundsMaxY, &boundsMaxZ,
+			&world.Metadata, &world.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if boundsMinX != nil {
+			world.BoundsMin = &Vector3{X: *boundsMinX, Y: *boundsMinY, Z: *boundsMinZ}
+		}
+		if boundsMaxX != nil {
+			world.BoundsMax = &Vector3{X: *boundsMaxX, Y: *boundsMaxY, Z: *boundsMaxZ}
+		}
+
+		worlds = append(worlds, world)
+	}
+
+	return worlds, nil
+}
+
+func (r *PostgresWorldRepository) GetWorldsByOwner(ctx context.Context, ownerID uuid.UUID) ([]World, error) {
+	query := `
+		SELECT id, name, owner_id, shape, radius, circumference, bounds_min_x, bounds_min_y, bounds_min_z, bounds_max_x, bounds_max_y, bounds_max_z, metadata, created_at
+		FROM worlds
+		WHERE owner_id = $1
+		ORDER BY created_at DESC
+	`
+
+	rows, err := r.db.Query(ctx, query, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var worlds []World
+	for rows.Next() {
+		var world World
+		var boundsMinX, boundsMinY, boundsMinZ, boundsMaxX, boundsMaxY, boundsMaxZ *float64
+
+		err := rows.Scan(
+			&world.ID, &world.Name, &world.OwnerID, &world.Shape, &world.Radius, &world.Circumference,
 			&boundsMinX, &boundsMinY, &boundsMinZ,
 			&boundsMaxX, &boundsMaxY, &boundsMaxZ,
 			&world.Metadata, &world.CreatedAt,
@@ -176,10 +222,10 @@ func (r *PostgresWorldRepository) ListWorlds(ctx context.Context) ([]World, erro
 func (r *PostgresWorldRepository) UpdateWorld(ctx context.Context, world *World) error {
 	query := `
 		UPDATE worlds
-		SET name = $2, shape = $3, radius = $4, 
-		    bounds_min_x = $5, bounds_min_y = $6, bounds_min_z = $7,
-		    bounds_max_x = $8, bounds_max_y = $9, bounds_max_z = $10,
-		    metadata = $11
+		SET name = $2, shape = $3, radius = $4, circumference = $5,
+		    bounds_min_x = $6, bounds_min_y = $7, bounds_min_z = $8,
+		    bounds_max_x = $9, bounds_max_y = $10, bounds_max_z = $11,
+		    metadata = $12
 		WHERE id = $1
 	`
 
@@ -196,7 +242,7 @@ func (r *PostgresWorldRepository) UpdateWorld(ctx context.Context, world *World)
 	}
 
 	_, err := r.db.Exec(ctx, query,
-		world.ID, world.Name, world.Shape, world.Radius,
+		world.ID, world.Name, world.Shape, world.Radius, world.Circumference,
 		boundsMinX, boundsMinY, boundsMinZ,
 		boundsMaxX, boundsMaxY, boundsMaxZ,
 		world.Metadata,

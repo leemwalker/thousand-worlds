@@ -1,65 +1,82 @@
 <script lang="ts">
-    import { createEventDispatcher } from "svelte";
-    import { CommandParser } from "./CommandParser";
+    import { gameWebSocket } from "$lib/services/websocket";
+    import { haptic } from "$lib/stores/haptic";
 
-    const dispatch = createEventDispatcher();
-    const parser = new CommandParser();
-
-    let inputValue = "";
-    let inputElement: HTMLInputElement;
-    let history: string[] = [];
+    let inputText = "";
+    let commandHistory: string[] = [];
     let historyIndex = -1;
 
-    function handleSubmit() {
-        if (!inputValue.trim()) return;
+    function sendCommand() {
+        if (!inputText.trim()) return;
 
-        // Add to history
-        history = [inputValue, ...history].slice(0, 50);
+        // Trigger haptic feedback
+        haptic.light();
+
+        // Send raw text to backend - NO PARSING
+        gameWebSocket.sendRawCommand(inputText.trim());
+
+        // Track history for up/down navigation
+        commandHistory.unshift(inputText);
+        if (commandHistory.length > 50) commandHistory.pop();
+
+        inputText = "";
         historyIndex = -1;
-
-        // Parse and dispatch
-        const result = parser.parse(inputValue);
-        dispatch("command", result);
-
-        // Clear input
-        inputValue = "";
     }
 
-    function handleKeydown(event: KeyboardEvent) {
-        if (event.key === "Enter") {
-            handleSubmit();
-        } else if (event.key === "ArrowUp") {
-            event.preventDefault();
-            if (history.length > 0) {
-                historyIndex = Math.min(historyIndex + 1, history.length - 1);
-                inputValue = history[historyIndex];
+    function handleKeydown(e: KeyboardEvent) {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            sendCommand();
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            if (historyIndex < commandHistory.length - 1) {
+                historyIndex++;
+                inputText = commandHistory[historyIndex];
             }
-        } else if (event.key === "ArrowDown") {
-            event.preventDefault();
+        } else if (e.key === "ArrowDown") {
+            e.preventDefault();
             if (historyIndex > 0) {
                 historyIndex--;
-                inputValue = history[historyIndex];
+                inputText = commandHistory[historyIndex];
             } else if (historyIndex === 0) {
                 historyIndex = -1;
-                inputValue = "";
+                inputText = "";
             }
+        } else if (e.key === "Escape") {
+            inputText = "";
+            historyIndex = -1;
         }
     }
 </script>
 
-<div class="flex w-full h-full gap-2">
+<div class="flex gap-2 w-full">
     <input
-        bind:this={inputElement}
-        bind:value={inputValue}
-        on:keydown={handleKeydown}
         type="text"
+        bind:value={inputText}
+        on:keydown={handleKeydown}
         placeholder="Enter command..."
-        class="flex-1 bg-gray-900 border border-gray-600 rounded px-4 py-2 text-gray-100 focus:outline-none focus:border-blue-500"
+        class="flex-1 px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-gray-100 text-base placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        style="font-size: 16px;"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
     />
+
     <button
-        on:click={handleSubmit}
-        class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-bold transition-colors"
+        on:click={sendCommand}
+        disabled={!inputText.trim()}
+        class="min-w-[44px] min-h-[44px] px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-semibold rounded-lg transition-colors flex items-center justify-center"
+        aria-label="Send command"
     >
         Send
     </button>
 </div>
+
+<style>
+    /* Prevent iOS zoom on input focus */
+    input {
+        font-size: 16px;
+        -webkit-appearance: none;
+    }
+</style>

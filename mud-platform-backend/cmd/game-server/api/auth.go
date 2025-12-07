@@ -118,8 +118,21 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Set authentication token as HttpOnly cookie for security
+	// This prevents XSS attacks from stealing the token
+	http.SetCookie(w, &http.Cookie{
+		Name:     "auth_token",
+		Value:    token,
+		HttpOnly: true,                    // Prevents JavaScript access
+		Secure:   isSecureContext(r),      // HTTPS only in production
+		SameSite: http.SameSiteStrictMode, // CSRF protection
+		Path:     "/",
+		MaxAge:   86400, // 24 hours (should match JWT expiration)
+	})
+
+	// Return user info only (no token in response)
 	respondJSON(w, http.StatusOK, LoginResponse{
-		Token: token,
+		Token: "", // Empty token field for backward compatibility
 		User:  user,
 	})
 }
@@ -155,6 +168,17 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Clear the auth_token cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "auth_token",
+		Value:    "",
+		HttpOnly: true,
+		Secure:   isSecureContext(r),
+		SameSite: http.SameSiteStrictMode,
+		Path:     "/",
+		MaxAge:   -1, // Delete cookie immediately
+	})
+
 	respondJSON(w, http.StatusOK, map[string]string{"message": "Logged out successfully"})
 }
 
@@ -167,4 +191,17 @@ func respondJSON(w http.ResponseWriter, status int, data interface{}) {
 
 func respondError(w http.ResponseWriter, status int, message string) {
 	respondJSON(w, status, map[string]string{"error": message})
+}
+
+// isSecureContext determines if the request is over HTTPS
+func isSecureContext(r *http.Request) bool {
+	// Check if request is HTTPS
+	if r.TLS != nil {
+		return true
+	}
+	// Check X-Forwarded-Proto header (for reverse proxies)
+	if r.Header.Get("X-Forwarded-Proto") == "https" {
+		return true
+	}
+	return false
 }

@@ -34,12 +34,13 @@ func SetupTestDB(t *testing.T) *sql.DB {
 func TruncateTables(t *testing.T, db *sql.DB) {
 	t.Helper()
 
+	// Tables to fully truncate (order matters due to foreign keys)
 	tables := []string{
-		"characters",
-		"users",
+		"characters", // Has FK to users and worlds
+		"sessions",   // Has FK to users
+		"users",      // Referenced by characters and sessions
 		"world_interviews",
 		"world_configurations",
-		"worlds",
 	}
 
 	for _, table := range tables {
@@ -48,6 +49,13 @@ func TruncateTables(t *testing.T, db *sql.DB) {
 			// Table might not exist in all test scenarios, log but don't fail
 			t.Logf("Warning: failed to truncate %s: %v", table, err)
 		}
+	}
+
+	// For worlds table, delete all EXCEPT the lobby world (00000000-0000-0000-0000-000000000000)
+	// This preserves the lobby world which is required for lobby character tests
+	_, err := db.Exec("DELETE FROM worlds WHERE id != '00000000-0000-0000-0000-000000000000'")
+	if err != nil {
+		t.Logf("Warning: failed to clean worlds table: %v", err)
 	}
 }
 
@@ -60,19 +68,43 @@ func RunMigrations(t *testing.T, db *sql.DB) {
 	require.NoError(t, err, "Failed to enable PostGIS")
 
 	migrationFiles := []string{
-		"../../migrations/postgres/000013_create_auth_tables.up.sql",
-		"../../migrations/postgres/000014_create_interview_tables.up.sql",
-		"../../migrations/postgres/000015_add_character_role_and_appearance.up.sql",
-		"../../migrations/postgres/000016_add_character_description_occupation.up.sql",
-		"../../migrations/postgres/000017_add_performance_indexes.up.sql",
-		"../../migrations/postgres/000018_create_lobby_world.up.sql",
-		"../../migrations/postgres/000019_add_username_to_users.up.sql",
-		"../../migrations/postgres/000020_add_world_name_to_configurations.up.sql",
-		"../../migrations/postgres/000021_add_last_world_id_to_users.up.sql",
+		"000001_create_worlds_table.up.sql",
+		"000013_create_auth_tables.up.sql",
+		"000014_create_interview_tables.up.sql",
+		"000015_add_character_role_and_appearance.up.sql",
+		"000016_add_character_description_occupation.up.sql",
+		"000017_add_performance_indexes.up.sql",
+		"000018_create_lobby_world.up.sql",
+		"000019_add_username_to_users.up.sql",
+		"000020_add_world_name_to_configurations.up.sql",
+		"000021_add_last_world_id_to_users.up.sql",
+	}
+
+	// Try to find the migrations directory
+	// We check multiple depths to handle tests in different package levels
+	basePaths := []string{
+		"../../migrations/postgres",       // for internal/package
+		"../../../migrations/postgres",    // for internal/group/package
+		"../../../../migrations/postgres", // for internal/group/subgroup/package
+		"migrations/postgres",             // for root
+	}
+
+	var migrationDir string
+	for _, path := range basePaths {
+		if _, err := os.Stat(path); err == nil {
+			migrationDir = path
+			break
+		}
+	}
+
+	if migrationDir == "" {
+		t.Log("Warning: could not find migrations directory")
+		return
 	}
 
 	for _, file := range migrationFiles {
-		content, err := os.ReadFile(file)
+		path := fmt.Sprintf("%s/%s", migrationDir, file)
+		content, err := os.ReadFile(path)
 		if err != nil {
 			t.Logf("Skipping migration %s: %v", file, err)
 			continue

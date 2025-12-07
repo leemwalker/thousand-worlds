@@ -78,6 +78,32 @@ func (h *SessionHandler) CreateCharacter(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Check if character already exists for this world
+	existingChar, err := h.authRepo.GetCharacterByUserAndWorld(r.Context(), userID, req.WorldID)
+	if err == nil && existingChar != nil {
+		// Character exists
+		if req.Role == "watcher" && existingChar.Role == "watcher" {
+			// Idempotent success for watchers - return existing character
+			respondJSON(w, http.StatusOK, CreateCharacterResponse{
+				Character:      existingChar,
+				Attributes:     nil, // Watchers have no attributes
+				SecondaryAttrs: nil,
+			})
+			return
+		}
+		// Failure for other cases (e.g. trying to create a 2nd player char)
+		// Or trying to create a player when you are a watcher (must delete watcher first? or switch?)
+		// For now, return Conflict
+		errors.RespondWithError(w, errors.Wrap(errors.ErrConflict,
+			"You already have a character in this world", nil))
+		return
+	} else if err != nil && err != auth.ErrCharacterNotFound {
+		// DB Error
+		errors.RespondWithError(w, errors.Wrap(errors.ErrInternalServer,
+			"Failed to check existing characters", err))
+		return
+	}
+
 	// Get species template (skip for watcher role)
 	var template *character.SpeciesTemplate
 	if req.Role != "watcher" {

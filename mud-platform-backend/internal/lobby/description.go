@@ -26,28 +26,43 @@ func NewDescriptionGenerator(worldRepo repository.WorldRepository, authRepo auth
 }
 
 // GenerateDescription generates the full lobby description for a user
-func (g *DescriptionGenerator) GenerateDescription(ctx context.Context, user *auth.User, currentPlayers []WebsocketClient) (string, error) {
+func (g *DescriptionGenerator) GenerateDescription(ctx context.Context, user *auth.User, char *auth.Character, currentPlayers []WebsocketClient) (string, error) {
 	var sb strings.Builder
 
-	// 1. Base Description & Atmosphere
-	baseDesc := "You are surrounded by a low gray fog that fades into the distance. Empty portals and closed doors stand unused around you. A stone statue stands at the center of the portals, a hand is stretched out as if it beckons for you to approach."
+	// 1. Base Description & Atmosphere based on position
+	var baseDesc string
 
+	// Lobby is 1000m long (X axis).
+	// Zones:
+	// 0-333: West Wing (Quiet, meditation)
+	// 333-666: Central Hub (Statue, portals)
+	// 666-1000: East Wing (Gathering, planning)
+
+	posX := char.PositionX
+
+	if posX < 333 {
+		baseDesc = "You are in the West Wing of the Grand Lobby. It is quieter here, with alcoves for rest and meditation. Soft light filters from above, illuminating the smooth stone floor."
+	} else if posX > 666 {
+		baseDesc = "You are in the East Wing of the Grand Lobby. Several long tables are arranged here for travelers to gather and plan their journeys. The air buzzes with faint conversation from distant echoes."
+	} else {
+		baseDesc = "You are in the Central Hub of the Grand Lobby. The massive statue dominates the space here, surrounded by shimmering portals to other worlds. The area is bustling with potential energy."
+	}
+
+	// Add atmosphere from last world if applicable
 	if user.LastWorldID != nil && *user.LastWorldID != uuid.Nil {
 		// Fetch last world to get atmospheric details
 		lastWorld, err := g.worldRepo.GetWorld(ctx, *user.LastWorldID)
 		if err == nil {
 			// Apply atmospheric overrides based on world metadata/theme
-			// For now, we'll use simple keyword matching on the name or description
-			// In a real system, we'd have structured "Biome" or "Theme" data
 			desc, _ := lastWorld.Metadata["description"].(string)
 			theme := strings.ToLower(lastWorld.Name + " " + desc)
 
 			if strings.Contains(theme, "desert") || strings.Contains(theme, "sand") {
-				baseDesc = "Hot desert winds blow sand about you, pushing away the gray fog and revealing a sandstone floor. The portals, doors, and statue remain, but the air is dry and warm."
+				baseDesc += " A lingering warmth from the desert clings to your clothes."
 			} else if strings.Contains(theme, "ocean") || strings.Contains(theme, "sea") || strings.Contains(theme, "water") {
-				baseDesc = "The cries of sea birds and smell of salt air fills the lobby, the gray fog has been pushed into the distance, revealing a damp floor of wood planks. The statue appears slightly weathered by salt."
+				baseDesc += " You can still smell the faint tang of salt in the air."
 			} else if strings.Contains(theme, "forest") || strings.Contains(theme, "wood") || strings.Contains(theme, "tree") {
-				baseDesc = "Tall trees stand in the distance, wisps of the gray fog can be seen in their branches. A grassy meadow has been revealed by a light breeze that carries the scent of leaves. The statue is covered in faint moss."
+				baseDesc += " A fresh scent of pine follows you."
 			}
 		}
 	}
@@ -55,50 +70,57 @@ func (g *DescriptionGenerator) GenerateDescription(ctx context.Context, user *au
 	sb.WriteString(baseDesc)
 	sb.WriteString("\n\n")
 
-	// 2. World Portals
-	worlds, err := g.worldRepo.ListWorlds(ctx)
-	if err == nil && len(worlds) > 0 {
-		// Group worlds (simplified for now, just listing them with flavor text)
-		// In the future, we can group by tags
-		var portalDescs []string
-		for _, w := range worlds {
-			if IsLobby(w.ID) {
-				continue
+	// 2. World Portals (Only visible in Central Hub?)
+	// Let's make them visible everywhere but described differently maybe, or just keep as is for now implies they are central.
+	// If in Central Hub, describe them prominently.
+	if posX >= 333 && posX <= 666 {
+		worlds, err := g.worldRepo.ListWorlds(ctx)
+		if err == nil && len(worlds) > 0 {
+			var portalDescs []string
+			for _, w := range worlds {
+				if IsLobby(w.ID) {
+					continue
+				}
+				portalDesc := fmt.Sprintf("A portal to %s shimmers nearby.", w.Name)
+				portalDescs = append(portalDescs, portalDesc)
 			}
-			// Generate a short description for the portal
-			// Ideally this comes from world metadata, but we'll generate it
-			portalDesc := fmt.Sprintf("A portal to %s shimmers nearby.", w.Name)
-			portalDescs = append(portalDescs, portalDesc)
+			if len(portalDescs) > 0 {
+				sb.WriteString(strings.Join(portalDescs, " "))
+				sb.WriteString("\n\n")
+			}
 		}
-
-		if len(portalDescs) > 0 {
-			sb.WriteString(strings.Join(portalDescs, " "))
-			sb.WriteString("\n\n")
-		}
+	} else {
+		sb.WriteString("In the distance, toward the center of the hall, you can see the shimmering lights of the world portals.\n\n")
 	}
 
 	// 3. Other Players
 	if len(currentPlayers) > 0 {
 		var playerNames []string
+		count := 0
 		for _, p := range currentPlayers {
 			if p.GetUserID() != user.UserID {
+				// TODO: Calculate distance and only show nearby players?
+				// For now, list all but maybe indicate distance if we had their positions.
+				// Since we don't have their positions easily accessible here (players slice doesn't have pos?),
+				// we will just list them.
 				name := p.GetUsername()
 				if name == "" {
 					name = "A spirit"
 				}
 				playerNames = append(playerNames, name)
+				count++
+				if count >= 10 { // Limit list
+					playerNames = append(playerNames, "others")
+					break
+				}
 			}
 		}
 
 		if len(playerNames) > 0 {
 			if len(playerNames) == 1 {
-				sb.WriteString(fmt.Sprintf("%s stands in the fog.", playerNames[0]))
-			} else if len(playerNames) == 2 {
-				sb.WriteString(fmt.Sprintf("%s and %s stand in the fog.", playerNames[0], playerNames[1]))
-			} else if len(playerNames) == 3 {
-				sb.WriteString(fmt.Sprintf("%s, %s, and %s stand in the fog.", playerNames[0], playerNames[1], playerNames[2]))
+				sb.WriteString(fmt.Sprintf("%s stands nearby.", playerNames[0]))
 			} else {
-				sb.WriteString("Other spirits stand about you in the fog.")
+				sb.WriteString(fmt.Sprintf("You see %s nearby.", strings.Join(playerNames, ", ")))
 			}
 			sb.WriteString("\n")
 		}

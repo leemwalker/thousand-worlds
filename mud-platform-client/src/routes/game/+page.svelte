@@ -4,6 +4,8 @@
     import { gameAPI } from "$lib/services/api";
     import { gameWebSocket, type ServerMessage } from "$lib/services/websocket";
     import WorldEntry from "$lib/components/WorldEntry.svelte";
+    import CommandInput from "$lib/components/Input/CommandInput.svelte";
+    import QuickButtons from "$lib/components/Input/QuickButtons.svelte";
 
     // Onboarding state
     let onboardingStep:
@@ -32,34 +34,54 @@
     let commandInput: string = "";
     let unsubscribe: (() => void) | null = null;
 
+    // Connection status
+    let isConnected = false;
+
     // Use relative URL to go through Vite proxy with extended timeout
     const API_URL = "/api";
 
     onMount(async () => {
-        const token = gameAPI.getToken();
-        if (!token) {
+        // Check if user is authenticated via cookie
+        try {
+            await gameAPI.getMe();
+        } catch (err) {
+            // Not authenticated, redirect to login
             goto("/");
             return;
         }
 
+        // Subscribe to connection status
+        const unsubscribeConnection = gameWebSocket.connected.subscribe(
+            (value) => {
+                isConnected = value;
+            },
+        );
+
         // Don't connect WebSocket yet - will connect after checking character status
         unsubscribe = gameWebSocket.onMessage(handleServerMessage);
 
+        // Store both unsubscribe functions
+        const originalUnsubscribe = unsubscribe;
+        unsubscribe = () => {
+            if (originalUnsubscribe) originalUnsubscribe();
+            unsubscribeConnection();
+        };
+
         // Check onboarding status
-        await checkOnboardingStatus(token);
+        await checkOnboardingStatus();
     });
 
     onDestroy(() => {
         if (unsubscribe) unsubscribe();
     });
 
-    async function checkOnboardingStatus(token: string) {
+    async function checkOnboardingStatus() {
         try {
             // Check for active interview
             const interviewRes = await fetch(
                 `${API_URL}/world/interview/active`,
                 {
-                    headers: { Authorization: `Bearer ${token.trim()}` },
+                    credentials: "include", // Send cookies
                 },
             );
 
@@ -83,7 +105,7 @@
                         );
                         setTimeout(() => {
                             // Go to lobby instead of character creation directly
-                            joinLobby(token);
+                            joinLobby();
                         }, 1000);
                         return;
                     }
@@ -109,7 +131,7 @@
             }
 
             // Always join Lobby first
-            await joinLobby(token);
+            await joinLobby();
         } catch (error) {
             console.error("Onboarding check failed:", error);
             onboardingStep = "game";
@@ -120,11 +142,8 @@
         }
     }
 
-    async function joinLobby(token: string) {
-        console.log(
-            "[Lobby] Joining lobby with token:",
-            token.substring(0, 20) + "...",
-        );
+    async function joinLobby() {
+        console.log("[Lobby] Joining lobby...");
         try {
             // Join Lobby (backend handles Ghost creation or existing character)
             // Lobby ID is 00000000-0000-0000-0000-000000000000, but we just connect without character_id to auto-join lobby
@@ -135,15 +154,9 @@
             await new Promise((resolve) => setTimeout(resolve, 100));
 
             console.log("[Lobby] Connecting to WebSocket...");
-            gameWebSocket.connect(token); // No character ID -> Lobby
+            gameWebSocket.connect(); // No token or character ID needed - cookie sent automatically
 
             onboardingStep = "lobby";
-            addMessage("system", "Welcome to the Lobby.");
-            addMessage("system", "Type 'worlds' to see available worlds.");
-            addMessage(
-                "system",
-                "Type 'create world' to start a new world interview.",
-            );
             console.log("[Lobby] Lobby join complete");
         } catch (error) {
             console.error("[Lobby] Failed to join lobby:", error);
@@ -151,7 +164,7 @@
         }
     }
 
-    async function startWorldInterview(token: string) {
+    async function startWorldInterview() {
         try {
             addMessage(
                 "system",
@@ -161,9 +174,9 @@
             const response = await fetch(`${API_URL}/world/interview/start`, {
                 method: "POST",
                 headers: {
-                    Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json",
                 },
+                credentials: "include", // Send cookies
             });
 
             if (!response.ok) {
@@ -209,9 +222,6 @@
     async function sendInterviewResponse() {
         if (!userResponse.trim() || !interviewSessionId) return;
 
-        const token = gameAPI.getToken();
-        if (!token) return;
-
         const userMessage = userResponse.trim();
         conversationHistory.push({ role: "user", text: userMessage });
         addMessage("user", userMessage);
@@ -227,9 +237,9 @@
             const response = await fetch(`${API_URL}/world/interview/message`, {
                 method: "POST",
                 headers: {
-                    Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json",
                 },
+                credentials: "include", // Send cookies
                 body: JSON.stringify({
                     session_id: interviewSessionId,
                     message: userMessage,
@@ -274,7 +284,7 @@
 
                 // Return to Lobby
                 setTimeout(() => {
-                    joinLobby(token);
+                    joinLobby();
                     addMessage(
                         "system",
                         "World created! Use 'worlds' to see it.",
@@ -318,138 +328,15 @@
             return;
         }
 
-        if (onboardingStep === "character") {
-            // Legacy character creation step, now handled via modal
-            handleCharacterCommand(input); // Keep for fallback
-            commandInput = "";
-            return;
-        }
-
-        const parts = input.toLowerCase().split(/\s+/);
-        const action = parts[0];
-        const rest = parts.slice(1);
-
-        // Lobby specific commands
-        if (onboardingStep === "lobby") {
-            // Format lobby commands properly for backend
-            const command: any = { action };
-
-            if (action === "create" && rest[0] === "world") {
-                command.action = "create";
-                command.target = "world";
-                gameWebSocket.sendCommand(command);
-                commandInput = "";
-                return;
-            }
-
-            if (action === "enter" && rest.length > 0) {
-                command.action = "enter";
-                command.target = rest[0];
-                gameWebSocket.sendCommand(command);
-                commandInput = "";
-                return;
-            }
-
-            if (["look", "l", "who", "help"].includes(action)) {
-                command.action = action;
-                gameWebSocket.sendCommand(command);
-                commandInput = "";
-                return;
-            }
-
-            if (action === "say" && rest.length > 0) {
-                command.action = "say";
-                command.message = rest.join(" ");
-                gameWebSocket.sendCommand(command);
-                commandInput = "";
-                return;
-            }
-        }
-
-        // Standard game commands
-        const command: any = { action };
-
-        // Parse based on command type (keep existing logic)
-        if (["move", "m"].includes(action)) {
-            if (rest.length > 0) {
-                // Map common variations to directions
-                const directionMap: Record<string, string> = {
-                    n: "north",
-                    north: "north",
-                    s: "south",
-                    south: "south",
-                    e: "east",
-                    east: "east",
-                    w: "west",
-                    west: "west",
-                    ne: "northeast",
-                    northeast: "northeast",
-                    nw: "northwest",
-                    northwest: "northwest",
-                    se: "southeast",
-                    southeast: "southeast",
-                    sw: "southwest",
-                    southwest: "southwest",
-                    u: "up",
-                    up: "up",
-                    d: "down",
-                    down: "down",
-                };
-                command.action = "move";
-                command.direction = directionMap[rest[0]] || rest[0];
-            }
-        } else if (["look", "l", "examine", "ex"].includes(action)) {
-            command.action = "look";
-            if (rest.length > 0) {
-                command.target = rest.join(" ");
-            }
-        } else if (["take", "get", "grab"].includes(action)) {
-            command.action = "take";
-            if (rest.length > 0) {
-                command.target = rest.join(" ");
-            }
-        } else if (["drop"].includes(action)) {
-            command.action = "drop";
-            if (rest.length > 0) {
-                command.target = rest.join(" ");
-            }
-        } else if (["attack", "kill", "fight"].includes(action)) {
-            command.action = "attack";
-            if (rest.length > 0) {
-                command.target = rest.join(" ");
-            }
-        } else if (["talk", "speak", "say"].includes(action)) {
-            command.action = "talk";
-            if (rest.length > 0) {
-                command.target = rest.join(" ");
-            }
-        } else if (["craft", "make", "create"].includes(action)) {
-            command.action = "craft";
-            if (rest.length > 0) {
-                command.target = rest.join(" ");
-            }
-        } else if (["use"].includes(action)) {
-            command.action = "use";
-            if (rest.length > 0) {
-                command.target = rest.join(" ");
-            }
-        } else if (["inventory", "inv", "i"].includes(action)) {
-            command.action = "inventory";
-        } else if (["help", "h", "?"].includes(action)) {
-            command.action = "help";
-        }
-
-        gameWebSocket.sendCommand(command);
+        // Send raw text command to backend - backend will parse and process it
+        gameWebSocket.sendRawCommand(input);
         commandInput = "";
     }
 
     async function listWorlds() {
-        const token = gameAPI.getToken();
-        if (!token) return;
-
         try {
             const res = await fetch(`${API_URL}/game/worlds`, {
-                headers: { Authorization: `Bearer ${token}` },
+                credentials: "include", // Send cookies
             });
             if (res.ok) {
                 const worlds = await res.json();
@@ -468,9 +355,6 @@
     }
 
     async function enterWorld(worldId: string) {
-        const token = gameAPI.getToken();
-        if (!token) return;
-
         try {
             addMessage(
                 "system",
@@ -479,7 +363,7 @@
             const res = await fetch(
                 `${API_URL}/game/entry-options?world_id=${worldId}`,
                 {
-                    headers: { Authorization: `Bearer ${token}` },
+                    credentials: "include", // Send cookies
                 },
             );
 
@@ -499,8 +383,7 @@
 
     async function handleEntrySelection(event: CustomEvent) {
         const { type, data } = event.detail;
-        const token = gameAPI.getToken();
-        if (!token || !targetWorldId) return;
+        if (!targetWorldId) return;
 
         showEntryModal = false;
 
@@ -564,16 +447,13 @@
         role?: string,
         appearance?: string,
     ) {
-        const token = gameAPI.getToken();
-        if (!token) return;
-
         try {
             const response = await fetch(`${API_URL}/game/characters`, {
                 method: "POST",
                 headers: {
-                    Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json",
                 },
+                credentials: "include", // Send cookies
                 body: JSON.stringify({
                     world_id: worldId,
                     name: name,
@@ -600,9 +480,9 @@
             await fetch(`${API_URL}/game/join`, {
                 method: "POST",
                 headers: {
-                    Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json",
                 },
+                credentials: "include", // Send cookies
                 body: JSON.stringify({
                     character_id: data.character.character_id,
                 }),
@@ -610,7 +490,7 @@
 
             // Reconnect WebSocket
             gameWebSocket.disconnect();
-            gameWebSocket.connect(token, data.character.character_id);
+            gameWebSocket.connect(data.character.character_id);
             onboardingStep = "game";
             addMessage("system", "You have entered the world!");
         } catch (error: any) {
@@ -655,8 +535,7 @@
                         msg.data.metadata?.world_id || msg.data.text;
                     enterWorld(worldId);
                 } else if (type === "start_interview") {
-                    const token = gameAPI.getToken();
-                    if (token) startWorldInterview(token);
+                    startWorldInterview();
                 } else {
                     addMessage(type, msg.data.text);
                 }
@@ -713,94 +592,134 @@
     }
 </script>
 
-<div class="min-h-screen bg-black flex items-center justify-center p-4">
-    <!-- Logout button -->
-    <button
-        on:click={handleLogout}
-        class="absolute top-4 right-4 z-50 text-gray-600 hover:text-blue-400 px-4 py-2 text-xs font-mono uppercase tracking-widest transition-colors"
+<div class="flex flex-col h-screen bg-gray-900 text-gray-100 font-mono">
+    <!-- Header -->
+    <header
+        class="bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center"
     >
-        [ Logout ]
-    </button>
-
-    <!-- Terminal Container -->
-    <div
-        class="w-full max-w-4xl bg-gray-900 rounded-lg shadow-2xl border-2 border-blue-500/30 overflow-hidden flex flex-col h-[85vh] max-h-[700px]"
-    >
-        <!-- Terminal Header -->
-        <div
-            class="bg-blue-950/50 px-4 py-2 border-b border-blue-500/30 flex items-center justify-between shrink-0"
-        >
-            <div class="flex gap-2">
-                <div
-                    class="w-3 h-3 rounded-full bg-red-500/30 border border-red-500/50"
-                ></div>
-                <div
-                    class="w-3 h-3 rounded-full bg-yellow-500/30 border border-yellow-500/50"
-                ></div>
-                <div
-                    class="w-3 h-3 rounded-full bg-green-500/30 border border-green-500/50"
-                ></div>
-            </div>
-            <span
-                class="text-blue-400 text-xs font-mono uppercase tracking-widest"
+        <h1 class="text-xl font-bold text-blue-400">Thousand Worlds</h1>
+        <div class="flex items-center gap-4">
+            <!-- Connection Status -->
+            <div
+                class="flex items-center gap-2 text-sm"
+                title={isConnected ? "Connected" : "Disconnected"}
             >
-                {#if onboardingStep === "interview"}
-                    World_Creation_Protocol
-                {:else if onboardingStep === "character"}
-                    Character_Initialization
-                {:else if onboardingStep === "checking"}
-                    System_Check
-                {:else}
-                    Thousand_Worlds_Terminal
-                {/if}
-            </span>
-            <div class="w-14"></div>
-            <!-- Spacer for centering -->
+                <div
+                    class={`w-3 h-3 rounded-full ${isConnected ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" : "bg-red-500 animate-pulse"}`}
+                ></div>
+                <span class={isConnected ? "text-gray-400" : "text-red-400"}>
+                    {isConnected ? "Connected" : "Reconnecting..."}
+                </span>
+            </div>
+
+            <button
+                on:click={() => {
+                    gameAPI.logout();
+                    goto("/");
+                }}
+                class="text-sm text-gray-400 hover:text-white transition-colors"
+            >
+                Logout
+            </button>
         </div>
+    </header>
 
-        <!-- Messages Display -->
-        <div
-            class="messages-container flex-1 overflow-y-auto p-6 font-mono text-sm md:text-base leading-relaxed bg-black"
-        >
-            {#each messages as message}
-                <div class="mb-2 {getMessageColor(message.type)}">
-                    <span class="whitespace-pre-wrap font-medium"
-                        >{message.text || ""}</span
+    <!-- Main Game Area -->
+    <main class="flex-1 overflow-hidden flex flex-col relative">
+        {#if onboardingStep === "checking"}
+            <div class="flex-1 flex items-center justify-center">
+                <div class="text-xl text-gray-400 animate-pulse">
+                    Loading...
+                </div>
+            </div>
+        {:else if onboardingStep === "interview"}
+            <div
+                class="flex-1 flex flex-col p-4 overflow-y-auto"
+                id="game-output"
+            >
+                {#each conversationHistory as msg}
+                    <div
+                        class={`mb-4 ${msg.role === "user" ? "text-right" : "text-left"}`}
                     >
-                </div>
-            {/each}
+                        <div
+                            class={`inline-block p-3 rounded-lg max-w-[80%] ${
+                                msg.role === "user"
+                                    ? "bg-blue-900/50 text-blue-100"
+                                    : "bg-gray-800/50 text-gray-100"
+                            }`}
+                        >
+                            {msg.text}
+                        </div>
+                    </div>
+                {/each}
+                {#if currentQuestion}
+                    <div class="mb-4 text-left">
+                        <div
+                            class="inline-block p-3 rounded-lg max-w-[80%] bg-gray-800/50 text-gray-100 border-l-4 border-blue-500"
+                        >
+                            {currentQuestion}
+                        </div>
+                    </div>
+                {/if}
+            </div>
+        {:else}
+            <!-- Game Output -->
+            <div
+                class="flex-1 overflow-y-auto p-4 space-y-2 scroll-smooth"
+                id="game-output"
+            >
+                {#each messages as msg (msg.id)}
+                    <div
+                        class={`leading-relaxed ${
+                            msg.type === "error"
+                                ? "text-red-400"
+                                : msg.type === "system"
+                                  ? "text-yellow-400"
+                                  : msg.type === "player"
+                                    ? "text-blue-300"
+                                    : msg.type === "emote"
+                                      ? "text-orange-300 italic"
+                                      : "text-gray-300"
+                        }`}
+                    >
+                        {@html msg.text}
+                    </div>
+                {/each}
+            </div>
+        {/if}
 
-            {#if onboardingStep === "checking"}
-                <div class="text-cyan-500 animate-pulse mt-4">
-                    > System check in progress...
+        <!-- Input Area -->
+        <div class="p-4 bg-gray-800 border-t border-gray-700 space-y-3">
+            {#if onboardingStep !== "interview" && onboardingStep !== "checking"}
+                <QuickButtons />
+            {/if}
+
+            {#if onboardingStep === "interview"}
+                <!-- Interview mode: simple input -->
+                <div class="relative">
+                    <input
+                        type="text"
+                        bind:value={commandInput}
+                        on:keydown={(e) => e.key === "Enter" && handleCommand()}
+                        placeholder="Answer the question..."
+                        class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-gray-100 text-base focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                        style="font-size: 16px;"
+                    />
                 </div>
+            {:else if onboardingStep !== "checking"}
+                <!-- Game mode: use thin-client CommandInput -->
+                <CommandInput />
             {/if}
         </div>
 
-        <!-- Command Input -->
-        <div class="bg-black p-4 shrink-0 border-t border-blue-500/20">
-            <form
-                on:submit|preventDefault={handleCommand}
-                class="flex gap-3 items-center"
-            >
-                <span class="text-blue-400 font-mono text-lg font-bold"
-                    >{">"}</span
-                >
-                <input
-                    bind:value={commandInput}
-                    type="text"
-                    placeholder={onboardingStep === "interview" ? "" : ""}
-                    class="flex-1 bg-transparent border-none p-0 text-blue-100 font-mono text-base focus:ring-0 focus:outline-none placeholder-gray-700 caret-blue-400"
-                    autocomplete="off"
-                    autoFocus
-                />
-            </form>
-        </div>
-    </div>
-
-    {#if showEntryModal && entryOptions}
-        <WorldEntry options={entryOptions} on:select={handleEntrySelection} />
-    {/if}
+        <!-- Entry Modal -->
+        {#if showEntryModal && entryOptions}
+            <WorldEntry
+                options={entryOptions}
+                on:select={handleEntrySelection}
+            />
+        {/if}
+    </main>
 </div>
 
 <style>

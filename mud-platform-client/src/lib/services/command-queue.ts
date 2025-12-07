@@ -2,11 +2,9 @@
 // Implements outbox pattern with IndexedDB for offline command queueing
 // Automatically retries pending commands when connection is restored
 
-import type { CommandData } from './websocket';
-
 interface QueuedCommand {
     id: string;
-    command: CommandData;
+    text: string;  // Store raw text command
     timestamp: number;
     retryCount: number;
     status: 'pending' | 'processing' | 'failed';
@@ -44,12 +42,12 @@ export class CommandQueue {
     }
 
     // Enqueue command for later sending (O(1) IndexedDB write)
-    async enqueue(command: CommandData): Promise<string> {
+    async enqueue(text: string): Promise<string> {
         if (!this.db) throw new Error('Database not initialized');
 
         const queuedCommand: QueuedCommand = {
             id: crypto.randomUUID(),
-            command,
+            text,
             timestamp: Date.now(),
             retryCount: 0,
             status: 'pending'
@@ -96,7 +94,7 @@ export class CommandQueue {
     }
 
     // Process queue when connection restored
-    async processQueue(sendFn: (cmd: CommandData) => Promise<void>): Promise<void> {
+    async processQueue(sendFn: (text: string) => Promise<void>): Promise<void> {
         if (!this.db || this.isProcessing) return;
 
         this.isProcessing = true;
@@ -108,7 +106,7 @@ export class CommandQueue {
                 await this.updateStatus(queuedCmd.id, 'processing');
 
                 try {
-                    await sendFn(queuedCmd.command);
+                    await sendFn(queuedCmd.text);
                     await this.remove(queuedCmd.id);
                 } catch (error) {
                     console.error('Failed to send queued command:', error);

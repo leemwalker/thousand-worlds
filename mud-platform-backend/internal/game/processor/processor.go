@@ -4,14 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
 	"mud-platform-backend/cmd/game-server/websocket"
 	"mud-platform-backend/internal/auth"
+	"mud-platform-backend/internal/game/formatter"
 	"mud-platform-backend/internal/lobby"
+	"mud-platform-backend/internal/player"
 	"mud-platform-backend/internal/repository"
+	"mud-platform-backend/internal/world/interview"
 )
 
 var (
@@ -21,18 +26,22 @@ var (
 
 // GameProcessor handles game command processing
 type GameProcessor struct {
-	Hub         *websocket.Hub
-	authRepo    auth.Repository
-	worldRepo   repository.WorldRepository
-	lookService *lobby.LookService
+	Hub              *websocket.Hub
+	authRepo         auth.Repository
+	worldRepo        repository.WorldRepository
+	lookService      *lobby.LookService
+	interviewService *interview.InterviewService
+	spatialService   *player.SpatialService
 }
 
 // NewGameProcessor creates a new game processor
-func NewGameProcessor(authRepo auth.Repository, worldRepo repository.WorldRepository, lookService *lobby.LookService) *GameProcessor {
+func NewGameProcessor(authRepo auth.Repository, worldRepo repository.WorldRepository, lookService *lobby.LookService, interviewService *interview.InterviewService, spatialService *player.SpatialService) *GameProcessor {
 	return &GameProcessor{
-		authRepo:    authRepo,
-		worldRepo:   worldRepo,
-		lookService: lookService,
+		authRepo:         authRepo,
+		worldRepo:        worldRepo,
+		lookService:      lookService,
+		interviewService: interviewService,
+		spatialService:   spatialService,
 	}
 }
 
@@ -43,6 +52,18 @@ func (p *GameProcessor) SetHub(hub *websocket.Hub) {
 
 // ProcessCommand processes a game command from a client
 func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+	log.Printf("[PROCESSOR] ProcessCommand called with Text='%s', Action='%s'", cmd.Text, cmd.Action)
+	// If Text field is provided, parse it into structured format
+	if cmd.Text != "" {
+		parser := NewCommandParser()
+		parsedCmd := parser.ParseText(cmd.Text)
+		if parsedCmd == nil {
+			return fmt.Errorf("invalid command")
+		}
+		// Use parsed command for processing
+		cmd = parsedCmd
+	}
+
 	// Validate character exists
 	charID := client.GetCharacterID()
 	if charID == uuid.Nil {
@@ -141,23 +162,40 @@ func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.Gam
 
 // processLobbyCommand handles commands specifically for the lobby
 func (p *GameProcessor) processLobbyCommand(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+	log.Printf("[LOBBY] Processing command: Action='%s', Target='%v', Recipient='%v'", cmd.Action, cmd.Target, cmd.Recipient)
 	switch cmd.Action {
 	case "look", "l":
 		return p.handleLobbyLook(ctx, client, cmd)
 	case "create":
 		// Handle "create world"
-		if cmd.Target != nil && strings.ToLower(*cmd.Target) == "world" {
-			return p.handleCreateWorld(ctx, client)
+		if cmd.Target != nil {
+			target := strings.ToLower(*cmd.Target)
+			if target == "world" {
+				return p.handleCreateWorld(ctx, client)
+			}
+			// Handle "create character Name Role Race"
+			if strings.HasPrefix(target, "character") {
+				return p.handleCreateCharacter(ctx, client, cmd)
+			}
 		}
 		return fmt.Errorf("unknown create command")
 	case "enter":
 		return p.handleLobbyEnter(ctx, client, cmd)
 	case "say":
 		return p.handleSay(ctx, client, cmd) // Reuse generic say for now
+	case "tell":
+		return p.handleTell(ctx, client, cmd) // Allow tell in lobby
+	case "reply", "r":
+		return p.handleReply(ctx, client, cmd) // New reply command
 	case "who":
 		return p.handleWho(ctx, client) // Reuse generic who for now
 	case "help":
 		return p.handleLobbyHelp(ctx, client)
+	case "watcher":
+		return p.handleWatcher(ctx, client, cmd)
+	// Direction commands for moving in the lobby
+	case "n", "north", "s", "south", "e", "east", "w", "west":
+		return p.handleDirection(ctx, client, cmd.Action)
 	default:
 		client.SendGameMessage("error", "Unknown lobby command. Type 'help' for available commands.", nil)
 		return nil
@@ -174,6 +212,8 @@ Lobby Commands:
   create world              - Start the process of creating a new world.
   enter <world_id>          - Enter a specific world.
   say <message>             - Chat with other players in the lobby.
+  tell <player> <message>   - Send a private message to any online player.
+  reply <message>           - Reply to the last person who sent you a tell.
   who                       - See who is online.
 `
 	client.SendGameMessage("system", helpText, nil)
@@ -224,36 +264,22 @@ func (p *GameProcessor) handleLobbyLook(ctx context.Context, client websocket.Ga
 
 	// No target - show general lobby description
 	// 1. Description
-	desc := "You are in the Grand Lobby of Thousand Worlds. A vast, ethereal hall with portals shimmering in the distance.\n\n"
+	// No target - show general lobby description
 
-	// 2. Available Worlds
-	worlds, err := p.worldRepo.ListWorlds(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to list worlds: %w", err)
-	}
-
-	desc += "Available Worlds:\n"
-	for _, w := range worlds {
-		desc += fmt.Sprintf("- %s (ID: %s)\n", w.Name, w.ID)
-	}
-	desc += "\n"
-
-	// 3. Other Players
+	// Get all clients in lobby
 	clients := p.Hub.GetClientsByWorldID(lobby.LobbyWorldID)
-	if len(clients) > 1 { // Exclude self if possible, or just list all
-		desc += "Other spirits here:\n"
-		for _, c := range clients {
-			if c.GetCharacterID() != client.GetCharacterID() {
-				// Use Username if available, fallback to CharacterID
-				name := c.GetUsername()
-				if name == "" {
-					name = c.GetCharacterID().String()
-				}
-				desc += fmt.Sprintf("- %s\n", name)
-			}
-		}
-	} else {
-		desc += "You are alone here.\n"
+
+	// Convert to lobby.WebsocketClient interface
+	var lobbyClients []lobby.WebsocketClient
+	for _, c := range clients {
+		lobbyClients = append(lobbyClients, c)
+	}
+
+	// Get dynamic description
+	desc, err := p.lookService.GetLobbyDescription(ctx, char.UserID, charID, lobbyClients)
+	if err != nil {
+		log.Printf("[PROCESSOR] Failed to generate lobby description: %v", err)
+		desc = "You are in the Grand Lobby of Thousand Worlds." // Fallback
 	}
 
 	client.SendGameMessage("area_description", desc, nil)
@@ -268,8 +294,29 @@ func (p *GameProcessor) handleLobbyEnter(ctx context.Context, client websocket.G
 	worldIDStr := strings.TrimSpace(*cmd.Target)
 	worldID, err := uuid.Parse(worldIDStr)
 	if err != nil {
-		client.SendGameMessage("error", "Invalid world ID format.", nil)
-		return nil
+		// Not a UUID, try to find world by name
+		worlds, errList := p.worldRepo.ListWorlds(ctx)
+		if errList != nil {
+			client.SendGameMessage("error", "Failed to search for world.", nil)
+			return nil
+		}
+
+		var foundWorld *repository.World
+		targetName := strings.ToLower(worldIDStr)
+
+		for _, w := range worlds {
+			if strings.ToLower(w.Name) == targetName {
+				foundWorld = &w
+				break
+			}
+		}
+
+		if foundWorld != nil {
+			worldID = foundWorld.ID
+		} else {
+			client.SendGameMessage("error", fmt.Sprintf("There is no portal to '%s' here.", worldIDStr), nil)
+			return nil
+		}
 	}
 
 	// Verify world exists
@@ -329,9 +376,14 @@ Available Commands:
 
 // handleDirection handles all cardinal direction movements
 func (p *GameProcessor) handleDirection(ctx context.Context, client websocket.GameClient, direction string) error {
-	// TODO: Integrate with actual movement system and world validation
-	client.SendGameMessage("movement", fmt.Sprintf("You move %s.", direction), nil)
-	p.sendStateUpdate(client)
+	msg, err := p.spatialService.HandleMovementCommand(ctx, client.GetCharacterID(), direction)
+	if err != nil {
+		client.SendGameMessage("error", err.Error(), nil) // Send error to client, e.g. "blocked by wall"
+		return nil
+	}
+
+	client.SendGameMessage("movement", msg, nil)
+	// p.sendStateUpdate(client) // Temporarily disabled until implemented to read live DB data
 	return nil
 }
 
@@ -349,13 +401,89 @@ func (p *GameProcessor) handleOpen(ctx context.Context, client websocket.GameCli
 
 // handleEnter enters through portals, doorways, or archways
 func (p *GameProcessor) handleEnter(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
-	if cmd.Target == nil {
-		return errors.New("target required for enter command")
+	if cmd.Target == nil || strings.TrimSpace(*cmd.Target) == "" {
+		client.SendGameMessage("error", "Enter what? Try 'enter <world name>'.", nil)
+		return nil
 	}
 
-	// TODO: Integrate with world system to handle portal/doorway transitions
-	client.SendGameMessage("movement", fmt.Sprintf("You enter the %s.", *cmd.Target), nil)
+	targetStr := strings.TrimSpace(*cmd.Target)
+	charID := client.GetCharacterID()
+
+	// 1. Resolve target to a World
+	var destWorld *repository.World
+	worldID, err := uuid.Parse(targetStr)
+	if err == nil {
+		// Valid UUID
+		destWorld, err = p.worldRepo.GetWorld(ctx, worldID)
+		if err != nil {
+			client.SendGameMessage("error", "That portal doesn't seem to lead anywhere.", nil)
+			return nil
+		}
+	} else {
+		// Try to find world by name
+		worlds, errList := p.worldRepo.ListWorlds(ctx)
+		if errList != nil {
+			client.SendGameMessage("error", "Failed to search for portals.", nil)
+			return nil
+		}
+
+		targetName := strings.ToLower(targetStr)
+		for _, w := range worlds {
+			if strings.ToLower(w.Name) == targetName {
+				destWorld = &w
+				break
+			}
+		}
+
+		if destWorld == nil {
+			client.SendGameMessage("error", fmt.Sprintf("There is no portal to '%s' here.", targetStr), nil)
+			return nil
+		}
+	}
+
+	// 2. Get character
+	char, err := p.authRepo.GetCharacter(ctx, charID)
+	if err != nil {
+		client.SendGameMessage("error", "Failed to find your character.", nil)
+		return nil
+	}
+
+	// 3. Check if already in that world
+	if char.WorldID == destWorld.ID {
+		client.SendGameMessage("info", "You are already in that world.", nil)
+		return nil
+	}
+
+	// 4. Check if entering lobby (special case)
+	if lobby.IsLobby(destWorld.ID) {
+		client.SendGameMessage("info", "You step back through the portal into the Grand Lobby.", nil)
+		char.WorldID = destWorld.ID
+		// Reset position to lobby center
+		char.PositionX = 5.0   // LobbyCenter X
+		char.PositionY = 500.0 // LobbyCenter Y
+		char.PositionZ = 0
+	} else {
+		// 5. Transition to destination world
+		client.SendGameMessage("movement", fmt.Sprintf("You step through the shimmering portal into %s.", destWorld.Name), nil)
+		char.WorldID = destWorld.ID
+		// Set spawn position (could be defined per-world, default to 0,0,0)
+		char.PositionX = 0
+		char.PositionY = 0
+		char.PositionZ = 0
+	}
+
+	// 6. Persist character update
+	if err := p.authRepo.UpdateCharacter(ctx, char); err != nil {
+		log.Printf("[PROCESSOR] Failed to update character world: %v", err)
+		client.SendGameMessage("error", "Failed to transition to new world.", nil)
+		return nil
+	}
+
+	// 7. Update client's world context (if applicable)
+	// The client should recognize the world change from the message or poll state.
+	// Send state update with new world info.
 	p.sendStateUpdate(client)
+
 	return nil
 }
 
@@ -375,7 +503,8 @@ func (p *GameProcessor) handleSay(ctx context.Context, client websocket.GameClie
 	lobbyClients := p.Hub.GetClientsByWorldID(lobby.LobbyWorldID)
 
 	// Send to sender with special formatting
-	client.SendGameMessage("speech_self", fmt.Sprintf("You say, '%s'", message), map[string]interface{}{
+	formattedMessage := fmt.Sprintf("You say, %s", formatter.Format(fmt.Sprintf("'%s'", message), formatter.StyleGreen))
+	client.SendGameMessage("speech_self", formattedMessage, map[string]interface{}{
 		"sender_id":   senderCharID.String(),
 		"sender_name": senderUsername,
 		"message":     message,
@@ -384,7 +513,10 @@ func (p *GameProcessor) handleSay(ctx context.Context, client websocket.GameClie
 	// Broadcast to all other players in lobby
 	for _, c := range lobbyClients {
 		if c.GetCharacterID() != senderCharID {
-			c.SendGameMessage("speech", fmt.Sprintf("%s says, '%s'", senderUsername, message), map[string]interface{}{
+			formattedSpeech := fmt.Sprintf("%s says, %s",
+				formatter.Format(senderUsername, formatter.StyleCyan),
+				formatter.Format(fmt.Sprintf("'%s'", message), formatter.StyleGreen))
+			c.SendGameMessage("speech", formattedSpeech, map[string]interface{}{
 				"sender_id":   senderCharID.String(),
 				"sender_name": senderUsername,
 				"message":     message,
@@ -433,6 +565,86 @@ func (p *GameProcessor) handleTell(ctx context.Context, client websocket.GameCli
 	senderUsername := client.GetUsername()
 	senderCharID := client.GetCharacterID()
 
+	// Special handling for "statue" - this is the world creation NPC in the lobby
+	if strings.ToLower(targetUsername) == "statue" {
+		log.Printf("[STATUE] User %s (ID: %s) talking to statue with message: %s", senderUsername, client.GetUserID(), message)
+
+		// User ID from client
+		userID := client.GetUserID()
+
+		// Try to get existing interview first
+		session, err := p.interviewService.GetActiveInterview(ctx, userID)
+		log.Printf("[STATUE] GetActiveInterview result: session=%v, err=%v", session != nil, err)
+
+		if err != nil || session == nil {
+			log.Printf("[STATUE] Starting new interview for user %s", userID)
+
+			// Send thinking emote
+			client.SendGameMessage("emote", "The statue stands motionless, its stone gaze seeming to penetrate your mind...", map[string]interface{}{
+				"source": "Statue",
+			})
+
+			// No active interview - start a new one
+			session, question, err := p.interviewService.StartInterview(ctx, userID)
+			if err != nil {
+				log.Printf("[STATUE] ERROR starting interview: %v", err)
+				client.SendGameMessage("error", fmt.Sprintf("The statue remains silent. %v", err), nil)
+				return err
+			}
+
+			log.Printf("[STATUE] Interview started successfully, sending first question")
+
+			// Send emote
+			client.SendGameMessage("emote", "The statue's eyes glow warmly.", map[string]interface{}{
+				"source": "Statue",
+			})
+
+			// Send the initial question from the statue
+			response := fmt.Sprintf("A voice resonates in your mind:\n\n%s", question)
+			client.SendGameMessage("tell", response, map[string]interface{}{
+				"sender_name": "Statue",
+				"session_id":  session.ID.String(),
+			})
+		} else {
+			log.Printf("[STATUE] Processing response for existing interview")
+
+			// Send thinking emote
+			client.SendGameMessage("emote", "The statue listens intently...", map[string]interface{}{
+				"source": "Statue",
+			})
+
+			// Interview in progress - process the message as a response
+			nextQuestion, isComplete, err := p.interviewService.ProcessResponse(ctx, userID, message)
+			if err != nil {
+				log.Printf("[STATUE] ERROR processing response: %v", err)
+				client.SendGameMessage("error", fmt.Sprintf("The statue seems confused. %v", err), nil)
+				return err
+			}
+
+			if isComplete {
+				log.Printf("[STATUE] Interview complete for user %s", userID)
+				// Interview complete
+				response := fmt.Sprintf("The statue's eyes shine with approval.\n\n%s\n\nYour world is being forged. You may now enter it using 'enter <world_name>'.", nextQuestion)
+				client.SendGameMessage("tell", response, map[string]interface{}{
+					"sender_name": "Statue",
+					"completed":   true,
+				})
+			} else {
+				log.Printf("[STATUE] Sending next question")
+				// Send next question
+				response := fmt.Sprintf("The statue acknowledges your answer with a nod.\n\n%s", nextQuestion)
+				client.SendGameMessage("tell", response, map[string]interface{}{
+					"sender_name": "Statue",
+				})
+			}
+		}
+
+		log.Printf("[STATUE] Completed statue interaction for user %s", userID)
+		// Update last tell sender so they can reply
+		client.SetLastTellSender("statue")
+		return nil
+	}
+
 	// Get ALL connected clients (not just lobby)
 	allClients := p.Hub.GetAllClients()
 
@@ -468,6 +680,9 @@ func (p *GameProcessor) handleTell(ctx context.Context, client websocket.GameCli
 		"message":     message,
 	})
 
+	// Update recipient's last tell sender so they can use reply command
+	targetClient.SetLastTellSender(senderUsername)
+
 	return nil
 }
 
@@ -495,13 +710,28 @@ func (p *GameProcessor) handleWho(ctx context.Context, client websocket.GameClie
 }
 
 func (p *GameProcessor) handleLook(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
-	// TODO: Integrate with world/area system
-	description := "You are in a grassy clearing. Trees surround you on all sides."
-	if cmd.Target != nil {
-		description = fmt.Sprintf("You examine the %s.", *cmd.Target)
+	// If target is specified, it might be an item or feature.
+	// For now, let's assume we are mostly looking at the room if no target or "here".
+	if cmd.Target != nil && *cmd.Target != "" && strings.ToLower(*cmd.Target) != "here" && strings.ToLower(*cmd.Target) != "room" {
+		description := fmt.Sprintf("You examine the %s.", *cmd.Target)
+		client.SendGameMessage("area_description", description, nil)
+		return nil
 	}
 
-	client.SendGameMessage("area_description", description, nil)
+	charID := client.GetCharacterID()
+	worldID := client.GetWorldID()
+
+	// Get dynamic room description from LookService
+	description, err := p.lookService.DescribeRoom(ctx, worldID)
+	if err != nil {
+		log.Printf("[PROCESSOR] Failed to describe room: %v", err)
+		description = "You are in a mysterious place. The mist conceals everything."
+	}
+
+	client.SendGameMessage("area_description", description, map[string]interface{}{
+		"character_id": charID.String(),
+		"world_id":     worldID.String(),
+	})
 	return nil
 }
 
@@ -511,7 +741,8 @@ func (p *GameProcessor) handleTake(ctx context.Context, client websocket.GameCli
 	}
 
 	// TODO: Integrate with inventory system
-	client.SendGameMessage("item_acquired", fmt.Sprintf("You pick up the %s.", *cmd.Target), map[string]interface{}{
+	formattedItem := fmt.Sprintf("You pick up %s.", formatter.Item(*cmd.Target, "common"))
+	client.SendGameMessage("item_acquired", formattedItem, map[string]interface{}{
 		"itemName": *cmd.Target,
 		"quantity": 1,
 	})
@@ -537,7 +768,10 @@ func (p *GameProcessor) handleAttack(ctx context.Context, client websocket.GameC
 	}
 
 	// TODO: Integrate with combat system
-	client.SendGameMessage("combat", fmt.Sprintf("You attack %s for 10 damage!", *cmd.Target), map[string]interface{}{
+	formattedCombat := fmt.Sprintf("You attack %s for %s damage!",
+		formatter.Target(*cmd.Target),
+		formatter.Damage(10))
+	client.SendGameMessage("combat", formattedCombat, map[string]interface{}{
 		"targetName": *cmd.Target,
 		"damage":     10,
 	})
@@ -551,11 +785,16 @@ func (p *GameProcessor) handleTalk(ctx context.Context, client websocket.GameCli
 		return errors.New("target required for talk")
 	}
 
-	// TODO: Integrate with dialogue/NPC system
-	client.SendGameMessage("dialogue", "Hello, traveler!", map[string]interface{}{
-		"speakerName": *cmd.Target,
+	// TODO: Integrate with NPC dialogue system
+	formattedDialogue := fmt.Sprintf("%s says: %s",
+		formatter.Format(*cmd.Target, formatter.StyleYellow),
+		formatter.Format("'Hello, traveler!'", formatter.StyleGreen))
+	client.SendGameMessage("dialogue", formattedDialogue, map[string]interface{}{
+		"npcName":   *cmd.Target,
+		"npcID":     "placeholder-npc-id",
+		"dialogue":  "Hello, traveler!",
+		"available": []string{"quest", "trade", "goodbye"},
 	})
-
 	return nil
 }
 
@@ -594,7 +833,18 @@ func (p *GameProcessor) handleUse(ctx context.Context, client websocket.GameClie
 
 // sendStateUpdate sends the current game state to the client
 func (p *GameProcessor) sendStateUpdate(client websocket.GameClient) {
-	// TODO: Get actual state from database
+	// Get character from database for live position
+	charID := client.GetCharacterID()
+	ctx := context.Background()
+	char, err := p.authRepo.GetCharacter(ctx, charID)
+
+	posX, posY := 0.0, 0.0
+	if err == nil && char != nil {
+		posX = char.PositionX
+		posY = char.PositionY
+	}
+
+	// TODO: Get actual HP/Stamina/Focus from character stats when implemented
 	state := &websocket.StateUpdateData{
 		HP:         100,
 		MaxHP:      100,
@@ -603,8 +853,8 @@ func (p *GameProcessor) sendStateUpdate(client websocket.GameClient) {
 		Focus:      60,
 		MaxFocus:   100,
 		Position: websocket.Position{
-			X: 0,
-			Y: 0,
+			X: posX,
+			Y: posY,
 		},
 		Inventory:    []websocket.InventoryItem{},
 		Equipment:    websocket.Equipment{},
@@ -612,4 +862,128 @@ func (p *GameProcessor) sendStateUpdate(client websocket.GameClient) {
 	}
 
 	client.SendStateUpdate(state)
+}
+
+func (p *GameProcessor) handleCreateCharacter(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+	if cmd.Target == nil {
+		return errors.New("missing character details")
+	}
+
+	// Target format: "character Name Role Race"
+	parts := strings.Split(*cmd.Target, " ")
+	if len(parts) < 4 {
+		return errors.New("usage: create character <Name> <Role> <Race>")
+	}
+
+	name := parts[1]
+	role := parts[2]
+	race := parts[3] // We'll store race in Description for now as Appearance creates complexity
+
+	charID := uuid.New()
+	userID := client.GetUserID()
+	// Create characters in the lobby world by default if not specified
+	worldID := lobby.LobbyWorldID
+
+	// If 5th argument provided, parse as world ID
+	if len(parts) >= 5 {
+		parsedWorldID, err := uuid.Parse(parts[4])
+		if err == nil {
+			worldID = parsedWorldID
+		}
+	}
+
+	now := time.Now()
+	// Create character struct
+	newChar := &auth.Character{
+		CharacterID: charID,
+		UserID:      userID,
+		WorldID:     worldID,
+		Name:        name,
+		Role:        role,
+		Description: fmt.Sprintf("Race: %s", race),
+		CreatedAt:   now,
+		LastPlayed:  &now,
+		Position: &auth.Position{
+			Latitude:  0,
+			Longitude: 0,
+		},
+	}
+
+	if err := p.authRepo.CreateCharacter(ctx, newChar); err != nil {
+		return fmt.Errorf("failed to create character: %w", err)
+	}
+
+	// Update client state
+	client.SetCharacterID(charID)
+
+	client.SendGameMessage("system", fmt.Sprintf("Character %s created successfully! You are a %s %s.", name, race, role), map[string]interface{}{
+		"character_id": charID.String(),
+		"name":         name,
+		"role":         role,
+		"race":         race,
+	})
+
+	return nil
+}
+
+func (p *GameProcessor) handleWatcher(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+	if cmd.Target == nil || *cmd.Target == "" {
+		return errors.New("missing world ID")
+	}
+
+	worldID, err := uuid.Parse(*cmd.Target)
+	if err != nil {
+		return fmt.Errorf("invalid world ID: %w", err)
+	}
+
+	userID := client.GetUserID()
+	// Check if already has a character in this world
+	existingChar, err := p.authRepo.GetCharacterByUserAndWorld(ctx, userID, worldID)
+	// If method not implemented or error, ignore for now and try create?
+	// The interface has GetCharacterByUserAndWorld.
+	// But let's assume if it exists, we just switch to it.
+	if err == nil && existingChar != nil {
+		client.SetCharacterID(existingChar.CharacterID)
+		client.SetWorldID(worldID)
+		client.SendGameMessage("system", "You return to the world as a watcher.", map[string]interface{}{
+			"character_id": existingChar.CharacterID.String(),
+			"role":         "watcher",
+			"world_id":     worldID.String(),
+		})
+		return nil
+	}
+
+	// Create watcher character
+	charID := uuid.New()
+	now := time.Now()
+	newChar := &auth.Character{
+		CharacterID: charID,
+		UserID:      userID,
+		WorldID:     worldID,
+		Name:        "Watcher",
+		Role:        "watcher",
+		Description: "An incorporeal observer.",
+		CreatedAt:   now,
+		LastPlayed:  &now,
+		Position: &auth.Position{
+			Latitude:  0,
+			Longitude: 0,
+		},
+	}
+
+	if err := p.authRepo.CreateCharacter(ctx, newChar); err != nil {
+		return fmt.Errorf("failed to create watcher character: %w", err)
+	}
+
+	client.SetCharacterID(charID)
+	// IMPORTANT: Update the client's WorldID so subsequent commands are routed to the world, not lobby
+	client.SetWorldID(worldID)
+
+	client.SendGameMessage("system", "You enter the world as a watcher.", map[string]interface{}{
+		"character_id": charID.String(),
+		"role":         "watcher",
+		"world_id":     worldID.String(),
+	})
+
+	return nil
 }

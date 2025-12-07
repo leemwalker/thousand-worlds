@@ -1,0 +1,46 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - img [ref=e7]
+      - generic [ref=e9]:
+        - heading "Install Thousand Worlds" [level=3] [ref=e10]
+        - paragraph [ref=e11]: Add to your Home Screen
+    - paragraph [ref=e12]: "Get the best experience with offline support and quick access:"
+    - list [ref=e13]:
+      - listitem [ref=e14]:
+        - generic [ref=e15]: "1"
+        - generic [ref=e16]:
+          - text: Tap the
+          - strong [ref=e17]: Share
+          - text: button
+          - img [ref=e18]
+      - listitem [ref=e20]:
+        - generic [ref=e21]: "2"
+        - generic [ref=e22]:
+          - text: Scroll and tap
+          - strong [ref=e23]: "\"Add to Home Screen\""
+      - listitem [ref=e24]:
+        - generic [ref=e25]: "3"
+        - generic [ref=e26]:
+          - text: Tap
+          - strong [ref=e27]: "\"Add\""
+          - text: in the top right
+    - button "Got it" [ref=e28] [cursor=pointer]
+  - generic [ref=e30]:
+    - heading "Thousand Worlds" [level=1] [ref=e31]
+    - heading "Sign In" [level=2] [ref=e32]
+    - generic [ref=e33]:
+      - generic [ref=e34]:
+        - generic [ref=e35]: Email
+        - textbox "Email" [ref=e36]:
+          - /placeholder: your@email.com
+      - generic [ref=e37]:
+        - generic [ref=e38]: Password
+        - textbox "Password" [ref=e39]:
+          - /placeholder: ••••••••
+      - button "Sign In" [ref=e40] [cursor=pointer]
+    - button "Don't have an account? Sign up" [ref=e42] [cursor=pointer]
+```

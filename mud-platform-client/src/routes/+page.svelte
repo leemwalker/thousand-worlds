@@ -4,6 +4,9 @@
   import { gameAPI } from "$lib/services/api";
   import { gameWebSocket } from "$lib/services/websocket";
 
+  // svelte-ignore unused-export-let
+  export let params = {};
+
   let email = "";
   let username = "";
   let password = "";
@@ -11,11 +14,15 @@
   let error = "";
   let loading = false;
 
-  onMount(() => {
-    // Check if already logged in
-    const token = gameAPI.getToken();
-    if (token) {
+  onMount(async () => {
+    // Check if already logged in by attempting to get current user
+    // Cookie will be sent automatically with the request
+    try {
+      await gameAPI.getMe();
+      // If getMe succeeds, user is authenticated via cookie
       goto("/game");
+    } catch (err) {
+      // Not authenticated, stay on login page
     }
   });
 
@@ -35,14 +42,6 @@
           throw new Error(e.message || "Login failed");
         }
 
-        // Connect WebSocket
-        try {
-          gameWebSocket.connect(response.token);
-        } catch (e: any) {
-          console.error("WebSocket connection error:", e);
-          // Don't block login if WS fails, but log it
-        }
-
         // Redirect to game
         goto("/game");
       } else {
@@ -50,25 +49,22 @@
         await gameAPI.register(email, username, password);
 
         // Auto-login after registration
-        const response = await gameAPI.login(email, password);
-        gameWebSocket.connect(response.token);
+        await gameAPI.login(email, password);
         goto("/game");
       }
     } catch (err: any) {
       console.error("Form submission error:", err);
-      // Handle various error formats
-      if (typeof err === "string") {
+
+      if (err.name === "AuthError" && err.userFriendly) {
+        error = err.userFriendly.message;
+        // You could also use err.userFriendly.title or err.userFriendly.action here
+        // For now, we'll just show the message to keep it simple but actionable
+      } else if (typeof err === "string") {
         error = err;
       } else if (err.message) {
         error = err.message;
-      } else if (err.error) {
-        error = err.error;
       } else {
-        error = "An error occurred. Please try again.";
-      }
-
-      if (err.name === "DOMException") {
-        error += " (Browser validation error)";
+        error = "An unexpected error occurred. Please try again.";
       }
     } finally {
       loading = false;

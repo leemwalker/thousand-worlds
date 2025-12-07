@@ -19,6 +19,7 @@ import (
 	"mud-platform-backend/internal/game/processor"
 	"mud-platform-backend/internal/lobby"
 	"mud-platform-backend/internal/mobile"
+	"mud-platform-backend/internal/player"
 	"mud-platform-backend/internal/repository"
 	"mud-platform-backend/internal/testutil"
 	"mud-platform-backend/internal/world/interview"
@@ -49,7 +50,7 @@ func (s *MobileSDKIntegrationSuite) SetupSuite() {
 
 	// Create repositories
 	authRepo := auth.NewPostgresRepository(s.db)
-	interviewRepo := interview.NewRepository(s.db)
+	interviewRepo := interview.NewRepository(s.pool)
 	worldRepo := repository.NewPostgresWorldRepository(s.pool)
 
 	// Create services
@@ -58,12 +59,14 @@ func (s *MobileSDKIntegrationSuite) SetupSuite() {
 		TokenExpiration: 24 * time.Hour,
 	}
 	s.authService = auth.NewService(authConfig, authRepo)
-	_ = interview.NewServiceWithRepository(nil, interviewRepo) // Not used directly in tests
+	_ = interview.NewServiceWithRepository(nil, interviewRepo, worldRepo) // Not used directly in tests
 	entrySvc := entry.NewService(interviewRepo)
 	lobbySvc := lobby.NewService(authRepo)
 
-	// Create game processor and WebSocket hub
-	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, nil) // nil lookService for test
+	// Services
+	lookService := lobby.NewLookService(authRepo, worldRepo, nil)
+	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
+	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, nil, spatialSvc) // nil lookService and interviewService for test
 	hub := gameWS.NewHub(gameProcessor)
 	go hub.Run(context.Background())
 

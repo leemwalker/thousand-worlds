@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -23,27 +25,36 @@ import (
 	"mud-platform-backend/internal/game/processor"
 	"mud-platform-backend/internal/lobby"
 	"mud-platform-backend/internal/metrics"
+	"mud-platform-backend/internal/player"
 	"mud-platform-backend/internal/repository"
 	"mud-platform-backend/internal/world/interview"
 )
 
 func main() {
+	// Setup logging
+	logFile, err := os.OpenFile("server.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatal("Failed to open log file:", err)
+	}
+	defer logFile.Close()
+
+	// Create multi-writer for both stdout and file
+	mw := io.MultiWriter(os.Stdout, logFile)
+	log.SetOutput(mw)
+
 	log.Println("Starting Thousand Worlds Game Server...")
 
 	// Create context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Load JWT secret from environment
+	// Load JWT secret from environment - REQUIRED
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
-		// Generate a secret key if not provided (dev only)
-		log.Println("WARNING: JWT_SECRET not set, generating random key (dev mode)")
-		secretKey, err := auth.GenerateSecretKey()
-		if err != nil {
-			log.Fatal("Failed to generate secret key:", err)
-		}
-		jwtSecret = string(secretKey)
+		log.Fatal("FATAL: JWT_SECRET environment variable must be set. Generate with: openssl rand -hex 32")
+	}
+	if len(jwtSecret) < 32 {
+		log.Fatal("FATAL: JWT_SECRET must be at least 32 characters long for security")
 	}
 
 	// Database connection
@@ -80,9 +91,8 @@ func main() {
 
 	// Initialize repositories
 	authRepo := auth.NewPostgresRepository(db)
-	interviewRepo := interview.NewRepository(db)
 
-	// Initialize pgxpool for WorldRepository
+	// Initialize pgxpool for WorldRepository and InterviewRepository
 	poolConfig, err := pgxpool.ParseConfig(dbDSN)
 	if err != nil {
 		log.Fatal("Failed to parse database URL for pgxpool:", err)
@@ -91,8 +101,10 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to connect to database with pgxpool:", err)
 	}
-	defer dbPool.Close()
+	// defer dbPool.Close() // Defer close in main function scope
+
 	worldRepo := repository.NewPostgresWorldRepository(dbPool)
+	interviewRepo := interview.NewRepository(dbPool)
 
 	// Initialize services
 	authConfig := &auth.Config{
@@ -103,8 +115,8 @@ func main() {
 	lobbyService := lobby.NewService(authRepo)
 	entryService := entry.NewService(interviewRepo)
 
-	ollamaClient := ollama.NewClient(os.Getenv("OLLAMA_HOST"), "llama3.1:8b") // 8B model with increased container memory
-	interviewService := interview.NewServiceWithRepository(ollamaClient, interviewRepo)
+	ollamaClient := ollama.NewClient(os.Getenv("OLLAMA_HOST"), "llama3.2:3b") // 3B model for faster response times
+	interviewService := interview.NewServiceWithRepository(ollamaClient, interviewRepo, worldRepo)
 
 	// Initialize session manager and rate limiter
 	var sessionManager *auth.SessionManager
@@ -117,8 +129,11 @@ func main() {
 	// Initialize look service for lobby commands
 	lookService := lobby.NewLookService(authRepo, worldRepo, interviewRepo)
 
+	// Initialize spatial service
+	spatialService := player.NewSpatialService(authRepo, worldRepo)
+
 	// Initialize game processor
-	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService)
+	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, interviewService, spatialService)
 
 	// Create and start the Hub
 	hub := websocket.NewHub(gameProcessor)
@@ -175,12 +190,35 @@ func main() {
 		})
 	})
 
-	// CORS configuration
+	// CORS configuration - Load allowed origins from environment
+	// TODO_SECURITY: Update CORS_ALLOWED_ORIGINS when you have a production domain
+	// Current default is for development only
+	corsOrigins := os.Getenv("CORS_ALLOWED_ORIGINS")
+	if corsOrigins == "" {
+		// Default for local development
+		corsOrigins = "http://localhost:5173"
+		log.Println("INFO: Using default CORS origins for development:", corsOrigins)
+	}
+
+	// Split comma-separated origins
+	allowedOrigins := strings.Split(corsOrigins, ",")
+	for i := range allowedOrigins {
+		allowedOrigins[i] = strings.TrimSpace(allowedOrigins[i])
+	}
+
+	// Validate CORS configuration security
+	for _, origin := range allowedOrigins {
+		if origin == "*" {
+			log.Fatal("FATAL: Wildcard (*) CORS origin is not allowed for security. Specify exact origins.")
+		}
+	}
+
+	log.Printf("INFO: CORS allowed origins: %v", allowedOrigins)
+
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"},
+		AllowedOrigins:   allowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))

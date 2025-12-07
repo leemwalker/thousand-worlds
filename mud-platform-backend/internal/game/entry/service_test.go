@@ -25,7 +25,7 @@ func TestGetEntryOptions_Success(t *testing.T) {
 		WorldID:         &worldID,
 		SentientSpecies: []string{"Human", "Elf", "Dwarf"},
 	}
-	repo.SaveConfiguration(config)
+	repo.SaveConfiguration(ctx, config)
 
 	// Get entry options
 	options, err := service.GetEntryOptions(ctx, worldID)
@@ -155,7 +155,7 @@ func TestNPCPreview_HasValidDNAEncoding(t *testing.T) {
 		WorldID:         &worldID,
 		SentientSpecies: []string{"Human"},
 	}
-	repo.SaveConfiguration(config)
+	repo.SaveConfiguration(context.Background(), config)
 
 	// Get entry options
 	options, err := service.GetEntryOptions(context.Background(), worldID)

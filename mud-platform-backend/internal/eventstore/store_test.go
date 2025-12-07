@@ -35,6 +35,22 @@ func setupTestDB(t *testing.T) *pgxpool.Pool {
 		t.Skipf("Skipping integration test: database not available: %v", err)
 	}
 
+	// Create events table if it doesn't exist
+	_, err = pool.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS events (
+			id TEXT PRIMARY KEY,
+			event_type TEXT NOT NULL,
+			aggregate_id TEXT NOT NULL,
+			aggregate_type TEXT NOT NULL,
+			version BIGINT NOT NULL,
+			timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+			payload JSONB NOT NULL,
+			metadata JSONB,
+			CONSTRAINT unique_aggregate_version UNIQUE (aggregate_id, version)
+		)
+	`)
+	require.NoError(t, err)
+
 	// Clean up events table before test
 	_, err = pool.Exec(ctx, "TRUNCATE TABLE events")
 	require.NoError(t, err)

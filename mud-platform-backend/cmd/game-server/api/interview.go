@@ -29,7 +29,7 @@ func (h *InterviewHandler) StartInterview(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	session, question, err := h.service.StartInterview(userID)
+	session, question, err := h.service.StartInterview(r.Context(), userID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to start interview: "+err.Error())
 		return
@@ -69,7 +69,7 @@ func (h *InterviewHandler) ProcessMessage(w http.ResponseWriter, r *http.Request
 	// For now, we rely on the service to handle session lookup.
 	// Ideally, we should check if the session belongs to the user.
 
-	question, completed, err := h.service.ProcessResponse(req.SessionID, req.Message)
+	question, completed, err := h.service.ProcessResponse(r.Context(), userID, req.Message)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to process message: "+err.Error())
 		return
@@ -88,7 +88,7 @@ func (h *InterviewHandler) GetActiveInterview(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	session, err := h.service.GetActiveInterview(userID)
+	session, err := h.service.GetActiveInterview(r.Context(), userID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to get active interview: "+err.Error())
 		return
@@ -100,7 +100,7 @@ func (h *InterviewHandler) GetActiveInterview(w http.ResponseWriter, r *http.Req
 	}
 
 	// Resume the interview to get the last question
-	_, question, err := h.service.ResumeInterview(session.ID)
+	_, question, err := h.service.ResumeInterview(r.Context(), userID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to resume interview: "+err.Error())
 		return
@@ -127,7 +127,7 @@ func (h *InterviewHandler) FinalizeInterview(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	config, err := h.service.CompleteInterview(req.SessionID)
+	config, err := h.service.CompleteInterview(r.Context(), userID, req.SessionID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to finalize interview: "+err.Error())
 		return

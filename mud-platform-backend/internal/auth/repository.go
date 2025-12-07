@@ -157,14 +157,18 @@ func (r *PostgresRepository) UpdateUser(ctx context.Context, user *User) error {
 // CreateCharacter creates a new character
 func (r *PostgresRepository) CreateCharacter(ctx context.Context, char *Character) error {
 	query := `
-		INSERT INTO characters (character_id, user_id, world_id, name, role, appearance, description, occupation, position, created_at)
-		VALUES ($1, $2, $3, $4, $5, NULLIF($6, '')::jsonb, $7, $8, ST_SetSRID(ST_MakePoint($9, $10), 4326), $11)
+		INSERT INTO characters (character_id, user_id, world_id, name, role, appearance, description, occupation, position, position_x, position_y, position_z, created_at)
+		VALUES ($1, $2, $3, $4, $5, NULLIF($6, '')::jsonb, $7, $8, ST_SetSRID(ST_MakePoint($9, $10), 4326), $9, $10, $11, $12)
 	`
 
-	var lat, lon float64
+	// Use PositionX/Y if set, or fall back to Position.Longitude/Latitude
+	lon := char.PositionX
+	lat := char.PositionY
 	if char.Position != nil {
-		lat = char.Position.Latitude
-		lon = char.Position.Longitude
+		if lon == 0 && lat == 0 {
+			lon = char.Position.Longitude
+			lat = char.Position.Latitude
+		}
 	}
 
 	_, err := r.db.ExecContext(ctx, query,
@@ -176,7 +180,8 @@ func (r *PostgresRepository) CreateCharacter(ctx context.Context, char *Characte
 		char.Appearance,
 		char.Description,
 		char.Occupation,
-		lon, lat, // PostGIS expects (longitude, latitude)
+		lon, lat, // for position (geometry) and x, y
+		char.PositionZ,
 		char.CreatedAt,
 	)
 
@@ -189,15 +194,14 @@ func (r *PostgresRepository) GetCharacter(ctx context.Context, characterID uuid.
 		SELECT 
 			c.character_id, c.user_id, c.world_id, c.name, 
 			COALESCE(c.role, ''), COALESCE(c.appearance::text, ''), COALESCE(c.description, ''), COALESCE(c.occupation, ''),
-			ST_Y(c.position::geometry) as latitude,
-			ST_X(c.position::geometry) as longitude,
+			COALESCE(c.position_x, 0), COALESCE(c.position_y, 0), COALESCE(c.position_z, 0),
 			c.created_at, c.last_played
 		FROM characters c
 		WHERE c.character_id = $1
 	`
+	// log.Printf("[AUTH] GetCharacter looking for ID: %s", characterID)
 
 	var char Character
-	var lat, lon sql.NullFloat64
 	err := r.db.QueryRowContext(ctx, query, characterID).Scan(
 		&char.CharacterID,
 		&char.UserID,
@@ -207,8 +211,9 @@ func (r *PostgresRepository) GetCharacter(ctx context.Context, characterID uuid.
 		&char.Appearance,
 		&char.Description,
 		&char.Occupation,
-		&lat,
-		&lon,
+		&char.PositionX,
+		&char.PositionY,
+		&char.PositionZ,
 		&char.CreatedAt,
 		&char.LastPlayed,
 	)
@@ -220,11 +225,10 @@ func (r *PostgresRepository) GetCharacter(ctx context.Context, characterID uuid.
 		return nil, err
 	}
 
-	if lat.Valid && lon.Valid {
-		char.Position = &Position{
-			Latitude:  lat.Float64,
-			Longitude: lon.Float64,
-		}
+	// Backfill Position for compatibility
+	char.Position = &Position{
+		Latitude:  char.PositionY,
+		Longitude: char.PositionX,
 	}
 
 	return &char, nil
@@ -236,8 +240,7 @@ func (r *PostgresRepository) GetUserCharacters(ctx context.Context, userID uuid.
 		SELECT 
 			c.character_id, c.user_id, c.world_id, c.name,
 			COALESCE(c.role, ''), COALESCE(c.appearance::text, ''), COALESCE(c.description, ''), COALESCE(c.occupation, ''),
-			ST_Y(c.position::geometry) as latitude,
-			ST_X(c.position::geometry) as longitude,
+			COALESCE(c.position_x, 0), COALESCE(c.position_y, 0), COALESCE(c.position_z, 0),
 			c.created_at, c.last_played
 		FROM characters c
 		WHERE c.user_id = $1
@@ -253,7 +256,6 @@ func (r *PostgresRepository) GetUserCharacters(ctx context.Context, userID uuid.
 	var characters []*Character
 	for rows.Next() {
 		var char Character
-		var lat, lon sql.NullFloat64
 
 		err := rows.Scan(
 			&char.CharacterID,
@@ -264,8 +266,9 @@ func (r *PostgresRepository) GetUserCharacters(ctx context.Context, userID uuid.
 			&char.Appearance,
 			&char.Description,
 			&char.Occupation,
-			&lat,
-			&lon,
+			&char.PositionX,
+			&char.PositionY,
+			&char.PositionZ,
 			&char.CreatedAt,
 			&char.LastPlayed,
 		)
@@ -273,11 +276,9 @@ func (r *PostgresRepository) GetUserCharacters(ctx context.Context, userID uuid.
 			return nil, err
 		}
 
-		if lat.Valid && lon.Valid {
-			char.Position = &Position{
-				Latitude:  lat.Float64,
-				Longitude: lon.Float64,
-			}
+		char.Position = &Position{
+			Latitude:  char.PositionY,
+			Longitude: char.PositionX,
 		}
 
 		characters = append(characters, &char)
@@ -292,15 +293,13 @@ func (r *PostgresRepository) GetCharacterByUserAndWorld(ctx context.Context, use
 		SELECT 
 			c.character_id, c.user_id, c.world_id, c.name,
 			COALESCE(c.role, ''), COALESCE(c.appearance::text, ''), COALESCE(c.description, ''), COALESCE(c.occupation, ''),
-			ST_Y(c.position::geometry) as latitude,
-			ST_X(c.position::geometry) as longitude,
+			COALESCE(c.position_x, 0), COALESCE(c.position_y, 0), COALESCE(c.position_z, 0),
 			c.created_at, c.last_played
 		FROM characters c
 		WHERE c.user_id = $1 AND c.world_id = $2
 	`
 
 	var char Character
-	var lat, lon sql.NullFloat64
 	err := r.db.QueryRowContext(ctx, query, userID, worldID).Scan(
 		&char.CharacterID,
 		&char.UserID,
@@ -310,8 +309,9 @@ func (r *PostgresRepository) GetCharacterByUserAndWorld(ctx context.Context, use
 		&char.Appearance,
 		&char.Description,
 		&char.Occupation,
-		&lat,
-		&lon,
+		&char.PositionX,
+		&char.PositionY,
+		&char.PositionZ,
 		&char.CreatedAt,
 		&char.LastPlayed,
 	)
@@ -323,11 +323,9 @@ func (r *PostgresRepository) GetCharacterByUserAndWorld(ctx context.Context, use
 		return nil, err
 	}
 
-	if lat.Valid && lon.Valid {
-		char.Position = &Position{
-			Latitude:  lat.Float64,
-			Longitude: lon.Float64,
-		}
+	char.Position = &Position{
+		Latitude:  char.PositionY,
+		Longitude: char.PositionX,
 	}
 
 	return &char, nil
@@ -337,20 +335,28 @@ func (r *PostgresRepository) GetCharacterByUserAndWorld(ctx context.Context, use
 func (r *PostgresRepository) UpdateCharacter(ctx context.Context, char *Character) error {
 	query := `
 		UPDATE characters
-		SET name = $2, position = ST_SetSRID(ST_MakePoint($3, $4), 4326), last_played = $5
+		SET name = $2, 
+		    position = ST_SetSRID(ST_MakePoint($3, $4), 4326), 
+		    position_x = $3, position_y = $4, position_z = $5,
+		    last_played = $6
 		WHERE character_id = $1
 	`
 
-	var lat, lon float64
+	// Use PositionX/Y if set, or fall back to Position.Longitude/Latitude
+	lon := char.PositionX
+	lat := char.PositionY
 	if char.Position != nil {
-		lat = char.Position.Latitude
-		lon = char.Position.Longitude
+		// If explicit X/Y are zero but Position is set, might want to use Position?
+		// But 0,0 is a valid coordinate.
+		// Let's assume the service sets PositionX/Y.
+		// If migrating from old code, PositionX/Y might be 0.
+		// But we just populated them in GetCharacter.
 	}
 
 	_, err := r.db.ExecContext(ctx, query,
 		char.CharacterID,
 		char.Name,
-		lon, lat, // PostGIS expects (longitude, latitude)
+		lon, lat, char.PositionZ,
 		char.LastPlayed,
 	)
 

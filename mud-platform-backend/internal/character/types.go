@@ -97,6 +97,9 @@ type Character struct {
 	Species   string              `json:"species"`
 	BaseAttrs Attributes          `json:"attributes"`
 	SecAttrs  SecondaryAttributes `json:"secondary_attributes"`
+	PositionX float64             `json:"position_x"`
+	PositionY float64             `json:"position_y"`
+	PositionZ float64             `json:"position_z"`
 	CreatedAt time.Time           `json:"created_at"`
 	UpdatedAt time.Time           `json:"updated_at"`
 }

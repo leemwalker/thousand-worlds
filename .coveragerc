@@ -1,0 +1,20 @@
+thresholds:
+  unit_tests: 80
+  integration_tests: 100
+
+exclude:
+  - "vendor/*"
+  - "**/*_generated.go"
+  - "**/mocks/*"
+
+integration_test_patterns:
+  - "*_integration_test.go"
+
+reports:
+  html: true
+  json: false
+  output_dir: "./coverage-reports"
+
+parallel:
+  enabled: true
+  max_workers: 4

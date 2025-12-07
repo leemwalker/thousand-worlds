@@ -11,6 +11,8 @@ import (
 	"mud-platform-backend/cmd/game-server/websocket"
 	"mud-platform-backend/internal/auth"
 	"mud-platform-backend/internal/game/processor"
+	"mud-platform-backend/internal/lobby"
+	"mud-platform-backend/internal/player"
 	"mud-platform-backend/internal/repository"
 	"mud-platform-backend/internal/spatial"
 
@@ -38,6 +40,9 @@ func (m *MockWorldRepository) UpdateWorld(ctx context.Context, world *repository
 	return nil
 }
 func (m *MockWorldRepository) DeleteWorld(ctx context.Context, worldID uuid.UUID) error { return nil }
+func (m *MockWorldRepository) GetWorldsByOwner(ctx context.Context, ownerID uuid.UUID) ([]repository.World, error) {
+	return nil, nil
+}
 
 // TestComprehensiveIntegration covers critical paths:
 // 1. 1000 concurrent users
@@ -67,9 +72,12 @@ func TestComprehensiveIntegration(t *testing.T) {
 
 	authRepo := auth.NewMockRepository()
 	worldRepo := &MockWorldRepository{}
-	gameProc := processor.NewGameProcessor(authRepo, worldRepo, nil)
-	hub := websocket.NewHub(gameProc)
-	gameProc.SetHub(hub)
+	// Initialize game processor
+	lookService := lobby.NewLookService(authRepo, worldRepo, nil)
+	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
+	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, nil, spatialSvc)
+	hub := websocket.NewHub(gameProcessor)
+	gameProcessor.SetHub(hub)
 
 	go hub.Run(ctx)
 

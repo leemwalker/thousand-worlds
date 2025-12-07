@@ -17,29 +17,36 @@ func AuthMiddleware(authService *auth.Service) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			log.Printf("[AUTH] Request: %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
 
-			// Get token from Authorization header or query parameter (for WebSocket)
+			// Get token from cookie (most secure), Authorization header, or query parameter (WebSocket)
 			var token string
-			authHeader := r.Header.Get("Authorization")
 
-			if authHeader != "" {
-				log.Printf("[AUTH] Found Authorization header")
-				// Extract token from "Bearer <token>"
-				parts := strings.Split(authHeader, " ")
-				if len(parts) != 2 || parts[0] != "Bearer" {
-					log.Printf("[AUTH] Invalid authorization format")
-					respondError(w, http.StatusUnauthorized, "Invalid authorization format")
-					return
-				}
-				token = parts[1]
+			// Priority 1: Check HttpOnly cookie
+			if cookie, err := r.Cookie("auth_token"); err == nil && cookie.Value != "" {
+				token = cookie.Value
+				log.Printf("[AUTH] Found token in cookie")
 			} else {
-				// Check query parameter (for WebSocket connections)
-				token = r.URL.Query().Get("token")
-				if token == "" {
-					log.Printf("[AUTH] No token found in header or query")
-					respondError(w, http.StatusUnauthorized, "Missing authorization")
-					return
+				// Priority 2: Check Authorization header
+				authHeader := r.Header.Get("Authorization")
+				if authHeader != "" {
+					log.Printf("[AUTH] Found Authorization header")
+					// Extract token from "Bearer <token>"
+					parts := strings.Split(authHeader, " ")
+					if len(parts) != 2 || parts[0] != "Bearer" {
+						log.Printf("[AUTH] Invalid authorization format")
+						respondError(w, http.StatusUnauthorized, "Invalid authorization format")
+						return
+					}
+					token = parts[1]
+				} else {
+					// Priority 3: Check query parameter (for WebSocket connections)
+					token = r.URL.Query().Get("token")
+					if token == "" {
+						log.Printf("[AUTH] No token found in cookie, header, or query")
+						respondError(w, http.StatusUnauthorized, "Missing authorization")
+						return
+					}
+					log.Printf("[AUTH] Found token in query parameter: %s...", token[:min(20, len(token))])
 				}
-				log.Printf("[AUTH] Found token in query parameter: %s...", token[:20])
 			}
 
 			// Validate token

@@ -22,8 +22,14 @@ type ClientMessage struct {
 }
 
 // CommandData represents a player command
+// The Text field is the preferred format - raw text from user input
+// The legacy structured fields (Action, Target, etc.) are maintained for backward compatibility
 type CommandData struct {
-	Action    string  `json:"action"`
+	// NEW: Raw text command (preferred)
+	Text string `json:"text,omitempty"`
+
+	// LEGACY: Structured command fields (deprecated, for backward compatibility)
+	Action    string  `json:"action,omitempty"`
 	Target    *string `json:"target,omitempty"`
 	Quantity  *int    `json:"quantity,omitempty"`
 	Message   *string `json:"message,omitempty"`   // For say, whisper, tell commands

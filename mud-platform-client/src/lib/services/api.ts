@@ -1,3 +1,5 @@
+import { AuthError, AUTH_ERRORS } from '$lib/types/errors';
+
 const API_URL = '/api';
 
 export interface User {
@@ -13,71 +15,78 @@ export interface LoginResponse {
 }
 
 export class GameAPI {
-    private token: string | null = null;
+    // Note: Token is now stored in HttpOnly cookie by the server
+    // No client-side token storage needed - cookies are sent automatically
 
-    setToken(token: string): void {
-        this.token = token.trim();
-        localStorage.setItem('auth_token', this.token);
-    }
+    async register(email: string, username: string, password: string): Promise<void> {
+        try {
+            const response = await fetch(`${API_URL}/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include', // Important: Send cookies with request
+                body: JSON.stringify({ email, username, password }),
+            });
 
-    getToken(): string | null {
-        if (!this.token) {
-            this.token = localStorage.getItem('auth_token');
+            if (!response.ok) {
+                const error = await response.json();
+
+                if (response.status === 409) { // Conflict
+                    throw new AuthError('Email exists', AUTH_ERRORS.EMAIL_EXISTS);
+                } else if (response.status >= 500) {
+                    throw new AuthError('Server error', AUTH_ERRORS.SERVER_ERROR);
+                } else {
+                    // Handle structured error response: { error: { code, message } }
+                    const errorMessage = error.error?.message || error.error || 'Registration failed';
+                    throw new AuthError(typeof errorMessage === 'string' ? errorMessage : 'Registration failed', {
+                        title: 'Registration Failed',
+                        message: typeof errorMessage === 'string' ? errorMessage : 'An unexpected error occurred.'
+                    });
+                }
+            }
+        } catch (err) {
+            if (err instanceof AuthError) throw err;
+            throw new AuthError('Network error', AUTH_ERRORS.NETWORK_ERROR, err);
         }
-        return this.token;
-    }
-
-    clearToken(): void {
-        this.token = null;
-        localStorage.removeItem('auth_token');
-    }
-
-    async register(email: string, username: string, password: string): Promise<User> {
-        const response = await fetch(`${API_URL}/auth/register`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email, username, password }),
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Registration failed');
-        }
-
-        return response.json();
     }
 
     async login(email: string, password: string): Promise<LoginResponse> {
-        const response = await fetch(`${API_URL}/auth/login`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email, password }),
-        });
+        try {
+            const response = await fetch(`${API_URL}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include', // Important: Allow cookies
+                body: JSON.stringify({ email, password }),
+            });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Login failed');
+            if (!response.ok) {
+                const error = await response.json();
+
+                if (response.status === 401) {
+                    throw new AuthError('Invalid credentials', AUTH_ERRORS.INVALID_CREDENTIALS);
+                } else if (response.status >= 500) {
+                    throw new AuthError('Server error', AUTH_ERRORS.SERVER_ERROR);
+                } else {
+                    // Handle structured error response: { error: { code, message } }
+                    const errorMessage = error.error?.message || error.error || 'Login failed';
+                    throw new AuthError(typeof errorMessage === 'string' ? errorMessage : 'Login failed', {
+                        title: 'Login Failed',
+                        message: typeof errorMessage === 'string' ? errorMessage : 'An unexpected error occurred.'
+                    });
+                }
+            }
+
+            const data: LoginResponse = await response.json();
+            // Token is now in HttpOnly cookie - no need to store it
+            return data;
+        } catch (err) {
+            if (err instanceof AuthError) throw err;
+            throw new AuthError('Network error', AUTH_ERRORS.NETWORK_ERROR, err);
         }
-
-        const data: LoginResponse = await response.json();
-        this.setToken(data.token);
-        return data;
     }
 
     async getMe(): Promise<{ user_id: string }> {
-        const token = this.getToken();
-        if (!token) {
-            throw new Error('Not authenticated');
-        }
-
         const response = await fetch(`${API_URL}/auth/me`, {
-            headers: {
-                'Authorization': `Bearer ${token.trim()}`,
-            },
+            credentials: 'include', // Send cookies for authentication
         });
 
         if (!response.ok) {
@@ -88,7 +97,11 @@ export class GameAPI {
     }
 
     logout(): void {
-        this.clearToken();
+        // Call logout endpoint to clear server-side cookie
+        fetch(`${API_URL}/auth/logout`, {
+            method: 'POST',
+            credentials: 'include',
+        }).catch(err => console.error('Logout error:', err));
     }
 }
 

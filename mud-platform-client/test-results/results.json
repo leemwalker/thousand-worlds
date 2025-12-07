@@ -1,0 +1,2295 @@
+{
+  "config": {
+    "configFile": "/Users/walker/git/thousand-worlds/mud-platform-client/playwright.config.ts",
+    "rootDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 6
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        null
+      ],
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "chromium-desktop",
+        "name": "chromium-desktop",
+        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "firefox-desktop",
+        "name": "firefox-desktop",
+        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "webkit-desktop",
+        "name": "webkit-desktop",
+        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "iphone-12",
+        "name": "iphone-12",
+        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "iphone-14-pro",
+        "name": "iphone-14-pro",
+        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "iphone-se",
+        "name": "iphone-se",
+        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "pixel-5",
+        "name": "pixel-5",
+        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "galaxy-s9",
+        "name": "galaxy-s9",
+        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "ipad-pro",
+        "name": "ipad-pro",
+        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.57.0",
+    "workers": 6,
+    "webServer": {
+      "command": "npm run dev",
+      "url": "http://localhost:5173",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "auth.spec.ts",
+      "file": "auth.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Authentication Flow",
+          "file": "auth.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should display login page",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium-desktop",
+                  "projectName": "chromium-desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 5677,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n\n    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts:9:28",
+                        "location": {
+                          "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                          "column": 28,
+                          "line": 9
+                        },
+                        "snippet": "\u001b[0m \u001b[90m  7 |\u001b[39m\n \u001b[90m  8 |\u001b[39m     test(\u001b[32m'should display login page'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  9 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page)\u001b[33m.\u001b[39mtoHaveTitle(\u001b[35m/Thousand Worlds/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 10 |\u001b[39m         \u001b[90m// Add more specific selectors once we know the page structure\u001b[39m\n \u001b[90m 11 |\u001b[39m     })\u001b[33m;\u001b[39m\n \u001b[90m 12 |\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "column": 28,
+                            "line": 9
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n\n\n\u001b[0m \u001b[90m  7 |\u001b[39m\n \u001b[90m  8 |\u001b[39m     test(\u001b[32m'should display login page'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  9 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page)\u001b[33m.\u001b[39mtoHaveTitle(\u001b[35m/Thousand Worlds/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 10 |\u001b[39m         \u001b[90m// Add more specific selectors once we know the page structure\u001b[39m\n \u001b[90m 11 |\u001b[39m     })\u001b[33m;\u001b[39m\n \u001b[90m 12 |\u001b[39m\u001b[0m\n\u001b[2m    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts:9:28\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:29.957Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-chromium-desktop/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-chromium-desktop/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-chromium-desktop/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "column": 28,
+                        "line": 9
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-d0a193e7c9784bb41da2",
+              "file": "auth.spec.ts",
+              "line": 8,
+              "column": 5
+            },
+            {
+              "title": "should allow user to register",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 21,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "chromium-desktop",
+                  "projectName": "chromium-desktop",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "skipped",
+                      "duration": 522,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:29.959Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 21,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-f775e226b23121c363b0",
+              "file": "auth.spec.ts",
+              "line": 13,
+              "column": 5
+            },
+            {
+              "title": "should allow user to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 26,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "chromium-desktop",
+                  "projectName": "chromium-desktop",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "skipped",
+                      "duration": 518,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:29.953Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 26,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-101503006a8cecefd0d7",
+              "file": "auth.spec.ts",
+              "line": 24,
+              "column": 5
+            },
+            {
+              "title": "should allow user to logout",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 31,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "chromium-desktop",
+                  "projectName": "chromium-desktop",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "skipped",
+                      "duration": 526,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:29.954Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 31,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-ede4e62d9d8506425e6c",
+              "file": "auth.spec.ts",
+              "line": 29,
+              "column": 5
+            },
+            {
+              "title": "should display login page",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox-desktop",
+                  "projectName": "firefox-desktop",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 5876,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n\n    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts:9:28",
+                        "location": {
+                          "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                          "column": 28,
+                          "line": 9
+                        },
+                        "snippet": "\u001b[0m \u001b[90m  7 |\u001b[39m\n \u001b[90m  8 |\u001b[39m     test(\u001b[32m'should display login page'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  9 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page)\u001b[33m.\u001b[39mtoHaveTitle(\u001b[35m/Thousand Worlds/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 10 |\u001b[39m         \u001b[90m// Add more specific selectors once we know the page structure\u001b[39m\n \u001b[90m 11 |\u001b[39m     })\u001b[33m;\u001b[39m\n \u001b[90m 12 |\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "column": 28,
+                            "line": 9
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n\n\n\u001b[0m \u001b[90m  7 |\u001b[39m\n \u001b[90m  8 |\u001b[39m     test(\u001b[32m'should display login page'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  9 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page)\u001b[33m.\u001b[39mtoHaveTitle(\u001b[35m/Thousand Worlds/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 10 |\u001b[39m         \u001b[90m// Add more specific selectors once we know the page structure\u001b[39m\n \u001b[90m 11 |\u001b[39m     })\u001b[33m;\u001b[39m\n \u001b[90m 12 |\u001b[39m\u001b[0m\n\u001b[2m    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts:9:28\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:29.943Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-firefox-desktop/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-firefox-desktop/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-firefox-desktop/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "column": 28,
+                        "line": 9
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-eae9d7958f2224e32233",
+              "file": "auth.spec.ts",
+              "line": 8,
+              "column": 5
+            },
+            {
+              "title": "should allow user to register",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 21,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "firefox-desktop",
+                  "projectName": "firefox-desktop",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "skipped",
+                      "duration": 940,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:29.961Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 21,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-fbe0c0ce57ff3af20bbd",
+              "file": "auth.spec.ts",
+              "line": 13,
+              "column": 5
+            },
+            {
+              "title": "should allow user to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 26,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "firefox-desktop",
+                  "projectName": "firefox-desktop",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 2,
+                      "status": "skipped",
+                      "duration": 772,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:31.279Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 26,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-5c09f7449f18495ed643",
+              "file": "auth.spec.ts",
+              "line": 24,
+              "column": 5
+            },
+            {
+              "title": "should allow user to logout",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 31,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "firefox-desktop",
+                  "projectName": "firefox-desktop",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 3,
+                      "status": "skipped",
+                      "duration": 909,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:31.279Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 31,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-acae8b58f3e90f915ee2",
+              "file": "auth.spec.ts",
+              "line": 29,
+              "column": 5
+            },
+            {
+              "title": "should display login page",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit-desktop",
+                  "projectName": "webkit-desktop",
+                  "results": [
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 5867,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n\n    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts:9:28",
+                        "location": {
+                          "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                          "column": 28,
+                          "line": 9
+                        },
+                        "snippet": "\u001b[0m \u001b[90m  7 |\u001b[39m\n \u001b[90m  8 |\u001b[39m     test(\u001b[32m'should display login page'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  9 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page)\u001b[33m.\u001b[39mtoHaveTitle(\u001b[35m/Thousand Worlds/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 10 |\u001b[39m         \u001b[90m// Add more specific selectors once we know the page structure\u001b[39m\n \u001b[90m 11 |\u001b[39m     })\u001b[33m;\u001b[39m\n \u001b[90m 12 |\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "column": 28,
+                            "line": 9
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n\n\n\u001b[0m \u001b[90m  7 |\u001b[39m\n \u001b[90m  8 |\u001b[39m     test(\u001b[32m'should display login page'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  9 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page)\u001b[33m.\u001b[39mtoHaveTitle(\u001b[35m/Thousand Worlds/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 10 |\u001b[39m         \u001b[90m// Add more specific selectors once we know the page structure\u001b[39m\n \u001b[90m 11 |\u001b[39m     })\u001b[33m;\u001b[39m\n \u001b[90m 12 |\u001b[39m\u001b[0m\n\u001b[2m    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts:9:28\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:31.279Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-webkit-desktop/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-webkit-desktop/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-webkit-desktop/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "column": 28,
+                        "line": 9
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-841a92b42e96d088753b",
+              "file": "auth.spec.ts",
+              "line": 8,
+              "column": 5
+            },
+            {
+              "title": "should allow user to register",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 21,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "webkit-desktop",
+                  "projectName": "webkit-desktop",
+                  "results": [
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 5,
+                      "status": "skipped",
+                      "duration": 564,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:32.555Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 21,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-cad96cfc9699a1f4d4c7",
+              "file": "auth.spec.ts",
+              "line": 13,
+              "column": 5
+            },
+            {
+              "title": "should allow user to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 26,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "webkit-desktop",
+                  "projectName": "webkit-desktop",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 3,
+                      "status": "skipped",
+                      "duration": 537,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:33.333Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 26,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-20dddba54ed73a942299",
+              "file": "auth.spec.ts",
+              "line": 24,
+              "column": 5
+            },
+            {
+              "title": "should allow user to logout",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 31,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "webkit-desktop",
+                  "projectName": "webkit-desktop",
+                  "results": [
+                    {
+                      "workerIndex": 11,
+                      "parallelIndex": 2,
+                      "status": "skipped",
+                      "duration": 586,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:33.591Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 31,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-7e40bf5e9b444e3e4425",
+              "file": "auth.spec.ts",
+              "line": 29,
+              "column": 5
+            },
+            {
+              "title": "should display login page",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "iphone-12",
+                  "projectName": "iphone-12",
+                  "results": [
+                    {
+                      "workerIndex": 12,
+                      "parallelIndex": 5,
+                      "status": "failed",
+                      "duration": 5360,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n\n    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts:9:28",
+                        "location": {
+                          "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                          "column": 28,
+                          "line": 9
+                        },
+                        "snippet": "\u001b[0m \u001b[90m  7 |\u001b[39m\n \u001b[90m  8 |\u001b[39m     test(\u001b[32m'should display login page'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  9 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page)\u001b[33m.\u001b[39mtoHaveTitle(\u001b[35m/Thousand Worlds/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 10 |\u001b[39m         \u001b[90m// Add more specific selectors once we know the page structure\u001b[39m\n \u001b[90m 11 |\u001b[39m     })\u001b[33m;\u001b[39m\n \u001b[90m 12 |\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "column": 28,
+                            "line": 9
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n\n\n\u001b[0m \u001b[90m  7 |\u001b[39m\n \u001b[90m  8 |\u001b[39m     test(\u001b[32m'should display login page'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  9 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page)\u001b[33m.\u001b[39mtoHaveTitle(\u001b[35m/Thousand Worlds/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 10 |\u001b[39m         \u001b[90m// Add more specific selectors once we know the page structure\u001b[39m\n \u001b[90m 11 |\u001b[39m     })\u001b[33m;\u001b[39m\n \u001b[90m 12 |\u001b[39m\u001b[0m\n\u001b[2m    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts:9:28\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:33.612Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-iphone-12/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-iphone-12/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-iphone-12/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "column": 28,
+                        "line": 9
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-417d154fb76640db3c17",
+              "file": "auth.spec.ts",
+              "line": 8,
+              "column": 5
+            },
+            {
+              "title": "should allow user to register",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 21,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "iphone-12",
+                  "projectName": "iphone-12",
+                  "results": [
+                    {
+                      "workerIndex": 13,
+                      "parallelIndex": 3,
+                      "status": "skipped",
+                      "duration": 301,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:34.372Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 21,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-0e7a67bd4456f59e6a3c",
+              "file": "auth.spec.ts",
+              "line": 13,
+              "column": 5
+            },
+            {
+              "title": "should allow user to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 26,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "iphone-12",
+                  "projectName": "iphone-12",
+                  "results": [
+                    {
+                      "workerIndex": 14,
+                      "parallelIndex": 2,
+                      "status": "skipped",
+                      "duration": 331,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:34.650Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 26,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-efff8646906e5fab9f8a",
+              "file": "auth.spec.ts",
+              "line": 24,
+              "column": 5
+            },
+            {
+              "title": "should allow user to logout",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 31,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "iphone-12",
+                  "projectName": "iphone-12",
+                  "results": [
+                    {
+                      "workerIndex": 13,
+                      "parallelIndex": 3,
+                      "status": "skipped",
+                      "duration": 205,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:34.808Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 31,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-37a3aa56d34bef962dc1",
+              "file": "auth.spec.ts",
+              "line": 29,
+              "column": 5
+            },
+            {
+              "title": "should display login page",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "iphone-14-pro",
+                  "projectName": "iphone-14-pro",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 3,
+                      "status": "failed",
+                      "duration": 5333,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n\n    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts:9:28",
+                        "location": {
+                          "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                          "column": 28,
+                          "line": 9
+                        },
+                        "snippet": "\u001b[0m \u001b[90m  7 |\u001b[39m\n \u001b[90m  8 |\u001b[39m     test(\u001b[32m'should display login page'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  9 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page)\u001b[33m.\u001b[39mtoHaveTitle(\u001b[35m/Thousand Worlds/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 10 |\u001b[39m         \u001b[90m// Add more specific selectors once we know the page structure\u001b[39m\n \u001b[90m 11 |\u001b[39m     })\u001b[33m;\u001b[39m\n \u001b[90m 12 |\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "column": 28,
+                            "line": 9
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n\n\n\u001b[0m \u001b[90m  7 |\u001b[39m\n \u001b[90m  8 |\u001b[39m     test(\u001b[32m'should display login page'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  9 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page)\u001b[33m.\u001b[39mtoHaveTitle(\u001b[35m/Thousand Worlds/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 10 |\u001b[39m         \u001b[90m// Add more specific selectors once we know the page structure\u001b[39m\n \u001b[90m 11 |\u001b[39m     })\u001b[33m;\u001b[39m\n \u001b[90m 12 |\u001b[39m\u001b[0m\n\u001b[2m    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts:9:28\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:35.334Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-iphone-14-pro/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-iphone-14-pro/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-iphone-14-pro/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "column": 28,
+                        "line": 9
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-4fa85de11c2919eca790",
+              "file": "auth.spec.ts",
+              "line": 8,
+              "column": 5
+            },
+            {
+              "title": "should allow user to register",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 21,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "iphone-14-pro",
+                  "projectName": "iphone-14-pro",
+                  "results": [
+                    {
+                      "workerIndex": 16,
+                      "parallelIndex": 2,
+                      "status": "skipped",
+                      "duration": 368,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:35.405Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 21,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-44b1f3fc3ef15b1eb8a6",
+              "file": "auth.spec.ts",
+              "line": 13,
+              "column": 5
+            },
+            {
+              "title": "should allow user to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 26,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "iphone-14-pro",
+                  "projectName": "iphone-14-pro",
+                  "results": [
+                    {
+                      "workerIndex": 16,
+                      "parallelIndex": 2,
+                      "status": "skipped",
+                      "duration": 198,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:35.906Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 26,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-98791ba9423bf3b08510",
+              "file": "auth.spec.ts",
+              "line": 24,
+              "column": 5
+            },
+            {
+              "title": "should allow user to logout",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 31,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "iphone-14-pro",
+                  "projectName": "iphone-14-pro",
+                  "results": [
+                    {
+                      "workerIndex": 17,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 394,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:36.419Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 31,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-b54ba850b568254fc0c3",
+              "file": "auth.spec.ts",
+              "line": 29,
+              "column": 5
+            },
+            {
+              "title": "should display login page",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "iphone-se",
+                  "projectName": "iphone-se",
+                  "results": [
+                    {
+                      "workerIndex": 18,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 5383,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n\n    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts:9:28",
+                        "location": {
+                          "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                          "column": 28,
+                          "line": 9
+                        },
+                        "snippet": "\u001b[0m \u001b[90m  7 |\u001b[39m\n \u001b[90m  8 |\u001b[39m     test(\u001b[32m'should display login page'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  9 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page)\u001b[33m.\u001b[39mtoHaveTitle(\u001b[35m/Thousand Worlds/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 10 |\u001b[39m         \u001b[90m// Add more specific selectors once we know the page structure\u001b[39m\n \u001b[90m 11 |\u001b[39m     })\u001b[33m;\u001b[39m\n \u001b[90m 12 |\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "column": 28,
+                            "line": 9
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n\n\n\u001b[0m \u001b[90m  7 |\u001b[39m\n \u001b[90m  8 |\u001b[39m     test(\u001b[32m'should display login page'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  9 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page)\u001b[33m.\u001b[39mtoHaveTitle(\u001b[35m/Thousand Worlds/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 10 |\u001b[39m         \u001b[90m// Add more specific selectors once we know the page structure\u001b[39m\n \u001b[90m 11 |\u001b[39m     })\u001b[33m;\u001b[39m\n \u001b[90m 12 |\u001b[39m\u001b[0m\n\u001b[2m    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts:9:28\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:36.419Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-iphone-se/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-iphone-se/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-iphone-se/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "column": 28,
+                        "line": 9
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-15fcf48dfb1c039f9c6f",
+              "file": "auth.spec.ts",
+              "line": 8,
+              "column": 5
+            },
+            {
+              "title": "should allow user to register",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 21,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "iphone-se",
+                  "projectName": "iphone-se",
+                  "results": [
+                    {
+                      "workerIndex": 19,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 268,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:37.264Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 21,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-78463f7f859216ea6684",
+              "file": "auth.spec.ts",
+              "line": 13,
+              "column": 5
+            },
+            {
+              "title": "should allow user to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 26,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "iphone-se",
+                  "projectName": "iphone-se",
+                  "results": [
+                    {
+                      "workerIndex": 20,
+                      "parallelIndex": 4,
+                      "status": "skipped",
+                      "duration": 334,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:37.662Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 26,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-dbc51d4c34cc022361d5",
+              "file": "auth.spec.ts",
+              "line": 24,
+              "column": 5
+            },
+            {
+              "title": "should allow user to logout",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 31,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "iphone-se",
+                  "projectName": "iphone-se",
+                  "results": [
+                    {
+                      "workerIndex": 21,
+                      "parallelIndex": 1,
+                      "status": "skipped",
+                      "duration": 298,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:37.713Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 31,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-7047cc9409b3227165f1",
+              "file": "auth.spec.ts",
+              "line": 29,
+              "column": 5
+            },
+            {
+              "title": "should display login page",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "pixel-5",
+                  "projectName": "pixel-5",
+                  "results": [
+                    {
+                      "workerIndex": 22,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 5328,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n\n    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts:9:28",
+                        "location": {
+                          "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                          "column": 28,
+                          "line": 9
+                        },
+                        "snippet": "\u001b[0m \u001b[90m  7 |\u001b[39m\n \u001b[90m  8 |\u001b[39m     test(\u001b[32m'should display login page'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  9 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page)\u001b[33m.\u001b[39mtoHaveTitle(\u001b[35m/Thousand Worlds/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 10 |\u001b[39m         \u001b[90m// Add more specific selectors once we know the page structure\u001b[39m\n \u001b[90m 11 |\u001b[39m     })\u001b[33m;\u001b[39m\n \u001b[90m 12 |\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "column": 28,
+                            "line": 9
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n\n\n\u001b[0m \u001b[90m  7 |\u001b[39m\n \u001b[90m  8 |\u001b[39m     test(\u001b[32m'should display login page'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  9 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page)\u001b[33m.\u001b[39mtoHaveTitle(\u001b[35m/Thousand Worlds/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 10 |\u001b[39m         \u001b[90m// Add more specific selectors once we know the page structure\u001b[39m\n \u001b[90m 11 |\u001b[39m     })\u001b[33m;\u001b[39m\n \u001b[90m 12 |\u001b[39m\u001b[0m\n\u001b[2m    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts:9:28\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:38.011Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-pixel-5/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-pixel-5/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-pixel-5/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "column": 28,
+                        "line": 9
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-aeed3a0a01f6e3e9e3a0",
+              "file": "auth.spec.ts",
+              "line": 8,
+              "column": 5
+            },
+            {
+              "title": "should allow user to register",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 21,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "pixel-5",
+                  "projectName": "pixel-5",
+                  "results": [
+                    {
+                      "workerIndex": 23,
+                      "parallelIndex": 4,
+                      "status": "skipped",
+                      "duration": 212,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:38.443Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 21,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-f2fa4f2272ce3da81262",
+              "file": "auth.spec.ts",
+              "line": 13,
+              "column": 5
+            },
+            {
+              "title": "should allow user to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 26,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "pixel-5",
+                  "projectName": "pixel-5",
+                  "results": [
+                    {
+                      "workerIndex": 24,
+                      "parallelIndex": 1,
+                      "status": "skipped",
+                      "duration": 240,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:38.446Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 26,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-665211cd643d2489481b",
+              "file": "auth.spec.ts",
+              "line": 24,
+              "column": 5
+            },
+            {
+              "title": "should allow user to logout",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 31,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "pixel-5",
+                  "projectName": "pixel-5",
+                  "results": [
+                    {
+                      "workerIndex": 23,
+                      "parallelIndex": 4,
+                      "status": "skipped",
+                      "duration": 221,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:38.773Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 31,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-ca8eb0be95e78aa0bc7a",
+              "file": "auth.spec.ts",
+              "line": 29,
+              "column": 5
+            },
+            {
+              "title": "should display login page",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "galaxy-s9",
+                  "projectName": "galaxy-s9",
+                  "results": [
+                    {
+                      "workerIndex": 25,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 5347,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n\n    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts:9:28",
+                        "location": {
+                          "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                          "column": 28,
+                          "line": 9
+                        },
+                        "snippet": "\u001b[0m \u001b[90m  7 |\u001b[39m\n \u001b[90m  8 |\u001b[39m     test(\u001b[32m'should display login page'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  9 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page)\u001b[33m.\u001b[39mtoHaveTitle(\u001b[35m/Thousand Worlds/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 10 |\u001b[39m         \u001b[90m// Add more specific selectors once we know the page structure\u001b[39m\n \u001b[90m 11 |\u001b[39m     })\u001b[33m;\u001b[39m\n \u001b[90m 12 |\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "column": 28,
+                            "line": 9
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n\n\n\u001b[0m \u001b[90m  7 |\u001b[39m\n \u001b[90m  8 |\u001b[39m     test(\u001b[32m'should display login page'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  9 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page)\u001b[33m.\u001b[39mtoHaveTitle(\u001b[35m/Thousand Worlds/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 10 |\u001b[39m         \u001b[90m// Add more specific selectors once we know the page structure\u001b[39m\n \u001b[90m 11 |\u001b[39m     })\u001b[33m;\u001b[39m\n \u001b[90m 12 |\u001b[39m\u001b[0m\n\u001b[2m    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts:9:28\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:39.128Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-galaxy-s9/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-galaxy-s9/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-galaxy-s9/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "column": 28,
+                        "line": 9
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-d6a45c73d9f6f4a420b5",
+              "file": "auth.spec.ts",
+              "line": 8,
+              "column": 5
+            },
+            {
+              "title": "should allow user to register",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 21,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "galaxy-s9",
+                  "projectName": "galaxy-s9",
+                  "results": [
+                    {
+                      "workerIndex": 26,
+                      "parallelIndex": 4,
+                      "status": "skipped",
+                      "duration": 319,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:39.333Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 21,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-88c808f902c3b5074b32",
+              "file": "auth.spec.ts",
+              "line": 13,
+              "column": 5
+            },
+            {
+              "title": "should allow user to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 26,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "galaxy-s9",
+                  "projectName": "galaxy-s9",
+                  "results": [
+                    {
+                      "workerIndex": 27,
+                      "parallelIndex": 5,
+                      "status": "skipped",
+                      "duration": 355,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:39.410Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 26,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-3d40d9023f488221850d",
+              "file": "auth.spec.ts",
+              "line": 24,
+              "column": 5
+            },
+            {
+              "title": "should allow user to logout",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 31,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "galaxy-s9",
+                  "projectName": "galaxy-s9",
+                  "results": [
+                    {
+                      "workerIndex": 26,
+                      "parallelIndex": 4,
+                      "status": "skipped",
+                      "duration": 310,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:39.752Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 31,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-5ebdf4f7427f1766cde7",
+              "file": "auth.spec.ts",
+              "line": 29,
+              "column": 5
+            },
+            {
+              "title": "should display login page",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "ipad-pro",
+                  "projectName": "ipad-pro",
+                  "results": [
+                    {
+                      "workerIndex": 28,
+                      "parallelIndex": 5,
+                      "status": "failed",
+                      "duration": 5276,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n\n    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts:9:28",
+                        "location": {
+                          "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                          "column": 28,
+                          "line": 9
+                        },
+                        "snippet": "\u001b[0m \u001b[90m  7 |\u001b[39m\n \u001b[90m  8 |\u001b[39m     test(\u001b[32m'should display login page'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  9 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page)\u001b[33m.\u001b[39mtoHaveTitle(\u001b[35m/Thousand Worlds/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 10 |\u001b[39m         \u001b[90m// Add more specific selectors once we know the page structure\u001b[39m\n \u001b[90m 11 |\u001b[39m     })\u001b[33m;\u001b[39m\n \u001b[90m 12 |\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "column": 28,
+                            "line": 9
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mpage\u001b[39m\u001b[2m).\u001b[22mtoHaveTitle\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nExpected pattern: \u001b[32m/Thousand Worlds/\u001b[39m\nReceived string:  \u001b[31m\"\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveTitle\" with timeout 5000ms\u001b[22m\n\u001b[2m    9 × unexpected value \"\"\u001b[22m\n\n\n\u001b[0m \u001b[90m  7 |\u001b[39m\n \u001b[90m  8 |\u001b[39m     test(\u001b[32m'should display login page'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  9 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page)\u001b[33m.\u001b[39mtoHaveTitle(\u001b[35m/Thousand Worlds/\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 10 |\u001b[39m         \u001b[90m// Add more specific selectors once we know the page structure\u001b[39m\n \u001b[90m 11 |\u001b[39m     })\u001b[33m;\u001b[39m\n \u001b[90m 12 |\u001b[39m\u001b[0m\n\u001b[2m    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts:9:28\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:40.169Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-ipad-pro/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-ipad-pro/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/auth-Authentication-Flow-should-display-login-page-ipad-pro/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "column": 28,
+                        "line": 9
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-7de99626c253e0bc2899",
+              "file": "auth.spec.ts",
+              "line": 8,
+              "column": 5
+            },
+            {
+              "title": "should allow user to register",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 21,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "ipad-pro",
+                  "projectName": "ipad-pro",
+                  "results": [
+                    {
+                      "workerIndex": 29,
+                      "parallelIndex": 4,
+                      "status": "skipped",
+                      "duration": 181,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:40.375Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 21,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-55a4a2c45dbf304fd7e6",
+              "file": "auth.spec.ts",
+              "line": 13,
+              "column": 5
+            },
+            {
+              "title": "should allow user to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 26,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "ipad-pro",
+                  "projectName": "ipad-pro",
+                  "results": [
+                    {
+                      "workerIndex": 29,
+                      "parallelIndex": 4,
+                      "status": "skipped",
+                      "duration": 169,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:40.655Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 26,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-4db264d87b4ffaf025ba",
+              "file": "auth.spec.ts",
+              "line": 24,
+              "column": 5
+            },
+            {
+              "title": "should allow user to logout",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                        "line": 31,
+                        "column": 14
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "ipad-pro",
+                  "projectName": "ipad-pro",
+                  "results": [
+                    {
+                      "workerIndex": 30,
+                      "parallelIndex": 3,
+                      "status": "skipped",
+                      "duration": 206,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-07T02:48:41.106Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/auth.spec.ts",
+                            "line": 31,
+                            "column": 14
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-5f8d7dfd921c260d1ba7",
+              "file": "auth.spec.ts",
+              "line": 29,
+              "column": 5
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-12-07T02:48:29.223Z",
+    "duration": 16394.377,
+    "expected": 0,
+    "skipped": 27,
+    "unexpected": 9,
+    "flaky": 0
+  }
+}

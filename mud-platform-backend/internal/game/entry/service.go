@@ -16,10 +16,10 @@ import (
 )
 
 type Service struct {
-	interviewRepo interview.RepositoryInterface
+	interviewRepo interview.Repository
 }
 
-func NewService(interviewRepo interview.RepositoryInterface) *Service {
+func NewService(interviewRepo interview.Repository) *Service {
 	return &Service{
 		interviewRepo: interviewRepo,
 	}
@@ -47,9 +47,18 @@ func (s *Service) GetEntryOptions(ctx context.Context, worldID uuid.UUID) (*Entr
 	}
 
 	// Get world configuration
-	config, err := s.interviewRepo.GetConfigurationByWorldID(worldID)
+	config, err := s.interviewRepo.GetConfigurationByWorldID(ctx, worldID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get world config: %w", err)
+	}
+
+	// If config is nil (legacy world or missing config), use default
+	if config == nil {
+		config = &interview.WorldConfiguration{
+			WorldName:       "Unknown World",
+			Theme:           "Generic",
+			SentientSpecies: []string{"Human"},
+		}
 	}
 
 	// Generate random NPCs
@@ -74,7 +83,7 @@ func (s *Service) generateRandomNPCs(config *interview.WorldConfiguration, count
 	for i := 0; i < count; i++ {
 		species := speciesList[r.Intn(len(speciesList))]
 		dna := s.generateRandomDNA()
-		
+
 		// Generate appearance
 		age := 20 + r.Intn(30)
 		lifespan := 80 // Default
@@ -101,7 +110,7 @@ func (s *Service) generateRandomNPCs(config *interview.WorldConfiguration, count
 
 func (s *Service) generateRandomDNA() genetics.DNA {
 	genes := make(map[string]genetics.Gene)
-	
+
 	// List of genes to generate
 	geneNames := []string{
 		genetics.GeneHeight, genetics.GeneBuild, genetics.GeneMuscle,

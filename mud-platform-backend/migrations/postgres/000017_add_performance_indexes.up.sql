@@ -26,13 +26,6 @@ ON worlds USING GIN(metadata);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_user 
 ON sessions(expires_at, user_id);
 
--- Partial index for active sessions only
--- Reduces index size by only indexing non-expired sessions
--- Complexity: Smaller index = faster lookups
-CREATE INDEX IF NOT EXISTS idx_sessions_active 
-ON sessions(user_id, expires_at) 
-WHERE expires_at > CURRENT_TIMESTAMP;
-
 -- Comment explaining performance impact
 COMMENT ON INDEX idx_characters_world_position IS 
 'Composite index for spatial queries. Reduces nearby player lookup from O(N) to O(log N).';

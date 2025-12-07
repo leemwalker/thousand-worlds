@@ -2811,7 +2811,7 @@ Files to Create:
 # Phase 7: Combat System (2-3 weeks)
 
 ## Phase 7.1: Action Queue System (1 week)
-### Status: ⏳ Not Started
+### Status: ✅ Completed
 ### Prompt:
 Following TDD principles, implement Phase 7.1 Action Queue System with Reaction Times:
 
@@ -5605,7 +5605,7 @@ Files to Create:
 ---
 
 ## Phase 9.3: NPC Economy (1-2 weeks)
-### Status: ⏳ Not Started
+### Status: ✅ Completed
 ### Prompt:
 Following TDD principles, implement Phase 9.3 NPC-Driven Economy:
 
@@ -6679,15 +6679,20 @@ Files to Create:
 
 ---
 
-# Phase 10: Frontend UI (5-7 weeks)
+# Phase 10: Frontend UI (3-4 weeks)
 
-## Phase 10.1: Core UI Components (2-3 weeks)
+> **Architecture Principle: Thin Client**
+> The frontend is a "dumb terminal" - it sends raw text to the backend and renders structured responses.
+> All command parsing, validation, context tracking, and output formatting logic resides on the backend.
+
+## Phase 10.1: Core UI Components (2 weeks)
 ### Status: ⏳ Not Started
 ### Prompt:
-Following TDD principles, implement Phase 10.1 Core UI Components optimized for mobile with desktop support:
+Following TDD principles and **thin-client architecture**, implement Phase 10.1 Core UI Components optimized for mobile with desktop support:
 
 Core Requirements:
-1. Design mobile-first UI layout with desktop responsive scaling:
+
+1. **Mobile-first UI layout with desktop responsive scaling**:
    - Mobile layout (primary target):
      ```
      ┌─────────────────────────┐
@@ -6697,987 +6702,1056 @@ Core Requirements:
      │   Main Text Display     │ ← Scrollable, auto-scroll
      │   (Game Output)         │   to bottom on new content
      │                         │
-     │                         │
      ├─────────────────────────┤
      │  Command Input          │ ← Fixed bottom, 80px
-     │  [Text box] [Send]      │   with auto-complete
+     │  [Text box] [Send]      │   NO client-side parsing
      ├─────────────────────────┤
-     │ [Btn1] [Btn2] [Btn3]    │ ← Customizable buttons
-     │        [Joystick]       │   60px height
+     │ [Quick Buttons]         │ ← Customizable, 60px
      └─────────────────────────┘
      ```
    - Desktop layout (responsive):
      ```
      ┌──────────┬──────────────────────┬──────────┐
-     │          │   Status Bar         │          │
-     │  Left    ├──────────────────────┤  Right   │
-     │  Panel   │                      │  Panel   │
+     │  Left    │   Status Bar         │  Right   │
+     │  Panel   ├──────────────────────┤  Panel   │
      │  (Map)   │   Main Text Display  │  (Stats) │
-     │          │                      │          │
-     │  200px   │                      │  250px   │
-     │          ├──────────────────────┤          │
-     │          │  Command Input       │          │
+     │  200px   ├──────────────────────┤  250px   │
+     │          │   Command Input      │          │
      └──────────┴──────────────────────┴──────────┘
      ```
-   - Breakpoints:
-     - Mobile: 0-768px (single column, joystick visible)
-     - Tablet: 769-1024px (main + right panel)
-     - Desktop: 1025px+ (full three-column layout)
-   - SvelteKit responsive components:
+   - Breakpoints: Mobile (0-768px), Tablet (769-1024px), Desktop (1025px+)
+
+2. **Simple command input (NO client-side parsing)**:
+   - Frontend responsibility: ONLY send raw text via WebSocket
+   - Backend handles: alias resolution, target extraction, fuzzy matching, context memory
+   - Implementation:
      ```svelte
-     <script>
-       import { onMount } from 'svelte';
-       import { writable } from 'svelte/store';
+     <script lang="ts">
+       import { gameSocket } from '$lib/network/websocket';
        
-       let screenWidth = writable(window.innerWidth);
-       let isMobile = writable(window.innerWidth < 769);
+       let inputText = '';
+       let commandHistory: string[] = [];
+       let historyIndex = -1;
        
-       onMount(() => {
-         const handleResize = () => {
-           screenWidth.set(window.innerWidth);
-           isMobile.set(window.innerWidth < 769);
-         };
+       function sendCommand() {
+         if (!inputText.trim()) return;
          
-         window.addEventListener('resize', handleResize);
-         return () => window.removeEventListener('resize', handleResize);
-       });
+         // Send raw text to backend - NO PARSING
+         gameSocket.send({ text: inputText.trim() });
+         
+         // Track history for up/down navigation
+         commandHistory.unshift(inputText);
+         if (commandHistory.length > 50) commandHistory.pop();
+         
+         inputText = '';
+         historyIndex = -1;
+       }
+       
+       function handleKeydown(e: KeyboardEvent) {
+         if (e.key === 'Enter') {
+           sendCommand();
+         } else if (e.key === 'ArrowUp') {
+           // Navigate command history
+           if (historyIndex < commandHistory.length - 1) {
+             historyIndex++;
+             inputText = commandHistory[historyIndex];
+           }
+           e.preventDefault();
+         } else if (e.key === 'ArrowDown') {
+           if (historyIndex > 0) {
+             historyIndex--;
+             inputText = commandHistory[historyIndex];
+           } else if (historyIndex === 0) {
+             historyIndex = -1;
+             inputText = '';
+           }
+           e.preventDefault();
+         }
+       }
      </script>
      
-     <div class="game-container" class:mobile={$isMobile}>
-       {#if $isMobile}
-         <MobileLayout />
-       {:else}
-         <DesktopLayout />
-       {/if}
+     <div class="command-input">
+       <input
+         type="text"
+         bind:value={inputText}
+         on:keydown={handleKeydown}
+         placeholder="Enter command..."
+         autocomplete="off"
+       />
+       <button on:click={sendCommand}>Send</button>
      </div>
      ```
 
-2. Build command parser (natural language → game commands):
-   - Command parsing strategy:
-     - Support both natural language and shorthand commands
-     - Fuzzy matching for typos (Levenshtein distance < 3)
-     - Context-aware parsing (remembers last target, location)
-   - Command parser implementation:
+3. **Render structured responses from backend**:
+   - Backend sends structured `GameMessage` with formatting data:
      ```typescript
-     interface ParsedCommand {
-       action: ActionType;
-       target?: string;
-       direction?: Direction;
-       quantity?: number;
-       items?: string[];
-       raw: string;
-       confidence: number; // 0.0 to 1.0
+     interface GameMessage {
+       type: 'movement' | 'area_description' | 'combat' | 'dialogue' | 
+             'item_acquired' | 'crafting' | 'error' | 'system';
+       text: string;
+       
+       // Pre-computed display properties from backend
+       segments?: TextSegment[];  // Color-coded segments
+       entities?: EntityRef[];     // Clickable entity references
+       
+       // Type-specific data
+       direction?: string;
+       damage?: number;
+       speakerName?: string;
+       itemName?: string;
+       itemRarity?: string;
+       quality?: string;
      }
      
-     class CommandParser {
-       private commandAliases: Map<string, string[]>;
-       private contextMemory: ParserContext;
-       
-       constructor() {
-         this.commandAliases = new Map([
-           ['look', ['l', 'examine', 'inspect', 'view']],
-           ['move', ['go', 'walk', 'run', 'travel', 'head']],
-           ['take', ['get', 'grab', 'pick', 'pickup']],
-           ['drop', ['release', 'discard', 'throw']],
-           ['attack', ['hit', 'fight', 'strike', 'kill']],
-           ['talk', ['speak', 'chat', 'say', 'tell']],
-           ['inventory', ['inv', 'i', 'items', 'bag']],
-           ['craft', ['make', 'create', 'build', 'forge']],
-           ['use', ['consume', 'activate', 'apply']],
-         ]);
-       }
-       
-       parse(input: string): ParsedCommand {
-         // Normalize input
-         const normalized = input.toLowerCase().trim();
-         
-         // Check for empty input
-         if (!normalized) {
-           return this.createError('Empty command');
-         }
-         
-         // Try exact command match first
-         const exactMatch = this.tryExactMatch(normalized);
-         if (exactMatch) return exactMatch;
-         
-         // Try natural language parsing
-         const nlpMatch = this.parseNaturalLanguage(normalized);
-         if (nlpMatch.confidence > 0.6) return nlpMatch;
-         
-         // Try fuzzy matching for typos
-         const fuzzyMatch = this.tryFuzzyMatch(normalized);
-         if (fuzzyMatch.confidence > 0.5) return fuzzyMatch;
-         
-         // Unknown command
-         return this.createError(`Unknown command: "${input}". Type "help" for commands.`);
-       }
-       
-       private parseNaturalLanguage(input: string): ParsedCommand {
-         // Movement patterns
-         if (/go|walk|move|head|travel/.test(input)) {
-           const direction = this.extractDirection(input);
-           if (direction) {
-             return {
-               action: 'move',
-               direction,
-               raw: input,
-               confidence: 0.9,
-             };
-           }
-         }
-         
-         // Taking items: "pick up the sword", "get iron ore"
-         if (/pick up|take|get|grab/.test(input)) {
-           const item = this.extractItemName(input);
-           return {
-             action: 'take',
-             target: item,
-             raw: input,
-             confidence: item ? 0.85 : 0.5,
-           };
-         }
-         
-         // Crafting: "make iron sword", "craft health potion"
-         if (/make|craft|create|forge/.test(input)) {
-           const item = this.extractItemName(input);
-           return {
-             action: 'craft',
-             target: item,
-             raw: input,
-             confidence: item ? 0.85 : 0.5,
-           };
-         }
-         
-         // Combat: "attack goblin", "fight the orc"
-         if (/attack|fight|hit|kill/.test(input)) {
-           const target = this.extractTarget(input);
-           return {
-             action: 'attack',
-             target: target || this.contextMemory.lastTarget,
-             raw: input,
-             confidence: target ? 0.85 : 0.6,
-           };
-         }
-         
-         // Talking: "talk to merchant", "speak with guard"
-         if (/talk|speak|chat/.test(input)) {
-           const target = this.extractTarget(input);
-           return {
-             action: 'talk',
-             target: target || this.contextMemory.lastNPC,
-             raw: input,
-             confidence: target ? 0.85 : 0.6,
-           };
-         }
-         
-         // Looking: "look at fountain", "examine the door"
-         if (/look|examine|inspect/.test(input)) {
-           const target = this.extractTarget(input);
-           return {
-             action: 'look',
-             target,
-             raw: input,
-             confidence: 0.8,
-           };
-         }
-         
-         return { action: 'unknown', raw: input, confidence: 0.0 };
-       }
-       
-       private extractDirection(input: string): Direction | undefined {
-         const directionMap: Record<string, Direction> = {
-           'north': 'N', 'n': 'N', 'up': 'UP', 'u': 'UP',
-           'south': 'S', 's': 'S', 'down': 'DOWN', 'd': 'DOWN',
-           'east': 'E', 'e': 'E',
-           'west': 'W', 'w': 'W',
-           'northeast': 'NE', 'ne': 'NE',
-           'northwest': 'NW', 'nw': 'NW',
-           'southeast': 'SE', 'se': 'SE',
-           'southwest': 'SW', 'sw': 'SW',
-         };
-         
-         for (const [key, direction] of Object.entries(directionMap)) {
-           if (input.includes(key)) {
-             return direction;
-           }
-         }
-         
-         return undefined;
-       }
-       
-       private extractItemName(input: string): string {
-         // Remove command words
-         let cleaned = input
-           .replace(/^(pick up|take|get|grab|make|craft|create|forge)\s+/i, '')
-           .replace(/^(the|a|an)\s+/i, '');
-         
-         return cleaned.trim();
-       }
-       
-       private extractTarget(input: string): string | undefined {
-         // Remove command words and articles
-         let cleaned = input
-           .replace(/^(talk|speak|chat|attack|fight|hit|look|examine)\s+/i, '')
-           .replace(/^(to|with|at|the|a|an)\s+/i, '');
-         
-         return cleaned.trim() || undefined;
-       }
-       
-       private tryFuzzyMatch(input: string): ParsedCommand {
-         const words = input.split(' ');
-         const firstWord = words[0];
-         
-         let bestMatch: string | null = null;
-         let bestDistance = Infinity;
-         
-         for (const [command, aliases] of this.commandAliases) {
-           const allVariants = [command, ...aliases];
-           
-           for (const variant of allVariants) {
-             const distance = this.levenshteinDistance(firstWord, variant);
-             
-             if (distance < bestDistance && distance <= 2) {
-               bestDistance = distance;
-               bestMatch = command;
-             }
-           }
-         }
-         
-         if (bestMatch) {
-           // Reconstruct command with corrected first word
-           const correctedInput = [bestMatch, ...words.slice(1)].join(' ');
-           return this.parse(correctedInput);
-         }
-         
-         return { action: 'unknown', raw: input, confidence: 0.0 };
-       }
-       
-       private levenshteinDistance(str1: string, str2: string): number {
-         const matrix: number[][] = [];
-         
-         for (let i = 0; i <= str2.length; i++) {
-           matrix[i] = [i];
-         }
-         
-         for (let j = 0; j <= str1.length; j++) {
-           matrix[0][j] = j;
-         }
-         
-         for (let i = 1; i <= str2.length; i++) {
-           for (let j = 1; j <= str1.length; j++) {
-             if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-               matrix[i][j] = matrix[i - 1][j - 1];
-             } else {
-               matrix[i][j] = Math.min(
-                 matrix[i - 1][j - 1] + 1,
-                 matrix[i][j - 1] + 1,
-                 matrix[i - 1][j] + 1
-               );
-             }
-           }
-         }
-         
-         return matrix[str2.length][str1.length];
-       }
-     }
-     ```
-
-3. Create output formatting (color-coded text, entity highlighting):
-   - Text formatting system:
-     ```typescript
      interface TextSegment {
        text: string;
-       color?: string;
+       color: string;        // CSS class from backend
        bold?: boolean;
        italic?: boolean;
-       entityID?: string; // For clickable entities
-       entityType?: 'npc' | 'item' | 'location' | 'resource';
-     }
-     
-     class OutputFormatter {
-       formatGameOutput(message: GameMessage): TextSegment[] {
-         const segments: TextSegment[] = [];
-         
-         switch (message.type) {
-           case 'movement':
-             segments.push(
-               { text: 'You move ', color: 'text-gray-300' },
-               { text: message.direction, color: 'text-blue-400', bold: true },
-               { text: '.', color: 'text-gray-300' }
-             );
-             break;
-             
-           case 'area_description':
-             segments.push(
-               { text: message.text, color: 'text-gray-100' }
-             );
-             
-             // Highlight entities in description
-             for (const entity of message.entities) {
-               this.highlightEntity(segments, entity);
-             }
-             break;
-             
-           case 'combat':
-             segments.push(
-               { text: 'You attack ', color: 'text-red-400' },
-               { 
-                 text: message.targetName,
-                 color: 'text-yellow-400',
-                 bold: true,
-                 entityID: message.targetID,
-                 entityType: 'npc'
-               },
-               { text: ` for `, color: 'text-red-400' },
-               { text: message.damage.toString(), color: 'text-orange-500', bold: true },
-               { text: ' damage!', color: 'text-red-400' }
-             );
-             break;
-             
-           case 'dialogue':
-             segments.push(
-               { 
-                 text: message.speakerName,
-                 color: 'text-cyan-400',
-                 bold: true,
-                 entityID: message.speakerID,
-                 entityType: 'npc'
-               },
-               { text: ' says: "', color: 'text-gray-300' },
-               { text: message.text, color: 'text-green-300', italic: true },
-               { text: '"', color: 'text-gray-300' }
-             );
-             break;
-             
-           case 'item_acquired':
-             segments.push(
-               { text: 'You obtained ', color: 'text-gray-300' },
-               {
-                 text: message.itemName,
-                 color: this.getItemRarityColor(message.itemRarity),
-                 bold: true,
-                 entityID: message.itemID,
-                 entityType: 'item'
-               },
-               { text: ` (×${message.quantity})`, color: 'text-gray-400' }
-             );
-             break;
-             
-           case 'crafting_success':
-             segments.push(
-               { text: 'You successfully crafted ', color: 'text-green-400' },
-               {
-                 text: message.itemName,
-                 color: this.getQualityColor(message.quality),
-                 bold: true
-               },
-               { text: '!', color: 'text-green-400' }
-             );
-             break;
-             
-           case 'error':
-             segments.push(
-               { text: message.text, color: 'text-red-500', bold: true }
-             );
-             break;
-             
-           case 'system':
-             segments.push(
-               { text: '[System] ', color: 'text-purple-400', bold: true },
-               { text: message.text, color: 'text-gray-300' }
-             );
-             break;
-         }
-         
-         return segments;
-       }
-       
-       private getItemRarityColor(rarity: string): string {
-         const rarityColors: Record<string, string> = {
-           'common': 'text-gray-100',
-           'uncommon': 'text-green-400',
-           'rare': 'text-blue-400',
-           'very_rare': 'text-purple-400',
-           'legendary': 'text-orange-500',
-         };
-         return rarityColors[rarity] || 'text-gray-100';
-       }
-       
-       private getQualityColor(quality: string): string {
-         const qualityColors: Record<string, string> = {
-           'poor': 'text-gray-400',
-           'common': 'text-gray-100',
-           'good': 'text-green-400',
-           'excellent': 'text-blue-400',
-           'masterwork': 'text-purple-500',
-         };
-         return qualityColors[quality] || 'text-gray-100';
-       }
+       entityId?: string;    // For click interactions
+       entityType?: string;
      }
      ```
-   - Svelte component for formatted text:
+   - Frontend simply renders what backend provides:
      ```svelte
      <script lang="ts">
-       export let segments: TextSegment[];
+       export let message: GameMessage;
        
-       function handleEntityClick(segment: TextSegment) {
-         if (segment.entityID && segment.entityType) {
-           // Emit event for entity interaction
-           dispatch('entityClick', {
-             entityID: segment.entityID,
-             entityType: segment.entityType,
-           });
-         }
+       function handleEntityClick(entityId: string, entityType: string) {
+         // Send interaction command to backend
+         gameSocket.send({ text: `look ${entityId}` });
        }
      </script>
      
-     <div class="output-line">
-       {#each segments as segment}
-         <span
-           class={segment.color}
-           class:font-bold={segment.bold}
-           class:italic={segment.italic}
-           class:cursor-pointer={segment.entityID}
-           class:hover:underline={segment.entityID}
-           on:click={() => handleEntityClick(segment)}
-         >
-           {segment.text}
-         </span>
-       {/each}
-     </div>
-     ```
-
-4. Implement map visualization (2D top-down with fog of war):
-   - Canvas-based map rendering:
-     ```typescript
-     class MapRenderer {
-       private canvas: HTMLCanvasElement;
-       private ctx: CanvasRenderingContext2D;
-       private tileSize: number = 10; // pixels per coordinate unit
-       private viewRadius: number = 50; // units visible around player
-       
-       constructor(canvas: HTMLCanvasElement) {
-         this.canvas = canvas;
-         this.ctx = canvas.getContext('2d')!;
-       }
-       
-       render(playerPos: Position, visibleArea: VisibleTile[]) {
-         const centerX = this.canvas.width / 2;
-         const centerY = this.canvas.height / 2;
-         
-         // Clear canvas
-         this.ctx.fillStyle = '#000000';
-         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-         
-         // Render fog of war first
-         this.renderFogOfWar(playerPos, visibleArea, centerX, centerY);
-         
-         // Render visible tiles
-         for (const tile of visibleArea) {
-           const screenX = centerX + (tile.x - playerPos.x) * this.tileSize;
-           const screenY = centerY + (tile.y - playerPos.y) * this.tileSize;
-           
-           this.renderTile(tile, screenX, screenY);
-         }
-         
-         // Render entities (NPCs, resources, players)
-         for (const tile of visibleArea) {
-           if (tile.entities.length > 0) {
-             const screenX = centerX + (tile.x - playerPos.x) * this.tileSize;
-             const screenY = centerY + (tile.y - playerPos.y) * this.tileSize;
-             
-             for (const entity of tile.entities) {
-               this.renderEntity(entity, screenX, screenY);
-             }
-           }
-         }
-         
-         // Render player (always centered)
-         this.renderPlayer(centerX, centerY);
-       }
-       
-       private renderFogOfWar(
-         playerPos: Position,
-         visibleArea: VisibleTile[],
-         centerX: number,
-         centerY: number
-       ) {
-         const visibleSet = new Set(visibleArea.map(t => `${t.x},${t.y}`));
-         
-         // Render fog for all tiles in view radius
-         for (let x = -this.viewRadius; x <= this.viewRadius; x++) {
-           for (let y = -this.viewRadius; y <= this.viewRadius; y++) {
-             const worldX = playerPos.x + x;
-             const worldY = playerPos.y + y;
-             
-             if (!visibleSet.has(`${worldX},${worldY}`)) {
-               const screenX = centerX + x * this.tileSize;
-               const screenY = centerY + y * this.tileSize;
-               
-               this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-               this.ctx.fillRect(
-                 screenX - this.tileSize / 2,
-                 screenY - this.tileSize / 2,
-                 this.tileSize,
-                 this.tileSize
-               );
-             }
-           }
-         }
-       }
-       
-       private renderTile(tile: VisibleTile, x: number, y: number) {
-         // Terrain color based on biome
-         this.ctx.fillStyle = this.getBiomeColor(tile.biome);
-         this.ctx.fillRect(
-           x - this.tileSize / 2,
-           y - this.tileSize / 2,
-           this.tileSize,
-           this.tileSize
-         );
-         
-         // Elevation shading
-         const elevationAlpha = Math.max(0, Math.min(0.3, tile.elevation / 5000));
-         this.ctx.fillStyle = `rgba(255, 255, 255, ${elevationAlpha})`;
-         this.ctx.fillRect(
-           x - this.tileSize / 2,
-           y - this.tileSize / 2,
-           this.tileSize,
-           this.tileSize
-         );
-       }
-       
-       private renderEntity(entity: MapEntity, x: number, y: number) {
-         const radius = this.tileSize / 3;
-         
-         this.ctx.beginPath();
-         this.ctx.arc(x, y, radius, 0, 2 * Math.PI);
-         this.ctx.fillStyle = this.getEntityColor(entity.type);
-         this.ctx.fill();
-         
-         // Entity outline
-         this.ctx.strokeStyle = '#FFFFFF';
-         this.ctx.lineWidth = 1;
-         this.ctx.stroke();
-       }
-       
-       private renderPlayer(x: number, y: number) {
-         const radius = this.tileSize / 2;
-         
-         // Player circle
-         this.ctx.beginPath();
-         this.ctx.arc(x, y, radius, 0, 2 * Math.PI);
-         this.ctx.fillStyle = '#00FF00';
-         this.ctx.fill();
-         
-         // Player outline
-         this.ctx.strokeStyle = '#FFFFFF';
-         this.ctx.lineWidth = 2;
-         this.ctx.stroke();
-         
-         // Direction indicator
-         this.ctx.beginPath();
-         this.ctx.moveTo(x, y);
-         this.ctx.lineTo(x, y - radius * 1.5);
-         this.ctx.strokeStyle = '#FFFFFF';
-         this.ctx.lineWidth = 2;
-         this.ctx.stroke();
-       }
-       
-       private getBiomeColor(biome: string): string {
-         const biomeColors: Record<string, string> = {
-           'forest': '#228B22',
-           'grassland': '#90EE90',
-           'desert': '#F4A460',
-           'mountain': '#808080',
-           'tundra': '#E0FFFF',
-           'ocean': '#4682B4',
-           'swamp': '#556B2F',
-         };
-         return biomeColors[biome] || '#333333';
-       }
-       
-       private getEntityColor(type: string): string {
-         const entityColors: Record<string, string> = {
-           'npc': '#FFFF00',
-           'player': '#00FFFF',
-           'resource': '#FFA500',
-           'monster': '#FF0000',
-         };
-         return entityColors[type] || '#FFFFFF';
-       }
-     }
-     ```
-
-5. Add inventory/character sheet UI:
-   - Inventory panel component:
-     ```svelte
-     <script lang="ts">
-       import { onMount } from 'svelte';
-       import type { InventoryItem, EquipmentSlot } from '$lib/types';
-       
-       export let inventory: InventoryItem[] = [];
-       export let equipment: Record<EquipmentSlot, InventoryItem | null> = {};
-       export let maxWeight: number = 100;
-       export let currentWeight: number = 0;
-       
-       let selectedItem: InventoryItem | null = null;
-       let showContextMenu: boolean = false;
-       let contextMenuPosition: { x: number; y: number } = { x: 0, y: 0 };
-       
-       function handleItemClick(item: InventoryItem, event: MouseEvent) {
-         selectedItem = item;
-         showContextMenu = true;
-         contextMenuPosition = { x: event.clientX, y: event.clientY };
-       }
-       
-       function handleUseItem() {
-         if (selectedItem) {
-           dispatch('useItem', { itemID: selectedItem.itemID });
-           showContextMenu = false;
-         }
-       }
-       
-       function handleDropItem() {
-         if (selectedItem) {
-           dispatch('dropItem', { itemID: selectedItem.itemID });
-           showContextMenu = false;
-         }
-       }
-       
-       function handleEquipItem() {
-         if (selectedItem) {
-           dispatch('equipItem', { itemID: selectedItem.itemID });
-           showContextMenu = false;
-         }
-       }
-       
-       $: weightPercentage = (currentWeight / maxWeight) * 100;
-       $: weightColor = weightPercentage > 90 ? 'text-red-500' : 
-                        weightPercentage > 70 ? 'text-yellow-500' : 'text-green-500';
-     </script>
-     
-     <div class="inventory-panel bg-gray-900 rounded-lg p-4">
-       <!-- Weight Display -->
-       <div class="weight-bar mb-4">
-         <div class="flex justify-between mb-1">
-           <span class="text-sm text-gray-300">Weight</span>
-           <span class="text-sm {weightColor}">
-             {currentWeight} / {maxWeight}
-           </span>
-         </div>
-         <div class="w-full bg-gray-700 rounded-full h-2">
-           <div
-             class="bg-blue-500 h-2 rounded-full transition-all"
-             style="width: {weightPercentage}%"
-           />
-         </div>
-       </div>
-       
-       <!-- Equipment Slots -->
-       <div class="equipment-slots mb-4">
-         <h3 class="text-lg font-bold text-gray-100 mb-2">Equipment</h3>
-         <div class="grid grid-cols-3 gap-2">
-           {#each Object.entries(equipment) as [slot, item]}
-             <div
-               class="equipment-slot bg-gray-800 rounded p-2 border border-gray-700 hover:border-blue-500 cursor-pointer"
-               on:click={() => item && handleItemClick(item, event)}
-             >
-               <div class="text-xs text-gray-400 mb-1">{slot}</div>
-               {#if item}
-                 <div class="text-sm text-gray-100">{item.name}</div>
-                 <div class="text-xs {getQualityColor(item.quality)}">
-                   {item.quality}
-                 </div>
-               {:else}
-                 <div class="text-xs text-gray-600">Empty</div>
-               {/if}
-             </div>
-           {/each}
-         </div>
-       </div>
-       
-       <!-- Inventory Items -->
-       <div class="inventory-items">
-         <h3 class="text-lg font-bold text-gray-100 mb-2">Inventory</h3>
-         <div class="grid grid-cols-4 gap-2 max-h-96 overflow-y-auto">
-           {#each inventory as item}
-             <div
-               class="inventory-item bg-gray-800 rounded p-2 border border-gray-700 hover:border-blue-500 cursor-pointer relative"
-               on:click={(e) => handleItemClick(item, e)}
-             >
-               <!-- Item icon/image placeholder -->
-               <div class="w-full aspect-square bg-gray-700 rounded mb-1">
-                 <span class="text-2xl">{item.icon || '📦'}</span>
-               </div>
-               
-               <!-- Item name -->
-               <div class="text-xs text-gray-100 truncate">{item.name}</div>
-               
-               <!-- Item quality -->
-               <div class="text-xs {getQualityColor(item.quality)}">
-                 {item.quality}
-               </div>
-               
-               <!-- Stack quantity -->
-               {#if item.quantity > 1}
-                 <div class="absolute top-1 right-1 bg-gray-900 rounded px-1 text-xs text-gray-300">
-                   ×{item.quantity}
-                 </div>
-               {/if}
-             </div>
-           {/each}
-         </div>
-       </div>
-       
-       <!-- Context Menu -->
-       {#if showContextMenu && selectedItem}
-         <div
-           class="context-menu fixed bg-gray-800 border border-gray-600 rounded shadow-lg z-50"
-           style="left: {contextMenuPosition.x}px; top: {contextMenuPosition.y}px"
-           on:mouseleave={() => showContextMenu = false}
-         >
-           <button
-             class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-gray-100"
-             on:click={handleUseItem}
+     <div class="message message-{message.type}">
+       {#if message.segments}
+         {#each message.segments as segment}
+           <span
+             class={segment.color}
+             class:font-bold={segment.bold}
+             class:italic={segment.italic}
+             class:clickable={segment.entityId}
+             on:click={() => segment.entityId && 
+               handleEntityClick(segment.entityId, segment.entityType)}
            >
-             Use
-           </button>
-           {#if selectedItem.equipable}
-             <button
-               class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-gray-100"
-               on:click={handleEquipItem}
-             >
-               Equip
-             </button>
-           {/if}
-           <button
-             class="block w-full text-left px-4 py-2 hover:bg-gray-700 text-gray-100"
-             on:click={handleDropItem}
-           >
-             Drop
-           </button>
-         </div>
-       {/if}
-     </div>
-     ```
-
-6. Build behavioral drift monitor display:
-   - Drift monitor component (for inhabited NPCs):
-     ```svelte
-     <script lang="ts">
-       import type { DriftMetrics, BehavioralBaseline } from '$lib/types';
-       
-       export let baseline: BehavioralBaseline;
-       export let currentBehavior: BehavioralBaseline;
-       export let driftLevel: 'none' | 'subtle' | 'moderate' | 'severe';
-       export let relationshipImpacts: Array<{name: string, affinityDelta: number}>;
-       export let recentComments: Array<{speaker: string, comment: string}>;
-       
-       function calculateDrift(trait: keyof BehavioralBaseline): number {
-         return Math.abs(currentBehavior[trait] - baseline[trait]);
-       }
-       
-       function getDriftColor(drift: number): string {
-         if (drift < 0.3) return 'text-green-500';
-         if (drift < 0.5) return 'text-yellow-500';
-         if (drift < 0.7) return 'text-orange-500';
-         return 'text-red-500';
-       }
-       
-       function getDriftIcon(drift: number): string {
-         if (drift < 0.3) return '✓';
-         if (drift < 0.5) return '⚠';
-         if (drift < 0.7) return '⚠⚠';
-         return '⚠⚠⚠';
-       }
-     </script>
-     
-     <div class="drift-monitor bg-gray-900 rounded-lg p-4 border-2 {
-       driftLevel === 'severe' ? 'border-red-500' :
-       driftLevel === 'moderate' ? 'border-orange-500' :
-       driftLevel === 'subtle' ? 'border-yellow-500' :
-       'border-gray-700'
-     }">
-       <h3 class="text-lg font-bold text-gray-100 mb-3">
-         Personality Monitor
-         {#if driftLevel !== 'none'}
-           <span class="text-sm {
-             driftLevel === 'severe' ? 'text-red-500' :
-             driftLevel === 'moderate' ? 'text-orange-500' :
-             'text-yellow-500'
-           }">
-             ({driftLevel} drift)
+             {segment.text}
            </span>
-         {/if}
-       </h3>
-       
-       <!-- Behavioral Traits -->
-       <div class="traits-grid grid grid-cols-2 gap-3 mb-4">
-         {#each Object.entries(baseline) as [trait, baseValue]}
-           {@const currentValue = currentBehavior[trait]}
-           {@const drift = calculateDrift(trait)}
-           
-           <div class="trait-item">
-             <div class="flex justify-between items-center mb-1">
-               <span class="text-sm text-gray-300 capitalize">{trait}</span>
-               <span class="{getDriftColor(drift)} text-sm font-bold">
-                 {getDriftIcon(drift)}
-               </span>
-             </div>
-             
-             <!-- Baseline bar -->
-             <div class="relative h-4 bg-gray-700 rounded">
-               <!-- Original baseline -->
-               <div
-                 class="absolute top-0 left-0 h-full bg-gray-500 rounded opacity-50"
-                 style="width: {baseValue * 100}%"
-               />
-               
-               <!-- Current value -->
-               <div
-                 class="absolute top-0 left-0 h-full rounded transition-all {
-                   drift < 0.3 ? 'bg-green-500' :
-                   drift < 0.5 ? 'bg-yellow-500' :
-                   drift < 0.7 ? 'bg-orange-500' :
-                   'bg-red-500'
-                 }"
-                 style="width: {currentValue * 100}%"
-               />
-             </div>
-             
-             <div class="flex justify-between text-xs text-gray-400 mt-1">
-               <span>Base: {(baseValue * 100).toFixed(0)}%</span>
-               <span class="{getDriftColor(drift)}">
-                 Now: {(currentValue * 100).toFixed(0)}%
-                 {#if drift > 0.3}
-                   (Δ{(drift * 100).toFixed(0)}%)
-                 {/if}
-               </span>
-             </div>
-           </div>
          {/each}
-       </div>
-       
-       <!-- Relationship Impacts -->
-       {#if relationshipImpacts.length > 0}
-         <div class="relationship-impacts mb-4">
-           <h4 class="text-sm font-bold text-gray-300 mb-2">Relationship Changes</h4>
-           <div class="space-y-1">
-             {#each relationshipImpacts as impact}
-               <div class="flex justify-between text-sm">
-                 <span class="text-gray-400">{impact.name}</span>
-                 <span class="{impact.affinityDelta < 0 ? 'text-red-400' : 'text-green-400'}">
-                   {impact.affinityDelta > 0 ? '+' : ''}{impact.affinityDelta}
-                 </span>
-               </div>
-             {/each}
-           </div>
-         </div>
-       {/if}
-       
-       <!-- Recent NPC Comments -->
-       {#if recentComments.length > 0}
-         <div class="recent-comments">
-           <h4 class="text-sm font-bold text-gray-300 mb-2">What Others Say</h4>
-           <div class="space-y-2 max-h-32 overflow-y-auto">
-             {#each recentComments as comment}
-               <div class="bg-gray-800 rounded p-2">
-                 <div class="text-xs text-cyan-400 font-bold">{comment.speaker}:</div>
-                 <div class="text-xs text-gray-300 italic">"{comment.comment}"</div>
-               </div>
-             {/each}
-           </div>
-         </div>
+       {:else}
+         {message.text}
        {/if}
      </div>
      ```
 
-7. Test mobile responsiveness:
-   - Mobile gesture tests:
-     - Touch input for command entry
-     - Swipe to scroll output text
-     - Pinch to zoom map (optional)
-     - Long-press for context menus
-   - Viewport tests:
-     - iPhone SE (375×667): verify layout fits
-     - iPhone 12 Pro (390×844): verify layout fits
-     - iPad (768×1024): verify responsive layout
-     - Desktop (1920×1080): verify full layout
-   - Performance tests:
-     - FPS stays >30 during map rendering
-     - Input lag <100ms on touch devices
-     - Scroll performance smooth (60fps)
+4. **Map visualization (render backend-provided data)**:
+   - Backend sends `visible_tiles` with pre-computed data:
+     ```typescript
+     interface VisibleTile {
+       x: number;
+       y: number;
+       biome: string;
+       biomeColor: string;    // Backend provides CSS color
+       elevation: number;
+       isVisible: boolean;    // Fog of war computed by backend
+       entities: MapEntity[];
+     }
+     ```
+   - Frontend renders without computing visibility or colors
+
+5. **Status bars (display backend-provided values)**:
+   - Backend sends current/max values for HP, Stamina, Focus
+   - Frontend calculates percentage and renders bars
+   - Color thresholds can be defined on frontend (presentation only)
+
+6. **Quick action buttons**:
+   - Pre-defined buttons that send fixed commands
+   - Example: "Look" → `gameSocket.send({ text: 'look' })`
+   - No parsing, just send raw command strings
 
 Test Requirements (80%+ coverage):
-- CommandParser correctly parses exact commands ("look", "move north")
-- CommandParser parses natural language ("pick up the sword", "talk to merchant")
-- Direction extraction identifies all compass directions (N, NE, E, SE, S, SW, W, NW, UP, DOWN)
-- Item name extraction removes command words and articles
-- Target extraction identifies NPCs and objects
-- Fuzzy matching corrects typos (Levenshtein distance ≤2)
-- Context memory remembers last target for "attack" without target specified
-- OutputFormatter applies correct colors for message types
-- Combat messages highlight damage in orange/red
-- Dialogue messages highlight speaker in cyan
-- Item rarity colors: common (gray), uncommon (green), rare (blue), very_rare (purple), legendary (orange)
-- Quality colors: poor (gray), common (white), good (green), excellent (blue), masterwork (purple)
-- MapRenderer centers player on canvas
-- MapRenderer applies fog of war to non-visible tiles
-- MapRenderer colors tiles by biome correctly
-- MapRenderer renders entities (NPCs, resources) as colored circles
-- Inventory panel displays weight as percentage of max
-- Inventory panel colors weight warning (>90% red, >70% yellow, <70% green)
-- Equipment slots show equipped items or "Empty"
-- Context menu appears on item click with Use/Equip/Drop options
-- Drift monitor calculates drift correctly (|current - baseline|)
-- Drift monitor colors traits: <0.3 green, 0.3-0.5 yellow, 0.5-0.7 orange, >0.7 red
-- Drift level indicator shows none/subtle/moderate/severe based on max drift
-- Relationship impacts display with correct +/- coloring
-- Recent comments scroll if >3 comments
-- Mobile layout (0-768px) shows single column with joystick
-- Desktop layout (1025px+) shows three columns with panels
-- Touch input registers correctly on mobile devices
+- CommandInput sends raw text via WebSocket without modification
+- Command history navigation (up/down arrows) works correctly
+- History limited to 50 entries
+- TextDisplay renders segments with correct CSS classes
+- TextDisplay handles clicks on entity segments
+- Entity clicks send "look {entityId}" command to backend
+- MapCanvas renders tiles with backend-provided colors
+- StatusBar calculates percentage from backend values
+- Mobile layout renders single column at <768px
+- Desktop layout renders three columns at ≥1025px
+- Quick buttons send correct command strings
+- WebSocket connection handles reconnection gracefully
 - Component renders in <100ms on mobile devices
-- FPS stays >30fps during map rendering on mobile
 
 Acceptance Criteria:
-- UI is responsive and works on mobile devices (375px to 1920px+)
-- Command parser understands natural language and shorthand commands
-- Output text is color-coded and entity-highlighted for readability
-- Map visualization shows player-centered 2D view with fog of war
-- Inventory/character sheet displays equipment and items clearly
-- Drift monitor (for inhabited NPCs) shows behavioral changes and relationship impacts
-- All components render performantly on mobile (<100ms, >30fps)
+- **Frontend sends raw text only** - no command parsing on client
+- **Backend provides all formatting** - colors, entity highlights, segments
+- UI responsive across mobile/tablet/desktop breakpoints
+- Command history navigable with up/down arrows
+- Clickable entities send interaction commands
 - All tests pass with 80%+ coverage
 
 Dependencies:
-- Phase 3.3 (Relationships) - drift metrics for inhabited NPCs
-- Phase 2.1 (Character System) - attributes and stats display
-- Phase 9.1 (Resources) - inventory items
-- SvelteKit - frontend framework
-- TailwindCSS - styling
-- Canvas API - map rendering
+- Phase 10.2 (Backend Output Formatting) - structured message format
+- WebSocket connection (existing)
+- SvelteKit (existing)
 
 Files to Create:
-- `src/lib/components/Layout/MobileLayout.svelte` - Mobile single-column layout
-- `src/lib/components/Layout/DesktopLayout.svelte` - Desktop three-column layout
-- `src/lib/components/Layout/GameContainer.svelte` - Responsive container
-- `src/lib/components/Input/CommandInput.svelte` - Text input with autocomplete
-- `src/lib/components/Input/CommandParser.ts` - Command parsing logic
-- `src/lib/components/Output/TextDisplay.svelte` - Scrollable game output
-- `src/lib/components/Output/OutputFormatter.ts` - Text formatting and coloring
-- `src/lib/components/Output/FormattedText.svelte` - Colored text segments
-- `src/lib/components/Map/MapCanvas.svelte` - Canvas-based map
-- `src/lib/components/Map/MapRenderer.ts` - Map rendering logic
-- `src/lib/components/Inventory/InventoryPanel.svelte` - Inventory UI
-- `src/lib/components/Inventory/EquipmentSlots.svelte` - Equipment display
-- `src/lib/components/Character/StatusBar.svelte` - HP/Stamina/Focus bars
-- `src/lib/components/Character/CharacterSheet.svelte` - Full stats display
-- `src/lib/components/Drift/DriftMonitor.svelte` - Behavioral drift display
-- `src/lib/components/Input/CommandParser.test.ts` - Parser unit tests
-- `src/lib/components/Output/OutputFormatter.test.ts` - Formatter unit tests
-- `src/lib/components/Map/MapRenderer.test.ts` - Map rendering tests
-- `src/lib/components/Layout/Responsive.test.ts` - Responsive layout tests
-- `src/lib/types/ui.ts` - UI TypeScript types
-- `src/lib/stores/ui.ts` - Svelte stores for UI state
+- `src/lib/components/Input/CommandInput.svelte` - Raw text input, NO parsing
+- `src/lib/components/Output/TextDisplay.svelte` - Renders backend segments (exists, verify)
+- `src/lib/components/Output/FormattedText.svelte` - Segment renderer (exists, verify)
+- `src/lib/components/Layout/MobileLayout.svelte` - Mobile layout (exists)
+- `src/lib/components/Layout/DesktopLayout.svelte` - Desktop layout (exists)
+- `src/lib/components/Layout/GameContainer.svelte` - Responsive container (exists)
+- `src/lib/components/Map/MapCanvas.svelte` - Canvas map (exists)
+- `src/lib/components/Character/StatusBar.svelte` - HP/Stamina bars (exists)
+- `src/lib/components/Input/QuickButtons.svelte` - Pre-defined command buttons
+- `src/lib/stores/commandHistory.ts` - Command history store
+- `tests/components/CommandInput.test.ts` - Input tests
+- `tests/components/TextDisplay.test.ts` - Output tests
+- `tests/e2e/ui_interaction.spec.ts` - E2E UI tests
+
+---
+
+## Phase 10.2: Backend Output Formatting (1 week)
+### Status: ⏳ Not Started
+### Prompt:
+Following TDD principles, implement Phase 10.2 Backend Output Formatting to support thin-client architecture:
+
+Core Requirements:
+
+1. **Enhance GameMessage struct with formatting data**:
+   ```go
+   type GameMessage struct {
+       Type     string        `json:"type"`
+       Text     string        `json:"text"`
+       Segments []TextSegment `json:"segments,omitempty"`
+       Entities []EntityRef   `json:"entities,omitempty"`
+       
+       // Type-specific fields
+       Direction   string `json:"direction,omitempty"`
+       Damage      int    `json:"damage,omitempty"`
+       SpeakerName string `json:"speaker_name,omitempty"`
+       SpeakerID   string `json:"speaker_id,omitempty"`
+       ItemName    string `json:"item_name,omitempty"`
+       ItemRarity  string `json:"item_rarity,omitempty"`
+       ItemQuality string `json:"item_quality,omitempty"`
+   }
+   
+   type TextSegment struct {
+       Text       string `json:"text"`
+       Color      string `json:"color"`      // CSS class: "text-red-500"
+       Bold       bool   `json:"bold,omitempty"`
+       Italic     bool   `json:"italic,omitempty"`
+       EntityID   string `json:"entity_id,omitempty"`
+       EntityType string `json:"entity_type,omitempty"`
+   }
+   
+   type EntityRef struct {
+       ID   string `json:"id"`
+       Name string `json:"name"`
+       Type string `json:"type"` // npc, item, resource, location
+   }
+   ```
+
+2. **Implement OutputFormatter service**:
+   ```go
+   type OutputFormatter struct {
+       rarityColors  map[string]string
+       qualityColors map[string]string
+       messageColors map[string]string
+   }
+   
+   func NewOutputFormatter() *OutputFormatter {
+       return &OutputFormatter{
+           rarityColors: map[string]string{
+               "common":    "text-gray-100",
+               "uncommon":  "text-green-400",
+               "rare":      "text-blue-400",
+               "very_rare": "text-purple-400",
+               "legendary": "text-orange-500",
+           },
+           qualityColors: map[string]string{
+               "poor":       "text-gray-400",
+               "common":     "text-gray-100",
+               "good":       "text-green-400",
+               "excellent":  "text-blue-400",
+               "masterwork": "text-purple-500",
+           },
+           messageColors: map[string]string{
+               "combat":   "text-red-400",
+               "dialogue": "text-green-300",
+               "system":   "text-purple-400",
+               "error":    "text-red-500",
+           },
+       }
+   }
+   
+   func (f *OutputFormatter) FormatCombat(
+       attacker string, target string, damage int, targetID uuid.UUID,
+   ) *GameMessage {
+       return &GameMessage{
+           Type:   "combat",
+           Text:   fmt.Sprintf("%s attacks %s for %d damage!", attacker, target, damage),
+           Damage: damage,
+           Segments: []TextSegment{
+               {Text: attacker + " attacks ", Color: "text-gray-300"},
+               {Text: target, Color: "text-yellow-400", Bold: true, 
+                EntityID: targetID.String(), EntityType: "npc"},
+               {Text: " for ", Color: "text-gray-300"},
+               {Text: strconv.Itoa(damage), Color: "text-orange-500", Bold: true},
+               {Text: " damage!", Color: "text-red-400"},
+           },
+       }
+   }
+   
+   func (f *OutputFormatter) FormatDialogue(
+       speaker string, speakerID uuid.UUID, text string,
+   ) *GameMessage {
+       return &GameMessage{
+           Type:        "dialogue",
+           Text:        fmt.Sprintf("%s says: \"%s\"", speaker, text),
+           SpeakerName: speaker,
+           SpeakerID:   speakerID.String(),
+           Segments: []TextSegment{
+               {Text: speaker, Color: "text-cyan-400", Bold: true,
+                EntityID: speakerID.String(), EntityType: "npc"},
+               {Text: " says: \"", Color: "text-gray-300"},
+               {Text: text, Color: "text-green-300", Italic: true},
+               {Text: "\"", Color: "text-gray-300"},
+           },
+       }
+   }
+   
+   func (f *OutputFormatter) FormatItemAcquired(
+       item *Item, quantity int,
+   ) *GameMessage {
+       return &GameMessage{
+           Type:       "item_acquired",
+           Text:       fmt.Sprintf("You obtained %s (×%d)", item.Name, quantity),
+           ItemName:   item.Name,
+           ItemRarity: item.Rarity,
+           Segments: []TextSegment{
+               {Text: "You obtained ", Color: "text-gray-300"},
+               {Text: item.Name, Color: f.rarityColors[item.Rarity], Bold: true,
+                EntityID: item.ID.String(), EntityType: "item"},
+               {Text: fmt.Sprintf(" (×%d)", quantity), Color: "text-gray-400"},
+           },
+       }
+   }
+   ```
+
+3. **Add fuzzy matching to backend CommandParser**:
+   ```go
+   func (p *CommandParser) ParseTextWithFuzzy(text string) *websocket.CommandData {
+       cmd := p.ParseText(text)
+       
+       // If unknown command, try fuzzy matching
+       if cmd.Action == text && !p.isKnownCommand(cmd.Action) {
+           fuzzyMatch := p.tryFuzzyMatch(cmd.Action)
+           if fuzzyMatch != "" {
+               cmd.Action = fuzzyMatch
+               cmd.WasCorrected = true
+               cmd.OriginalInput = text
+           }
+       }
+       
+       return cmd
+   }
+   
+   func (p *CommandParser) tryFuzzyMatch(input string) string {
+       bestMatch := ""
+       bestDistance := 3 // Max Levenshtein distance
+       
+       for action := range p.aliases {
+           distance := levenshtein(input, action)
+           if distance < bestDistance {
+               bestDistance = distance
+               bestMatch = action
+           }
+           
+           // Also check aliases
+           for _, alias := range p.aliases[action] {
+               distance := levenshtein(input, alias)
+               if distance < bestDistance {
+                   bestDistance = distance
+                   bestMatch = action
+               }
+           }
+       }
+       
+       return bestMatch
+   }
+   
+   func levenshtein(s1, s2 string) int {
+       // Standard Levenshtein distance implementation
+       // ... (full implementation in code)
+   }
+   ```
+
+4. **Add context memory to backend**:
+   ```go
+   type CommandContext struct {
+       LastTarget    string
+       LastNPC       string
+       LastDirection string
+       LastRoom      uuid.UUID
+   }
+   
+   // Store context per client session
+   type ClientState struct {
+       // ... existing fields
+       CommandContext *CommandContext
+   }
+   
+   func (p *GameProcessor) ProcessCommand(ctx context.Context, client *Client, cmd *CommandData) error {
+       // Use context for missing targets
+       if cmd.Target == nil && p.requiresTarget(cmd.Action) {
+           if client.State.CommandContext.LastTarget != "" {
+               cmd.Target = &client.State.CommandContext.LastTarget
+           }
+       }
+       
+       // ... process command
+       
+       // Update context after successful command
+       if cmd.Target != nil {
+           client.State.CommandContext.LastTarget = *cmd.Target
+       }
+   }
+   ```
+
+Test Requirements (80%+ coverage):
+- OutputFormatter.FormatCombat returns correct segments with colors
+- OutputFormatter.FormatDialogue includes speaker entity reference
+- OutputFormatter.FormatItemAcquired uses correct rarity color
+- All rarity colors map correctly (common→gray, legendary→orange)
+- All quality colors map correctly (poor→gray, masterwork→purple)
+- Fuzzy matching corrects "loook" to "look" (distance 1)
+- Fuzzy matching corrects "atack" to "attack" (distance 1)
+- Fuzzy matching does NOT correct "xyz" (distance >2)
+- Context memory stores last target after successful command
+- Context memory provides last target when target missing
+- GameMessage JSON serializes all segments correctly
+- EntityRef clickable references serialize with IDs
+- Process 1000 format operations in <100ms
+
+Acceptance Criteria:
+- All game output includes pre-formatted segments with CSS classes
+- Entity references include IDs for frontend click handling
+- Fuzzy matching corrects typos with Levenshtein distance ≤2
+- Context memory tracks last target, NPC, direction per session
+- Frontend receives ready-to-render formatted messages
+- All tests pass with 80%+ coverage
+
+Dependencies:
+- Existing WebSocket message system
+- Existing CommandParser
+
+Files to Create:
+- `internal/game/output/formatter.go` - OutputFormatter service
+- `internal/game/output/types.go` - GameMessage, TextSegment, EntityRef
+- `internal/game/output/colors.go` - Color mappings
+- `internal/game/processor/fuzzy.go` - Levenshtein + fuzzy matching
+- `internal/game/processor/context.go` - Command context memory
+- `internal/game/output/formatter_test.go` - Formatter tests
+- `internal/game/processor/fuzzy_test.go` - Fuzzy matching tests
+- `internal/game/processor/context_test.go` - Context memory tests
+
+---
+
+## Phase 10.3: E2E UI Testing (1 week)
+### Status: ⏳ Not Started
+### Prompt:
+Following TDD principles, implement Phase 10.3 End-to-End UI Testing for the thin-client architecture:
+
+Core Requirements:
+
+1. **WebSocket command flow E2E tests**:
+   ```go
+   func TestE2E_CommandFlow(t *testing.T) {
+       // Setup: Create user, connect WebSocket
+       client := setupTestClient(t)
+       defer client.Close()
+       
+       // Test: Send raw text command
+       client.Send(`{"text": "look"}`)
+       
+       // Verify: Receive formatted response with segments
+       response := client.WaitForMessage(t, 5*time.Second)
+       
+       assert.Equal(t, "area_description", response.Type)
+       assert.NotEmpty(t, response.Segments)
+       assert.NotEmpty(t, response.Text)
+       
+       // Verify segments have colors
+       for _, segment := range response.Segments {
+           assert.NotEmpty(t, segment.Color)
+       }
+   }
+   
+   func TestE2E_FuzzyMatchingCorrection(t *testing.T) {
+       client := setupTestClient(t)
+       defer client.Close()
+       
+       // Send typo command
+       client.Send(`{"text": "loook"}`)
+       
+       // Should be corrected to "look" and processed
+       response := client.WaitForMessage(t, 5*time.Second)
+       
+       assert.Equal(t, "area_description", response.Type)
+       // Optionally: system message about correction
+   }
+   
+   func TestE2E_ContextMemory(t *testing.T) {
+       client := setupTestClient(t)
+       defer client.Close()
+       
+       // First: target a specific NPC
+       client.Send(`{"text": "look guard"}`)
+       response1 := client.WaitForMessage(t, 5*time.Second)
+       assert.Contains(t, response1.Text, "guard")
+       
+       // Second: use implicit target
+       client.Send(`{"text": "talk"}`) // No target specified
+       response2 := client.WaitForMessage(t, 5*time.Second)
+       
+       // Should talk to "guard" from context
+       assert.Equal(t, "dialogue", response2.Type)
+       assert.Contains(t, response2.SpeakerName, "guard")
+   }
+   ```
+
+2. **UI component E2E tests (Playwright)**:
+   ```typescript
+   // tests/e2e/ui_interaction.spec.ts
+   import { test, expect } from '@playwright/test';
+   
+   test.describe('Thin Client UI', () => {
+     test.beforeEach(async ({ page }) => {
+       // Login and navigate to game
+       await page.goto('/login');
+       await page.fill('[data-testid="email"]', 'test@example.com');
+       await page.fill('[data-testid="password"]', 'password123');
+       await page.click('[data-testid="login-button"]');
+       await page.waitForURL('/game');
+     });
+     
+     test('sends raw text command on Enter', async ({ page }) => {
+       const input = page.locator('[data-testid="command-input"]');
+       
+       // Type and send command
+       await input.fill('look');
+       await input.press('Enter');
+       
+       // Verify input cleared
+       await expect(input).toHaveValue('');
+       
+       // Verify response received
+       const output = page.locator('[data-testid="game-output"]');
+       await expect(output).toContainText(/You see|area/i, { timeout: 5000 });
+     });
+     
+     test('navigates command history with arrow keys', async ({ page }) => {
+       const input = page.locator('[data-testid="command-input"]');
+       
+       // Send multiple commands
+       await input.fill('look');
+       await input.press('Enter');
+       await input.fill('north');
+       await input.press('Enter');
+       await input.fill('inventory');
+       await input.press('Enter');
+       
+       // Navigate up through history
+       await input.press('ArrowUp');
+       await expect(input).toHaveValue('inventory');
+       
+       await input.press('ArrowUp');
+       await expect(input).toHaveValue('north');
+       
+       await input.press('ArrowUp');
+       await expect(input).toHaveValue('look');
+       
+       // Navigate back down
+       await input.press('ArrowDown');
+       await expect(input).toHaveValue('north');
+     });
+     
+     test('renders formatted text with colors', async ({ page }) => {
+       const input = page.locator('[data-testid="command-input"]');
+       
+       // Trigger combat (requires setup)
+       await input.fill('attack goblin');
+       await input.press('Enter');
+       
+       // Verify colored segments
+       const damageText = page.locator('.text-orange-500');
+       await expect(damageText).toBeVisible({ timeout: 5000 });
+     });
+     
+     test('clickable entity sends look command', async ({ page }) => {
+       const input = page.locator('[data-testid="command-input"]');
+       
+       // Look to get entities in view
+       await input.fill('look');
+       await input.press('Enter');
+       
+       // Click on an entity
+       const entity = page.locator('[data-entity-type="npc"]').first();
+       if (await entity.isVisible()) {
+         await entity.click();
+         
+         // Verify look command was sent for that entity
+         const output = page.locator('[data-testid="game-output"]');
+         await expect(output).toContainText(/You examine|looking at/i, { timeout: 5000 });
+       }
+     });
+     
+     test('responsive layout switches at breakpoints', async ({ page }) => {
+       // Mobile
+       await page.setViewportSize({ width: 375, height: 667 });
+       const mobileLayout = page.locator('[data-testid="mobile-layout"]');
+       await expect(mobileLayout).toBeVisible();
+       
+       // Desktop
+       await page.setViewportSize({ width: 1920, height: 1080 });
+       const desktopLayout = page.locator('[data-testid="desktop-layout"]');
+       await expect(desktopLayout).toBeVisible();
+     });
+     
+     test('quick buttons send raw commands', async ({ page }) => {
+       const lookButton = page.locator('[data-testid="quick-look"]');
+       await lookButton.click();
+       
+       const output = page.locator('[data-testid="game-output"]');
+       await expect(output).toContainText(/You see|area/i, { timeout: 5000 });
+     });
+   });
+   ```
+
+3. **Mobile gesture E2E tests**:
+   ```typescript
+   test.describe('Mobile Gestures', () => {
+     test.beforeEach(async ({ page }) => {
+       await page.setViewportSize({ width: 375, height: 667 });
+       // Login...
+     });
+     
+     test('touch input works for command entry', async ({ page }) => {
+       const input = page.locator('[data-testid="command-input"]');
+       await input.tap();
+       await page.keyboard.type('look');
+       await page.locator('[data-testid="send-button"]').tap();
+       
+       const output = page.locator('[data-testid="game-output"]');
+       await expect(output).toContainText(/You see/i, { timeout: 5000 });
+     });
+     
+     test('output scrolls to bottom on new content', async ({ page }) => {
+       const input = page.locator('[data-testid="command-input"]');
+       
+       // Send multiple commands to generate content
+       for (let i = 0; i < 10; i++) {
+         await input.fill('look');
+         await input.press('Enter');
+         await page.waitForTimeout(500);
+       }
+       
+       // Verify scrolled to bottom
+       const output = page.locator('[data-testid="game-output"]');
+       const scrollTop = await output.evaluate(el => el.scrollTop);
+       const scrollHeight = await output.evaluate(el => el.scrollHeight);
+       const clientHeight = await output.evaluate(el => el.clientHeight);
+       
+       expect(scrollTop + clientHeight).toBeGreaterThanOrEqual(scrollHeight - 50);
+     });
+   });
+   ```
+
+4. **Performance E2E tests**:
+   ```typescript
+   test.describe('Performance', () => {
+     test('renders new message in <100ms', async ({ page }) => {
+       const input = page.locator('[data-testid="command-input"]');
+       
+       const startTime = Date.now();
+       await input.fill('look');
+       await input.press('Enter');
+       
+       // Wait for response to appear
+       const output = page.locator('[data-testid="game-output"] .message').last();
+       await output.waitFor({ state: 'visible' });
+       
+       const endTime = Date.now();
+       expect(endTime - startTime).toBeLessThan(2000); // Including network
+     });
+     
+     test('handles rapid commands without lag', async ({ page }) => {
+       const input = page.locator('[data-testid="command-input"]');
+       
+       // Send 10 commands in quick succession
+       for (let i = 0; i < 10; i++) {
+         await input.fill(`look ${i}`);
+         await input.press('Enter');
+       }
+       
+       // All should be processed
+       const messages = page.locator('[data-testid="game-output"] .message');
+       await expect(messages).toHaveCount(10, { timeout: 10000 });
+     });
+   });
+   ```
+
+Test Requirements (80%+ coverage):
+- E2E: Raw text sent via WebSocket without client parsing
+- E2E: Backend returns formatted segments with colors
+- E2E: Fuzzy matching corrects typos server-side
+- E2E: Context memory auto-fills missing targets
+- E2E: Command history navigation with arrow keys
+- E2E: Formatted text renders with correct CSS classes
+- E2E: Entity clicks trigger look commands
+- E2E: Responsive layout switches at breakpoints
+- E2E: Quick buttons send correct commands
+- E2E: Mobile touch interactions work
+- E2E: Output auto-scrolls to bottom
+- E2E: New messages render in <100ms (excluding network)
+- E2E: Rapid commands processed without lag
+
+Acceptance Criteria:
+- All E2E tests verify thin-client architecture (no client parsing)
+- Tests cover command flow, formatting, context, history
+- Mobile and desktop layouts tested
+- Performance benchmarks met
+- All tests pass reliably in CI
+
+Dependencies:
+- Phase 10.1 (Core UI Components)
+- Phase 10.2 (Backend Output Formatting)
+- Playwright test framework
+- Go test framework
+
+Files to Create:
+- `tests/e2e/command_flow_test.go` - Backend command flow E2E
+- `tests/e2e/fuzzy_matching_test.go` - Fuzzy correction E2E
+- `tests/e2e/context_memory_test.go` - Context memory E2E
+- `mud-platform-client/tests/e2e/ui_interaction.spec.ts` - Playwright UI tests
+- `mud-platform-client/tests/e2e/mobile_gestures.spec.ts` - Mobile E2E tests
+- `mud-platform-client/tests/e2e/performance.spec.ts` - Performance E2E tests
+- `mud-platform-client/playwright.config.ts` - Playwright configuration
+
+---
+## Phase 10.4: iPhone UX/UI Polish (1 week)
+### Status: ⏳ Not Started
+### Prompt:
+Optimize the frontend UI for iPhone devices following iOS Human Interface Guidelines and mobile UX best practices. Focus on creating a premium, native-feeling experience for iPhone users while maintaining cross-platform compatibility.
+
+> **IMPORTANT: iPhone-First Optimization**
+> All UX/UI improvements must prioritize the iPhone experience. Test on real iPhone devices (iPhone 12-15 series) to ensure optimal performance and interaction quality.
+
+Core Requirements:
+
+1. **iOS Safe Area Handling** (Critical for notched iPhones):
+   - Add proper viewport meta configuration:
+     ```html
+     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+     <meta name="apple-mobile-web-app-capable" content="yes">
+     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+     ```
+   - Implement CSS safe area insets for notch/Dynamic Island:
+     ```css
+     .app-container {
+       padding-top: env(safe-area-inset-top);
+       padding-left: env(safe-area-inset-left);
+       padding-right: env(safe-area-inset-right);
+       padding-bottom: env(safe-area-inset-bottom);
+     }
+     
+     /* For fixed bottom elements */
+     .command-input-container {
+       padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
+     }
+     ```
+   - Test on iPhone 12 Pro (notch), iPhone 14 Pro (Dynamic Island), iPhone SE (no notch)
+
+2. **Touch Target Optimization** (iOS HIG: minimum 44×44pt):
+   - Audit all interactive elements:
+     ```svelte
+     <!-- BEFORE: Too small for finger -->
+     <button class="w-6 h-6">×</button>
+     
+     <!-- AFTER: Meeting iOS minimum -->
+     <button class="min-w-[44px] min-h-[44px] flex items-center justify-center">
+       <span class="text-xl">×</span>
+     </button>
+     ```
+   - Add adequate spacing between tappable elements (minimum 8px)
+   - Implement visual feedback for all touch interactions (`:active` states)
+
+3. **Keyboard Management** (Critical for text input):
+   - Prevent viewport zoom on input focus:
+     ```css
+     input, textarea, select {
+       font-size: 16px; /* Prevents iOS auto-zoom */
+     }
+     ```
+   - Auto-scroll focused input into view:
+     ```typescript
+     function handleInputFocus(element: HTMLElement) {
+       // Wait for keyboard to appear
+       setTimeout(() => {
+         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+       }, 300);
+     }
+     ```
+   - Dim background content when keyboard is active
+   - Add toolbar above keyboard for quick commands:
+     ```svelte
+     <div class="keyboard-accessory-bar" 
+          style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;">
+       <button>North</button>
+       <button>South</button>
+       <button>Look</button>
+       <button>Inventory</button>
+     </div>
+     ```
+
+4. **Haptic Feedback** (Vibration API):
+   - Add tactile feedback for interactions:
+     ```typescript
+     function triggerHaptic(type: 'light' | 'medium' | 'heavy' | 'selection' | 'error' | 'success') {
+       if (!('vibrate' in navigator)) return;
+       
+       const patterns = {
+         light: [10],
+         medium: [15],
+         heavy: [20],
+         selection: [5],
+         error: [10, 50, 10],
+         success: [10, 50, 10, 50, 10]
+       };
+       
+       navigator.vibrate(patterns[type]);
+     }
+     
+     // Usage:
+     // - Command sent: triggerHaptic('light')
+     // - Error message: triggerHaptic('error')
+     // - Success action: triggerHaptic('success')
+     // - Button tap: triggerHaptic('selection')
+     ```
+   - Add user preference toggle for haptic feedback
+
+5. **iOS Scroll Behavior**:
+   - Enable momentum scrolling:
+     ```css
+     .scrollable-area {
+       -webkit-overflow-scrolling: touch; /* iOS momentum scrolling */
+       overscroll-behavior: contain; /* Prevent pull-to-refresh */
+     }
+     ```
+   - Prevent body scroll when modal is open:
+     ```typescript
+     // Lock body scroll (for modals, overlays)
+     function lockScroll() {
+       document.body.style.overflow = 'hidden';
+       document.body.style.position = 'fixed';
+       document.body.style.width = '100%';
+     }
+     
+     function unlockScroll() {
+       document.body.style.overflow = '';
+       document.body.style.position = '';
+       document.body.style.width = '';
+     }
+     ```
+   - Disable pull-to-refresh in PWA mode:
+     ```css
+     body {
+       overscroll-behavior-y: none;
+     }
+     ```
+
+6. **Performance Optimization for 60 FPS**:
+   - Use CSS transforms instead of top/left for animations:
+     ```css
+     /* SLOW: causes reflow */
+     .animated { left: 100px; top: 50px; }
+     
+     /* FAST: GPU-accelerated */
+     .animated { transform: translate(100px, 50px); }
+     ```
+   - Debounce expensive operations:
+     ```typescript
+     import { debounce } from 'lodash-es';
+     
+     const onInputChange = debounce((value: string) => {
+       // Expensive operation
+     }, 150);
+     ```
+   - Use `requestAnimationFrame` for smooth animations
+   - Lazy load images and components:
+     ```svelte
+     <script>
+       import { onMount } from 'svelte';
+       
+       let visible = false;
+       onMount(() => {
+         const observer = new IntersectionObserver((entries) => {
+           if (entries[0].isIntersecting) {
+             visible = true;
+             observer.disconnect();
+           }
+         });
+         observer.observe(element);
+       });
+     </script>
+     ```
+
+7. **PWA Installation Prompt** (iOS-specific):
+   - Add iOS installation instructions:
+     ```svelte
+     {#if isIOS && !isStandalone}
+       <div class="install-prompt">
+         <p>Install Thousand Worlds for the best experience:</p>
+         <ol>
+           <li>Tap the Share button <svg>...</svg></li>
+           <li>Select "Add to Home Screen"</li>
+           <li>Tap "Add"</li>
+         </ol>
+       </div>
+     {/if}
+     
+     <script>
+       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+       const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+     </script>
+     ```
+   - Add apple-touch-icon with proper sizing:
+     ```html
+     <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+     <link rel="apple-touch-startup-image" href="/icons/launch-1125x2436.png" 
+           media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)">
+     ```
+
+8. **Dark Mode Adaptation**:
+   - Respect iOS dark mode preference:
+     ```css
+     @media (prefers-color-scheme: dark) {
+       :root {
+         --bg-color: #000;
+         --text-color: #fff;
+         --border-color: #1c1c1e;
+       }
+     }
+     ```
+   - Use native iOS colors when possible:
+     ```css
+     :root {
+       --ios-blue: #007AFF;
+       --ios-green: #34C759;
+       --ios-red: #FF3B30;
+       --ios-orange: #FF9500;
+       --ios-yellow: #FFCC00;
+       --ios-gray: #8E8E93;
+     }
+     ```
+
+9. **Accessibility Enhancements**:
+   - Support Dynamic Type (iOS font scaling):
+     ```css
+     body {
+       font-size: 16px;
+       /* Scale with iOS text size preference */
+       font: -apple-system-body;
+     }
+     ```
+   - Add ARIA labels for all interactive elements
+   - Support VoiceOver gestures:
+     ```html
+     <button aria-label="Send command" role="button">
+       <svg aria-hidden="true">...</svg>
+     </button>
+     ```
+   - High contrast mode support:
+     ```css
+     @media (prefers-contrast: high) {
+       .button {
+         border: 2px solid;
+       }
+     }
+     ```
+
+10. **Network Resilience** (for iPhone's background tab management):
+    - Auto-reconnect WebSocket when app returns to foreground:
+      ```typescript
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          // Reconnect WebSocket
+          gameWebSocket.reconnect();
+        }
+      });
+      ```
+    - Show connection status indicator
+    - Cache last 50 commands for offline review:
+      ```typescript
+      const commandHistory = writable<string[]>([]);
+      
+      // Store in localStorage
+      commandHistory.subscribe(value => {
+        localStorage.setItem('commandHistory', JSON.stringify(value.slice(-50)));
+      });
+      ```
+
+Test Requirements (100% coverage on real iPhone devices):
+- iPhone SE (2022): All touch targets ≥44×44pt
+- iPhone 12/13: Safe area insets properly applied
+- iPhone 14 Pro/15 Pro: Dynamic Island clearance verified
+- Input focus: Keyboard doesn't obscure text field
+- Scroll performance: Maintains 60 FPS during rapid scrolling
+- Haptic feedback: Works on all supported interactions
+- PWA installation: Adds to home screen correctly
+- Offline mode: Commands cached and viewable
+- Dark mode: Switches automatically with iOS setting
+- VoiceOver: All elements properly labeled
+- Text zoom: UI doesn't break at 200% text size
+- Safari: No zoom on input focus (font-size ≥16px)
+- Momentum scroll: Works smoothly in all scrollable areas
+- Pull-to-refresh: Disabled in standalone mode
+
+Acceptance Criteria:
+- All interactive elements meet iOS 44×44pt minimum touch target
+- App uses safe area insets on all iPhone models (SE, 12-15 series)
+- Keyboard management prevents UI obstruction
+- Haptic feedback enhances user interactions
+- PWA installs correctly with proper iOS styling
+- UI remains responsive at 60 FPS on iPhone 12 and newer
+- Dark mode switches automatically with iOS system preference
+- VoiceOver navigation works for all screens
+- No viewport zoom occurs on input focus
+- Connection status visible and accurate
+- App auto-reconnects when returning from background
+
+Dependencies:
+- Phase 10.1 (Core UI Components)
+- iOS 14+ for safe area support
+- Safari 14+ for PWA features
+
+Files to Modify:
+- `mud-platform-client/src/app.html` - Add meta tags and iOS-specific config
+- `mud-platform-client/src/app.css` - Add safe area variables and iOS styles
+- `mud-platform-client/static/manifest.json` - Add iOS-specific PWA config
+- `mud-platform-client/src/lib/components/Layout/MobileLayout.svelte` - Safe area padding
+- `mud-platform-client/src/lib/components/Input/CommandInput.svelte` - Keyboard management
+- `mud-platform-client/src/lib/stores/haptic.ts` - Haptic feedback utilities
+- `mud-platform-client/src/lib/stores/pwa.ts` - PWA install prompt logic
+- `mud-platform-client/src/lib/services/websocket.ts` - Auto-reconnect on visibility change
+
+Files to Create:
+- `mud-platform-client/static/icons/apple-touch-icon-180x180.png` - iOS home screen icon
+- `mud-platform-client/static/icons/apple-launch-1125x2436.png` - iPhone X/11 Pro splash
+- `mud-platform-client/static/icons/apple-launch-1242x2688.png` - iPhone 11 Pro Max splash
+- `mud-platform-client/static/icons/apple-launch-828x1792.png` - iPhone 11 splash
+- `mud-platform-client/src/lib/utils/ios.ts` - iOS detection and utilities
+- `mud-platform-client/tests/e2e/iphone_ux.spec.ts` - iPhone-specific E2E tests

@@ -1,0 +1,79 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  e2e-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgis/postgis:15-3.3
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: thousand_worlds
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.24'
+
+    - name: Build Backend
+      working-directory: ./mud-platform-backend
+      run: go build -o game-server ./cmd/game-server
+
+    - name: Run Migrations
+      working-directory: ./mud-platform-backend
+      run: |
+        # Install golang-migrate if needed or use a script
+        # For this example, assuming we can run the server to migrate or use a tool
+        # Here we assume the server runs migrations on startup
+        echo "Migrations handled by server startup"
+
+    - name: Start Server
+      working-directory: ./mud-platform-backend
+      env:
+        DB_DSN: postgres://postgres:postgres@localhost:5432/thousand_worlds?sslmode=disable
+        REDIS_ADDR: localhost:6379
+        JWT_SECRET: testsecret
+      run: |
+        ./game-server &
+        echo $! > server.pid
+        sleep 5 # Wait for startup
+
+    - name: Run E2E Tests
+      working-directory: ./mud-platform-backend
+      env:
+        TEST_BASE_URL: http://localhost:8080
+        TEST_WS_URL: ws://localhost:8080
+        TEST_DB_DSN: postgres://postgres:postgres@localhost:5432/thousand_worlds?sslmode=disable
+      run: go test -v ./tests/e2e/...
+
+    - name: Stop Server
+      if: always()
+      working-directory: ./mud-platform-backend
+      run: |
+        if [ -f server.pid ]; then
+          kill $(cat server.pid)
+        fi

@@ -79,6 +79,8 @@ func (s *RepositoryIntegrationSuite) runMigrations() {
 		"000013_create_auth_tables.up.sql",
 		"000015_add_character_role_and_appearance.up.sql",
 		"000016_add_character_description_occupation.up.sql",
+		"000019_add_username_to_users.up.sql",
+		"000021_add_last_world_id_to_users.up.sql",
 	}
 
 	for _, file := range files {
@@ -113,6 +115,7 @@ func (s *RepositoryIntegrationSuite) TestCreateAndRetrieveUser() {
 	user := &auth.User{
 		UserID:    uuid.New(),
 		Email:     "test@example.com",
+		Username:  "TestUser",
 		CreatedAt: time.Now(),
 	}
 
@@ -137,6 +140,7 @@ func (s *RepositoryIntegrationSuite) createTestUser() *auth.User {
 	user := &auth.User{
 		UserID:    uuid.New(),
 		Email:     testutil.GenerateTestEmail(),
+		Username:  testutil.GenerateTestName("TestUser"),
 		CreatedAt: time.Now(),
 	}
 	err := s.repo.CreateUser(context.Background(), user)
@@ -339,6 +343,7 @@ func (s *RepositoryIntegrationSuite) TestDuplicateEmailError() {
 	user1 := &auth.User{
 		UserID:    uuid.New(),
 		Email:     email,
+		Username:  "DuplicateUser1",
 		CreatedAt: time.Now(),
 	}
 
@@ -349,6 +354,7 @@ func (s *RepositoryIntegrationSuite) TestDuplicateEmailError() {
 	user2 := &auth.User{
 		UserID:    uuid.New(),
 		Email:     email,
+		Username:  "DuplicateUser2",
 		CreatedAt: time.Now(),
 	}
 

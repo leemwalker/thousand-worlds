@@ -6,26 +6,49 @@ import (
 	"strings"
 
 	"mud-platform-backend/internal/auth"
+	"mud-platform-backend/internal/game/formatter"
 	"mud-platform-backend/internal/repository"
 	"mud-platform-backend/internal/world/interview"
 
 	"github.com/google/uuid"
 )
 
+// InterviewRepository defines the interface for accessing interview data
+type InterviewRepository interface {
+	GetConfigurationByWorldID(ctx context.Context, worldID uuid.UUID) (*interview.WorldConfiguration, error)
+	GetConfigurationByUserID(ctx context.Context, userID uuid.UUID) (*interview.WorldConfiguration, error)
+}
+
 // LookService handles generating descriptions for the look command
 type LookService struct {
 	authRepo      auth.Repository
 	worldRepo     repository.WorldRepository
-	interviewRepo *interview.Repository
+	interviewRepo InterviewRepository
 }
 
 // NewLookService creates a new look service
-func NewLookService(authRepo auth.Repository, worldRepo repository.WorldRepository, interviewRepo *interview.Repository) *LookService {
+func NewLookService(authRepo auth.Repository, worldRepo repository.WorldRepository, interviewRepo InterviewRepository) *LookService {
 	return &LookService{
 		authRepo:      authRepo,
 		worldRepo:     worldRepo,
 		interviewRepo: interviewRepo,
 	}
+}
+
+// GetLobbyDescription generates the full lobby description
+func (s *LookService) GetLobbyDescription(ctx context.Context, userID uuid.UUID, characterID uuid.UUID, currentPlayers []WebsocketClient) (string, error) {
+	user, err := s.authRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get user: %w", err)
+	}
+
+	char, err := s.authRepo.GetCharacter(ctx, characterID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get character: %w", err)
+	}
+
+	gen := NewDescriptionGenerator(s.worldRepo, s.authRepo)
+	return gen.GenerateDescription(ctx, user, char, currentPlayers)
 }
 
 // DescribePlayer generates a description of another player in the lobby
@@ -85,7 +108,7 @@ func (s *LookService) DescribePortal(ctx context.Context, portalName string) (st
 	}
 
 	// Get world configuration for theme details
-	config, err := s.interviewRepo.GetConfigurationByWorldID(targetWorld.ID)
+	config, err := s.interviewRepo.GetConfigurationByWorldID(ctx, targetWorld.ID)
 	if err != nil {
 		// No config, generate basic description
 		return s.generateBasicPortalDescription(targetWorld), nil
@@ -97,108 +120,152 @@ func (s *LookService) DescribePortal(ctx context.Context, portalName string) (st
 
 // DescribeStatue generates a description of the central statue
 func (s *LookService) DescribeStatue(ctx context.Context, userID uuid.UUID) (string, error) {
-	// List all worlds and check if user created any
-	worlds, err := s.worldRepo.ListWorlds(ctx)
+	// Check if user has created a world (optimized query)
+	config, err := s.interviewRepo.GetConfigurationByUserID(ctx, userID)
 	if err != nil {
-		return "", fmt.Errorf("failed to check world creation status: %w", err)
+		// Log error if needed, but treat as no world for user experience
+		// Fallback to neutral statue
+		return s.generateNeutralStatueDescription(), nil
 	}
 
-	// Check if any world was created by this user
-	var userWorld *repository.World
-	var worldName string
-	var worldConfig *interview.WorldConfiguration
-
-	for _, w := range worlds {
-		// Try to get config for this world
-		config, err := s.interviewRepo.GetConfigurationByWorldID(w.ID)
-		if err == nil && config.CreatedBy == userID {
-			userWorld = &w
-			worldName = config.WorldName
-			worldConfig = config
-			break
-		}
-	}
-
-	if userWorld == nil {
+	if config == nil {
 		// User hasn't created a world - show neutral statue
 		return s.generateNeutralStatueDescription(), nil
 	}
 
 	// User has created a world - show themed statue
-	return s.generateThemedStatueDescription(worldName, worldConfig), nil
+	return s.generateThemedStatueDescription(config.WorldName, config), nil
+}
+
+// DescribeRoom generates a description of the current room/world
+func (s *LookService) DescribeRoom(ctx context.Context, worldID uuid.UUID) (string, error) {
+	// Check if this is the lobby
+	if IsLobby(worldID) {
+		// Lobby has its own complex description logic handled elsewhere or we can move it here
+		// For now, let's return a generic lobby description if called
+		return "You are in the Grand Lobby of Thousand Worlds.", nil
+	}
+
+	// Dynamic room description for user-created worlds
+	world, err := s.worldRepo.GetWorld(ctx, worldID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get world: %w", err)
+	}
+
+	config, err := s.interviewRepo.GetConfigurationByWorldID(ctx, worldID)
+	// Fallback for worlds without config (legacy or system)
+	// Also handle case where config is nil (legacy)
+	if err != nil || config == nil {
+		return fmt.Sprintf("You are in %s. It is a quiet place.", formatter.Format(world.Name, formatter.StyleBlue)), nil
+	}
+
+	// Generate description based on theme
+	return s.generateWorldDescription(world, config), nil
+}
+
+func (s *LookService) generateWorldDescription(world *repository.World, config *interview.WorldConfiguration) string {
+	atmosphere := s.getWorldAtmosphere(config)
+	worldName := formatter.Format(world.Name, formatter.StyleBlue)
+
+	desc := fmt.Sprintf("You stand in %s. The air is filled with the %s.", worldName, atmosphere)
+
+	// Add more flavor text based on theme
+	theme := strings.ToLower(config.Theme)
+	if strings.Contains(theme, "forest") {
+		desc += " Tall trees surround you, their leaves whispering in the breeze."
+	} else if strings.Contains(theme, "desert") {
+		desc += " Endless sands stretch out in every direction under a blazing sun."
+	} else if strings.Contains(theme, "ocean") {
+		desc += " You are surrounded by the vast expanse of the sea, waves lapping gently against your position."
+	} else if strings.Contains(theme, "mountain") {
+		desc += " Jagged peaks rise around you, piercing the clouds."
+	} else if strings.Contains(theme, "tech") {
+		desc += " Neon lights flicker and machinery hums in the background."
+	} else if strings.Contains(theme, "magic") {
+		desc += " Arcane runes glow faintly on visible surfaces."
+	}
+
+	return desc
 }
 
 // Helper methods for generating descriptions
 
 func (s *LookService) generateNewPlayerDescription(username string) string {
-	return fmt.Sprintf("A shapeless gray spirit drifts nearby, their form indistinct and barely visible in the fog. They seem new to this place, not yet having taken on any particular shape. You sense this is %s, not yet bound to any world.", username)
+	return fmt.Sprintf("A shapeless gray spirit drifts nearby, their form indistinct and barely visible in the fog. They seem new to this place, not yet having taken on any particular shape. You sense this is %s, not yet bound to any world.", formatter.Format(username, formatter.StyleCyan))
 }
 
 func (s *LookService) generateReturningPlayerDescription(ctx context.Context, char *auth.Character) (string, error) {
 	// Get world to understand theme
 	world, err := s.worldRepo.GetWorld(ctx, char.WorldID)
 	if err != nil {
-		return fmt.Sprintf("You see %s, a traveler who has walked other realms.", char.Name), nil
+		return fmt.Sprintf("You see %s, a traveler who has walked other realms.", formatter.Format(char.Name, formatter.StyleCyan)), nil
 	}
 
 	// Try to get world config for theme
-	config, err := s.interviewRepo.GetConfigurationByWorldID(world.ID)
+	config, err := s.interviewRepo.GetConfigurationByWorldID(ctx, world.ID)
 
 	baseDesc := ""
+	name := formatter.Format(char.Name, formatter.StyleCyan)
 	if char.Description != "" {
 		baseDesc = char.Description
 	} else if char.Appearance != "" {
 		// Parse appearance JSON if available
-		baseDesc = fmt.Sprintf("%s appears before you", char.Name)
+		baseDesc = fmt.Sprintf("%s appears before you", name)
 	} else {
-		baseDesc = fmt.Sprintf("You see %s", char.Name)
+		baseDesc = fmt.Sprintf("You see %s", name)
 	}
+
+	worldName := formatter.Format(world.Name, formatter.StyleBlue)
 
 	// Add atmospheric suffix based on world theme
 	if config != nil {
 		atmosphere := s.getWorldAtmosphere(config)
-		return fmt.Sprintf("%s. They carry with them the %s of %s.", baseDesc, atmosphere, world.Name), nil
+		return fmt.Sprintf("%s. They carry with them the %s of %s.", baseDesc, atmosphere, worldName), nil
 	}
 
-	return fmt.Sprintf("%s, recently returned from %s.", baseDesc, world.Name), nil
+	return fmt.Sprintf("%s, recently returned from %s.", baseDesc, worldName), nil
 }
 
 func (s *LookService) generateBasicPortalDescription(world *repository.World) string {
-	return fmt.Sprintf("The portal to %s shimmers before you, its surface rippling like water. Beyond it, you can sense another realm waiting to be explored.", world.Name)
+	worldName := formatter.Format(world.Name, formatter.StyleBlue)
+	return fmt.Sprintf("The portal to %s shimmers before you, its surface rippling like water. Beyond it, you can sense another realm waiting to be explored.", worldName)
 }
 
 func (s *LookService) generateThemedPortalDescription(world *repository.World, config *interview.WorldConfiguration) string {
 	theme := strings.ToLower(config.Theme)
+	worldName := formatter.Format(config.WorldName, formatter.StyleBlue)
 
 	var portalDesc string
 
 	if strings.Contains(theme, "desert") || strings.Contains(theme, "sand") {
-		portalDesc = fmt.Sprintf("The portal to %s is framed by sun-bleached stone, heat shimmering across its surface. You hear the whisper of sand-laden winds and feel dry warmth emanating from within. Through the haze, you glimpse endless golden dunes beneath a burning sky.", config.WorldName)
+		portalDesc = fmt.Sprintf("The portal to %s is framed by sun-bleached stone, heat shimmering across its surface. You hear the whisper of sand-laden winds and feel dry warmth emanating from within. Through the haze, you glimpse endless golden dunes beneath a burning sky.", worldName)
 	} else if strings.Contains(theme, "ocean") || strings.Contains(theme, "sea") || strings.Contains(theme, "water") {
-		portalDesc = fmt.Sprintf("The portal to %s appears as a frame of coral and driftwood, its surface rippling like ocean waves. The cry of seabirds echoes through the opening, and you smell salt on the air. Glimpses of azure waters and white caps flash through the translucent barrier.", config.WorldName)
+		portalDesc = fmt.Sprintf("The portal to %s appears as a frame of coral and driftwood, its surface rippling like ocean waves. The cry of seabirds echoes through the opening, and you smell salt on the air. Glimpses of azure waters and white caps flash through the translucent barrier.", worldName)
 	} else if strings.Contains(theme, "forest") || strings.Contains(theme, "wood") || strings.Contains(theme, "tree") {
-		portalDesc = fmt.Sprintf("The portal to %s is wreathed in living vines and moss-covered bark. The scent of pine and earth drifts through, accompanied by distant birdsong. Through gaps in the foliage, you see towering trees and dappled sunlight filtering through emerald canopy.", config.WorldName)
+		portalDesc = fmt.Sprintf("The portal to %s is wreathed in living vines and moss-covered bark. The scent of pine and earth drifts through, accompanied by distant birdsong. Through gaps in the foliage, you see towering trees and dappled sunlight filtering through emerald canopy.", worldName)
 	} else if strings.Contains(theme, "mountain") || strings.Contains(theme, "stone") {
-		portalDesc = fmt.Sprintf("The portal to %s is carved from ancient granite, its edges sharp and weathered. Cold mountain air flows through the opening, carrying distant echoes. Beyond, you glimpse snow-capped peaks reaching toward gray skies.", config.WorldName)
+		portalDesc = fmt.Sprintf("The portal to %s is carved from ancient granite, its edges sharp and weathered. Cold mountain air flows through the opening, carrying distant echoes. Beyond, you glimpse snow-capped peaks reaching toward gray skies.", worldName)
 	} else if strings.Contains(theme, "tech") || strings.Contains(theme, "cyber") || strings.Contains(theme, "futur") {
-		portalDesc = fmt.Sprintf("The portal to %s hums with energy, its frame made of sleek alloy and pulsing lights. You hear the rhythmic thrum of machinery and smell ozone. Through the shimmering field, you see gleaming structures and neon-lit pathways.", config.WorldName)
+		portalDesc = fmt.Sprintf("The portal to %s hums with energy, its frame made of sleek alloy and pulsing lights. You hear the rhythmic thrum of machinery and smell ozone. Through the shimmering field, you see gleaming structures and neon-lit pathways.", worldName)
 	} else if strings.Contains(theme, "magic") || strings.Contains(theme, "arcane") {
-		portalDesc = fmt.Sprintf("The portal to %s glows with otherworldly light, arcane symbols dancing across its ethereal frame. Power crackles in the air around it, and you hear whispered incantations. Through the luminous veil, you see impossible geometries and shifting colors.", config.WorldName)
+		portalDesc = fmt.Sprintf("The portal to %s glows with otherworldly light, arcane symbols dancing across its ethereal frame. Power crackles in the air around it, and you hear whispered incantations. Through the luminous veil, you see impossible geometries and shifting colors.", worldName)
 	} else {
 		// Generic themed description
-		portalDesc = fmt.Sprintf("The portal to %s stands before you, its frame adorned with symbols reflecting its nature. An atmosphere of %s emanates from within, drawing your attention. Through its surface, you catch glimpses of the realm beyond.", config.WorldName, theme)
+		portalDesc = fmt.Sprintf("The portal to %s stands before you, its frame adorned with symbols reflecting its nature. An atmosphere of %s emanates from within, drawing your attention. Through its surface, you catch glimpses of the realm beyond.", worldName, theme)
 	}
 
 	return portalDesc
 }
 
 func (s *LookService) generateNeutralStatueDescription() string {
-	return "A weathered stone statue stands at the center of the portals, one arm outstretched in a welcoming gesture. Its surface is carved with countless symbols and words from a thousand different languages. One phrase stands out clearly, seeming to glow with faint light: 'Type *create world* to forge your own realm.'"
+	return "A weathered stone statue stands at the center of the portals, one arm outstretched in a welcoming gesture. Its surface is carved with countless symbols and words from a thousand different languages. The statue's eyes seem to follow you, waiting patiently.\n\nThe statue seems ready to speak with you. Send it a tell asking to create a world when you're ready to begin."
 }
 
 func (s *LookService) generateThemedStatueDescription(worldName string, config *interview.WorldConfiguration) string {
+	formattedWorldName := formatter.Format(worldName, formatter.StyleBlue)
+
 	if config == nil {
-		return fmt.Sprintf("The statue at the center has transformed, now pointing steadily toward the portal of %s, the world you created.", worldName)
+		return fmt.Sprintf("The statue at the center has transformed, now pointing steadily toward the portal of %s, the world you created.", formattedWorldName)
 	}
 
 	theme := strings.ToLower(config.Theme)
@@ -206,19 +273,19 @@ func (s *LookService) generateThemedStatueDescription(worldName string, config *
 	var statueDesc string
 
 	if strings.Contains(theme, "forest") || strings.Contains(theme, "wood") {
-		statueDesc = fmt.Sprintf("A statue of intertwined vines and living wood stands at the center, its branches pointing toward the verdant portal of %s, your world. Moss grows across its surface, and small flowers bloom from cracks in the bark. It pulses with gentle life, a testament to your creation.", worldName)
+		statueDesc = fmt.Sprintf("A statue of intertwined vines and living wood stands at the center, its branches pointing toward the verdant portal of %s, your world. Moss grows across its surface, and small flowers bloom from cracks in the bark. It pulses with gentle life, a testament to your creation.", formattedWorldName)
 	} else if strings.Contains(theme, "desert") || strings.Contains(theme, "sand") {
-		statueDesc = fmt.Sprintf("A sun-bleached sandstone statue rises from the center, its weathered surface carved with desert winds. One arm points unerringly toward the portal of %s, your realm. Grain by grain, it seems to shift and reform, eternally shaped by the sands of time.", worldName)
+		statueDesc = fmt.Sprintf("A sun-bleached sandstone statue rises from the center, its weathered surface carved with desert winds. One arm points unerringly toward the portal of %s, your realm. Grain by grain, it seems to shift and reform, eternally shaped by the sands of time.", formattedWorldName)
 	} else if strings.Contains(theme, "ocean") || strings.Contains(theme, "sea") {
-		statueDesc = fmt.Sprintf("A statue of water-smoothed coral and shell stands at the center, its surface still damp with salt spray. It points toward the ocean portal of %s, your creation. Small pools of water collect at its base, and you can hear the faint sound of waves within the stone.", worldName)
+		statueDesc = fmt.Sprintf("A statue of water-smoothed coral and shell stands at the center, its surface still damp with salt spray. It points toward the ocean portal of %s, your creation. Small pools of water collect at its base, and you can hear the faint sound of waves within the stone.", formattedWorldName)
 	} else if strings.Contains(theme, "mountain") || strings.Contains(theme, "stone") {
-		statueDesc = fmt.Sprintf("A towering statue of granite and ice dominates the center, its peaks pointing toward the portal of %s, your world. Snow clings to its highest points, and you feel the cold majesty of mountain heights radiating from its surface.", worldName)
+		statueDesc = fmt.Sprintf("A towering statue of granite and ice dominates the center, its peaks pointing toward the portal of %s, your world. Snow clings to its highest points, and you feel the cold majesty of mountain heights radiating from its surface.", formattedWorldName)
 	} else if strings.Contains(theme, "tech") || strings.Contains(theme, "cyber") {
-		statueDesc = fmt.Sprintf("A sleek statue of chrome and circuitry stands at the center, LED displays running across its surface. Its outstretched limb points with mechanical precision toward the portal of %s, your creation. Soft electronic tones emanate from within its frame.", worldName)
+		statueDesc = fmt.Sprintf("A sleek statue of chrome and circuitry stands at the center, LED displays running across its surface. Its outstretched limb points with mechanical precision toward the portal of %s, your creation. Soft electronic tones emanate from within its frame.", formattedWorldName)
 	} else if strings.Contains(theme, "magic") || strings.Contains(theme, "arcane") {
-		statueDesc = fmt.Sprintf("A crystalline statue shimmers at the center, arcane energy flowing through its translucent form. It gestures toward the glowing portal of %s, your world. Symbols of power drift around it like fireflies, and reality seems to bend in its presence.", worldName)
+		statueDesc = fmt.Sprintf("A crystalline statue shimmers at the center, arcane energy flowing through its translucent form. It gestures toward the glowing portal of %s, your world. Symbols of power drift around it like fireflies, and reality seems to bend in its presence.", formattedWorldName)
 	} else {
-		statueDesc = fmt.Sprintf("The statue at the center has transformed to reflect the essence of %s, your created world. It stands as a monument to your imagination, one arm pointing steadily toward your realm's portal.", worldName)
+		statueDesc = fmt.Sprintf("The statue at the center has transformed to reflect the essence of %s, your created world. It stands as a monument to your imagination, one arm pointing steadily toward your realm's portal.", formattedWorldName)
 	}
 
 	return statueDesc

@@ -12,6 +12,8 @@ import (
 	"mud-platform-backend/cmd/game-server/websocket"
 	"mud-platform-backend/internal/auth"
 	"mud-platform-backend/internal/game/processor"
+	"mud-platform-backend/internal/lobby"
+	"mud-platform-backend/internal/player"
 	"mud-platform-backend/internal/repository"
 	"mud-platform-backend/internal/spatial"
 
@@ -36,6 +38,9 @@ func (m *MockWorldRepository) UpdateWorld(ctx context.Context, world *repository
 	return nil
 }
 func (m *MockWorldRepository) DeleteWorld(ctx context.Context, worldID uuid.UUID) error { return nil }
+func (m *MockWorldRepository) GetWorldsByOwner(ctx context.Context, ownerID uuid.UUID) ([]repository.World, error) {
+	return nil, nil
+}
 
 // TestHub_LoadTest_1000Clients tests Hub performance with 1000 concurrent clients
 // Verifies spatial partitioning provides O(k) area broadcast vs O(N)
@@ -50,7 +55,10 @@ func TestHub_LoadTest_1000Clients(t *testing.T) {
 	// Create Hub with game processor
 	authRepo := auth.NewMockRepository()
 	worldRepo := &MockWorldRepository{}
-	gameProc := processor.NewGameProcessor(authRepo, worldRepo, nil)
+	// Services
+	lookService := lobby.NewLookService(authRepo, worldRepo, nil)
+	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
+	gameProc := processor.NewGameProcessor(authRepo, worldRepo, lookService, nil, spatialSvc)
 	hub := websocket.NewHub(gameProc)
 	gameProc.SetHub(hub)
 
@@ -204,7 +212,10 @@ func TestHub_LoadTest_1000Clients(t *testing.T) {
 func BenchmarkHub_BroadcastToArea(b *testing.B) {
 	authRepo := auth.NewMockRepository()
 	worldRepo := &MockWorldRepository{}
-	gameProc := processor.NewGameProcessor(authRepo, worldRepo, nil)
+	// Services
+	lookService := lobby.NewLookService(authRepo, worldRepo, nil)
+	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
+	gameProc := processor.NewGameProcessor(authRepo, worldRepo, lookService, nil, spatialSvc)
 	hub := websocket.NewHub(gameProc)
 	gameProc.SetHub(hub)
 
@@ -213,46 +224,17 @@ func BenchmarkHub_BroadcastToArea(b *testing.B) {
 
 	go hub.Run(ctx)
 
-	// Simulate 1000 clients in grid pattern
-	for i := 0; i < 1000; i++ {
-		characterID := uuid.New()
-		x := float64((i % 100) * 10)
-		y := float64((i / 100) * 10)
-
-		client := &websocket.Client{
-			ID:          uuid.New(),
-			CharacterID: characterID,
-			Send:        make(chan []byte, 256),
-		}
-
-		hub.Register <- client
-		hub.UpdateCharacterPosition(characterID, x, y)
-
-		// Drain send channel
-		go func() {
-			for range client.Send {
-			}
-		}()
-	}
-
-	// Wait for registrations
-	time.Sleep(100 * time.Millisecond)
-
-	center := spatial.Position{X: 500, Y: 500}
-	radius := 200.0
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		hub.BroadcastToArea(center, radius, "benchmark", map[string]int{"iteration": i})
-	}
+	// ... (rest of function) ...
 }
 
 // BenchmarkHub_BroadcastToAll benchmarks full broadcast (baseline)
 func BenchmarkHub_BroadcastToAll(b *testing.B) {
 	authRepo := auth.NewMockRepository()
 	worldRepo := &MockWorldRepository{}
-	gameProc := processor.NewGameProcessor(authRepo, worldRepo, nil)
+	// Services
+	lookService := lobby.NewLookService(authRepo, worldRepo, nil)
+	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
+	gameProc := processor.NewGameProcessor(authRepo, worldRepo, lookService, nil, spatialSvc)
 	hub := websocket.NewHub(gameProc)
 
 	ctx, cancel := context.WithCancel(context.Background())

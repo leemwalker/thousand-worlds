@@ -129,12 +129,19 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// WELCOME LOGIC
 	isFirstTime := user.LastLogin == nil
 
-	// Send Welcome Message
-	if isFirstTime {
-		welcomeMsg := "Welcome to Thousand Worlds, you are in the lobby where you can meet other players who aren't in a world, see the worlds you can visit, and create your own world! Please *look* around at other players and portals to the worlds, *say* hello, and don't forget to *look statue*"
-		client.SendGameMessage("system", welcomeMsg, nil)
+	// Only send lobby welcome messages if actually in the lobby
+	if lobby.IsLobby(char.WorldID) {
+		// Send Welcome Message
+		if isFirstTime {
+			welcomeMsg := "Welcome to Thousand Worlds, you are in the lobby where you can meet other players who aren't in a world, see the worlds you can visit, and create your own world! Please *look* around at other players and portals to the worlds, *say* hello, and don't forget to *look statue*"
+			client.SendGameMessage("system", welcomeMsg, nil)
+		} else {
+			client.SendGameMessage("system", "Welcome to the Lobby.", nil)
+		}
 	} else {
-		client.SendGameMessage("system", "Welcome to the Lobby.", nil)
+		// If in a world, we might want to send a brief welcome or just let the description handle it
+		// For now, let's just log it
+		log.Printf("[WS] User %s entering world %s", user.Username, char.WorldID)
 	}
 
 	// Send Lobby Description if in Lobby
@@ -147,7 +154,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			lobbyClients = append(lobbyClients, c)
 		}
 
-		desc, err := h.DescGen.GenerateDescription(r.Context(), user, lobbyClients)
+		desc, err := h.DescGen.GenerateDescription(r.Context(), user, char, lobbyClients)
 		if err != nil {
 			log.Printf("[WS] Failed to generate lobby description: %v", err)
 		} else {

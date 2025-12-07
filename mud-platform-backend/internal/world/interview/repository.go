@@ -2,392 +2,205 @@ package interview
 
 import (
 	"context"
-	"database/sql"
-	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Repository handles database operations for interviews and configurations
-type Repository struct {
-	db *sql.DB
+// PostgresRepository implements Repository for PostgreSQL
+type PostgresRepository struct {
+	db *pgxpool.Pool
 }
 
-// NewRepository creates a new repository
-func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
-}
-
-// SaveInterview creates a new interview in the database
-func (r *Repository) SaveInterview(session *InterviewSession) error {
-	answersJSON, err := json.Marshal(session.State.Answers)
-	if err != nil {
-		return fmt.Errorf("failed to marshal answers: %w", err)
-	}
-
-	historyJSON, err := json.Marshal(session.History)
-	if err != nil {
-		return fmt.Errorf("failed to marshal history: %w", err)
-	}
-
+// IsWorldNameTaken checks if a world name is already taken
+func (r *PostgresRepository) IsWorldNameTaken(ctx context.Context, name string) (bool, error) {
+	// Check if name exists in worlds table (case insensitive)
 	query := `
-		INSERT INTO world_interviews (
-			id, player_id, current_category, current_topic_index,
-			answers, history, is_complete, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-	`
-
-	_, err = r.db.Exec(query,
-		session.ID,
-		session.PlayerID,
-		session.State.CurrentCategory,
-		session.State.CurrentTopicIndex,
-		answersJSON,
-		historyJSON,
-		session.State.IsComplete,
-		session.CreatedAt,
-		session.UpdatedAt,
-	)
-
-	if err != nil {
-		return fmt.Errorf("failed to insert interview: %w", err)
-	}
-
-	return nil
-}
-
-// GetInterview retrieves an interview by ID
-func (r *Repository) GetInterview(id uuid.UUID) (*InterviewSession, error) {
-	query := `
-		SELECT id, player_id, current_category, current_topic_index,
-		       answers, history, is_complete, created_at, updated_at
-		FROM world_interviews
-		WHERE id = $1
-	`
-
-	var session InterviewSession
-	var answersJSON, historyJSON []byte
-
-	err := r.db.QueryRow(query, id).Scan(
-		&session.ID,
-		&session.PlayerID,
-		&session.State.CurrentCategory,
-		&session.State.CurrentTopicIndex,
-		&answersJSON,
-		&historyJSON,
-		&session.State.IsComplete,
-		&session.CreatedAt,
-		&session.UpdatedAt,
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("interview not found: %w", err)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to query interview: %w", err)
-	}
-
-	// Unmarshal JSON fields
-	if err := json.Unmarshal(answersJSON, &session.State.Answers); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal answers: %w", err)
-	}
-
-	if err := json.Unmarshal(historyJSON, &session.History); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal history: %w", err)
-	}
-
-	return &session, nil
-}
-
-// UpdateInterview updates an existing interview
-func (r *Repository) UpdateInterview(session *InterviewSession) error {
-	answersJSON, err := json.Marshal(session.State.Answers)
-	if err != nil {
-		return fmt.Errorf("failed to marshal answers: %w", err)
-	}
-
-	historyJSON, err := json.Marshal(session.History)
-	if err != nil {
-		return fmt.Errorf("failed to marshal history: %w", err)
-	}
-
-	session.UpdatedAt = time.Now()
-
-	query := `
-		UPDATE world_interviews
-		SET current_category = $1,
-		    current_topic_index = $2,
-		    answers = $3,
-		    history = $4,
-		    is_complete = $5,
-		    updated_at = $6
-		WHERE id = $7
-	`
-
-	result, err := r.db.Exec(query,
-		session.State.CurrentCategory,
-		session.State.CurrentTopicIndex,
-		answersJSON,
-		historyJSON,
-		session.State.IsComplete,
-		session.UpdatedAt,
-		session.ID,
-	)
-
-	if err != nil {
-		return fmt.Errorf("failed to update interview: %w", err)
-	}
-
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to check rows affected: %w", err)
-	}
-
-	if rows == 0 {
-		return fmt.Errorf("interview not found")
-	}
-
-	return nil
-}
-
-// GetActiveInterviewByPlayer retrieves an active (incomplete) interview for a player
-func (r *Repository) GetActiveInterviewByPlayer(playerID uuid.UUID) (*InterviewSession, error) {
-	query := `
-		SELECT id, player_id, current_category, current_topic_index,
-		       answers, history, is_complete, created_at, updated_at
-		FROM world_interviews
-		WHERE player_id = $1
-		ORDER BY created_at DESC
-		LIMIT 1
-	`
-
-	var session InterviewSession
-	var answersJSON, historyJSON []byte
-
-	err := r.db.QueryRow(query, playerID).Scan(
-		&session.ID,
-		&session.PlayerID,
-		&session.State.CurrentCategory,
-		&session.State.CurrentTopicIndex,
-		&answersJSON,
-		&historyJSON,
-		&session.State.IsComplete,
-		&session.CreatedAt,
-		&session.UpdatedAt,
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, nil // No active interview, not an error
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to query active interview: %w", err)
-	}
-
-	// Unmarshal JSON fields
-	if err := json.Unmarshal(answersJSON, &session.State.Answers); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal answers: %w", err)
-	}
-
-	if err := json.Unmarshal(historyJSON, &session.History); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal history: %w", err)
-	}
-
-	return &session, nil
-}
-
-// SaveConfiguration saves a world configuration to the database
-func (r *Repository) SaveConfiguration(config *WorldConfiguration) error {
-	// Marshal JSON fields
-	inspirationsJSON, _ := json.Marshal(config.Inspirations)
-	conflictsJSON, _ := json.Marshal(config.MajorConflicts)
-	featuresJSON, _ := json.Marshal(config.UniqueFeatures)
-	extremeEnvJSON, _ := json.Marshal(config.ExtremeEnvironments)
-	speciesJSON, _ := json.Marshal(config.SentientSpecies)
-	valuesJSON, _ := json.Marshal(config.CulturalValues)
-	religionsJSON, _ := json.Marshal(config.Religions)
-	taboosJSON, _ := json.Marshal(config.Taboos)
-	biomeWeightsJSON, _ := json.Marshal(config.BiomeWeights)
-	resourceDistJSON, _ := json.Marshal(config.ResourceDistribution)
-	speciesAttrsJSON, _ := json.Marshal(config.SpeciesStartAttributes)
-
-	query := `
-		INSERT INTO world_configurations (
-			id, interview_id, world_id, created_by,
-			world_name,
-			theme, tone, inspirations, unique_aspect, major_conflicts,
-			tech_level, magic_level, advanced_tech, magic_impact,
-			planet_size, climate_range, land_water_ratio, unique_features, extreme_environments,
-			sentient_species, political_structure, cultural_values, economic_system, religions, taboos,
-			biome_weights, resource_distribution, species_start_attributes,
-			created_at
-		) VALUES (
-			$1, $2, $3, $4,
-			$5,
-			$6, $7, $8, $9, $10,
-			$11, $12, $13, $14,
-			$15, $16, $17, $18, $19,
-			$20, $21, $22, $23, $24, $25,
-			$26, $27, $28,
-			$29
+		SELECT EXISTS (
+			SELECT 1 
+			FROM worlds 
+			WHERE name ILIKE $1
 		)
 	`
-
-	_, err := r.db.Exec(query,
-		config.ID, config.InterviewID, config.WorldID, config.CreatedBy,
-		config.WorldName,
-		config.Theme, config.Tone, inspirationsJSON, config.UniqueAspect, conflictsJSON,
-		config.TechLevel, config.MagicLevel, config.AdvancedTech, config.MagicImpact,
-		config.PlanetSize, config.ClimateRange, config.LandWaterRatio, featuresJSON, extremeEnvJSON,
-		speciesJSON, config.PoliticalStructure, valuesJSON, config.EconomicSystem, religionsJSON, taboosJSON,
-		biomeWeightsJSON, resourceDistJSON, speciesAttrsJSON,
-		config.CreatedAt,
-	)
-
-	if err != nil {
-		return fmt.Errorf("failed to insert configuration: %w", err)
-	}
-
-	return nil
-}
-
-// GetConfiguration retrieves a configuration by ID
-func (r *Repository) GetConfiguration(id uuid.UUID) (*WorldConfiguration, error) {
-	query := `
-		SELECT id, interview_id, world_id, created_by,
-		       world_name,
-		       theme, tone, inspirations, unique_aspect, major_conflicts,
-		       tech_level, magic_level, advanced_tech, magic_impact,
-		       planet_size, climate_range, land_water_ratio, unique_features, extreme_environments,
-		       sentient_species, political_structure, cultural_values, economic_system, religions, taboos,
-		       biome_weights, resource_distribution, species_start_attributes,
-		       created_at
-		FROM world_configurations
-		WHERE id = $1
-	`
-
-	return r.scanConfiguration(r.db.QueryRow(query, id))
-}
-
-// GetConfigurationByInterview retrieves a configuration by interview ID
-func (r *Repository) GetConfigurationByInterview(interviewID uuid.UUID) (*WorldConfiguration, error) {
-	query := `
-		SELECT id, interview_id, world_id, created_by,
-		       world_name,
-		       theme, tone, inspirations, unique_aspect, major_conflicts,
-		       tech_level, magic_level, advanced_tech, magic_impact,
-		       planet_size, climate_range, land_water_ratio, unique_features, extreme_environments,
-		       sentient_species, political_structure, cultural_values, economic_system, religions, taboos,
-		       biome_weights, resource_distribution, species_start_attributes,
-		       created_at
-		FROM world_configurations
-		WHERE interview_id = $1
-	`
-
-	return r.scanConfiguration(r.db.QueryRow(query, interviewID))
-}
-
-// GetConfigurationByWorldID retrieves a configuration by world ID
-func (r *Repository) GetConfigurationByWorldID(worldID uuid.UUID) (*WorldConfiguration, error) {
-	query := `
-		SELECT id, interview_id, world_id, created_by,
-		       world_name,
-		       theme, tone, inspirations, unique_aspect, major_conflicts,
-		       tech_level, magic_level, advanced_tech, magic_impact,
-		       planet_size, climate_range, land_water_ratio, unique_features, extreme_environments,
-		       sentient_species, political_structure, cultural_values, economic_system, religions, taboos,
-		       biome_weights, resource_distribution, species_start_attributes,
-		       created_at
-		FROM world_configurations
-		WHERE world_id = $1
-	`
-
-	return r.scanConfiguration(r.db.QueryRow(query, worldID))
-}
-
-// scanConfiguration is a helper to scan a configuration from a row
-func (r *Repository) scanConfiguration(row *sql.Row) (*WorldConfiguration, error) {
-	var config WorldConfiguration
-	var worldID sql.NullString
-	var inspirationsJSON, conflictsJSON, featuresJSON, extremeEnvJSON []byte
-	var speciesJSON, valuesJSON, religionsJSON, taboosJSON []byte
-	var biomeWeightsJSON, resourceDistJSON, speciesAttrsJSON []byte
-
-	err := row.Scan(
-		&config.ID, &config.InterviewID, &worldID, &config.CreatedBy,
-		&config.WorldName,
-		&config.Theme, &config.Tone, &inspirationsJSON, &config.UniqueAspect, &conflictsJSON,
-		&config.TechLevel, &config.MagicLevel, &config.AdvancedTech, &config.MagicImpact,
-		&config.PlanetSize, &config.ClimateRange, &config.LandWaterRatio, &featuresJSON, &extremeEnvJSON,
-		&speciesJSON, &config.PoliticalStructure, &valuesJSON, &config.EconomicSystem, &religionsJSON, &taboosJSON,
-		&biomeWeightsJSON, &resourceDistJSON, &speciesAttrsJSON,
-		&config.CreatedAt,
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("configuration not found")
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to scan configuration: %w", err)
-	}
-
-	// Handle nullable WorldID
-	if worldID.Valid {
-		parsed, _ := uuid.Parse(worldID.String)
-		config.WorldID = &parsed
-	}
-
-	// Unmarshal JSON fields
-	json.Unmarshal(inspirationsJSON, &config.Inspirations)
-	json.Unmarshal(conflictsJSON, &config.MajorConflicts)
-	json.Unmarshal(featuresJSON, &config.UniqueFeatures)
-	json.Unmarshal(extremeEnvJSON, &config.ExtremeEnvironments)
-	json.Unmarshal(speciesJSON, &config.SentientSpecies)
-	json.Unmarshal(valuesJSON, &config.CulturalValues)
-	json.Unmarshal(religionsJSON, &config.Religions)
-	json.Unmarshal(taboosJSON, &config.Taboos)
-	json.Unmarshal(biomeWeightsJSON, &config.BiomeWeights)
-	json.Unmarshal(resourceDistJSON, &config.ResourceDistribution)
-	json.Unmarshal(speciesAttrsJSON, &config.SpeciesStartAttributes)
-
-	return &config, nil
-}
-
-// GetSessionByID retrieves a session by ID (interface method)
-// Note: Interface uses string ID, but InterviewSession stores uuid.UUID
-func (r *Repository) GetSessionByID(sessionID string) (*InterviewSession, error) {
-	id, err := uuid.Parse(sessionID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid session ID: %w", err)
-	}
-	return r.GetInterview(id)
-}
-
-// GetActiveSessionForUser retrieves active session for a user (interface method)
-func (r *Repository) GetActiveSessionForUser(ctx context.Context, userID uuid.UUID) (*InterviewSession, error) {
-	return r.GetActiveInterviewByPlayer(userID)
-}
-
-// SaveSession saves a session (interface method)
-func (r *Repository) SaveSession(session *InterviewSession) error {
-	// Check if session exists - ID is already a UUID
-	existing, _ := r.GetInterview(session.ID)
-	if existing != nil {
-		return r.UpdateInterview(session)
-	}
-	return r.SaveInterview(session)
-}
-
-// IsWorldNameTaken checks if a world name already exists (case-insensitive)
-func (r *Repository) IsWorldNameTaken(name string) (bool, error) {
-	var count int
-	query := `SELECT COUNT(*) FROM world_configurations WHERE LOWER(world_name) = LOWER($1)`
-
-	err := r.db.QueryRow(query, name).Scan(&count)
+	var exists bool
+	err := r.db.QueryRow(ctx, query, name).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("failed to check world name: %w", err)
 	}
+	return exists, nil
+}
 
-	return count > 0, nil
+// NewRepository creates a new PostgresRepository
+func NewRepository(db *pgxpool.Pool) *PostgresRepository {
+	return &PostgresRepository{db: db}
+}
+
+// GetInterview retrieves an interview by user ID
+func (r *PostgresRepository) GetInterview(ctx context.Context, userID uuid.UUID) (*Interview, error) {
+	query := `
+		SELECT id, user_id, status, current_question_index, created_at, updated_at
+		FROM world_interviews
+		WHERE user_id = $1
+	`
+	row := r.db.QueryRow(ctx, query, userID)
+
+	var i Interview
+	var statusStr string
+	err := row.Scan(&i.ID, &i.UserID, &statusStr, &i.CurrentQuestionIndex, &i.CreatedAt, &i.UpdatedAt)
+	if err != nil {
+		if err.Error() == "no rows in result set" {
+			return nil, nil // Not found is not an error
+		}
+		return nil, fmt.Errorf("failed to get interview: %w", err)
+	}
+	i.Status = Status(statusStr)
+	return &i, nil
+}
+
+// CreateInterview creates a new interview for a user
+func (r *PostgresRepository) CreateInterview(ctx context.Context, userID uuid.UUID) (*Interview, error) {
+	query := `
+		INSERT INTO world_interviews (user_id, status, current_question_index)
+		VALUES ($1, $2, $3)
+		RETURNING id, created_at, updated_at
+	`
+	var i Interview
+	i.UserID = userID
+	i.Status = StatusNotStarted
+	i.CurrentQuestionIndex = 0
+
+	err := r.db.QueryRow(ctx, query, userID, i.Status, i.CurrentQuestionIndex).Scan(&i.ID, &i.CreatedAt, &i.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create interview: %w", err)
+	}
+	return &i, nil
+}
+
+// UpdateInterviewStatus updates the status of an interview
+func (r *PostgresRepository) UpdateInterviewStatus(ctx context.Context, id uuid.UUID, status Status) error {
+	query := `
+		UPDATE world_interviews
+		SET status = $1, updated_at = NOW()
+		WHERE id = $2
+	`
+	_, err := r.db.Exec(ctx, query, status, id)
+	if err != nil {
+		return fmt.Errorf("failed to update interview status: %w", err)
+	}
+	return nil
+}
+
+// UpdateQuestionIndex updates the current question index
+func (r *PostgresRepository) UpdateQuestionIndex(ctx context.Context, id uuid.UUID, index int) error {
+	query := `
+		UPDATE world_interviews
+		SET current_question_index = $1, updated_at = NOW()
+		WHERE id = $2
+	`
+	_, err := r.db.Exec(ctx, query, index, id)
+	if err != nil {
+		return fmt.Errorf("failed to update question index: %w", err)
+	}
+	return nil
+}
+
+// SaveAnswer saves an answer to a question
+func (r *PostgresRepository) SaveAnswer(ctx context.Context, interviewID uuid.UUID, index int, text string) error {
+	query := `
+		INSERT INTO interview_answers (interview_id, question_index, answer_text)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (interview_id, question_index)
+		DO UPDATE SET answer_text = EXCLUDED.answer_text, created_at = NOW()
+	`
+	_, err := r.db.Exec(ctx, query, interviewID, index, text)
+	if err != nil {
+		return fmt.Errorf("failed to save answer: %w", err)
+	}
+	return nil
+}
+
+// GetAnswers retrieves all answers for an interview
+func (r *PostgresRepository) GetAnswers(ctx context.Context, interviewID uuid.UUID) ([]Answer, error) {
+	query := `
+		SELECT id, interview_id, question_index, answer_text, created_at
+		FROM interview_answers
+		WHERE interview_id = $1
+		ORDER BY question_index ASC
+	`
+	rows, err := r.db.Query(ctx, query, interviewID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get answers: %w", err)
+	}
+	defer rows.Close()
+
+	var answers []Answer
+	for rows.Next() {
+		var a Answer
+		err := rows.Scan(&a.ID, &a.InterviewID, &a.QuestionIndex, &a.AnswerText, &a.CreatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan answer: %w", err)
+		}
+		answers = append(answers, a)
+	}
+	return answers, nil
+}
+
+// SaveConfiguration saves a world configuration
+func (r *PostgresRepository) SaveConfiguration(ctx context.Context, config *WorldConfiguration) error {
+	query := `
+		INSERT INTO world_configurations (interview_id, world_id, created_by, configuration)
+		VALUES ($1, $2, $3, $4)
+	`
+	// We need to serialize the config to JSONB
+	// But wait, WorldConfiguration struct has fields that map to columns in the OLD table.
+	// In the NEW table, we have a single 'configuration' JSONB column.
+	// So we should marshal the whole struct (or relevant parts) to JSON.
+
+	// However, WorldConfiguration struct in types.go still has the old fields.
+	// I should probably just store the whole struct as JSON.
+
+	_, err := r.db.Exec(ctx, query, config.InterviewID, config.WorldID, config.CreatedBy, config)
+	if err != nil {
+		return fmt.Errorf("failed to save configuration: %w", err)
+	}
+	return nil
+}
+
+// GetConfigurationByWorldID retrieves a configuration by world ID
+func (r *PostgresRepository) GetConfigurationByWorldID(ctx context.Context, worldID uuid.UUID) (*WorldConfiguration, error) {
+	query := `
+		SELECT configuration
+		FROM world_configurations
+		WHERE world_id = $1
+	`
+	var config WorldConfiguration
+	err := r.db.QueryRow(ctx, query, worldID).Scan(&config)
+	if err != nil {
+		if err.Error() == "no rows in result set" {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get configuration: %w", err)
+	}
+	return &config, nil
+}
+
+// GetConfigurationByUserID retrieves a configuration by user ID
+func (r *PostgresRepository) GetConfigurationByUserID(ctx context.Context, userID uuid.UUID) (*WorldConfiguration, error) {
+	query := `
+		SELECT configuration
+		FROM world_configurations
+		WHERE created_by = $1
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+	var config WorldConfiguration
+	err := r.db.QueryRow(ctx, query, userID).Scan(&config)
+	if err != nil {
+		if err.Error() == "no rows in result set" {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get configuration: %w", err)
+	}
+	return &config, nil
 }

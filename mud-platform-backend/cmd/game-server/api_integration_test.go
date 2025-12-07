@@ -58,7 +58,7 @@ func (s *APIIntegrationSuite) SetupSuite() {
 
 	// Create repositories
 	s.authRepo = auth.NewPostgresRepository(s.db)
-	interviewRepo := interview.NewRepository(s.db)
+	interviewRepo := interview.NewRepository(s.pool)
 	worldRepo := repository.NewPostgresWorldRepository(s.pool)
 
 	// Create services with proper signatures
@@ -67,7 +67,7 @@ func (s *APIIntegrationSuite) SetupSuite() {
 		TokenExpiration: 24 * time.Hour,
 	}
 	s.authService = auth.NewService(authConfig, s.authRepo)
-	interviewSvc := interview.NewServiceWithRepository(nil, interviewRepo) // LLM client can be nil for tests
+	interviewSvc := interview.NewServiceWithRepository(nil, interviewRepo, worldRepo) // LLM client can be nil for tests
 	s.entrySvc = entry.NewService(interviewRepo)
 	s.lobbySvc = lobby.NewService(s.authRepo)
 

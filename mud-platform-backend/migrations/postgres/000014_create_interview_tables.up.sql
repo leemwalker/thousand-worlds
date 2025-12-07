@@ -1,16 +1,20 @@
 CREATE TABLE IF NOT EXISTS world_interviews (
-    id UUID PRIMARY KEY,
-    player_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    current_category VARCHAR(50) NOT NULL,
-    current_topic_index INT NOT NULL,
-    answers JSONB,
-    history JSONB,
-    is_complete BOOLEAN NOT NULL DEFAULT false,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL UNIQUE REFERENCES users(user_id) ON DELETE CASCADE,
+    status interview_status NOT NULL DEFAULT 'not_started',
+    current_question_index INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
-CREATE INDEX idx_interviews_player ON world_interviews(player_id);
+-- Create enum type if it doesn't exist
+DO $$ BEGIN
+    CREATE TYPE interview_status AS ENUM ('not_started', 'in_progress', 'complete', 'cancelled');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_interviews_user ON world_interviews(user_id);
 
 CREATE TABLE IF NOT EXISTS world_configurations (
     id UUID PRIMARY KEY,

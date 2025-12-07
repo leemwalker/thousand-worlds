@@ -19,10 +19,28 @@ command -v docker >/dev/null 2>&1 || { echo "Docker is required but not installe
 command -v docker-compose >/dev/null 2>&1 || { echo "Docker Compose is required but not installed. Aborting." >&2; exit 1; }
 
 # Check environment variables
-if [ -z "$JWT_SECRET" ]; then
-    echo "WARNING: JWT_SECRET not set. Using development default."
-    export JWT_SECRET="dev-secret-key-change-in-production"
+echo "Validating required environment variables..."
+
+# Load .env if it exists
+if [ -f .env ]; then
+    echo "Loading environment from .env file..."
+    export $(cat .env | grep -v '^#' | grep -v '^$' | xargs)
 fi
+
+# Validate required secrets
+MISSING_VARS=()
+[ -z "$JWT_SECRET" ] && MISSING_VARS+=("JWT_SECRET")
+[ -z "$POSTGRES_PASSWORD" ] && MISSING_VARS+=("POSTGRES_PASSWORD")
+[ -z "$MONGO_PASSWORD" ] && MISSING_VARS+=("MONGO_PASSWORD")
+
+if [ ${#MISSING_VARS[@]} -gt 0 ]; then
+    echo "ERROR: Required environment variables not set: ${MISSING_VARS[*]}"
+    echo "Please create a .env file or set these variables."
+    echo "See .env.template for reference."
+    exit 1
+fi
+
+echo "✓ All required secrets are set"
 
 # Stop any existing containers that might conflict
 echo "Stopping existing containers..."
@@ -41,7 +59,7 @@ sleep 5  # Wait for PostgreSQL to be ready
 # Run migration container
 docker run --rm \
   --network mud_net \
-  -e DATABASE_URL="postgres://admin:password123@postgis:5432/mud_core?sslmode=disable" \
+  -e DATABASE_URL="postgres://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgis:5432/${POSTGRES_DB:-mud_core}?sslmode=disable" \
   thousand-worlds/game-server:latest \
   ./game-server migrate || echo "Migrations may have already run"
 
