@@ -49,9 +49,9 @@ func (g *DescriptionGenerator) GenerateDescription(ctx context.Context, user *au
 	}
 
 	// Add atmosphere from last world if applicable
-	if user.LastWorldID != nil && *user.LastWorldID != uuid.Nil {
+	if char.LastWorldVisited != nil && *char.LastWorldVisited != uuid.Nil {
 		// Fetch last world to get atmospheric details
-		lastWorld, err := g.worldRepo.GetWorld(ctx, *user.LastWorldID)
+		lastWorld, err := g.worldRepo.GetWorld(ctx, *char.LastWorldVisited)
 		if err == nil {
 			// Apply atmospheric overrides based on world metadata/theme
 			desc, _ := lastWorld.Metadata["description"].(string)

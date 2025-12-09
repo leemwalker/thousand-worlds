@@ -2,6 +2,7 @@ package player
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"mud-platform-backend/internal/auth"
@@ -116,7 +117,7 @@ func (m *MockWorldRepository) DeleteWorld(ctx context.Context, worldID uuid.UUID
 }
 
 // Tests
-func TestHandleMovementCommand_Lobby(t *testing.T) {
+func TestHandleMovementCommand_Bounded(t *testing.T) {
 	mockAuth := new(MockAuthRepository)
 	mockWorld := new(MockWorldRepository)
 	svc := NewSpatialService(mockAuth, mockWorld)
@@ -124,10 +125,30 @@ func TestHandleMovementCommand_Lobby(t *testing.T) {
 	charID := uuid.New()
 	worldID := uuid.New()
 
-	// Lobby World
-	lobbyWorld := &repository.World{
-		ID:   worldID,
-		Name: "Lobby",
+	// Generic Bounded World (like Lobby)
+	minX, minY := 0.0, 0.0
+	maxX, maxY := 10.0, 10.0
+
+	// Create map with colliders
+	colliders := []map[string]interface{}{
+		{
+			"x":       5.0,
+			"y":       5.0,
+			"radius":  0.5,
+			"message": "The massive statue blocks your path.",
+		},
+	}
+
+	metadata := map[string]interface{}{
+		"colliders": colliders,
+	}
+
+	boundedWorld := &repository.World{
+		ID:        worldID,
+		Name:      "BoundedWorld",
+		BoundsMin: &repository.Vector3{X: minX, Y: minY, Z: 0},
+		BoundsMax: &repository.Vector3{X: maxX, Y: maxY, Z: 0},
+		Metadata:  metadata,
 	}
 
 	tests := []struct {
@@ -138,15 +159,25 @@ func TestHandleMovementCommand_Lobby(t *testing.T) {
 		expectedX float64
 		expectedY float64
 		hasError  bool
+		errMatch  string
 	}{
-		{"North", "n", 5, 500, 5, 501, false},
-		{"South", "s", 5, 500, 5, 499, false},
-		{"East", "e", 5, 500, 6, 500, false},
-		{"West", "w", 5, 500, 4, 500, false},
-		{"Wall North", "n", 5, 1000, 5, 1000, true},
-		{"Wall South", "s", 5, 0, 5, 0, true},
-		{"Wall East", "e", 10, 500, 10, 500, true},
-		{"Wall West", "w", 0, 500, 0, 500, true},
+		// Valid moves
+		{"North", "n", 5, 2, 5, 3, false, ""},
+		{"South", "s", 5, 2, 5, 1, false, ""},
+		{"East", "e", 5, 2, 6, 2, false, ""},
+		{"West", "w", 5, 2, 4, 2, false, ""},
+
+		// Walls (Generic Bounds 0-10)
+		{"Wall North", "n", 5, 10, 5, 10, true, "wall"},
+		{"Wall South", "s", 5, 0, 5, 0, true, "wall"},
+		{"Wall East", "e", 10, 5, 10, 5, true, "wall"},
+		{"Wall West", "w", 0, 5, 0, 5, true, "wall"},
+
+		// Collider Check (Statue at 5,5 radius 0.5)
+		{"Statue Collision North", "n", 5, 4, 5, 4, true, "statue"},
+		{"Statue Collision South", "s", 5, 6, 5, 6, true, "statue"},
+		{"Statue Collision East", "e", 4, 5, 4, 5, true, "statue"},
+		{"Statue Collision West", "w", 6, 5, 6, 5, true, "statue"},
 	}
 
 	for _, tt := range tests {
@@ -161,7 +192,7 @@ func TestHandleMovementCommand_Lobby(t *testing.T) {
 
 			// Mock Expectations
 			mockAuth.On("GetCharacter", ctx, charID).Return(char, nil).Once()
-			mockWorld.On("GetWorld", ctx, worldID).Return(lobbyWorld, nil).Once()
+			mockWorld.On("GetWorld", ctx, worldID).Return(boundedWorld, nil).Once()
 
 			if !tt.hasError {
 				mockAuth.On("UpdateCharacter", ctx, mock.MatchedBy(func(c *auth.Character) bool {
@@ -179,7 +210,9 @@ func TestHandleMovementCommand_Lobby(t *testing.T) {
 				// "return err.Error(), nil"
 				// So validation errors are NOT Go errors, they are successful call with error message strings.
 				assert.NoError(t, err) // Technical error is nil
-				assert.Contains(t, msg, "cannot go further")
+				if tt.errMatch != "" {
+					assert.Contains(t, strings.ToLower(msg), tt.errMatch)
+				}
 			} else {
 				assert.NoError(t, err)
 				assert.Contains(t, msg, "You move")
@@ -202,7 +235,7 @@ func TestHandleMovementCommand_Spherical(t *testing.T) {
 	// 1 degree = 10000 / 360 = 27.777... meters
 	degPerMeter := 360.0 / circumference
 
-	// Spherical World
+	// Spherical World (No Bounds defined, defaults to Sphere logic)
 	world := &repository.World{
 		ID:            worldID,
 		Name:          "TestWorld",
@@ -299,6 +332,8 @@ func TestHandleMovementCommand_Spherical(t *testing.T) {
 			// Actually we create new args but mocks are reused.
 			// Best to use .Maybe() or clean call management.
 			// Or just set expectations for this specific call.
+
+			// Let's clear expectations
 			mockAuth.ExpectedCalls = nil
 			mockWorld.ExpectedCalls = nil
 
@@ -424,4 +459,99 @@ func TestHandleMovementCommand_WorldNotFound(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "world")
+}
+
+func TestGetPortalLocation(t *testing.T) {
+	mockAuth := new(MockAuthRepository)
+	mockWorld := new(MockWorldRepository)
+	svc := NewSpatialService(mockAuth, mockWorld)
+
+	// Generic bounded world (0-10)
+	minX, minY := 0.0, 0.0
+	maxX, maxY := 10.0, 10.0
+	world := &repository.World{
+		ID:        uuid.New(),
+		BoundsMin: &repository.Vector3{X: minX, Y: minY, Z: 0},
+		BoundsMax: &repository.Vector3{X: maxX, Y: maxY, Z: 0},
+	}
+
+	// Test distribution across walls
+	counts := map[string]int{
+		"North": 0, "South": 0, "East": 0, "West": 0,
+	}
+
+	for i := 0; i < 100; i++ {
+		targetID := uuid.New()
+		x, y := svc.GetPortalLocation(world, targetID)
+
+		// Check that it's on a wall
+		onWall := (x == 0 && y >= 0 && y <= 10) || // West wall
+			(x == 10 && y >= 0 && y <= 10) || // East wall
+			(y == 0 && x >= 0 && x <= 10) || // South wall
+			(y == 10 && x >= 0 && x <= 10) // North wall
+		assert.True(t, onWall, "Point %f,%f should be on wall", x, y)
+
+		// Check bounds
+		assert.GreaterOrEqual(t, x, 0.0)
+		assert.LessOrEqual(t, x, 10.0)
+		assert.GreaterOrEqual(t, y, 0.0)
+		assert.LessOrEqual(t, y, 10.0)
+
+		// Count which wall it landed on
+		if x == 0 {
+			counts["West"]++
+		} else if x == 10 {
+			counts["East"]++
+		} else if y == 0 {
+			counts["South"]++
+		} else if y == 10 {
+			counts["North"]++
+		}
+	}
+
+	// Rough check to ensure we use all walls (random chance of missing one in 100 is very low)
+	assert.Greater(t, counts["North"], 0)
+	assert.Greater(t, counts["South"], 0)
+	assert.Greater(t, counts["East"], 0)
+	assert.Greater(t, counts["West"], 0)
+}
+
+func TestCheckPortalProximity(t *testing.T) {
+	mockAuth := new(MockAuthRepository)
+	mockWorld := new(MockWorldRepository)
+	svc := NewSpatialService(mockAuth, mockWorld)
+
+	// Portal at (0, 5) - West wall center
+	portalX, portalY := 0.0, 5.0
+
+	tests := []struct {
+		name     string
+		charX    float64
+		charY    float64
+		expected bool
+	}{
+		{"At Portal", 0.0, 5.0, true},
+		{"1m away", 1.0, 5.0, true},
+		{"4.9m away", 4.9, 5.0, true},
+		{"5m away", 5.0, 5.0, true}, // Limit inclusive
+		{"5.1m away", 5.1, 5.0, false},
+		{"Center of Room (5,5)", 5.0, 5.0, true}, // Exact 5m
+		{"Far corner (10,10)", 10.0, 10.0, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, _ := svc.CheckPortalProximity(tt.charX, tt.charY, portalX, portalY)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+
+	// Additional tests for CheckPortalProximity
+	// 5,5 to 10,10 distance is approx 7.07 > 5
+	allowed, _ := svc.CheckPortalProximity(5, 5, 10, 10)
+	assert.False(t, allowed)
+
+	// 5,5 to 8,5 distance is 3 <= 5
+	allowed, _ = svc.CheckPortalProximity(5, 5, 8, 5)
+	assert.True(t, allowed)
 }

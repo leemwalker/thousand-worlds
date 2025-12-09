@@ -204,8 +204,8 @@ func setupTest(t *testing.T) (*GameProcessor, *mockClient, *auth.MockRepository,
 		WorldID:     lobby.LobbyWorldID,
 		Name:        "TestChar",
 		CreatedAt:   time.Now(),
-		PositionX:   5.0,   // Lobby center
-		PositionY:   500.0, // Lobby center
+		PositionX:   5.0, // Lobby center
+		PositionY:   5.0, // Lobby center
 	}
 	err := mockAuthRepo.CreateCharacter(context.Background(), char)
 	require.NoError(t, err)
@@ -295,7 +295,7 @@ func TestHandleOpen_NoTarget(t *testing.T) {
 
 // TestHandleEnter tests the enter command in lobby
 func TestHandleEnter_Portal(t *testing.T) {
-	processor, client, _, worldRepo := setupTest(t)
+	processor, client, mockAuth, worldRepo := setupTest(t)
 
 	// Add world to mock repository
 	portalWorld := &repository.World{
@@ -303,6 +303,23 @@ func TestHandleEnter_Portal(t *testing.T) {
 		Name: "TestWorld",
 	}
 	worldRepo.worlds[portalWorld.ID] = portalWorld
+
+	// Create dummy current world for portal location calculation
+	currentWorld := &repository.World{
+		BoundsMin: &repository.Vector3{X: 0, Y: 0, Z: 0},
+		BoundsMax: &repository.Vector3{X: 10, Y: 10, Z: 0},
+	}
+
+	// Calculate portal location and move character there
+	// We need a spatial service instance to calculate the deterministic location
+	spatialSvc := player.NewSpatialService(auth.NewMockRepository(), worldRepo)
+	px, py := spatialSvc.GetPortalLocation(currentWorld, portalWorld.ID)
+
+	// Move character
+	char, _ := mockAuth.GetCharacter(context.Background(), client.GetCharacterID())
+	char.PositionX = px
+	char.PositionY = py
+	mockAuth.UpdateCharacter(context.Background(), char)
 
 	target := "TestWorld"
 	cmd := &websocket.CommandData{

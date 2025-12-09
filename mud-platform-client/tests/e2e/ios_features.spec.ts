@@ -6,6 +6,11 @@ test.use({
 
 test.describe('iOS Safe Areas and PWA Features', () => {
     test.beforeEach(async ({ page }) => {
+        // Prevent PWA prompt
+        await page.addInitScript(() => {
+            localStorage.setItem('iosInstallPromptDismissed', String(Date.now()));
+        });
+
         // Login first
         await page.goto('/');
         const timestamp = Date.now();
@@ -89,6 +94,11 @@ test.describe('iOS Safe Areas and PWA Features', () => {
 
 test.describe('Haptic Feedback Integration', () => {
     test.beforeEach(async ({ page }) => {
+        // Prevent PWA prompt
+        await page.addInitScript(() => {
+            localStorage.setItem('iosInstallPromptDismissed', String(Date.now()));
+        });
+
         // Login first
         await page.goto('/');
         const timestamp = Date.now();
@@ -232,6 +242,11 @@ test.describe('iOS Install Prompt', () => {
 
 test.describe('Keyboard Handling', () => {
     test.beforeEach(async ({ page }) => {
+        // Prevent PWA prompt
+        await page.addInitScript(() => {
+            localStorage.setItem('iosInstallPromptDismissed', String(Date.now()));
+        });
+
         // Login first
         await page.goto('/');
         const timestamp = Date.now();
@@ -317,6 +332,11 @@ test.describe('iOS Detection Utilities', () => {
 
 test.describe('Performance on iOS', () => {
     test.beforeEach(async ({ page }) => {
+        // Prevent PWA prompt
+        await page.addInitScript(() => {
+            localStorage.setItem('iosInstallPromptDismissed', String(Date.now()));
+        });
+
         // Login first
         await page.goto('/');
         const timestamp = Date.now();

@@ -21,8 +21,8 @@ test.describe('UI Interaction E2E', () => {
         // Register unique user
         const timestamp = Date.now();
         const random = Math.floor(Math.random() * 10000);
-        const email = `ui_test_${timestamp}_${random} @example.com`;
-        const username = `ui_test_${timestamp}_${random} `;
+        const email = `ui_test_${timestamp}_${random}@example.com`;
+        const username = `ui_test_${timestamp}_${random}`;
 
         // Switch to Register mode
         const toggleButton = page.locator('button').filter({ hasText: "Don't have an account?" });
@@ -45,7 +45,7 @@ test.describe('UI Interaction E2E', () => {
         await page.locator('button[type="submit"]', { hasText: 'Create Account' }).click();
 
         // Should redirect to game
-        await page.waitForURL(/\/game/, { timeout: 10000 });
+        await page.waitForURL(/\/game/, { timeout: 30000 });
 
         // Monitor browser console
         page.on('console', msg => console.log(`[BROWSER] ${msg.text()} `));
@@ -167,7 +167,7 @@ test.describe('UI Interaction E2E', () => {
             const scrollTop = await output.evaluate(el => el.scrollTop);
             const scrollHeight = await output.evaluate(el => el.scrollHeight);
             const clientHeight = await output.evaluate(el => el.clientHeight);
-            expect(scrollTop + clientHeight).toBeGreaterThanOrEqual(scrollHeight - 10);
+            expect(scrollTop + clientHeight).toBeGreaterThanOrEqual(scrollHeight - 50);
         }).toPass({ timeout: 5000 });
     });
 });

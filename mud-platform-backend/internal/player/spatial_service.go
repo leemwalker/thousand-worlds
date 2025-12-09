@@ -2,6 +2,7 @@ package player
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
@@ -14,13 +15,13 @@ import (
 	"github.com/google/uuid"
 )
 
-const (
-	LobbyWorldName        = "Lobby"
-	LobbyLengthNorthSouth = 1000.0
-	LobbyWidthEastWest    = 10.0
-	LobbyCenterX          = 5.0
-	LobbyCenterY          = 500.0
-)
+// Collider represents an obstacle in the world defined in metadata
+type Collider struct {
+	X       float64 `json:"x"`
+	Y       float64 `json:"y"`
+	Radius  float64 `json:"radius"`
+	Message string  `json:"message"`
+}
 
 // SpatialService handles character movement and spatial logic
 type SpatialService struct {
@@ -79,18 +80,16 @@ func (s *SpatialService) HandleMovementCommand(ctx context.Context, charID uuid.
 
 // CalculateNewPosition calculates the new position based on a delta and world rules
 func (s *SpatialService) CalculateNewPosition(char *auth.Character, world *repository.World, dx, dy float64) (float64, float64, string, error) {
-	isLobby := world.Name == "Lobby" || strings.Contains(strings.ToLower(world.Name), "lobby")
-
-	if isLobby {
-		// Lobby Movement (Cartesian with walls)
-		newX, newY, err := calculateLobbyPosition(char.PositionX, char.PositionY, dx, dy)
+	// Check if world is bounded (Cube or has bounds defined)
+	if world.Shape == repository.WorldShapeCube || (world.BoundsMin != nil && world.BoundsMax != nil) {
+		newX, newY, err := calculateBoundedPosition(char.PositionX, char.PositionY, dx, dy, world)
 		if err != nil {
 			return char.PositionX, char.PositionY, err.Error(), fmt.Errorf("blocked")
 		}
 		return newX, newY, "", nil
 	}
 
-	// Spherical Movement (Wrap around)
+	// Default to Spherical Movement (Wrap around)
 	circumference := 10000.0
 	if world.Circumference != nil && *world.Circumference > 0 {
 		circumference = *world.Circumference
@@ -98,11 +97,87 @@ func (s *SpatialService) CalculateNewPosition(char *auth.Character, world *repos
 	dims := worldspatial.NewWorldDimensions(circumference)
 	newX, newY, message := calculateSphericalPosition(char.PositionX, char.PositionY, dx, dy, "", dims) // Empty dirName as we formulate message caller-side or here
 
-	// Strip "You move..." from the message if it exists, as we are reusing logic
-	// The original calculateSphericalPosition returned "You move [dir]. [Extra]".
-	// We should refactor strictly, but for now let's just use the logic.
-
 	return newX, newY, message, nil
+}
+
+// GetPortalLocation returns a deterministic location on the world perimeter for a given target world ID
+func (s *SpatialService) GetPortalLocation(world *repository.World, targetID uuid.UUID) (float64, float64) {
+	// Defaults if bounds are missing
+	minX, minY := 0.0, 0.0
+	maxX, maxY := 10.0, 10.0
+
+	if world.BoundsMin != nil {
+		minX, minY = world.BoundsMin.X, world.BoundsMin.Y
+	}
+	if world.BoundsMax != nil {
+		maxX, maxY = world.BoundsMax.X, world.BoundsMax.Y
+	}
+
+	width := maxX - minX
+	length := maxY - minY
+
+	// Use uuid hash to determine wall (0-3) and offset (0-10 relative to size)
+	hash := targetID.ID()
+
+	// Walls: 0: South, 1: North, 2: West, 3: East
+	wallIdx := int(hash % 4)
+
+	// Calculate offset along the wall (0.1 to 0.9 range to avoid corners)
+	// (hash >> 2) % 10 gives 0-9. normalize to meters.
+	// Actually let's map it to specific "slots" to be cleaner.
+	// 5 slots per wall?
+	// or just modulo width/length
+
+	val := float64((hash >> 2) % 10)
+
+	// Normalize val to be within the wall length
+	// Use (val + 0.5) to center in 1m blocks if we assume 10 slots?
+	// If width is 10, val (0-9) maps directly.
+
+	ratio := (val + 0.5) / 10.0 // 0.05 to 0.95
+
+	switch wallIdx {
+	case 0: // South (y=minY, x varies)
+		return minX + (width * ratio), minY
+	case 1: // North (y=maxY, x varies)
+		return minX + (width * ratio), maxY
+	case 2: // West (x=minX, y varies)
+		return minX, minY + (length * ratio)
+	case 3: // East (x=maxX, y varies)
+		return maxX, minY + (length * ratio)
+	}
+	return minX, minY
+}
+
+// CheckPortalProximity checks if a character is close enough to enter a portal
+// Returns true if allowed, or false with a hint message if not.
+func (s *SpatialService) CheckPortalProximity(charX, charY, portalX, portalY float64) (bool, string) {
+	// Euclidean distance <= 5
+	dist := math.Sqrt(math.Pow(charX-portalX, 2) + math.Pow(charY-portalY, 2))
+	if dist <= 5.0 {
+		return true, ""
+	}
+
+	// Generate hint
+	dx := portalX - charX
+	dy := portalY - charY
+
+	direction := ""
+	if math.Abs(dy) > math.Abs(dx) {
+		if dy > 0 {
+			direction = "North"
+		} else {
+			direction = "South"
+		}
+	} else {
+		if dx > 0 {
+			direction = "East"
+		} else {
+			direction = "West"
+		}
+	}
+
+	return false, fmt.Sprintf("You are too far from the portal. Try moving %s.", direction)
 }
 
 // GetOrientationVector returns the x, y, z vector for a named direction
@@ -210,29 +285,107 @@ func parseDirection(input string) (dx, dy float64, name string) {
 	}
 }
 
-func calculateLobbyPosition(x, y, dx, dy float64) (float64, float64, error) {
+func calculateBoundedPosition(x, y, dx, dy float64, world *repository.World) (float64, float64, error) {
 	newX := x + dx
 	newY := y + dy
 
-	// Lobby Boundaries: 0-10 (x), 0-1000 (y)
+	// Get Bounds (default to 0-10 if not set, though caller handles this check usually)
+	minX, minY := 0.0, 0.0
+	maxX, maxY := 10.0, 10.0
+	if world.BoundsMin != nil {
+		minX, minY = world.BoundsMin.X, world.BoundsMin.Y
+	}
+	if world.BoundsMax != nil {
+		maxX, maxY = world.BoundsMax.X, world.BoundsMax.Y
+	}
+
 	// Check Walls
-	if newX < 0 || newX > LobbyWidthEastWest {
+	if newX < minX || newX > maxX {
 		wall := "western"
-		if newX > LobbyWidthEastWest {
+		if newX > maxX {
 			wall = "eastern"
 		}
 		return x, y, fmt.Errorf("You cannot go further %s. The %s wall blocks your way.", getDirectionName(dx, 0), wall)
 	}
 
-	if newY < 0 || newY > LobbyLengthNorthSouth {
+	if newY < minY || newY > maxY {
 		end := "southern"
-		if newY > LobbyLengthNorthSouth {
+		if newY > maxY {
 			end = "northern"
 		}
-		return x, y, fmt.Errorf("You cannot go further %s. You have reached the %s end of the hallway.", getDirectionName(0, dy), end)
+		return x, y, fmt.Errorf("You cannot go further %s. The %s wall blocks your way.", getDirectionName(0, dy), end)
+	}
+
+	// Check Colliders from Metadata
+	// Expecting metadata["colliders"] to be []Collider or equivalent JSON array if not unmarshaled to struct yet
+	// Since world repository reads JSONB into map[string]interface{}, nested structs are usually []interface{} of map[string]interface{}
+
+	if val, ok := world.Metadata["colliders"]; ok {
+		// Helper to parse generic interface to colliders
+		colliders := parseColliders(val)
+		for _, c := range colliders {
+			dist := math.Sqrt(math.Pow(newX-c.X, 2) + math.Pow(newY-c.Y, 2))
+			if dist < c.Radius {
+				msg := c.Message
+				if msg == "" {
+					msg = "Something blocks your path."
+				}
+				return x, y, fmt.Errorf("%s", msg)
+			}
+		}
 	}
 
 	return newX, newY, nil
+}
+
+func parseColliders(data interface{}) []Collider {
+	var colliders []Collider
+
+	// If it's already a slice of interfaces
+	if list, ok := data.([]interface{}); ok {
+		for _, item := range list {
+			if m, ok := item.(map[string]interface{}); ok {
+				// Safely extract fields
+				x, _ := getFloat(m["x"])
+				y, _ := getFloat(m["y"])
+				r, _ := getFloat(m["radius"])
+				msg, _ := m["message"].(string)
+
+				colliders = append(colliders, Collider{
+					X:       x,
+					Y:       y,
+					Radius:  r,
+					Message: msg,
+				})
+			}
+		}
+	} else {
+		// Try re-marshaling if it's some other structure (less likely but robust)
+		// Or if explicitly passed as []Collider (in tests)
+		if cList, ok := data.([]Collider); ok {
+			return cList
+		}
+
+		// Fallback: try json roundtrip
+		b, err := json.Marshal(data)
+		if err == nil {
+			_ = json.Unmarshal(b, &colliders)
+		}
+	}
+
+	return colliders
+}
+
+func getFloat(v interface{}) (float64, bool) {
+	switch i := v.(type) {
+	case float64:
+		return i, true
+	case int:
+		return float64(i), true
+	case int64:
+		return float64(i), true
+	}
+	return 0, false
 }
 
 func getDirectionName(dx, dy float64) string {

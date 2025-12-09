@@ -159,6 +159,8 @@ func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.Gam
 		return p.handleCraft(ctx, client, cmd)
 	case "use":
 		return p.handleUse(ctx, client, cmd)
+	case "lobby":
+		return p.handleLobby(ctx, client)
 	default:
 		return fmt.Errorf("%w: %s", ErrInvalidAction, cmd.Action)
 	}
@@ -203,6 +205,8 @@ func (p *GameProcessor) processLobbyCommand(ctx context.Context, client websocke
 	// Orientation
 	case "face":
 		return p.handleFace(ctx, client, cmd)
+	case "lobby":
+		return p.handleLobby(ctx, client)
 	default:
 		client.SendGameMessage("error", "Unknown lobby command. Type 'help' for available commands.", nil)
 		return nil
@@ -330,6 +334,26 @@ func (p *GameProcessor) handleLobbyEnter(ctx context.Context, client websocket.G
 	_, err = p.worldRepo.GetWorld(ctx, worldID)
 	if err != nil {
 		client.SendGameMessage("error", "World not found.", nil)
+		return nil
+	}
+
+	// PROXIMITY CHECK
+	charID := client.GetCharacterID()
+	char, err := p.authRepo.GetCharacter(ctx, charID)
+	if err != nil {
+		return fmt.Errorf("failed to get character: %w", err)
+	}
+
+	// Get current world for spatial calculations
+	currentWorld, err := p.worldRepo.GetWorld(ctx, char.WorldID)
+	if err != nil {
+		return fmt.Errorf("failed to get current world: %w", err)
+	}
+
+	portalX, portalY := p.spatialService.GetPortalLocation(currentWorld, worldID)
+	allowed, hint := p.spatialService.CheckPortalProximity(char.PositionX, char.PositionY, portalX, portalY)
+	if !allowed {
+		client.SendGameMessage("error", hint, nil)
 		return nil
 	}
 

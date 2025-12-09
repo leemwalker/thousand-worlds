@@ -157,8 +157,8 @@ func (r *PostgresRepository) UpdateUser(ctx context.Context, user *User) error {
 // CreateCharacter creates a new character
 func (r *PostgresRepository) CreateCharacter(ctx context.Context, char *Character) error {
 	query := `
-		INSERT INTO characters (character_id, user_id, world_id, name, role, appearance, description, occupation, position, position_x, position_y, position_z, orientation_x, orientation_y, orientation_z, created_at)
-		VALUES ($1, $2, $3, $4, $5, NULLIF($6, '')::jsonb, $7, $8, ST_SetSRID(ST_MakePoint($9, $10), 4326), $9, $10, $11, $12, $13, $14, $15)
+		INSERT INTO characters (character_id, user_id, world_id, name, role, appearance, description, occupation, position, position_x, position_y, position_z, orientation_x, orientation_y, orientation_z, created_at, last_world_visited)
+		VALUES ($1, $2, $3, $4, $5, NULLIF($6, '')::jsonb, $7, $8, ST_SetSRID(ST_MakePoint($9, $10), 4326), $9, $10, $11, $12, $13, $14, $15, $16)
 	`
 
 	// Use PositionX/Y if set, or fall back to Position.Longitude/Latitude
@@ -184,6 +184,7 @@ func (r *PostgresRepository) CreateCharacter(ctx context.Context, char *Characte
 		char.PositionZ,
 		char.OrientationX, char.OrientationY, char.OrientationZ,
 		char.CreatedAt,
+		char.LastWorldVisited,
 	)
 
 	return err
@@ -197,7 +198,7 @@ func (r *PostgresRepository) GetCharacter(ctx context.Context, characterID uuid.
 			COALESCE(c.role, ''), COALESCE(c.appearance::text, ''), COALESCE(c.description, ''), COALESCE(c.occupation, ''),
 			COALESCE(c.position_x, 0), COALESCE(c.position_y, 0), COALESCE(c.position_z, 0),
 			COALESCE(c.orientation_x, 0), COALESCE(c.orientation_y, 1), COALESCE(c.orientation_z, 0),
-			c.created_at, c.last_played
+			c.created_at, c.last_played, c.last_world_visited
 		FROM characters c
 		WHERE c.character_id = $1
 	`
@@ -221,6 +222,7 @@ func (r *PostgresRepository) GetCharacter(ctx context.Context, characterID uuid.
 		&char.OrientationZ,
 		&char.CreatedAt,
 		&char.LastPlayed,
+		&char.LastWorldVisited,
 	)
 
 	if err == sql.ErrNoRows {
@@ -247,7 +249,7 @@ func (r *PostgresRepository) GetUserCharacters(ctx context.Context, userID uuid.
 			COALESCE(c.role, ''), COALESCE(c.appearance::text, ''), COALESCE(c.description, ''), COALESCE(c.occupation, ''),
 			COALESCE(c.position_x, 0), COALESCE(c.position_y, 0), COALESCE(c.position_z, 0),
 			COALESCE(c.orientation_x, 0), COALESCE(c.orientation_y, 1), COALESCE(c.orientation_z, 0),
-			c.created_at, c.last_played
+			c.created_at, c.last_played, c.last_world_visited
 		FROM characters c
 		WHERE c.user_id = $1
 		ORDER BY c.last_played DESC NULLS LAST, c.created_at DESC
@@ -280,6 +282,7 @@ func (r *PostgresRepository) GetUserCharacters(ctx context.Context, userID uuid.
 			&char.OrientationZ,
 			&char.CreatedAt,
 			&char.LastPlayed,
+			&char.LastWorldVisited,
 		)
 		if err != nil {
 			return nil, err
@@ -304,7 +307,7 @@ func (r *PostgresRepository) GetCharacterByUserAndWorld(ctx context.Context, use
 			COALESCE(c.role, ''), COALESCE(c.appearance::text, ''), COALESCE(c.description, ''), COALESCE(c.occupation, ''),
 			COALESCE(c.position_x, 0), COALESCE(c.position_y, 0), COALESCE(c.position_z, 0),
 			COALESCE(c.orientation_x, 0), COALESCE(c.orientation_y, 1), COALESCE(c.orientation_z, 0),
-			c.created_at, c.last_played
+			c.created_at, c.last_played, c.last_world_visited
 		FROM characters c
 		WHERE c.user_id = $1 AND c.world_id = $2
 	`
@@ -327,6 +330,7 @@ func (r *PostgresRepository) GetCharacterByUserAndWorld(ctx context.Context, use
 		&char.OrientationZ,
 		&char.CreatedAt,
 		&char.LastPlayed,
+		&char.LastWorldVisited,
 	)
 
 	if err == sql.ErrNoRows {
@@ -352,7 +356,7 @@ func (r *PostgresRepository) UpdateCharacter(ctx context.Context, char *Characte
 		    position = ST_SetSRID(ST_MakePoint($3, $4), 4326), 
 		    position_x = $3, position_y = $4, position_z = $5,
 		    orientation_x = $6, orientation_y = $7, orientation_z = $8,
-		    last_played = $9
+		    last_played = $9, last_world_visited = $10
 		WHERE character_id = $1
 	`
 
@@ -370,6 +374,7 @@ func (r *PostgresRepository) UpdateCharacter(ctx context.Context, char *Characte
 		lon, lat, char.PositionZ,
 		char.OrientationX, char.OrientationY, char.OrientationZ,
 		char.LastPlayed,
+		char.LastWorldVisited,
 	)
 
 	return err

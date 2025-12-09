@@ -40,6 +40,7 @@ func NewCommandParser() *CommandParser {
 			"craft":     {"make", "build", "forge"},
 			"use":       {"consume", "activate", "apply"},
 			"reply":     {"r"},
+			"lobby":     {"exit", "leave", "hub"},
 			"create":    nil,
 		},
 	}
@@ -126,7 +127,7 @@ func (p *CommandParser) ParseText(text string) *websocket.CommandData {
 		// No additional fields needed
 
 	// Commands without arguments
-	case "help", "who", "inventory":
+	case "help", "who", "inventory", "lobby":
 		// No additional fields needed
 
 	case "watcher":

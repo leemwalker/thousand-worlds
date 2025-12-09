@@ -1,0 +1,299 @@
+{
+  "config": {
+    "configFile": "/Users/walker/git/thousand-worlds/mud-platform-client/playwright.config.ts",
+    "rootDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        null
+      ],
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium-desktop",
+        "name": "chromium-desktop",
+        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "firefox-desktop",
+        "name": "firefox-desktop",
+        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "webkit-desktop",
+        "name": "webkit-desktop",
+        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "iphone-12",
+        "name": "iphone-12",
+        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "iphone-14-pro",
+        "name": "iphone-14-pro",
+        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "iphone-se",
+        "name": "iphone-se",
+        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "pixel-5",
+        "name": "pixel-5",
+        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "galaxy-s9",
+        "name": "galaxy-s9",
+        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "ipad-pro",
+        "name": "ipad-pro",
+        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.57.0",
+    "workers": 6,
+    "webServer": {
+      "command": "npm run dev",
+      "url": "http://localhost:5173",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "lobby_spatial.spec.ts",
+      "file": "lobby_spatial.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Lobby Spatial Logic",
+          "file": "lobby_spatial.spec.ts",
+          "line": 4,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Statue Collision and Portal Proximity",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium-desktop",
+                  "projectName": "chromium-desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 20999,
+                      "error": {
+                        "message": "TimeoutError: page.fill: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[placeholder=\"Enter your name\"]')\u001b[22m\n",
+                        "stack": "TimeoutError: page.fill: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[placeholder=\"Enter your name\"]')\u001b[22m\n\n    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/lobby_spatial.spec.ts:15:20",
+                        "location": {
+                          "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/lobby_spatial.spec.ts",
+                          "column": 20,
+                          "line": 15
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 13 |\u001b[39m         \u001b[90m// or just walking through UI.\u001b[39m\n \u001b[90m 14 |\u001b[39m         \u001b[90m// Assuming 'createCharacter' utility might need expansion or we just do it via UI\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 15 |\u001b[39m         \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mfill(\u001b[32m'input[placeholder=\"Enter your name\"]'\u001b[39m\u001b[33m,\u001b[39m charName)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                    \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 16 |\u001b[39m         \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mclick(\u001b[32m'button:has-text(\"Enter World\")'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 17 |\u001b[39m\n \u001b[90m 18 |\u001b[39m         \u001b[90m// Select role/race if prompted\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/lobby_spatial.spec.ts",
+                            "column": 20,
+                            "line": 15
+                          },
+                          "message": "TimeoutError: page.fill: Timeout 20000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[placeholder=\"Enter your name\"]')\u001b[22m\n\n\n\u001b[0m \u001b[90m 13 |\u001b[39m         \u001b[90m// or just walking through UI.\u001b[39m\n \u001b[90m 14 |\u001b[39m         \u001b[90m// Assuming 'createCharacter' utility might need expansion or we just do it via UI\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 15 |\u001b[39m         \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mfill(\u001b[32m'input[placeholder=\"Enter your name\"]'\u001b[39m\u001b[33m,\u001b[39m charName)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                    \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 16 |\u001b[39m         \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mclick(\u001b[32m'button:has-text(\"Enter World\")'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 17 |\u001b[39m\n \u001b[90m 18 |\u001b[39m         \u001b[90m// Select role/race if prompted\u001b[39m\u001b[0m\n\u001b[2m    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/lobby_spatial.spec.ts:15:20\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-09T19:43:25.319Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/lobby_spatial-Lobby-Spatia-5d474-lision-and-Portal-Proximity-chromium-desktop/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/lobby_spatial-Lobby-Spatia-5d474-lision-and-Portal-Proximity-chromium-desktop/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/lobby_spatial-Lobby-Spatia-5d474-lision-and-Portal-Proximity-chromium-desktop/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/lobby_spatial.spec.ts",
+                        "column": 20,
+                        "line": 15
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "30298385845cfba5e4b0-41a3dd674091d9c52c80",
+              "file": "lobby_spatial.spec.ts",
+              "line": 23,
+              "column": 5
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-12-09T19:43:24.742Z",
+    "duration": 21974.004999999997,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

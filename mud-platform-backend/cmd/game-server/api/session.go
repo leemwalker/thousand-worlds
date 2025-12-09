@@ -226,12 +226,28 @@ func (h *SessionHandler) JoinGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// In a real implementation, we would:
 	// 1. Load world state
 	// 2. Set character spawn position
 	// 3. Initialize game session
-	// Update user's LastWorldID
-	// Update user's LastWorldID
+
+	// Requirement: On login, player must spawn in Lobby.
+	if !lobby.IsLobby(char.WorldID) {
+		currentWorldID := char.WorldID
+		char.LastWorldVisited = &currentWorldID
+		char.WorldID = lobby.LobbyWorldID
+		char.PositionX = 500.0
+		char.PositionY = 500.0
+		char.PositionZ = 0.0
+
+		if err := h.authRepo.UpdateCharacter(r.Context(), char); err != nil {
+			log.Printf("Failed to update character spawn to lobby: %v", err)
+			// Continue anyway? Or fail? Best to fail if we can't ensure consistency
+			respondError(w, http.StatusInternalServerError, "Failed to join game")
+			return
+		}
+	}
+
+	// Update user's LastWorldID (legacy/user preference tracking)
 	user, err := h.authRepo.GetUserByID(r.Context(), userID)
 	if err != nil {
 		// Should not happen as we have a valid token
