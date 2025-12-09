@@ -111,7 +111,7 @@ func (p *CommandParser) ParseText(text string) *websocket.CommandData {
 			cmd.Target = &target
 		}
 
-	case "look", "take", "drop", "attack", "talk", "craft", "use", "open":
+	case "look", "take", "drop", "attack", "talk", "craft", "use", "open", "face":
 		// Format: <action> <target>
 		// Join all args as target (handles multi-word targets like "iron sword")
 		if len(args) > 0 {

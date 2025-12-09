@@ -157,8 +157,8 @@ func (r *PostgresRepository) UpdateUser(ctx context.Context, user *User) error {
 // CreateCharacter creates a new character
 func (r *PostgresRepository) CreateCharacter(ctx context.Context, char *Character) error {
 	query := `
-		INSERT INTO characters (character_id, user_id, world_id, name, role, appearance, description, occupation, position, position_x, position_y, position_z, created_at)
-		VALUES ($1, $2, $3, $4, $5, NULLIF($6, '')::jsonb, $7, $8, ST_SetSRID(ST_MakePoint($9, $10), 4326), $9, $10, $11, $12)
+		INSERT INTO characters (character_id, user_id, world_id, name, role, appearance, description, occupation, position, position_x, position_y, position_z, orientation_x, orientation_y, orientation_z, created_at)
+		VALUES ($1, $2, $3, $4, $5, NULLIF($6, '')::jsonb, $7, $8, ST_SetSRID(ST_MakePoint($9, $10), 4326), $9, $10, $11, $12, $13, $14, $15)
 	`
 
 	// Use PositionX/Y if set, or fall back to Position.Longitude/Latitude
@@ -182,6 +182,7 @@ func (r *PostgresRepository) CreateCharacter(ctx context.Context, char *Characte
 		char.Occupation,
 		lon, lat, // for position (geometry) and x, y
 		char.PositionZ,
+		char.OrientationX, char.OrientationY, char.OrientationZ,
 		char.CreatedAt,
 	)
 
@@ -195,6 +196,7 @@ func (r *PostgresRepository) GetCharacter(ctx context.Context, characterID uuid.
 			c.character_id, c.user_id, c.world_id, c.name, 
 			COALESCE(c.role, ''), COALESCE(c.appearance::text, ''), COALESCE(c.description, ''), COALESCE(c.occupation, ''),
 			COALESCE(c.position_x, 0), COALESCE(c.position_y, 0), COALESCE(c.position_z, 0),
+			COALESCE(c.orientation_x, 0), COALESCE(c.orientation_y, 1), COALESCE(c.orientation_z, 0),
 			c.created_at, c.last_played
 		FROM characters c
 		WHERE c.character_id = $1
@@ -214,6 +216,9 @@ func (r *PostgresRepository) GetCharacter(ctx context.Context, characterID uuid.
 		&char.PositionX,
 		&char.PositionY,
 		&char.PositionZ,
+		&char.OrientationX,
+		&char.OrientationY,
+		&char.OrientationZ,
 		&char.CreatedAt,
 		&char.LastPlayed,
 	)
@@ -241,6 +246,7 @@ func (r *PostgresRepository) GetUserCharacters(ctx context.Context, userID uuid.
 			c.character_id, c.user_id, c.world_id, c.name,
 			COALESCE(c.role, ''), COALESCE(c.appearance::text, ''), COALESCE(c.description, ''), COALESCE(c.occupation, ''),
 			COALESCE(c.position_x, 0), COALESCE(c.position_y, 0), COALESCE(c.position_z, 0),
+			COALESCE(c.orientation_x, 0), COALESCE(c.orientation_y, 1), COALESCE(c.orientation_z, 0),
 			c.created_at, c.last_played
 		FROM characters c
 		WHERE c.user_id = $1
@@ -269,6 +275,9 @@ func (r *PostgresRepository) GetUserCharacters(ctx context.Context, userID uuid.
 			&char.PositionX,
 			&char.PositionY,
 			&char.PositionZ,
+			&char.OrientationX,
+			&char.OrientationY,
+			&char.OrientationZ,
 			&char.CreatedAt,
 			&char.LastPlayed,
 		)
@@ -294,6 +303,7 @@ func (r *PostgresRepository) GetCharacterByUserAndWorld(ctx context.Context, use
 			c.character_id, c.user_id, c.world_id, c.name,
 			COALESCE(c.role, ''), COALESCE(c.appearance::text, ''), COALESCE(c.description, ''), COALESCE(c.occupation, ''),
 			COALESCE(c.position_x, 0), COALESCE(c.position_y, 0), COALESCE(c.position_z, 0),
+			COALESCE(c.orientation_x, 0), COALESCE(c.orientation_y, 1), COALESCE(c.orientation_z, 0),
 			c.created_at, c.last_played
 		FROM characters c
 		WHERE c.user_id = $1 AND c.world_id = $2
@@ -312,6 +322,9 @@ func (r *PostgresRepository) GetCharacterByUserAndWorld(ctx context.Context, use
 		&char.PositionX,
 		&char.PositionY,
 		&char.PositionZ,
+		&char.OrientationX,
+		&char.OrientationY,
+		&char.OrientationZ,
 		&char.CreatedAt,
 		&char.LastPlayed,
 	)
@@ -338,7 +351,8 @@ func (r *PostgresRepository) UpdateCharacter(ctx context.Context, char *Characte
 		SET name = $2, 
 		    position = ST_SetSRID(ST_MakePoint($3, $4), 4326), 
 		    position_x = $3, position_y = $4, position_z = $5,
-		    last_played = $6
+		    orientation_x = $6, orientation_y = $7, orientation_z = $8,
+		    last_played = $9
 		WHERE character_id = $1
 	`
 
@@ -346,17 +360,15 @@ func (r *PostgresRepository) UpdateCharacter(ctx context.Context, char *Characte
 	lon := char.PositionX
 	lat := char.PositionY
 	if char.Position != nil {
-		// If explicit X/Y are zero but Position is set, might want to use Position?
-		// But 0,0 is a valid coordinate.
-		// Let's assume the service sets PositionX/Y.
-		// If migrating from old code, PositionX/Y might be 0.
-		// But we just populated them in GetCharacter.
+		lon = char.Position.Longitude
+		lat = char.Position.Latitude
 	}
 
 	_, err := r.db.ExecContext(ctx, query,
 		char.CharacterID,
 		char.Name,
 		lon, lat, char.PositionZ,
+		char.OrientationX, char.OrientationY, char.OrientationZ,
 		char.LastPlayed,
 	)
 

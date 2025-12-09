@@ -18,7 +18,7 @@ import (
 func TestSessionHandler_CreateCharacter(t *testing.T) {
 	// Setup
 	repo := auth.NewMockRepository()
-	handler := NewSessionHandler(repo)
+	handler := NewSessionHandler(repo, nil)
 
 	// Create a user first
 	userID := uuid.New()
@@ -41,7 +41,7 @@ func TestSessionHandler_CreateCharacter(t *testing.T) {
 		}
 		body, _ := json.Marshal(payload)
 		req := httptest.NewRequest("POST", "/api/game/characters", bytes.NewBuffer(body))
-		
+
 		// Inject user ID into context (mocking AuthMiddleware)
 		ctx := context.WithValue(req.Context(), "userID", userID.String())
 		req = req.WithContext(ctx)
@@ -74,7 +74,7 @@ func TestSessionHandler_CreateCharacter(t *testing.T) {
 		}
 		body, _ := json.Marshal(payload)
 		req := httptest.NewRequest("POST", "/api/game/characters", bytes.NewBuffer(body))
-		
+
 		// Inject user ID into context (mocking AuthMiddleware)
 		ctx := context.WithValue(req.Context(), "userID", userID.String())
 		req = req.WithContext(ctx)

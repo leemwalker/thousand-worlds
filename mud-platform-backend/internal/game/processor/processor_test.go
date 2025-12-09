@@ -184,7 +184,7 @@ func setupTest(t *testing.T) (*GameProcessor, *mockClient, *auth.MockRepository,
 	mockWorldRepo.worlds[lobbyWorld.ID] = lobbyWorld
 
 	// Create required services
-	lookService := lobby.NewLookService(mockAuthRepo, mockWorldRepo, nil) // nil interview service for now
+	lookService := lobby.NewLookService(mockAuthRepo, mockWorldRepo, nil, nil) // nil interview service for now
 	spatialSvc := player.NewSpatialService(mockAuthRepo, mockWorldRepo)
 
 	// Create processor

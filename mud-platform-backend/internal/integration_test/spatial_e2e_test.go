@@ -223,7 +223,7 @@ func setupSpatialTest(t *testing.T) (*processor.GameProcessor, *TestGameClient, 
 	authRepo := auth.NewMockRepository()
 	worldRepo := NewStatefulMockWorldRepository()
 
-	lookService := lobby.NewLookService(authRepo, worldRepo, nil)
+	lookService := lobby.NewLookService(authRepo, worldRepo, nil, nil)
 	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
 
 	proc := processor.NewGameProcessor(authRepo, worldRepo, lookService, nil, spatialSvc)

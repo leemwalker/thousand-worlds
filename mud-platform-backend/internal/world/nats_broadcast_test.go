@@ -49,7 +49,7 @@ func (m *MockNATSPublisher) Clear() {
 func TestNATSBroadcast_TicksPublished(t *testing.T) {
 	registry := NewRegistry()
 	natsPublisher := &MockNATSPublisher{}
-	tm := NewTickerManager(registry, nil, natsPublisher)
+	tm := NewTickerManager(registry, nil, natsPublisher, nil, nil)
 	defer tm.StopAll()
 
 	worldID := uuid.New()
@@ -67,7 +67,7 @@ func TestNATSBroadcast_TicksPublished(t *testing.T) {
 func TestNATSBroadcast_CorrectSubject(t *testing.T) {
 	registry := NewRegistry()
 	natsPublisher := &MockNATSPublisher{}
-	tm := NewTickerManager(registry, nil, natsPublisher)
+	tm := NewTickerManager(registry, nil, natsPublisher, nil, nil)
 	defer tm.StopAll()
 
 	worldID := uuid.New()
@@ -90,7 +90,7 @@ func TestNATSBroadcast_CorrectSubject(t *testing.T) {
 func TestNATSBroadcast_PayloadStructure(t *testing.T) {
 	registry := NewRegistry()
 	natsPublisher := &MockNATSPublisher{}
-	tm := NewTickerManager(registry, nil, natsPublisher)
+	tm := NewTickerManager(registry, nil, natsPublisher, nil, nil)
 	defer tm.StopAll()
 
 	worldID := uuid.New()
@@ -120,7 +120,7 @@ func TestNATSBroadcast_PayloadStructure(t *testing.T) {
 func TestNATSBroadcast_Frequency(t *testing.T) {
 	registry := NewRegistry()
 	natsPublisher := &MockNATSPublisher{}
-	tm := NewTickerManager(registry, nil, natsPublisher)
+	tm := NewTickerManager(registry, nil, natsPublisher, nil, nil)
 	defer tm.StopAll()
 
 	worldID := uuid.New()
@@ -142,7 +142,7 @@ func TestNATSBroadcast_Frequency(t *testing.T) {
 func TestNATSBroadcast_MultipleWorlds(t *testing.T) {
 	registry := NewRegistry()
 	natsPublisher := &MockNATSPublisher{}
-	tm := NewTickerManager(registry, nil, natsPublisher)
+	tm := NewTickerManager(registry, nil, natsPublisher, nil, nil)
 	defer tm.StopAll()
 
 	world1 := uuid.New()
@@ -179,7 +179,7 @@ func TestNATSBroadcast_MultipleWorlds(t *testing.T) {
 func TestNATSBroadcast_GameTimeProgression(t *testing.T) {
 	registry := NewRegistry()
 	natsPublisher := &MockNATSPublisher{}
-	tm := NewTickerManager(registry, nil, natsPublisher)
+	tm := NewTickerManager(registry, nil, natsPublisher, nil, nil)
 	defer tm.StopAll()
 
 	worldID := uuid.New()
@@ -209,7 +209,7 @@ func TestNATSBroadcast_GameTimeProgression(t *testing.T) {
 func TestNATSBroadcast_NilPublisher(t *testing.T) {
 	// Test that ticker works without NATS publisher (backward compatibility)
 	registry := NewRegistry()
-	tm := NewTickerManager(registry, nil, nil) // nil NATS publisher
+	tm := NewTickerManager(registry, nil, nil, nil, nil) // nil NATS publisher
 	defer tm.StopAll()
 
 	worldID := uuid.New()

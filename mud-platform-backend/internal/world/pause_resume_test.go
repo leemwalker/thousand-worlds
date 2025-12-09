@@ -11,7 +11,7 @@ import (
 
 func TestPauseResume_RecordsPauseTime(t *testing.T) {
 	registry := NewRegistry()
-	tm := NewTickerManager(registry, nil, nil)
+	tm := NewTickerManager(registry, nil, nil, nil, nil)
 	defer tm.StopAll()
 
 	worldID := uuid.New()
@@ -39,7 +39,7 @@ func TestPauseResume_RecordsPauseTime(t *testing.T) {
 func TestPauseResume_CatchupEmitted(t *testing.T) {
 	registry := NewRegistry()
 	natsPublisher := &MockNATSPublisher{}
-	tm := NewTickerManager(registry, nil, natsPublisher)
+	tm := NewTickerManager(registry, nil, natsPublisher, nil, nil)
 	defer tm.StopAll()
 
 	worldID := uuid.New()
@@ -84,7 +84,7 @@ func TestPauseResume_CatchupEmitted(t *testing.T) {
 func TestPauseResume_CatchupSpeed(t *testing.T) {
 	registry := NewRegistry()
 	natsPublisher := &MockNATSPublisher{}
-	tm := NewTickerManager(registry, nil, natsPublisher)
+	tm := NewTickerManager(registry, nil, natsPublisher, nil, nil)
 	defer tm.StopAll()
 
 	worldID := uuid.New()
@@ -122,7 +122,7 @@ func TestPauseResume_CatchupSpeed(t *testing.T) {
 
 func TestPauseResume_GameTimeConsistency(t *testing.T) {
 	registry := NewRegistry()
-	tm := NewTickerManager(registry, nil, nil)
+	tm := NewTickerManager(registry, nil, nil, nil, nil)
 	defer tm.StopAll()
 
 	worldID := uuid.New()
@@ -176,7 +176,7 @@ func TestPauseResume_GameTimeConsistency(t *testing.T) {
 func TestPauseResume_MultipleCycles(t *testing.T) {
 	registry := NewRegistry()
 	natsPublisher := &MockNATSPublisher{}
-	tm := NewTickerManager(registry, nil, natsPublisher)
+	tm := NewTickerManager(registry, nil, natsPublisher, nil, nil)
 	defer tm.StopAll()
 
 	worldID := uuid.New()
@@ -214,7 +214,7 @@ func TestPauseResume_NoPauseNoticeCatchup(t *testing.T) {
 	// Test that initial spawn does not trigger catch-up
 	registry := NewRegistry()
 	natsPublisher := &MockNATSPublisher{}
-	tm := NewTickerManager(registry, nil, natsPublisher)
+	tm := NewTickerManager(registry, nil, natsPublisher, nil, nil)
 	defer tm.StopAll()
 
 	worldID := uuid.New()
@@ -235,7 +235,7 @@ func TestPauseResume_NoPauseNoticeCatchup(t *testing.T) {
 func TestPauseResume_StopDuringCatchup(t *testing.T) {
 	registry := NewRegistry()
 	natsPublisher := &MockNATSPublisher{}
-	tm := NewTickerManager(registry, nil, natsPublisher)
+	tm := NewTickerManager(registry, nil, natsPublisher, nil, nil)
 	defer tm.StopAll()
 
 	worldID := uuid.New()

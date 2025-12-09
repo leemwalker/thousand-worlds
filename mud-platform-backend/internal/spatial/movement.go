@@ -2,7 +2,6 @@ package spatial
 
 import (
 	"errors"
-	"math"
 )
 
 // Direction represents a movement direction.
@@ -28,11 +27,8 @@ func CalculateNewPosition(x, y, z float64, direction Direction, distance float64
 		return x, y, z, errors.New("distance must be positive")
 	}
 
-	// Diagonal movement distance normalization (1 unit diagonal != 1 unit cardinal)
-	// But requirements say "Movement distance: 1.0 meter per step".
-	// So if moving NE, we move 1m in that direction.
-	// dx = distance * cos(45), dy = distance * sin(45)
-	diagDist := distance / math.Sqrt(2)
+	// Diagonal movement: As per requirements, moving NE moves 1 unit North AND 1 unit East.
+	// This results in a Euclidean distance of sqrt(2), but logic dictates grid-like steps.
 
 	switch direction {
 	case North:
@@ -44,13 +40,13 @@ func CalculateNewPosition(x, y, z float64, direction Direction, distance float64
 	case West:
 		return x - distance, y, z, nil
 	case NorthEast:
-		return x + diagDist, y + diagDist, z, nil
+		return x + distance, y + distance, z, nil
 	case SouthEast:
-		return x + diagDist, y - diagDist, z, nil
+		return x + distance, y - distance, z, nil
 	case SouthWest:
-		return x - diagDist, y - diagDist, z, nil
+		return x - distance, y - distance, z, nil
 	case NorthWest:
-		return x - diagDist, y + diagDist, z, nil
+		return x - distance, y + distance, z, nil
 	case Up:
 		return x, y, z + distance, nil
 	case Down:

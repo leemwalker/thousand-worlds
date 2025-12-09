@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"mud-platform-backend/internal/repository"
+	"mud-platform-backend/internal/worldgen/orchestrator"
 
 	"github.com/google/uuid"
 )
@@ -263,6 +264,41 @@ func (s *InterviewService) handleReviewResponse(ctx context.Context, session *In
 		}
 		fmt.Printf("[DEBUG] Successfully created world %s\n", world.ID)
 
+		// Generate procedural content for the world
+		fmt.Printf("[DEBUG] Generating procedural content for world %s\n", world.ID)
+		generator := orchestrator.NewGeneratorService()
+		generated, err := generator.GenerateWorld(ctx, world.ID, config)
+		if err != nil {
+			// Log error but don't fail - world record exists
+			fmt.Printf("[WARN] Failed to generate world content: %v\n", err)
+		} else {
+			fmt.Printf("[DEBUG] World generation completed in %v\n", generated.Metadata.GenerationTime)
+			fmt.Printf("[DEBUG] Generated: %d plates, %d biomes, sea level: %.2f\n",
+				len(generated.Geography.Plates),
+				len(generated.Geography.Biomes),
+				generated.Metadata.SeaLevel)
+
+			// Store generation metadata in world metadata
+			world.Metadata["generated"] = true
+			world.Metadata["generation_seed"] = generated.Metadata.Seed
+			world.Metadata["generation_time"] = generated.Metadata.GenerationTime.String()
+			world.Metadata["sea_level"] = generated.Metadata.SeaLevel
+			world.Metadata["land_ratio"] = generated.Metadata.LandRatio
+			world.Metadata["dimensions"] = map[string]int{
+				"width":  generated.Metadata.DimensionsX,
+				"height": generated.Metadata.DimensionsY,
+			}
+
+			// Update world with generation metadata
+			if err := s.worldRepo.UpdateWorld(ctx, world); err != nil {
+				fmt.Printf("[WARN] Failed to update world metadata: %v\n", err)
+			}
+
+			// TODO: Persist geography, minerals, species to permanent storage
+			// For now, generation is ephemeral and will need to be regenerated on world load
+			// Future PR will add database tables for heightmap, minerals, species persistence
+		}
+
 		// Link configuration to the new world ID
 		config.WorldID = &world.ID
 		if err := s.repo.SaveConfiguration(ctx, config); err != nil {
@@ -270,11 +306,11 @@ func (s *InterviewService) handleReviewResponse(ctx context.Context, session *In
 			fmt.Printf("[ERROR] failed to link configuration to world: %v\n", err)
 		}
 
-		return "Thank you! I have gathered all the information, and your world has been created.", true, nil
+		return fmt.Sprintf("Thank you! I have gathered all the information, and your world has been created. Your world is being forged. You may now enter it using 'enter %s'.", world.Name), true, nil
 	}
 
 	// Assume user wants to change something but didn't use "change" command correctly, or just chatting
-	return "Please type 'yes' to create your world, or use 'change <topic> to <value>' to modify an answer.\n\n" + s.generateReviewSummary(session), false, nil
+	return "Please type 'reply yes' to create your world, or use 'reply change <topic> to <value>' to modify an answer.\n\n" + s.generateReviewSummary(session), false, nil
 }
 
 // generateReviewSummary creates a summary of the current world configuration for review
@@ -287,7 +323,7 @@ func (s *InterviewService) generateReviewSummary(session *InterviewSession) stri
 		}
 		summary += fmt.Sprintf("- **%s**: %s\n", t.Name, ans)
 	}
-	summary += "\nIs this correct? Type 'yes' to create, or 'change <topic> to <value>' to modify."
+	summary += "\nIs this correct? Type 'reply yes' to create, or 'reply change <topic> to <value>' to modify."
 	return summary
 }
 

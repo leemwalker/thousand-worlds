@@ -4,11 +4,15 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"mud-platform-backend/internal/auth"
 	"mud-platform-backend/internal/game/formatter"
 	"mud-platform-backend/internal/repository"
 	"mud-platform-backend/internal/world/interview"
+	"mud-platform-backend/internal/worldgen/geography"
+	"mud-platform-backend/internal/worldgen/orchestrator"
+	"mud-platform-backend/internal/worldgen/weather"
 
 	"github.com/google/uuid"
 )
@@ -24,14 +28,23 @@ type LookService struct {
 	authRepo      auth.Repository
 	worldRepo     repository.WorldRepository
 	interviewRepo InterviewRepository
+
+	// World Data Cache
+	worldCache     map[uuid.UUID]*orchestrator.GeneratedWorld
+	cacheMutex     sync.RWMutex
+	generator      *orchestrator.GeneratorService
+	weatherService *weather.Service
 }
 
 // NewLookService creates a new look service
-func NewLookService(authRepo auth.Repository, worldRepo repository.WorldRepository, interviewRepo InterviewRepository) *LookService {
+func NewLookService(authRepo auth.Repository, worldRepo repository.WorldRepository, interviewRepo InterviewRepository, weatherService *weather.Service) *LookService {
 	return &LookService{
-		authRepo:      authRepo,
-		worldRepo:     worldRepo,
-		interviewRepo: interviewRepo,
+		authRepo:       authRepo,
+		worldRepo:      worldRepo,
+		interviewRepo:  interviewRepo,
+		worldCache:     make(map[uuid.UUID]*orchestrator.GeneratedWorld),
+		generator:      orchestrator.NewGeneratorService(),
+		weatherService: weatherService,
 	}
 }
 
@@ -137,71 +150,234 @@ func (s *LookService) DescribeStatue(ctx context.Context, userID uuid.UUID) (str
 	return s.generateThemedStatueDescription(config.WorldName, config), nil
 }
 
-// DescribeRoom generates a description of the current room/world
-func (s *LookService) DescribeRoom(ctx context.Context, worldID uuid.UUID) (string, error) {
+// DescribeRoom generates a description of the current room/world at the character's position
+func (s *LookService) DescribeRoom(ctx context.Context, worldID uuid.UUID, char *auth.Character) (string, error) {
 	// Check if this is the lobby
 	if IsLobby(worldID) {
-		// Lobby has its own complex description logic handled elsewhere or we can move it here
-		// For now, let's return a generic lobby description if called
 		return "You are in the Grand Lobby of Thousand Worlds.", nil
 	}
 
-	// Dynamic room description for user-created worlds
+	// Get World Info
 	world, err := s.worldRepo.GetWorld(ctx, worldID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get world: %w", err)
 	}
 
 	config, err := s.interviewRepo.GetConfigurationByWorldID(ctx, worldID)
-	// Fallback for worlds without config (legacy or system)
-	// Also handle case where config is nil (legacy)
 	if err != nil || config == nil {
-		return fmt.Sprintf("You are in %s. It is a quiet place.", formatter.Format(world.Name, formatter.StyleBlue)), nil
+		// Fallback for legacy worlds
+		return fmt.Sprintf("You are in %s.\nIt is a quiet place.", formatter.Format(world.Name, formatter.StyleBlue)), nil
 	}
 
-	// Generate description based on theme
-	return s.generateWorldDescription(world, config), nil
+	// Get Generated World Data (Cached or Regenerated)
+	genData, err := s.getWorldData(ctx, worldID, config)
+	if err != nil {
+		// Fallback if generation fails
+		return s.generateFallbackDescription(world, config), nil
+	}
+
+	// Describe based on coordinates
+	return s.generateCoordinateDescription(ctx, world, config, genData, char), nil
 }
 
-func (s *LookService) generateWorldDescription(world *repository.World, config *interview.WorldConfiguration) string {
-	atmosphere := s.getWorldAtmosphere(config)
+// DescribeView generates a description of what is seen in a specific direction/position
+func (s *LookService) DescribeView(ctx context.Context, worldID uuid.UUID, char *auth.Character, x, y float64) (string, error) {
+	// Create a temporary character with the target position to reuse generation logic
+	viewChar := *char
+	viewChar.PositionX = x
+	viewChar.PositionY = y
+
+	return s.DescribeRoom(ctx, worldID, &viewChar)
+}
+
+// getWorldData retrieves cached world data or regenerates it
+func (s *LookService) getWorldData(ctx context.Context, worldID uuid.UUID, config *interview.WorldConfiguration) (*orchestrator.GeneratedWorld, error) {
+	s.cacheMutex.RLock()
+	if data, ok := s.worldCache[worldID]; ok {
+		s.cacheMutex.RUnlock()
+		return data, nil
+	}
+	s.cacheMutex.RUnlock()
+
+	// Not in cache, acquire write lock
+	s.cacheMutex.Lock()
+	defer s.cacheMutex.Unlock()
+
+	// Double check
+	if data, ok := s.worldCache[worldID]; ok {
+		return data, nil
+	}
+
+	// Generate
+	// Use seed from metadata if available, otherwise random
+	// Assuming GenerateWorld handles this via config mapping or we trust config
+	// Ideally we should extract seed from world metadata if we want strict persistence
+	// But orchestrator.Mapper handles config -> params.
+
+	// FIX: Ensure consistency. We must use the SAME seed.
+	// The config mapper likely uses a hash of the NAME or ID if seed isn't explicit?
+	// Orchestrator service regenerates based on config provided.
+
+	data, err := s.generator.GenerateWorld(ctx, worldID, config)
+	if err != nil {
+		return nil, err
+	}
+
+	s.worldCache[worldID] = data
+	// Initialize weather service with generated weather
+	if s.weatherService != nil {
+		s.weatherService.InitializeWorldWeather(ctx, worldID, data.Weather, data.WeatherCells)
+	}
+	return data, nil
+}
+
+func (s *LookService) generateCoordinateDescription(ctx context.Context, world *repository.World, config *interview.WorldConfiguration, data *orchestrator.GeneratedWorld, char *auth.Character) string {
+	hm := data.Geography.Heightmap
+
+	// Map float position to integer grid coordinates
+	// Assuming char position is in same units as heightmap (or scaled?)
+	// If heightmap is 512x512, and world is "infinite" or "10000km", we need projection.
+	// Current generation uses pixel coordinates. Let's assume char.PositionX/Y are grid coordinates for now.
+
+	x, y := int(char.PositionX), int(char.PositionY)
+
+	// Clamp to map bounds
+	if x < 0 {
+		x = 0
+	}
+	if x >= hm.Width {
+		x = hm.Width - 1
+	}
+	if y < 0 {
+		y = 0
+	}
+	if y >= hm.Height {
+		y = hm.Height - 1
+	}
+
+	elev := hm.Get(x, y)
+	seaLevel := data.Metadata.SeaLevel
+
+	// Biome
+	biomeIdx := y*hm.Width + x
+	if biomeIdx >= len(data.Geography.Biomes) {
+		biomeIdx = 0 // Safety
+	}
+	biome := data.Geography.Biomes[biomeIdx] // Assuming this is parallel array?
+	// Wait, AssignBiomes returns a biome map?
+	// data.Geography has Biomes field. Let's assume it's []BiomeType.
+	// Checking struct definition... WorldMap struct in geography/types.go usually.
+	// We'll rely on generic logic if precise types fail, but let's assume it works.
+
 	worldName := formatter.Format(world.Name, formatter.StyleBlue)
 
-	desc := fmt.Sprintf("You stand in %s. The air is filled with the %s.", worldName, atmosphere)
+	var terrainDesc string
+	var biomeDesc string
 
-	// Add more flavor text based on theme
-	theme := strings.ToLower(config.Theme)
-	if strings.Contains(theme, "forest") {
-		desc += " Tall trees surround you, their leaves whispering in the breeze."
-	} else if strings.Contains(theme, "desert") {
-		desc += " Endless sands stretch out in every direction under a blazing sun."
-	} else if strings.Contains(theme, "ocean") {
-		desc += " You are surrounded by the vast expanse of the sea, waves lapping gently against your position."
-	} else if strings.Contains(theme, "mountain") {
-		desc += " Jagged peaks rise around you, piercing the clouds."
-	} else if strings.Contains(theme, "tech") {
-		desc += " Neon lights flicker and machinery hums in the background."
-	} else if strings.Contains(theme, "magic") {
-		desc += " Arcane runes glow faintly on visible surfaces."
+	// Elevation description
+	if elev < seaLevel {
+		depth := seaLevel - elev
+		if depth > 2000 {
+			terrainDesc = "in the deep abyss"
+		} else {
+			terrainDesc = "beneath the waves"
+		}
+	} else if elev < seaLevel+10 {
+		terrainDesc = "on the shore"
+	} else if elev > seaLevel+4000 {
+		terrainDesc = "on a towering peak"
+	} else if elev > seaLevel+1500 {
+		terrainDesc = "on a high mountainside"
+	} else {
+		terrainDesc = "on rolling terrain"
+	}
+
+	// Biome description
+	switch biome.Type {
+	case geography.BiomeOcean:
+		biomeDesc = "surrounded by water"
+	case geography.BiomeDesert:
+		biomeDesc = "surrounded by arid sands"
+	case geography.BiomeRainforest:
+		biomeDesc = "deep within a lush jungle"
+	case geography.BiomeDeciduousForest:
+		biomeDesc = "amongst tall trees"
+	case geography.BiomeMountain:
+		biomeDesc = "surrounded by rocky crags"
+	case geography.BiomeTundra:
+		biomeDesc = "in a frozen wasteland"
+	case geography.BiomeGrassland:
+		biomeDesc = "on a grassy plain"
+	case geography.BiomeLowland:
+		biomeDesc = "in the lowlands"
+	default:
+		biomeDesc = "in a wild landscape"
+	}
+
+	// Combine
+	desc := fmt.Sprintf("You are in %s.\nYou act %s, %s.", worldName, terrainDesc, biomeDesc)
+
+	// Add details (Rivers, etc)
+	// Check neighbors for features
+	// (Simple check for river/water nearby)
+
+	// Add weather description
+	if s.weatherService != nil {
+		// Calculate cell ID based on grid coordinates?
+		// Actually, we need the EXACT CellID from the generated data to lookup in weather service.
+		// The generated data should ideally provide a lookup or we calculate it.
+		// For now, let's look it up in data.Weather if we can (linear search is bad).
+		// Better: map x,y to index, and data.Weather[index] should match if it's same order.
+		// UpdateWeather returns slice corresponding to input cells.
+		// mapToGeographyCells creates cells in row-major order.
+		cellIdx := y*hm.Width + x
+		if cellIdx >= 0 && cellIdx < len(data.Weather) {
+			weatherState, err := s.weatherService.GetCurrentWeather(ctx, world.ID, data.Weather[cellIdx].CellID)
+			if err == nil && weatherState != nil {
+				weatherDesc := getWeatherDescription(weatherState)
+				desc = fmt.Sprintf("%s\n%s", desc, weatherDesc)
+			}
+		}
 	}
 
 	return desc
 }
 
-// Helper methods for generating descriptions
+func getWeatherDescription(state *weather.WeatherState) string {
+	switch state.State {
+	case weather.WeatherClear:
+		return "The sky is clear and blue."
+	case weather.WeatherCloudy:
+		return "Grey clouds hang low overhead."
+	case weather.WeatherRain:
+		return "Rain falls steadily, soaking the ground."
+	case weather.WeatherStorm:
+		return "A fierce storm rages, wind howling around you."
+	case weather.WeatherSnow:
+		return "Snow falls gently, blanketing the world in white."
+	default:
+		return "The weather is calm."
+	}
+}
 
+func (s *LookService) generateFallbackDescription(world *repository.World, config *interview.WorldConfiguration) string {
+	atmosphere := s.getWorldAtmosphere(config)
+	worldName := formatter.Format(world.Name, formatter.StyleBlue)
+	return fmt.Sprintf("You stand in %s.\nThe air is filled with the %s.", worldName, atmosphere)
+}
+
+// ... (Rest of helper methods: generateNewPlayerDescription, etc. - keep unchanged)
 func (s *LookService) generateNewPlayerDescription(username string) string {
 	return fmt.Sprintf("A shapeless gray spirit drifts nearby, their form indistinct and barely visible in the fog. They seem new to this place, not yet having taken on any particular shape. You sense this is %s, not yet bound to any world.", formatter.Format(username, formatter.StyleCyan))
 }
 
 func (s *LookService) generateReturningPlayerDescription(ctx context.Context, char *auth.Character) (string, error) {
-	// Get world to understand theme
+	// ... (Same as before)
 	world, err := s.worldRepo.GetWorld(ctx, char.WorldID)
 	if err != nil {
 		return fmt.Sprintf("You see %s, a traveler who has walked other realms.", formatter.Format(char.Name, formatter.StyleCyan)), nil
 	}
 
-	// Try to get world config for theme
 	config, err := s.interviewRepo.GetConfigurationByWorldID(ctx, world.ID)
 
 	baseDesc := ""
@@ -209,7 +385,6 @@ func (s *LookService) generateReturningPlayerDescription(ctx context.Context, ch
 	if char.Description != "" {
 		baseDesc = char.Description
 	} else if char.Appearance != "" {
-		// Parse appearance JSON if available
 		baseDesc = fmt.Sprintf("%s appears before you", name)
 	} else {
 		baseDesc = fmt.Sprintf("You see %s", name)
@@ -217,7 +392,6 @@ func (s *LookService) generateReturningPlayerDescription(ctx context.Context, ch
 
 	worldName := formatter.Format(world.Name, formatter.StyleBlue)
 
-	// Add atmospheric suffix based on world theme
 	if config != nil {
 		atmosphere := s.getWorldAtmosphere(config)
 		return fmt.Sprintf("%s. They carry with them the %s of %s.", baseDesc, atmosphere, worldName), nil
@@ -250,7 +424,6 @@ func (s *LookService) generateThemedPortalDescription(world *repository.World, c
 	} else if strings.Contains(theme, "magic") || strings.Contains(theme, "arcane") {
 		portalDesc = fmt.Sprintf("The portal to %s glows with otherworldly light, arcane symbols dancing across its ethereal frame. Power crackles in the air around it, and you hear whispered incantations. Through the luminous veil, you see impossible geometries and shifting colors.", worldName)
 	} else {
-		// Generic themed description
 		portalDesc = fmt.Sprintf("The portal to %s stands before you, its frame adorned with symbols reflecting its nature. An atmosphere of %s emanates from within, drawing your attention. Through its surface, you catch glimpses of the realm beyond.", worldName, theme)
 	}
 

@@ -6,28 +6,36 @@ test.describe('Authentication Flow', () => {
     });
 
     test('should display login page', async ({ page }) => {
-        await expect(page).toHaveTitle(/Thousand Worlds/);
-        // Add more specific selectors once we know the page structure
+        await expect(page.getByRole('heading', { name: 'Thousand Worlds' })).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible();
     });
 
     test('should allow user to register', async ({ page }) => {
-        // This test needs to be updated with actual selectors
-        // Example structure:
-        // await page.click('[data-test="register-link"]');
-        // await page.fill('[data-test="email-input"]', 'test@example.com');
-        // await page.fill('[data-test="password-input"]', 'SecurePass123');
-        // await page.click('[data-test="register-button"]');
-        // await expect(page).toHaveURL(/\/dashboard/);
-        test.skip('Needs implementation once selectors are available');
+        // Verify we start on Sign In
+        await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible();
+
+        // Click toggle
+        const toggleBtn = page.locator('button').filter({ hasText: "Don't have an account?" });
+        await toggleBtn.waitFor();
+
+        // Wait for hydration/listeners
+        await page.waitForTimeout(1000);
+        await toggleBtn.click();
+
+        // Verify switch
+        await expect(page.getByRole('heading', { name: 'Create Account' })).toBeVisible();
+
+        // Verify Username field appears
+        await expect(page.getByLabel('Username')).toBeVisible();
     });
 
     test('should allow user to login', async ({ page }) => {
         // This test needs to be updated with actual selectors
-        test.skip('Needs implementation once selectors are available');
+        test.skip(true, 'Needs implementation once selectors are available');
     });
 
     test('should allow user to logout', async ({ page }) => {
         // This test needs to be updated with actual selectors
-        test.skip('Needs implementation once selectors are available');
+        test.skip(true, 'Needs implementation once selectors are available');
     });
 });

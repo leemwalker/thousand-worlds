@@ -1,0 +1,172 @@
+=== RUN   TestMobileSDKIntegrationSuite
+    mobile_integration_test.go:43: Warning: migration 000001_create_worlds_table.up.sql: pq: relation "idx_worlds_created_at" already exists
+    mobile_integration_test.go:43: Warning: migration 000013_create_auth_tables.up.sql: pq: relation "idx_users_email" already exists
+    mobile_integration_test.go:43: Warning: migration 000014_create_interview_tables.up.sql: pq: relation "idx_world_configs_interview" already exists
+    mobile_integration_test.go:43: Warning: migration 000016_add_character_description_occupation.up.sql: pq: column "description" of relation "characters" already exists
+    mobile_integration_test.go:43: Warning: migration 000019_add_username_to_users.up.sql: pq: column "username" of relation "users" already exists
+    mobile_integration_test.go:43: Warning: migration 000020_add_world_name_to_configurations.up.sql: pq: column "world_name" of relation "world_configurations" already exists
+=== RUN   TestMobileSDKIntegrationSuite/TestCompleteOnboardingFlow
+2025/12/07 15:54:30 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60691
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 1b4368f5-8333-4cba-8fda-9a7bc147e27e
+2025/12/07 15:54:30 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60691
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 1b4368f5-8333-4cba-8fda-9a7bc147e27e
+2025/12/07 15:54:30 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60691
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 1b4368f5-8333-4cba-8fda-9a7bc147e27e
+2025/12/07 15:54:30 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60691
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 1b4368f5-8333-4cba-8fda-9a7bc147e27e
+2025/12/07 15:54:30 [AUTH] Request: GET /api/game/characters from 127.0.0.1:60691
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 1b4368f5-8333-4cba-8fda-9a7bc147e27e
+2025/12/07 15:54:30 [AUTH] Request: POST /api/game/join from 127.0.0.1:60691
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 1b4368f5-8333-4cba-8fda-9a7bc147e27e
+    mobile_integration_test.go:188: ✓ Complete onboarding flow successful
+=== RUN   TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+2025/12/07 15:54:30 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60691
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 7c6fa1f0-a449-4ac5-ad56-8b011a4d476b
+2025/12/07 15:54:30 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60691
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 7c6fa1f0-a449-4ac5-ad56-8b011a4d476b
+2025/12/07 15:54:30 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60691
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 7c6fa1f0-a449-4ac5-ad56-8b011a4d476b
+2025/12/07 15:54:30 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60699
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user b630da77-69f4-49f7-8f27-3ffc4e8bde76
+2025/12/07 15:54:30 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60699
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user b630da77-69f4-49f7-8f27-3ffc4e8bde76
+2025/12/07 15:54:30 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60699
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user b630da77-69f4-49f7-8f27-3ffc4e8bde76
+2025/12/07 15:54:30 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60697
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 8b71bff4-3238-4146-a421-a66d2a03c2b7
+2025/12/07 15:54:30 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60697
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 8b71bff4-3238-4146-a421-a66d2a03c2b7
+2025/12/07 15:54:30 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60697
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 8b71bff4-3238-4146-a421-a66d2a03c2b7
+2025/12/07 15:54:30 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60697
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 2f7662bd-2b9d-409a-8ac1-eed2abbfb211
+2025/12/07 15:54:30 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60697
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 2f7662bd-2b9d-409a-8ac1-eed2abbfb211
+2025/12/07 15:54:30 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60697
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 2f7662bd-2b9d-409a-8ac1-eed2abbfb211
+2025/12/07 15:54:30 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60697
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 73a676df-4cc0-4622-9bce-75b0da02dd77
+2025/12/07 15:54:30 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60697
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 73a676df-4cc0-4622-9bce-75b0da02dd77
+2025/12/07 15:54:30 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60697
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 73a676df-4cc0-4622-9bce-75b0da02dd77
+2025/12/07 15:54:30 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60699
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 41ef2d6f-9ab8-4cb2-8646-9966cfcfa01c
+2025/12/07 15:54:30 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60699
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 41ef2d6f-9ab8-4cb2-8646-9966cfcfa01c
+2025/12/07 15:54:30 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60700
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 5b50e8c9-e038-4f09-8ee1-853c8419e4c0
+2025/12/07 15:54:30 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60699
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 41ef2d6f-9ab8-4cb2-8646-9966cfcfa01c
+2025/12/07 15:54:30 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60700
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 5b50e8c9-e038-4f09-8ee1-853c8419e4c0
+2025/12/07 15:54:30 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60700
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 5b50e8c9-e038-4f09-8ee1-853c8419e4c0
+2025/12/07 15:54:30 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60699
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user efb07429-d12c-421d-9f33-0970712bad3f
+2025/12/07 15:54:30 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60699
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user efb07429-d12c-421d-9f33-0970712bad3f
+2025/12/07 15:54:30 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60699
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user efb07429-d12c-421d-9f33-0970712bad3f
+2025/12/07 15:54:30 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60696
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user e419fda3-e237-4ac9-ac4d-1cbf6f4ea068
+2025/12/07 15:54:30 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60699
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user e419fda3-e237-4ac9-ac4d-1cbf6f4ea068
+2025/12/07 15:54:30 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60699
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user e419fda3-e237-4ac9-ac4d-1cbf6f4ea068
+2025/12/07 15:54:30 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60701
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 2dda366a-eea9-45ca-b021-fcdeb1665cef
+2025/12/07 15:54:30 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60699
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 2dda366a-eea9-45ca-b021-fcdeb1665cef
+2025/12/07 15:54:30 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60699
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 2dda366a-eea9-45ca-b021-fcdeb1665cef
+=== RUN   TestMobileSDKIntegrationSuite/TestInvalidCredentialsHandling
+2025/12/07 15:54:30 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60699
+2025/12/07 15:54:30 [AUTH] No token found in cookie, header, or query
+=== RUN   TestMobileSDKIntegrationSuite/TestMultipleCharactersInDifferentWorlds
+2025/12/07 15:54:30 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60699
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 3799021f-12d2-4420-9c95-307a0a55d9ac
+    mobile_integration_test.go:220: Created character 1: Hero-1bc036fb in world 89ac276c-c30b-42ec-85ac-28dcf00f67d7
+2025/12/07 15:54:30 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60699
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 3799021f-12d2-4420-9c95-307a0a55d9ac
+    mobile_integration_test.go:220: Created character 2: Hero-e6842893 in world 5f5995f7-1d4c-47ae-977f-e7954765b055
+2025/12/07 15:54:30 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60699
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 3799021f-12d2-4420-9c95-307a0a55d9ac
+    mobile_integration_test.go:220: Created character 3: Hero-43908900 in world 8257179f-b1d6-449d-89bb-df791e1fa85e
+2025/12/07 15:54:30 [AUTH] Request: GET /api/game/characters from 127.0.0.1:60699
+2025/12/07 15:54:30 [AUTH] Found Authorization header
+2025/12/07 15:54:30 [AUTH] Token validated for user 3799021f-12d2-4420-9c95-307a0a55d9ac
+=== RUN   TestMobileSDKIntegrationSuite/TestReturningPlayerGreeting
+2025/12/07 15:54:31 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60699
+2025/12/07 15:54:31 [AUTH] Found Authorization header
+2025/12/07 15:54:31 [AUTH] Token validated for user bf3d8b47-e203-454f-8f2a-732901a7295c
+2025/12/07 15:54:31 [AUTH] Request: POST /api/game/join from 127.0.0.1:60699
+2025/12/07 15:54:31 [AUTH] Found Authorization header
+2025/12/07 15:54:31 [AUTH] Token validated for user bf3d8b47-e203-454f-8f2a-732901a7295c
+2025/12/07 15:54:31 [AUTH] Request: POST /api/game/join from 127.0.0.1:60699
+2025/12/07 15:54:31 [AUTH] Found Authorization header
+2025/12/07 15:54:31 [AUTH] Token validated for user bf3d8b47-e203-454f-8f2a-732901a7295c
+=== RUN   TestMobileSDKIntegrationSuite/TestTokenPersistenceAcrossRequests
+2025/12/07 15:54:31 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60699
+2025/12/07 15:54:31 [AUTH] Found Authorization header
+2025/12/07 15:54:31 [AUTH] Token validated for user 641018c3-5f1d-459d-acf0-377d96fe20f1
+2025/12/07 15:54:31 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60699
+2025/12/07 15:54:31 [AUTH] Found Authorization header
+2025/12/07 15:54:31 [AUTH] Token validated for user 641018c3-5f1d-459d-acf0-377d96fe20f1
+2025/12/07 15:54:31 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60699
+2025/12/07 15:54:31 [AUTH] Found Authorization header
+2025/12/07 15:54:31 [AUTH] Token validated for user 641018c3-5f1d-459d-acf0-377d96fe20f1
+=== RUN   TestMobileSDKIntegrationSuite/TestWatcherCharacterCreation
+2025/12/07 15:54:31 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60699
+2025/12/07 15:54:31 [AUTH] Found Authorization header
+2025/12/07 15:54:31 [AUTH] Token validated for user 02797996-b397-4e73-839b-cfd54e3d12b2
+    mobile_integration_test.go:249: ✓ Watcher character created successfully
+--- PASS: TestMobileSDKIntegrationSuite (1.37s)
+    --- PASS: TestMobileSDKIntegrationSuite/TestCompleteOnboardingFlow (0.21s)
+    --- PASS: TestMobileSDKIntegrationSuite/TestConcurrentClientRequests (0.54s)
+    --- PASS: TestMobileSDKIntegrationSuite/TestInvalidCredentialsHandling (0.11s)
+    --- PASS: TestMobileSDKIntegrationSuite/TestMultipleCharactersInDifferentWorlds (0.11s)
+    --- PASS: TestMobileSDKIntegrationSuite/TestReturningPlayerGreeting (0.10s)
+    --- PASS: TestMobileSDKIntegrationSuite/TestTokenPersistenceAcrossRequests (0.10s)
+    --- PASS: TestMobileSDKIntegrationSuite/TestWatcherCharacterCreation (0.10s)
+PASS
+ok  	mud-platform-backend/internal/mobile	2.325s

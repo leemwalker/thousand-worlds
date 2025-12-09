@@ -20,20 +20,23 @@ type User struct {
 
 // Character represents a player character
 type Character struct {
-	CharacterID uuid.UUID  `json:"character_id"`
-	UserID      uuid.UUID  `json:"user_id"`
-	WorldID     uuid.UUID  `json:"world_id"`
-	Name        string     `json:"name"`
-	Role        string     `json:"role"`                 // player, watcher, admin
-	Appearance  string     `json:"appearance,omitempty"` // JSON string of appearance data
-	Description string     `json:"description,omitempty"`
-	Occupation  string     `json:"occupation,omitempty"`
-	Position    *Position  `json:"position,omitempty"` // Deprecated: use PositionX/Y/Z
-	PositionX   float64    `json:"position_x"`
-	PositionY   float64    `json:"position_y"`
-	PositionZ   float64    `json:"position_z"`
-	CreatedAt   time.Time  `json:"created_at"`
-	LastPlayed  *time.Time `json:"last_played,omitempty"`
+	CharacterID  uuid.UUID  `json:"character_id"`
+	UserID       uuid.UUID  `json:"user_id"`
+	WorldID      uuid.UUID  `json:"world_id"`
+	Name         string     `json:"name"`
+	Role         string     `json:"role"`                 // player, watcher, admin
+	Appearance   string     `json:"appearance,omitempty"` // JSON string of appearance data
+	Description  string     `json:"description,omitempty"`
+	Occupation   string     `json:"occupation,omitempty"`
+	Position     *Position  `json:"position,omitempty"` // Deprecated: use PositionX/Y/Z
+	PositionX    float64    `json:"position_x"`
+	PositionY    float64    `json:"position_y"`
+	PositionZ    float64    `json:"position_z"`
+	OrientationX float64    `json:"orientation_x"`
+	OrientationY float64    `json:"orientation_y"`
+	OrientationZ float64    `json:"orientation_z"`
+	CreatedAt    time.Time  `json:"created_at"`
+	LastPlayed   *time.Time `json:"last_played,omitempty"`
 }
 
 // Position represents geographic position

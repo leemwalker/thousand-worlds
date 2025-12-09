@@ -2,6 +2,8 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -9,15 +11,20 @@ import (
 	"mud-platform-backend/internal/auth"
 	"mud-platform-backend/internal/character"
 	"mud-platform-backend/internal/errors"
+	"mud-platform-backend/internal/lobby"
 	"mud-platform-backend/internal/validation"
 )
 
 type SessionHandler struct {
-	authRepo auth.Repository
+	authRepo    auth.Repository
+	lookService *lobby.LookService
 }
 
-func NewSessionHandler(authRepo auth.Repository) *SessionHandler {
-	return &SessionHandler{authRepo: authRepo}
+func NewSessionHandler(authRepo auth.Repository, lookService *lobby.LookService) *SessionHandler {
+	return &SessionHandler{
+		authRepo:    authRepo,
+		lookService: lookService,
+	}
 }
 
 // CreateCharacterRequest represents the request to create a new character
@@ -224,17 +231,35 @@ func (h *SessionHandler) JoinGame(w http.ResponseWriter, r *http.Request) {
 	// 2. Set character spawn position
 	// 3. Initialize game session
 	// Update user's LastWorldID
+	// Update user's LastWorldID
 	user, err := h.authRepo.GetUserByID(r.Context(), userID)
+	if err != nil {
+		// Should not happen as we have a valid token
+		log.Printf("Failed to get user for JoinGame: %v", err)
+	}
+
+	welcomeMsg := "Welcome back to Thousand Worlds"
+	if user != nil && user.LastWorldID == nil {
+		welcomeMsg = "Welcome to Thousand Worlds, we're excited you're here! If you need help at any point, type 'help' and 'help new' to get some pointers. Enjoy!"
+	}
+
 	if err == nil {
 		user.LastWorldID = &char.WorldID
 		// We ignore the error here as it's non-critical for gameplay
 		_ = h.authRepo.UpdateUser(r.Context(), user)
 	}
 
+	// Get initial view
+	viewDesc, err := h.lookService.DescribeRoom(r.Context(), char.WorldID, char)
+	if err != nil {
+		log.Printf("Failed to get initial view: %v", err)
+		viewDesc = "You have entered the world."
+	}
+
 	respondJSON(w, http.StatusOK, JoinGameResponse{
 		Character: char,
 		WorldID:   char.WorldID,
-		Message:   "Successfully joined world. Connect via WebSocket to begin playing.",
+		Message:   fmt.Sprintf("%s\n\n%s", welcomeMsg, viewDesc),
 	})
 }
 

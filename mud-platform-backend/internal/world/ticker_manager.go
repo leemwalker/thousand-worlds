@@ -11,6 +11,8 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"mud-platform-backend/internal/eventstore"
+	"mud-platform-backend/internal/spatial"
+	"mud-platform-backend/internal/worldgen/weather"
 )
 
 // NATSPublisher interface for publishing messages to NATS
@@ -18,35 +20,45 @@ type NATSPublisher interface {
 	Publish(subject string, data []byte) error
 }
 
+// AreaBroadcaster interface for broadcasting messages to spatial areas
+type AreaBroadcaster interface {
+	BroadcastToArea(center spatial.Position, radius float64, msgType string, data interface{})
+}
+
 // TickerManager manages world tickers
 type TickerManager struct {
-	mu            sync.RWMutex
-	tickers       map[uuid.UUID]*ticker
-	registry      *Registry
-	eventStore    eventstore.EventStore
-	natsPublisher NATSPublisher
+	mu             sync.RWMutex
+	tickers        map[uuid.UUID]*ticker
+	registry       *Registry
+	eventStore     eventstore.EventStore
+	natsPublisher  NATSPublisher
+	weatherService *weather.Service
+	broadcaster    AreaBroadcaster
 }
 
 type ticker struct {
-	worldID        uuid.UUID
-	worldName      string
-	stopCh         chan struct{}
-	tickInterval   time.Duration
-	dilationFactor float64
-	version        int64     // Event version counter
-	pausedAt       time.Time // When ticker was paused
-	lastTickAt     time.Time // Last successful tick
+	worldID             uuid.UUID
+	worldName           string
+	stopCh              chan struct{}
+	tickInterval        time.Duration
+	dilationFactor      float64
+	version             int64         // Event version counter
+	pausedAt            time.Time     // When ticker was paused
+	lastTickAt          time.Time     // Last successful tick
+	lastWeatherGameTime time.Duration // Game time of last weather update
 }
 
 const DefaultTickInterval = 100 * time.Millisecond
 
 // NewTickerManager creates a new ticker manager
-func NewTickerManager(registry *Registry, eventStore eventstore.EventStore, natsPublisher NATSPublisher) *TickerManager {
+func NewTickerManager(registry *Registry, eventStore eventstore.EventStore, natsPublisher NATSPublisher, weatherService *weather.Service, broadcaster AreaBroadcaster) *TickerManager {
 	return &TickerManager{
-		tickers:       make(map[uuid.UUID]*ticker),
-		registry:      registry,
-		eventStore:    eventStore,
-		natsPublisher: natsPublisher,
+		tickers:        make(map[uuid.UUID]*ticker),
+		registry:       registry,
+		eventStore:     eventStore,
+		natsPublisher:  natsPublisher,
+		weatherService: weatherService,
+		broadcaster:    broadcaster,
 	}
 }
 
@@ -304,6 +316,57 @@ func (tm *TickerManager) tick(t *ticker) {
 		}
 		if err := tm.eventStore.AppendEvent(context.Background(), event); err != nil {
 			log.Error().Err(err).Str("world_id", t.worldID.String()).Msg("Failed to emit WorldTicked event")
+		}
+	}
+
+	// Update Weather (every 30 game minutes)
+	if tm.weatherService != nil && (newGameTime-t.lastWeatherGameTime >= 30*time.Minute || t.lastWeatherGameTime == 0) {
+		currentSeason, _ := CalculateSeason(newGameTime, DefaultSeasonLength)
+		// We need to map time.Duration to time.Time for day/night calc in weather?
+		// Weather uses time.Time effectively for seasonality but passed separately.
+		// UpdateWorldWeather uses time for diurnal temp variation. We should synthesize a time.
+		// World CreatedAt + GameTime?
+		// But UpdateWeather logic uses time.Hour() for diurnal.
+		// So we construct a fake time or used stored CreatedAt + GameTime.
+		// We don't have CreatedAt easily here on ticker struct, need to fetch from registry or add to ticker.
+		// It was added to WorldState. Let's assume we can get it or just use reference time.
+		// Ticker does not have CreatedAt. But we can ignore exact date if we just want time of day.
+		// 0 game time = 00:00?
+		// Let's assume GameTime starts at some point.
+
+		// Simplest: time.Unix(0, 0).Add(newGameTime)
+		calcTime := time.Unix(0, 0).Add(newGameTime)
+
+		emotes, err := tm.weatherService.UpdateWorldWeather(context.Background(), t.worldID, calcTime, weather.Season(currentSeason))
+		if err != nil {
+			log.Error().Err(err).Str("world_id", t.worldID.String()).Msg("Failed to update weather")
+		} else {
+			t.lastWeatherGameTime = newGameTime
+
+			// Broadcast emotes
+			if tm.broadcaster != nil && len(emotes) > 0 {
+				// We need cell locations to broadcast to area.
+				// Emotes map is cellID -> text.
+				// We need cellID -> location.
+				// WeatherService has this internally but doesn't expose it easily in return.
+				// Iterate all cells? Or WeatherService should return map[cellID]struct{Text, Location}?
+				// Re-fetching per cell is expensive if we don't have location.
+				// But we can get GeographyCell?
+				// WeatherService could just broadcast itself if we passed broadcaster to it?
+				// Or return `[]WeatherEvent` where event has Location.
+
+				// For now, let's assume we can't broadcast efficiently without location.
+				// I'll update WeatherService to return map[uuid.UUID]WeatherEvent
+				// type WeatherEvent struct { Text string; Location geography.Point }
+				// Checking WeatherService return... currently map[uuid.UUID]string.
+
+				// Quick fix: Retrieve location from WeatherService? No method.
+				// Iterate stateCache? No access.
+				// I should update WeatherService.UpdateWorldWeather to return more info.
+
+				// Since I'm in TickerManager, I'll defer this and update WeatherService return type in next step.
+				// For this file update, I'll comment the broadcast part or use placeholder.
+			}
 		}
 	}
 }

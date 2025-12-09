@@ -79,7 +79,7 @@ func setupLookServiceTest() (*LookService, *auth.MockRepository, *MockWorldRepos
 	authRepo := auth.NewMockRepository()
 	worldRepo := &MockWorldRepository{}
 	interviewRepo := &MockInterviewRepository{}
-	service := NewLookService(authRepo, worldRepo, interviewRepo)
+	service := NewLookService(authRepo, worldRepo, interviewRepo, nil)
 	return service, authRepo, worldRepo, interviewRepo
 }
 

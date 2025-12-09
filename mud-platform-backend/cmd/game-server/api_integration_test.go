@@ -72,9 +72,10 @@ func (s *APIIntegrationSuite) SetupSuite() {
 	s.lobbySvc = lobby.NewService(s.authRepo)
 
 	// Create handlers with proper signatures
+	lookService := lobby.NewLookService(s.authRepo, worldRepo, interviewRepo, nil)
 	authHandler := api.NewAuthHandler(s.authService, nil, nil) // SessionManager and RateLimiter can be nil
 	interviewHandler := api.NewInterviewHandler(interviewSvc)
-	sessionHandler := api.NewSessionHandler(s.authRepo)
+	sessionHandler := api.NewSessionHandler(s.authRepo, lookService)
 	entryHandler := api.NewEntryHandler(s.entrySvc)
 	worldHandler := api.NewWorldHandler(worldRepo)
 

@@ -73,7 +73,7 @@ func TestComprehensiveIntegration(t *testing.T) {
 	authRepo := auth.NewMockRepository()
 	worldRepo := &MockWorldRepository{}
 	// Initialize game processor
-	lookService := lobby.NewLookService(authRepo, worldRepo, nil)
+	lookService := lobby.NewLookService(authRepo, worldRepo, nil, nil)
 	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
 	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, nil, spatialSvc)
 	hub := websocket.NewHub(gameProcessor)

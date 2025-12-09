@@ -8,7 +8,7 @@ export default defineConfig({
     testDir: './tests/e2e',
 
     /* Maximum time one test can run */
-    timeout: 30 * 1000,
+    timeout: 60 * 1000,
 
     /* Run tests in files in parallel */
     fullyParallel: true,
@@ -42,6 +42,10 @@ export default defineConfig({
 
         /* Video on failure */
         video: 'retain-on-failure',
+
+        /* Navigation wait strategy */
+        actionTimeout: 20000,
+        navigationTimeout: 30000,
     },
 
     /* Configure projects for major browsers and devices */

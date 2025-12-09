@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"mud-platform-backend/internal/auth"
 	"mud-platform-backend/internal/errors"
@@ -123,16 +124,16 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth_token",
 		Value:    token,
-		HttpOnly: true,                    // Prevents JavaScript access
-		Secure:   isSecureContext(r),      // HTTPS only in production
-		SameSite: http.SameSiteStrictMode, // CSRF protection
+		HttpOnly: true,                 // Prevents JavaScript access
+		Secure:   isSecureContext(r),   // HTTPS only in production
+		SameSite: http.SameSiteLaxMode, // CSRF protection (Lax allowed for nav)
 		Path:     "/",
 		MaxAge:   86400, // 24 hours (should match JWT expiration)
 	})
 
-	// Return user info only (no token in response)
+	// Return user info and token
 	respondJSON(w, http.StatusOK, LoginResponse{
-		Token: "", // Empty token field for backward compatibility
+		Token: token, // Return token for mobile/API clients
 		User:  user,
 	})
 }
@@ -149,8 +150,9 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"user_id": user.UserID,
-		"email":   user.Email,
+		"user_id":       user.UserID,
+		"email":         user.Email,
+		"last_world_id": user.LastWorldID,
 	})
 }
 
@@ -176,7 +178,8 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		Secure:   isSecureContext(r),
 		SameSite: http.SameSiteStrictMode,
 		Path:     "/",
-		MaxAge:   -1, // Delete cookie immediately
+		MaxAge:   -1,
+		Expires:  time.Unix(0, 0), // Explicitly expire for older clients
 	})
 
 	respondJSON(w, http.StatusOK, map[string]string{"message": "Logged out successfully"})
@@ -195,13 +198,17 @@ func respondError(w http.ResponseWriter, status int, message string) {
 
 // isSecureContext determines if the request is over HTTPS
 func isSecureContext(r *http.Request) bool {
-	// Check if request is HTTPS
-	if r.TLS != nil {
-		return true
-	}
-	// Check X-Forwarded-Proto header (for reverse proxies)
-	if r.Header.Get("X-Forwarded-Proto") == "https" {
-		return true
-	}
+	// FORCE INSECURE FOR DEBUGGING
 	return false
+	/*
+		// Check if request is HTTPS
+		if r.TLS != nil {
+			return true
+		}
+		// Check X-Forwarded-Proto header (for reverse proxies)
+		if r.Header.Get("X-Forwarded-Proto") == "https" {
+			return true
+		}
+		return false
+	*/
 }

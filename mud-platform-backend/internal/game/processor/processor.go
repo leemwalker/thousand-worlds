@@ -118,6 +118,10 @@ func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.Gam
 	case "down", "d":
 		return p.handleDirection(ctx, client, "down")
 
+	// Orientation
+	case "face":
+		return p.handleFace(ctx, client, cmd)
+
 	// Interaction
 	case "open":
 		return p.handleOpen(ctx, client, cmd)
@@ -196,6 +200,9 @@ func (p *GameProcessor) processLobbyCommand(ctx context.Context, client websocke
 	// Direction commands for moving in the lobby
 	case "n", "north", "s", "south", "e", "east", "w", "west":
 		return p.handleDirection(ctx, client, cmd.Action)
+	// Orientation
+	case "face":
+		return p.handleFace(ctx, client, cmd)
 	default:
 		client.SendGameMessage("error", "Unknown lobby command. Type 'help' for available commands.", nil)
 		return nil
@@ -328,8 +335,8 @@ func (p *GameProcessor) handleLobbyEnter(ctx context.Context, client websocket.G
 
 	// Trigger entry options on client
 	// The client will then fetch entry options and show the modal
-	client.SendGameMessage("trigger_entry_options", worldIDStr, map[string]interface{}{
-		"world_id": worldIDStr,
+	client.SendGameMessage("trigger_entry_options", worldID.String(), map[string]interface{}{
+		"world_id": worldID.String(),
 	})
 	return nil
 }
@@ -624,7 +631,8 @@ func (p *GameProcessor) handleTell(ctx context.Context, client websocket.GameCli
 			if isComplete {
 				log.Printf("[STATUE] Interview complete for user %s", userID)
 				// Interview complete
-				response := fmt.Sprintf("The statue's eyes shine with approval.\n\n%s\n\nYour world is being forged. You may now enter it using 'enter <world_name>'.", nextQuestion)
+				// The service now includes the enter instruction in the response
+				response := fmt.Sprintf("The statue's eyes shine with approval.\n\n%s", nextQuestion)
 				client.SendGameMessage("tell", response, map[string]interface{}{
 					"sender_name": "Statue",
 					"completed":   true,
@@ -721,8 +729,15 @@ func (p *GameProcessor) handleLook(ctx context.Context, client websocket.GameCli
 	charID := client.GetCharacterID()
 	worldID := client.GetWorldID()
 
+	// Fetch character to get position data
+	char, err := p.authRepo.GetCharacter(ctx, charID)
+	if err != nil {
+		log.Printf("[PROCESSOR] Failed to get character for look: %v", err)
+		return err
+	}
+
 	// Get dynamic room description from LookService
-	description, err := p.lookService.DescribeRoom(ctx, worldID)
+	description, err := p.lookService.DescribeRoom(ctx, worldID, char)
 	if err != nil {
 		log.Printf("[PROCESSOR] Failed to describe room: %v", err)
 		description = "You are in a mysterious place. The mist conceals everything."
@@ -931,9 +946,30 @@ func (p *GameProcessor) handleWatcher(ctx context.Context, client websocket.Game
 		return errors.New("missing world ID")
 	}
 
+	// Try UUID parse first
 	worldID, err := uuid.Parse(*cmd.Target)
 	if err != nil {
-		return fmt.Errorf("invalid world ID: %w", err)
+		// Not a UUID, try to find world by name
+		targetName := strings.ToLower(strings.TrimSpace(*cmd.Target))
+		worlds, errList := p.worldRepo.ListWorlds(ctx)
+		if errList != nil {
+			client.SendGameMessage("error", "Failed to search for world.", nil)
+			return nil
+		}
+
+		var foundWorld *repository.World
+		for _, w := range worlds {
+			if strings.ToLower(w.Name) == targetName {
+				foundWorld = &w
+				break
+			}
+		}
+
+		if foundWorld != nil {
+			worldID = foundWorld.ID
+		} else {
+			return fmt.Errorf("invalid world ID or name: %w", err)
+		}
 	}
 
 	userID := client.GetUserID()

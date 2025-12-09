@@ -33,32 +33,7 @@ VERBOSE="${VERBOSE:-false}"
 # Logging configuration
 LOG_DIR="${LOG_DIR:-./logs}"
 BACKEND_LOG="${LOG_DIR}/backend.log"
-FRONTEND_LOG="${LOG_DIR}/frontend.log}"
-
-# === ENVIRONMENT VARIABLE LOADING ===
-# Load .env file if it exists (for local development)
-if [ -f .env ]; then
-    print_verbose "Loading environment from .env file"
-    set -a  # automatically export all variables
-    source .env
-    set +a
-fi
-
-# === VALIDATE REQUIRED SECRETS ===
-if [ -z "$JWT_SECRET" ] || [ -z "$POSTGRES_PASSWORD" ]; then
-    print_error "Required environment variables not set!"
-    echo ""
-    echo "The following environment variables must be set:"
-    echo "  - JWT_SECRET (generate with: openssl rand -hex 32)"
-    echo "  - POSTGRES_PASSWORD (generate with: openssl rand -hex 16)"
-    echo ""
-    echo "Create a .env file or export these variables."
-    echo "See .env.example for reference."
-    exit 1
-fi
-
-# Database configuration
-DATABASE_URL="${DATABASE_URL:-postgresql://admin:${POSTGRES_PASSWORD}@localhost:5432/mud_core?sslmode=disable}"
+FRONTEND_LOG="${LOG_DIR}/frontend.log"
 
 #============================================================
 # Colors for Output
@@ -68,12 +43,6 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
-
-#============================================================
-# Process Tracking
-#============================================================
-declare -a BG_PIDS=()
-CLEANUP_IN_PROGRESS=false
 
 #============================================================
 # Logging Functions
@@ -116,6 +85,48 @@ print_verbose() {
         log_message "VERBOSE" "$1"
     fi
 }
+
+# === ENVIRONMENT VARIABLE LOADING ===
+# Load .env file if it exists (for local development)
+if [ -f .env ]; then
+    print_verbose "Loading environment from .env file"
+    set -a  # automatically export all variables
+    source .env
+    set +a
+fi
+
+# === VALIDATE REQUIRED SECRETS ===
+if [ -z "$JWT_SECRET" ] || [ -z "$POSTGRES_PASSWORD" ]; then
+    print_error "Required environment variables not set!"
+    echo ""
+    echo "The following environment variables must be set:"
+    echo "  - JWT_SECRET (generate with: openssl rand -hex 32)"
+    echo "  - POSTGRES_PASSWORD (generate with: openssl rand -hex 16)"
+    echo ""
+    echo "Create a .env file or export these variables."
+    echo "See .env.example for reference."
+    exit 1
+fi
+
+# Database configuration
+export POSTGRES_PASSWORD  # Ensure this is exported to subshells
+export DATABASE_URL="${DATABASE_URL:-postgresql://admin:${POSTGRES_PASSWORD}@localhost:5432/mud_core?sslmode=disable}"
+
+# Normalize Docker Compose command (v1 vs v2)
+get_docker_compose_cmd() {
+    if command -v docker-compose &> /dev/null; then
+        echo "docker-compose"
+    elif docker compose version &> /dev/null 2>&1; then
+        echo "docker compose"
+    else
+        print_error "Neither 'docker-compose' nor 'docker compose' found"
+        exit 1
+    fi
+}
+
+DOCKER_COMPOSE_CMD=$(get_docker_compose_cmd)
+declare -a BG_PIDS=()
+CLEANUP_IN_PROGRESS=false
 
 #============================================================
 # Error Handler
@@ -262,14 +273,13 @@ handle_stop() {
     (cd "$BACKEND_DIR" && $DOCKER_COMPOSE_CMD -f deploy/docker-compose.yml down)
     
     print_status "All services stopped"
-    exit 0
 }
 
 handle_restart() {
     print_status "Restarting all services..."
     handle_stop
     # After stop, re-run start command
-    exec "$0" start "${@}"
+    exec "$0" start
 }
 
 handle_status() {
@@ -349,6 +359,7 @@ handle_logs() {
 case "$COMMAND" in
     stop)
         handle_stop
+        exit 0
         ;;
     restart)
         handle_restart
@@ -383,20 +394,6 @@ get_local_ip() {
         hostname -I | awk '{print $1}' || echo "localhost"
     fi
 }
-
-# Normalize Docker Compose command (v1 vs v2)
-get_docker_compose_cmd() {
-    if command -v docker-compose &> /dev/null; then
-        echo "docker-compose"
-    elif docker compose version &> /dev/null 2>&1; then
-        echo "docker compose"
-    else
-        print_error "Neither 'docker-compose' nor 'docker compose' found"
-        exit 1
-    fi
-}
-
-DOCKER_COMPOSE_CMD=$(get_docker_compose_cmd)
 
 # Get container name dynamically
 get_container_name() {
@@ -543,17 +540,27 @@ cleanup() {
             kill -TERM $pid 2>/dev/null || true
         fi
     done
+    if [ ${#BG_PIDS[@]} -gt 0 ]; then
+        for pid in "${BG_PIDS[@]}"; do
+            if kill -0 $pid 2>/dev/null; then
+                print_verbose "Sending SIGTERM to PID $pid"
+                kill -TERM $pid 2>/dev/null || true
+            fi
+        done
+    fi
     
     # Wait up to 10 seconds for graceful shutdown
     local timeout=10
     while [ $timeout -gt 0 ]; do
         local all_stopped=true
-        for pid in "${BG_PIDS[@]}"; do
-            if kill -0 $pid 2>/dev/null; then
-                all_stopped=false
-                break
-            fi
-        done
+        if [ ${#BG_PIDS[@]} -gt 0 ]; then
+            for pid in "${BG_PIDS[@]}"; do
+                if kill -0 "$pid" 2>/dev/null; then
+                    all_stopped=false
+                    break
+                fi
+            done
+        fi
         
         if [ "$all_stopped" = true ]; then
             break

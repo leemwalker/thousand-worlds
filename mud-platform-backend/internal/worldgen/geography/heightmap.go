@@ -42,6 +42,9 @@ func GenerateHeightmap(width, height int, plates []TectonicPlate, seed int64) *H
 		hm.Elevations[i] += tectonicMods.Elevations[i]
 	}
 
+	// 2a. Apply Volcanic Hotspots
+	ApplyHotspots(hm, plates, seed)
+
 	// 3. Apply Noise for variation
 	// Scale noise to be significant but not overwhelming
 	// Frequency 0.05 for broad features, 0.1 for detail
@@ -57,6 +60,15 @@ func GenerateHeightmap(width, height int, plates []TectonicPlate, seed int64) *H
 			hm.Set(x, y, current+variation)
 		}
 	}
+
+	// 4. Advanced Erosion
+	// Thermal erosion to stabilize slopes
+	ApplyThermalErosion(hm, 5, seed) // 5 iterations
+
+	// Hydraulic erosion for river channels
+	// Drops proportional to area
+	numDrops := width * height * 5
+	ApplyHydraulicErosion(hm, numDrops, seed)
 
 	// 4. Smooth (Gaussian blur approximation)
 	// Simple box blur for performance

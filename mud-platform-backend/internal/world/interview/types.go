@@ -65,7 +65,7 @@ type WorldConfiguration struct {
 	MajorConflicts []string
 
 	// Tech Level
-	TechLevel    string // "stone_age", "medieval", "industrial", "modern", "futuristic", "mixed"
+	TechLevel    string // "stone_age", "medieval", "industrial", "modern", "futur", "mixed"
 	MagicLevel   string // "none", "rare", "common", "dominant"
 	AdvancedTech string
 	MagicImpact  string
@@ -91,6 +91,17 @@ type WorldConfiguration struct {
 	SpeciesStartAttributes map[string]interface{}
 
 	CreatedAt time.Time
+}
+
+// Getter methods to implement orchestrator.WorldConfig interface
+func (w *WorldConfiguration) GetPlanetSize() string        { return w.PlanetSize }
+func (w *WorldConfiguration) GetLandWaterRatio() string    { return w.LandWaterRatio }
+func (w *WorldConfiguration) GetClimateRange() string      { return w.ClimateRange }
+func (w *WorldConfiguration) GetTechLevel() string         { return w.TechLevel }
+func (w *WorldConfiguration) GetMagicLevel() string        { return w.MagicLevel }
+func (w *WorldConfiguration) GetSentientSpecies() []string { return w.SentientSpecies }
+func (w *WorldConfiguration) GetResourceDistribution() map[string]float64 {
+	return w.ResourceDistribution
 }
 
 // Status represents the state of an interview

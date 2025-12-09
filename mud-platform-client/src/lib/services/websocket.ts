@@ -41,9 +41,9 @@ export class GameWebSocket {
         }
 
         // Use the same host that served the page, but with ws:// protocol
-        // This works for both localhost development and mobile access via LAN IP
+        // This works for both localhost development (via Vite proxy) and production
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.hostname + ':8080'; // Backend always on 8080
+        const host = window.location.host; // Use current host (e.g. localhost:5173)
         let wsUrl = `${protocol}//${host}/api/game/ws`; // Cookie sent automatically!
 
         if (this.currentCharacterId) {
@@ -67,11 +67,24 @@ export class GameWebSocket {
 
             this.ws.onmessage = (event) => {
                 try {
-                    const message: ServerMessage = JSON.parse(event.data);
-                    console.log('[WebSocket] Message received:', message);
-                    this.handleMessage(message);
+                    // Check if data contains multiple JSON objects (concatenated or newline separated)
+                    const rawData = event.data.toString();
+
+                    // Split by newline if present
+                    const parts = rawData.split('\n').filter((p: string) => p.trim() !== '');
+
+                    for (const part of parts) {
+                        try {
+                            const message: ServerMessage = JSON.parse(part);
+                            console.log('[WebSocket] Message received:', message);
+                            this.handleMessage(message);
+                        } catch (e) {
+                            console.error('[WebSocket] Failed to parse message part:', e);
+                        }
+                    }
                 } catch (error) {
-                    console.error('[WebSocket] Failed to parse message:', error);
+                    console.error('[WebSocket] Failed to process message:', error);
+                    console.log('[WebSocket] Raw data:', event.data);
                 }
             };
 

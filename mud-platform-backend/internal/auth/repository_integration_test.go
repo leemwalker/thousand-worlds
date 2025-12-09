@@ -81,6 +81,8 @@ func (s *RepositoryIntegrationSuite) runMigrations() {
 		"000016_add_character_description_occupation.up.sql",
 		"000019_add_username_to_users.up.sql",
 		"000021_add_last_world_id_to_users.up.sql",
+		"000026_add_spatial_navigation_tables.up.sql",
+		"000028_add_character_orientation.up.sql",
 	}
 
 	for _, file := range files {
@@ -373,6 +375,52 @@ func (s *RepositoryIntegrationSuite) TestCharacterNotFound() {
 	s.Error(err)
 	s.Nil(char)
 	s.Equal(auth.ErrCharacterNotFound, err)
+}
+
+// TestCharacterOrientation tests persistence of orientation fields
+func (s *RepositoryIntegrationSuite) TestCharacterOrientation() {
+	ctx := context.Background()
+	user := s.createTestUser()
+
+	// properties
+	orientationX := 0.707
+	orientationY := 0.707
+	orientationZ := 0.0
+
+	char := &auth.Character{
+		CharacterID:  uuid.New(),
+		UserID:       user.UserID,
+		WorldID:      s.createTestWorld(),
+		Name:         "OrientationTest",
+		Role:         "player",
+		OrientationX: orientationX,
+		OrientationY: orientationY,
+		OrientationZ: orientationZ,
+		CreatedAt:    time.Now(),
+	}
+
+	err := s.repo.CreateCharacter(ctx, char)
+	s.NoError(err)
+
+	// Retrieve
+	retrieved, err := s.repo.GetCharacter(ctx, char.CharacterID)
+	s.NoError(err)
+	s.InDelta(orientationX, retrieved.OrientationX, 0.0001)
+	s.InDelta(orientationY, retrieved.OrientationY, 0.0001)
+	s.InDelta(orientationZ, retrieved.OrientationZ, 0.0001)
+
+	// Update
+	newX, newY := 0.0, -1.0
+	retrieved.OrientationX = newX
+	retrieved.OrientationY = newY
+	err = s.repo.UpdateCharacter(ctx, retrieved)
+	s.NoError(err)
+
+	// Verify Update
+	updated, err := s.repo.GetCharacter(ctx, char.CharacterID)
+	s.NoError(err)
+	s.InDelta(newX, updated.OrientationX, 0.0001)
+	s.InDelta(newY, updated.OrientationY, 0.0001)
 }
 
 // TestRunRepositoryIntegrationSuite runs the integration test suite

@@ -25,7 +25,10 @@ func TestCalculateNewPosition(t *testing.T) {
 		{"West", 0, 0, 0, West, 1.0, -1.0, 0, 0, false},
 		{"Up", 0, 0, 0, Up, 1.0, 0, 0, 1.0, false},
 		{"Down", 0, 0, 0, Down, 1.0, 0, 0, -1.0, false},
-		{"NorthEast", 0, 0, 0, NorthEast, 1.0, 0.707, 0.707, 0, false},
+		{"NorthEast", 0, 0, 0, NorthEast, 1.0, 1.0, 1.0, 0, false},
+		{"NorthWest", 0, 0, 0, NorthWest, 1.0, -1.0, 1.0, 0, false},
+		{"SouthEast", 0, 0, 0, SouthEast, 1.0, 1.0, -1.0, 0, false},
+		{"SouthWest", 0, 0, 0, SouthWest, 1.0, -1.0, -1.0, 0, false},
 		{"Invalid", 0, 0, 0, "INVALID", 1.0, 0, 0, 0, true},
 	}
 

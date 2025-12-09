@@ -1,17 +1,38 @@
 <script lang="ts">
-    import { afterUpdate } from "svelte";
+    import { onMount, onDestroy, tick } from "svelte";
     import { gameOutput } from "$lib/stores/ui";
     import { OutputFormatter } from "./OutputFormatter";
     import FormattedText from "./FormattedText.svelte";
 
     const formatter = new OutputFormatter();
     let container: HTMLDivElement;
+    let resizeObserver: ResizeObserver;
 
-    // Auto-scroll to bottom
-    afterUpdate(() => {
+    const scrollToBottom = async () => {
+        if (!container) return;
+        await tick();
+        // Use instant scroll for terminal feel
+        container.scrollTo({ top: container.scrollHeight, behavior: "auto" });
+        // Direct assignment fallback
+        container.scrollTop = container.scrollHeight;
+    };
+
+    // Auto-scroll on new messages
+    $: if ($gameOutput) {
+        scrollToBottom();
+    }
+
+    onMount(() => {
         if (container) {
-            container.scrollTop = container.scrollHeight;
+            resizeObserver = new ResizeObserver(() => {
+                scrollToBottom();
+            });
+            resizeObserver.observe(container);
         }
+    });
+
+    onDestroy(() => {
+        if (resizeObserver) resizeObserver.disconnect();
     });
 </script>
 
@@ -25,7 +46,7 @@
 
     {#if $gameOutput.length === 0}
         <div class="text-gray-600 italic text-center mt-10">
-            Welcome to Thousand Worlds. Type a command to begin.
+            <!-- Waiting for server message... -->
         </div>
     {/if}
 </div>

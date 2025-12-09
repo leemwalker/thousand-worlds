@@ -7,6 +7,7 @@ export interface User {
     email: string;
     created_at: string;
     last_login?: string;
+    last_world_id?: string;
 }
 
 export interface LoginResponse {
@@ -84,7 +85,7 @@ export class GameAPI {
         }
     }
 
-    async getMe(): Promise<{ user_id: string }> {
+    async getMe(): Promise<User> {
         const response = await fetch(`${API_URL}/auth/me`, {
             credentials: 'include', // Send cookies for authentication
         });
@@ -102,6 +103,34 @@ export class GameAPI {
             method: 'POST',
             credentials: 'include',
         }).catch(err => console.error('Logout error:', err));
+    }
+    async getCharacters(): Promise<{ characters: any[] }> {
+        const response = await fetch(`${API_URL}/game/characters`, {
+            credentials: 'include',
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch characters');
+        }
+        return response.json();
+    }
+
+    async getSkills(characterId: string): Promise<{ skills: Record<string, any> }> {
+        // Use relative URL for client-side fetch (proxied by Vite)
+        const response = await fetch(`${API_URL}/game/skills?character_id=${characterId}`, {
+            credentials: 'include',
+        });
+
+        if (!response.ok) {
+            // Fallback for TDD until backend exists: return mock if 404
+            if (response.status === 404) {
+                console.warn("Skills endpoint not found, returning empty skills");
+                // We could throw, but for now let's throw so the test mock handles it
+                // Actually, if we mock the route in Playwright, response DO come back ok.
+            }
+            throw new Error('Failed to fetch skills');
+        }
+        return response.json();
     }
 }
 

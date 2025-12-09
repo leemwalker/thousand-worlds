@@ -43,7 +43,7 @@ func (s *MobileSDKIntegrationSuite) SetupSuite() {
 	testutil.RunMigrations(s.T(), s.db)
 
 	// Create pgxpool
-	dbURL := "postgres://admin:password123@localhost:5432/mud_core?sslmode=disable"
+	dbURL := "postgres://admin:test_password_123456@localhost:5432/mud_core?sslmode=disable"
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	s.Require().NoError(err)
 	s.pool = pool
@@ -64,7 +64,7 @@ func (s *MobileSDKIntegrationSuite) SetupSuite() {
 	lobbySvc := lobby.NewService(authRepo)
 
 	// Services
-	lookService := lobby.NewLookService(authRepo, worldRepo, nil)
+	lookService := lobby.NewLookService(authRepo, worldRepo, interviewRepo, nil)
 	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
 	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, nil, spatialSvc) // nil lookService and interviewService for test
 	hub := gameWS.NewHub(gameProcessor)
@@ -72,7 +72,7 @@ func (s *MobileSDKIntegrationSuite) SetupSuite() {
 
 	// Create handlers
 	authHandler := api.NewAuthHandler(s.authService, nil, nil)
-	sessionHandler := api.NewSessionHandler(authRepo)
+	sessionHandler := api.NewSessionHandler(authRepo, lookService)
 	entryHandler := api.NewEntryHandler(entrySvc)
 	worldHandler := api.NewWorldHandler(worldRepo)
 	descGen := lobby.NewDescriptionGenerator(worldRepo, authRepo)
@@ -183,7 +183,7 @@ func (s *MobileSDKIntegrationSuite) TestCompleteOnboardingFlow() {
 	joinResp, err := s.client.JoinGame(ctx, char.CharacterID)
 	s.Require().NoError(err)
 	s.Equal(worldID.String(), joinResp.WorldID)
-	s.Contains(joinResp.Message, "joined")
+	s.Contains(joinResp.Message, "Welcome")
 
 	s.T().Log("✓ Complete onboarding flow successful")
 }
@@ -247,6 +247,41 @@ func (s *MobileSDKIntegrationSuite) TestWatcherCharacterCreation() {
 	s.Require().NoError(err)
 	s.Equal("watcher", char.Role)
 	s.T().Log("✓ Watcher character created successfully")
+}
+
+// TestReturningPlayerGreeting tests the welcome message for returning players
+func (s *MobileSDKIntegrationSuite) TestReturningPlayerGreeting() {
+	ctx := context.Background()
+
+	// 1. Register and Login
+	email := testutil.GenerateTestEmail()
+	_, err := s.client.Register(ctx, email, "ReturningPlayer", "Password123")
+	s.Require().NoError(err)
+
+	_, err = s.client.Login(ctx, email, "Password123")
+	s.Require().NoError(err)
+
+	// 2. Create World and Character
+	worldID := testutil.CreateTestWorld(s.T(), s.db)
+	charReq := &mobile.CreateCharacterRequest{
+		WorldID: worldID.String(),
+		Name:    "Returnee",
+		Species: "Human",
+	}
+	char, err := s.client.CreateCharacter(ctx, charReq)
+	s.Require().NoError(err)
+
+	// 3. Join Game (First time -> New Player Message)
+	joinResp, err := s.client.JoinGame(ctx, char.CharacterID)
+	s.Require().NoError(err)
+	s.Contains(joinResp.Message, "Welcome to Thousand Worlds", "Should receive new player welcome message")
+
+	// 4. Join Game AGAIN (Returning -> Welcome Back Message)
+	// We simulate a re-join. For the purpose of this test, calling JoinGame again is sufficient
+	// as the first JoinGame should have set LastWorldID.
+	joinResp2, err := s.client.JoinGame(ctx, char.CharacterID)
+	s.Require().NoError(err)
+	s.Contains(joinResp2.Message, "Welcome back", "Should receive returning player welcome message")
 }
 
 // TestTokenPersistenceAcrossRequests tests that the token persists

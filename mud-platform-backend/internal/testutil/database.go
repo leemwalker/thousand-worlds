@@ -17,7 +17,7 @@ func SetupTestDB(t *testing.T) *sql.DB {
 	dbURL := os.Getenv("TEST_DATABASE_URL")
 	if dbURL == "" {
 		// Default to local test database
-		dbURL = "postgres://admin:password123@localhost:5432/mud_core?sslmode=disable"
+		dbURL = "postgres://admin:test_password_123456@localhost:5432/mud_core?sslmode=disable"
 	}
 
 	db, err := sql.Open("postgres", dbURL)

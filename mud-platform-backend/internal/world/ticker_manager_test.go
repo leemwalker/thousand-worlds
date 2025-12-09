@@ -10,6 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"mud-platform-backend/internal/eventstore"
+	"mud-platform-backend/internal/spatial"
+	"mud-platform-backend/internal/worldgen/geography"
+	"mud-platform-backend/internal/worldgen/weather"
+
+	"github.com/stretchr/testify/mock"
 )
 
 // MockEventStore for testing
@@ -37,7 +42,7 @@ func (m *MockEventStore) GetAllEvents(ctx context.Context, fromTimestamp time.Ti
 func TestTickerManager_SpawnTicker(t *testing.T) {
 	registry := NewRegistry()
 	eventStore := &MockEventStore{}
-	tm := NewTickerManager(registry, eventStore, nil)
+	tm := NewTickerManager(registry, eventStore, nil, nil, nil)
 	defer tm.StopAll()
 
 	worldID := uuid.New()
@@ -55,7 +60,7 @@ func TestTickerManager_SpawnTicker(t *testing.T) {
 func TestTickerManager_SpawnTicker_AlreadyRunning(t *testing.T) {
 	registry := NewRegistry()
 	eventStore := &MockEventStore{}
-	tm := NewTickerManager(registry, eventStore, nil)
+	tm := NewTickerManager(registry, eventStore, nil, nil, nil)
 	defer tm.StopAll()
 
 	worldID := uuid.New()
@@ -71,7 +76,7 @@ func TestTickerManager_SpawnTicker_AlreadyRunning(t *testing.T) {
 func TestTickerManager_StopTicker(t *testing.T) {
 	registry := NewRegistry()
 	eventStore := &MockEventStore{}
-	tm := NewTickerManager(registry, eventStore, nil)
+	tm := NewTickerManager(registry, eventStore, nil, nil, nil)
 	defer tm.StopAll()
 
 	worldID := uuid.New()
@@ -91,7 +96,7 @@ func TestTickerManager_StopTicker(t *testing.T) {
 func TestTickerManager_StopTicker_NotRunning(t *testing.T) {
 	registry := NewRegistry()
 	eventStore := &MockEventStore{}
-	tm := NewTickerManager(registry, eventStore, nil)
+	tm := NewTickerManager(registry, eventStore, nil, nil, nil)
 
 	nonExistentID := uuid.New()
 
@@ -102,7 +107,7 @@ func TestTickerManager_StopTicker_NotRunning(t *testing.T) {
 func TestTickerManager_GetTickerStatus(t *testing.T) {
 	registry := NewRegistry()
 	eventStore := &MockEventStore{}
-	tm := NewTickerManager(registry, eventStore, nil)
+	tm := NewTickerManager(registry, eventStore, nil, nil, nil)
 	defer tm.StopAll()
 
 	worldID := uuid.New()
@@ -124,7 +129,7 @@ func TestTickerManager_GetTickerStatus(t *testing.T) {
 func TestTickerManager_TickerEmitsEvents(t *testing.T) {
 	registry := NewRegistry()
 	eventStore := &MockEventStore{}
-	tm := NewTickerManager(registry, eventStore, nil)
+	tm := NewTickerManager(registry, eventStore, nil, nil, nil)
 	defer tm.StopAll()
 
 	worldID := uuid.New()
@@ -161,7 +166,7 @@ func TestTickerManager_TickerEmitsEvents(t *testing.T) {
 func TestTickerManager_TickProgression(t *testing.T) {
 	registry := NewRegistry()
 	eventStore := &MockEventStore{}
-	tm := NewTickerManager(registry, eventStore, nil)
+	tm := NewTickerManager(registry, eventStore, nil, nil, nil)
 	defer tm.StopAll()
 
 	worldID := uuid.New()
@@ -187,7 +192,7 @@ func TestTickerManager_TickProgression(t *testing.T) {
 func TestTickerManager_DilationFactor(t *testing.T) {
 	registry := NewRegistry()
 	eventStore := &MockEventStore{}
-	tm := NewTickerManager(registry, eventStore, nil)
+	tm := NewTickerManager(registry, eventStore, nil, nil, nil)
 	defer tm.StopAll()
 
 	worldID := uuid.New()
@@ -212,7 +217,7 @@ func TestTickerManager_DilationFactor(t *testing.T) {
 func TestTickerManager_StopAll(t *testing.T) {
 	registry := NewRegistry()
 	eventStore := &MockEventStore{}
-	tm := NewTickerManager(registry, eventStore, nil)
+	tm := NewTickerManager(registry, eventStore, nil, nil, nil)
 
 	// Spawn multiple tickers
 	world1 := uuid.New()
@@ -239,4 +244,97 @@ func TestTickerManager_StopAll(t *testing.T) {
 	running3, _, _ = tm.GetTickerStatus(world3)
 
 	assert.False(t, running1 || running2 || running3, "All tickers should be stopped")
+}
+
+// MockWeatherRepository
+type MockWeatherRepository struct {
+	mock.Mock
+}
+
+func (m *MockWeatherRepository) SaveWeatherState(ctx context.Context, state *weather.WeatherState) error {
+	args := m.Called(ctx, state)
+	return args.Error(0)
+}
+
+func (m *MockWeatherRepository) GetWeatherState(ctx context.Context, cellID uuid.UUID, timestamp int64) (*weather.WeatherState, error) {
+	args := m.Called(ctx, cellID, timestamp)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*weather.WeatherState), args.Error(1)
+}
+
+func (m *MockWeatherRepository) GetWeatherHistory(ctx context.Context, cellID uuid.UUID, limit int) ([]*weather.WeatherState, error) {
+	args := m.Called(ctx, cellID, limit)
+	return args.Get(0).([]*weather.WeatherState), args.Error(1)
+}
+
+func (m *MockWeatherRepository) GetAnnualPrecipitation(ctx context.Context, cellID uuid.UUID, year int) (float64, error) {
+	args := m.Called(ctx, cellID, year)
+	return args.Get(0).(float64), args.Error(1)
+}
+
+// MockAreaBroadcaster
+type MockAreaBroadcaster struct {
+	mock.Mock
+}
+
+func (m *MockAreaBroadcaster) BroadcastToArea(center spatial.Position, radius float64, msgType string, data interface{}) {
+	m.Called(center, radius, msgType, data)
+}
+
+func TestTickerManager_WeatherIntegration(t *testing.T) {
+	registry := NewRegistry()
+	eventStore := &MockEventStore{}
+	weatherRepo := &MockWeatherRepository{}
+	weatherService := weather.NewService(weatherRepo)
+	broadcaster := &MockAreaBroadcaster{}
+
+	tm := NewTickerManager(registry, eventStore, nil, weatherService, broadcaster)
+	defer tm.StopAll()
+
+	worldID := uuid.New()
+
+	// Prepare minimal geography for weather service
+	cellID := uuid.New()
+	cells := []*weather.GeographyCell{
+		{CellID: cellID, Location: geography.Point{X: 0, Y: 0}, Elevation: 100, Temperature: 20},
+	}
+	weatherStates := []*weather.WeatherState{
+		{CellID: cellID, State: weather.WeatherClear, Temperature: 20, Timestamp: time.Now()},
+	}
+
+	// Initialize weather service cache
+	weatherService.InitializeWorldWeather(context.Background(), worldID, weatherStates, cells)
+
+	// Expect SaveWeatherState to be called eventually
+	weatherRepo.On("SaveWeatherState", mock.Anything, mock.Anything).Return(nil)
+
+	// Spawn ticker with high dilation to trigger update quickly
+	// Default weather update interval is 30 game minutes.
+	// At 100x dilation, 30 game minutes = 1800s game time = 18s real time.
+	// Too slow.
+	// We need 30 game minutes.
+	// If we want it in < 1s.
+	// 30 min = 1800s.
+	// 1800s / 0.5s = 3600 dilation.
+	dilationFactor := 3600.0
+
+	err := tm.SpawnTicker(worldID, "Weather World", dilationFactor)
+	require.NoError(t, err)
+
+	// Wait for a few ticks to cover 30 game minutes
+	time.Sleep(600 * time.Millisecond) // Should be enough for > 30 min game time
+
+	// Assert weather updated
+	// Since we mock SaveWeatherState, we can check if it was called
+	// It might be called multiple times depending on how much game time passes
+	// But at least once.
+
+	// We use Eventually because it happens in goroutine
+	assert.Eventually(t, func() bool {
+		return len(weatherRepo.Calls) > 0
+	}, 2*time.Second, 100*time.Millisecond, "Should have triggered weather update")
+
+	tm.StopTicker(worldID)
 }

@@ -56,46 +56,129 @@ func (s *SpatialService) HandleMovementCommand(ctx context.Context, charID uuid.
 		return "Invalid direction. Use north, south, east, or west.", nil
 	}
 
-	// 4. Calculate New Position based on World Type
-	newX, newY := char.PositionX, char.PositionY
-	message := fmt.Sprintf("You move %s.", dirName)
-
-	// Check if Lobby
-	// Assuming Lobby has a specific ID or Name or Shape?
-	// Prompt says "Lobby has special world_id" in example struct, but in DB likely just a world.
-	// We can check name or a hardcoded ID if we had one.
-	// Or check world.Name == "Lobby"
-	isLobby := world.Name == "Lobby" || strings.Contains(strings.ToLower(world.Name), "lobby")
-
-	if isLobby {
-		// Lobby Movement (Cartesian with walls)
-		newX, newY, err = calculateLobbyPosition(char.PositionX, char.PositionY, dx, dy)
-		if err != nil {
-			return err.Error(), nil // Return user-facing error message
-		}
-	} else {
-		// Spherical Movement (Wrap around)
-		// Default circumference if not set
-		circumference := 10000.0
-		if world.Circumference != nil && *world.Circumference > 0 {
-			circumference = *world.Circumference
-		}
-		dims := worldspatial.NewWorldDimensions(circumference)
-		newX, newY, message = calculateSphericalPosition(char.PositionX, char.PositionY, dx, dy, dirName, dims)
+	// 4. Calculate New Position
+	newX, newY, message, err := s.CalculateNewPosition(char, world, dx, dy)
+	if err != nil {
+		return message, nil // Return user-facing restriction message
 	}
 
-	// 5. Update Character (TODO: Consume Stamina via Movement.Move if needed, assuming simple move for now)
+	// 5. Update Character
 	char.PositionX = newX
 	char.PositionY = newY
-	// Keep Z same for now
-	// char.PositionZ = char.PositionZ
+	// Update orientation to match movement direction unless strafing (not implemented)
+	char.OrientationX = dx
+	char.OrientationY = dy
+	char.OrientationZ = 0 // Flat movement
 
 	if err := s.authRepo.UpdateCharacter(ctx, char); err != nil {
 		return "", fmt.Errorf("failed to update character position: %w", err)
 	}
 
-	// 6. Return Message
-	return message, nil
+	return fmt.Sprintf("You move %s. %s", dirName, message), nil
+}
+
+// CalculateNewPosition calculates the new position based on a delta and world rules
+func (s *SpatialService) CalculateNewPosition(char *auth.Character, world *repository.World, dx, dy float64) (float64, float64, string, error) {
+	isLobby := world.Name == "Lobby" || strings.Contains(strings.ToLower(world.Name), "lobby")
+
+	if isLobby {
+		// Lobby Movement (Cartesian with walls)
+		newX, newY, err := calculateLobbyPosition(char.PositionX, char.PositionY, dx, dy)
+		if err != nil {
+			return char.PositionX, char.PositionY, err.Error(), fmt.Errorf("blocked")
+		}
+		return newX, newY, "", nil
+	}
+
+	// Spherical Movement (Wrap around)
+	circumference := 10000.0
+	if world.Circumference != nil && *world.Circumference > 0 {
+		circumference = *world.Circumference
+	}
+	dims := worldspatial.NewWorldDimensions(circumference)
+	newX, newY, message := calculateSphericalPosition(char.PositionX, char.PositionY, dx, dy, "", dims) // Empty dirName as we formulate message caller-side or here
+
+	// Strip "You move..." from the message if it exists, as we are reusing logic
+	// The original calculateSphericalPosition returned "You move [dir]. [Extra]".
+	// We should refactor strictly, but for now let's just use the logic.
+
+	return newX, newY, message, nil
+}
+
+// GetOrientationVector returns the x, y, z vector for a named direction
+func (s *SpatialService) GetOrientationVector(direction string) (float64, float64, float64, string) {
+	direction = strings.ToLower(strings.TrimSpace(direction))
+	switch direction {
+	case "n", "north":
+		return 0, 1, 0, "North"
+	case "s", "south":
+		return 0, -1, 0, "South"
+	case "e", "east":
+		return 1, 0, 0, "East"
+	case "w", "west":
+		return -1, 0, 0, "West"
+	case "ne", "northeast":
+		return 0.707, 0.707, 0, "Northeast"
+	case "nw", "northwest":
+		return -0.707, 0.707, 0, "Northwest"
+	case "se", "southeast":
+		return 0.707, -0.707, 0, "Southeast"
+	case "sw", "southwest":
+		return -0.707, -0.707, 0, "Southwest"
+	case "u", "up":
+		return 0, 0, 1, "Up"
+	case "d", "down":
+		return 0, 0, -1, "Down"
+	default:
+		return 0, 0, 0, ""
+	}
+}
+
+// GetDirectionName from vector (approximate)
+func (s *SpatialService) GetDirectionName(x, y, z float64) string {
+	if z > 0.5 {
+		return "Up"
+	}
+	if z < -0.5 {
+		return "Down"
+	}
+
+	// Normalize 2D
+	mag := math.Sqrt(x*x + y*y)
+	if mag < 0.1 {
+		return "Unknown"
+	}
+
+	nx, ny := x/mag, y/mag
+
+	// Dot products with cardinals
+	if ny > 0.9 {
+		return "North"
+	}
+	if ny < -0.9 {
+		return "South"
+	}
+	if nx > 0.9 {
+		return "East"
+	}
+	if nx < -0.9 {
+		return "West"
+	}
+
+	if nx > 0 && ny > 0 {
+		return "Northeast"
+	}
+	if nx < 0 && ny > 0 {
+		return "Northwest"
+	}
+	if nx > 0 && ny < 0 {
+		return "Southeast"
+	}
+	if nx < 0 && ny < 0 {
+		return "Southwest"
+	}
+
+	return "Unknown"
 }
 
 // CalculateDistance calculates the distance between two points on a sphere
@@ -114,6 +197,14 @@ func parseDirection(input string) (dx, dy float64, name string) {
 		return 1, 0, "east"
 	case "w", "west":
 		return -1, 0, "west"
+	case "ne", "northeast":
+		return 0.707, 0.707, "northeast"
+	case "nw", "northwest":
+		return -0.707, 0.707, "northwest"
+	case "se", "southeast":
+		return 0.707, -0.707, "southeast"
+	case "sw", "southwest":
+		return -0.707, -0.707, "southwest"
 	default:
 		return 0, 0, ""
 	}

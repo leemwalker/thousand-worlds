@@ -78,7 +78,7 @@ export default defineConfig({
                 cleanupOutdatedCaches: true
             },
             devOptions: {
-                enabled: true // Enable for testing in dev mode
+                enabled: false // Enable for testing in dev mode
             }
         })
     ],
@@ -90,6 +90,7 @@ export default defineConfig({
             '/api': {
                 target: 'http://localhost:8080',
                 changeOrigin: true,
+                ws: true,
                 timeout: 120000,
                 proxyTimeout: 120000
             }

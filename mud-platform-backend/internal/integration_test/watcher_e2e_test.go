@@ -133,7 +133,7 @@ func TestWatcherEntryE2E(t *testing.T) {
 	interviewService := interview.NewServiceWithRepository(mockLLM, interviewRepo, worldRepo)
 
 	// Initialize look service and processor
-	lookService := lobby.NewLookService(authRepo, worldRepo, interviewRepo) // Use interviewRepo (repository interface) not service
+	lookService := lobby.NewLookService(authRepo, worldRepo, interviewRepo, nil) // Use interviewRepo (repository interface) not service
 	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
 	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, interviewService, spatialSvc)
 

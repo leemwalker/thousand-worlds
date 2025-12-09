@@ -1,39 +1,70 @@
-=== RUN   TestComprehensiveIntegration
---- FAIL: TestComprehensiveIntegration (0.00s)
-panic: rootless Docker not found [recovered, repanicked]
-
-goroutine 35 [running]:
-testing.tRunner.func1.2({0x107535620, 0xc0002880d8})
-	/usr/local/Cellar/go/1.25.4/libexec/src/testing/testing.go:1872 +0x237
-testing.tRunner.func1()
-	/usr/local/Cellar/go/1.25.4/libexec/src/testing/testing.go:1875 +0x35b
-panic({0x107535620?, 0xc0002880d8?})
-	/usr/local/Cellar/go/1.25.4/libexec/src/runtime/panic.go:783 +0x132
-github.com/testcontainers/testcontainers-go/internal/core.MustExtractDockerHost.func1()
-	/Users/walker/go/pkg/mod/github.com/testcontainers/testcontainers-go@v0.40.0/internal/core/docker_host.go:91 +0x65
-sync.(*Once).doSlow(0xc0002cdd08?, 0xc0002cdd58?)
-	/usr/local/Cellar/go/1.25.4/libexec/src/sync/once.go:78 +0xac
-sync.(*Once).Do(...)
-	/usr/local/Cellar/go/1.25.4/libexec/src/sync/once.go:69
-github.com/testcontainers/testcontainers-go/internal/core.MustExtractDockerHost({0x107644f78?, 0x107ab3180?})
-	/Users/walker/go/pkg/mod/github.com/testcontainers/testcontainers-go@v0.40.0/internal/core/docker_host.go:88 +0x49
-github.com/testcontainers/testcontainers-go/internal/core.NewClient({0x107644f78, 0x107ab3180}, {0x0, 0x0, 0x0?})
-	/Users/walker/go/pkg/mod/github.com/testcontainers/testcontainers-go@v0.40.0/internal/core/client.go:17 +0x88
-github.com/testcontainers/testcontainers-go.NewDockerClientWithOpts({0x107644f78, 0x107ab3180}, {0x0, 0x0, 0x0})
-	/Users/walker/go/pkg/mod/github.com/testcontainers/testcontainers-go@v0.40.0/docker_client.go:118 +0x71
-github.com/testcontainers/testcontainers-go.NewDockerProvider({0xc0002801a0, 0x2, 0x1073a222a?})
-	/Users/walker/go/pkg/mod/github.com/testcontainers/testcontainers-go@v0.40.0/provider.go:144 +0x112
-github.com/testcontainers/testcontainers-go.ProviderType.GetProvider(0x0, {0xc0000d5028, 0x1, 0x0?})
-	/Users/walker/go/pkg/mod/github.com/testcontainers/testcontainers-go@v0.40.0/provider.go:115 +0x8b5
-github.com/testcontainers/testcontainers-go.GenericContainer({_, _}, {{{{0x0, 0x0}, {0x0, 0x0}, {0x0, 0x0}, {0x0, 0x0}, ...}, ...}, ...})
-	/Users/walker/go/pkg/mod/github.com/testcontainers/testcontainers-go@v0.40.0/generic.go:62 +0x139
-mud-platform-backend/internal/integration_test_test.setupRedis({0x107644f78, 0x107ab3180})
-	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/integration_test/comprehensive_test.go:141 +0x166
-mud-platform-backend/internal/integration_test_test.TestComprehensiveIntegration(0xc0002c21c0)
-	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/integration_test/comprehensive_test.go:38 +0xb8
-testing.tRunner(0xc0002c21c0, 0x107638ce0)
-	/usr/local/Cellar/go/1.25.4/libexec/src/testing/testing.go:1934 +0xea
-created by testing.(*T).Run in goroutine 1
-	/usr/local/Cellar/go/1.25.4/libexec/src/testing/testing.go:1997 +0x465
-FAIL	mud-platform-backend/internal/integration_test	0.995s
+=== RUN   TestRepositoryIntegrationSuite
+2025/12/08 15:36:41 github.com/testcontainers/testcontainers-go - Connected to docker: 
+  Server Version: 28.5.2
+  API Version: 1.51
+  Operating System: Docker Desktop
+  Total Memory: 7836 MB
+  Labels:
+    com.docker.desktop.address=unix:///Users/walker/Library/Containers/com.docker.docker/Data/docker-cli.sock
+  Testcontainers for Go Version: v0.40.0
+  Resolved Docker Host: unix:///var/run/docker.sock
+  Resolved Docker Socket Path: /var/run/docker.sock
+  Test SessionID: acc5e9992b11fd3c435c1a3c10e2835606e74e70fc15db4025cb90b29ce0ecca
+  Test ProcessID: 26d2faf5-d15e-4b46-b425-46d9ccd8f3e6
+2025/12/08 15:36:41 🐳 Creating container for image postgis/postgis:15-3.3
+2025/12/08 15:36:41 🐳 Creating container for image testcontainers/ryuk:0.13.0
+2025/12/08 15:36:41 ✅ Container created: c41f73b957b9
+2025/12/08 15:36:41 🐳 Starting container: c41f73b957b9
+2025/12/08 15:36:42 ✅ Container started: c41f73b957b9
+2025/12/08 15:36:42 ⏳ Waiting for container id c41f73b957b9 image: testcontainers/ryuk:0.13.0. Waiting for: port 8080/tcp to be listening
+2025/12/08 15:36:42 Shell not found in container
+2025/12/08 15:36:42 🔔 Container is ready: c41f73b957b9
+2025/12/08 15:36:42 ✅ Container created: 2669c1c39307
+2025/12/08 15:36:42 🐳 Starting container: 2669c1c39307
+2025/12/08 15:36:42 ✅ Container started: 2669c1c39307
+2025/12/08 15:36:42 ⏳ Waiting for container id 2669c1c39307 image: postgis/postgis:15-3.3. Waiting for: SQL database on port 5432 using driver "postgres"
+2025/12/08 15:36:45 🔔 Container is ready: 2669c1c39307
+=== RUN   TestRepositoryIntegrationSuite/TestCharacterOrientation
+    repository_integration_test.go:109: Warning: failed to truncate world_interviews: pq: relation "world_interviews" does not exist
+    repository_integration_test.go:109: Warning: failed to truncate world_configurations: pq: relation "world_configurations" does not exist
+    repository_integration_test.go:402: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/auth/repository_integration_test.go:402
+        	Error:      	Received unexpected error:
+        	            	pq: column "position_x" of relation "characters" does not exist
+        	Test:       	TestRepositoryIntegrationSuite/TestCharacterOrientation
+    repository_integration_test.go:406: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/auth/repository_integration_test.go:406
+        	Error:      	Received unexpected error:
+        	            	pq: column c.position_x does not exist
+        	Test:       	TestRepositoryIntegrationSuite/TestCharacterOrientation
+    panic.go:262: test panicked: runtime error: invalid memory address or nil pointer dereference
+        goroutine 333 [running]:
+        runtime/debug.Stack()
+        	/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/debug/stack.go:26 +0x64
+        github.com/stretchr/testify/suite.failOnPanic(0x14000418380, {0x105144b20, 0x105794870})
+        	/Users/walker/go/pkg/mod/github.com/stretchr/testify@v1.11.1/suite/suite.go:89 +0x38
+        github.com/stretchr/testify/suite.Run.func1.1()
+        	/Users/walker/go/pkg/mod/github.com/stretchr/testify@v1.11.1/suite/suite.go:184 +0x1ec
+        panic({0x105144b20?, 0x105794870?})
+        	/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/panic.go:783 +0x120
+        mud-platform-backend/internal/auth_test.(*RepositoryIntegrationSuite).TestCharacterOrientation(0x140001ba480)
+        	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/auth/repository_integration_test.go:407 +0x15c
+        reflect.Value.call({0x14000488880?, 0x14000194b48?, 0x10518a9c0?}, {0x104f6fadc, 0x4}, {0x140000bff20, 0x1, 0x104dee78c?})
+        	/opt/homebrew/Cellar/go/1.25.4/libexec/src/reflect/value.go:581 +0x960
+        reflect.Value.Call({0x14000488880?, 0x14000194b48?, 0xf?}, {0x140000bff20?, 0x0?, 0x0?})
+        	/opt/homebrew/Cellar/go/1.25.4/libexec/src/reflect/value.go:365 +0x94
+        github.com/stretchr/testify/suite.Run.func1(0x14000418380)
+        	/Users/walker/go/pkg/mod/github.com/stretchr/testify@v1.11.1/suite/suite.go:196 +0x32c
+        testing.tRunner(0x14000418380, 0x140001da7e0)
+        	/opt/homebrew/Cellar/go/1.25.4/libexec/src/testing/testing.go:1934 +0xc8
+        created by testing.(*T).Run in goroutine 36
+        	/opt/homebrew/Cellar/go/1.25.4/libexec/src/testing/testing.go:1997 +0x364
+2025/12/08 15:36:45 🐳 Stopping container: 2669c1c39307
+2025/12/08 15:36:45 ✅ Container stopped: 2669c1c39307
+2025/12/08 15:36:45 🐳 Terminating container: 2669c1c39307
+2025/12/08 15:36:45 🚫 Container terminated: 2669c1c39307
+--- FAIL: TestRepositoryIntegrationSuite (4.15s)
+    --- FAIL: TestRepositoryIntegrationSuite/TestCharacterOrientation (0.03s)
+FAIL
+FAIL	mud-platform-backend/internal/auth	4.357s
 FAIL

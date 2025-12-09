@@ -1,0 +1,42 @@
+=== RUN   TestRepositoryIntegrationSuite
+2025/12/08 15:40:02 github.com/testcontainers/testcontainers-go - Connected to docker: 
+  Server Version: 28.5.2
+  API Version: 1.51
+  Operating System: Docker Desktop
+  Total Memory: 7836 MB
+  Labels:
+    com.docker.desktop.address=unix:///Users/walker/Library/Containers/com.docker.docker/Data/docker-cli.sock
+  Testcontainers for Go Version: v0.40.0
+  Resolved Docker Host: unix:///var/run/docker.sock
+  Resolved Docker Socket Path: /var/run/docker.sock
+  Test SessionID: a10c983e8169925b51b2a4f8eb4a3e753fec86b34d491e76b3bc13bd02a52403
+  Test ProcessID: dedca401-e0db-4383-8f62-80a221ea33b1
+2025/12/08 15:40:02 🐳 Creating container for image postgis/postgis:15-3.3
+2025/12/08 15:40:02 🐳 Creating container for image testcontainers/ryuk:0.13.0
+2025/12/08 15:40:02 ✅ Container created: 00b2bbcc768c
+2025/12/08 15:40:02 🐳 Starting container: 00b2bbcc768c
+2025/12/08 15:40:03 ✅ Container started: 00b2bbcc768c
+2025/12/08 15:40:03 ⏳ Waiting for container id 00b2bbcc768c image: testcontainers/ryuk:0.13.0. Waiting for: port 8080/tcp to be listening
+2025/12/08 15:40:03 Shell not found in container
+2025/12/08 15:40:03 🔔 Container is ready: 00b2bbcc768c
+2025/12/08 15:40:03 ✅ Container created: 7525d1397f27
+2025/12/08 15:40:03 🐳 Starting container: 7525d1397f27
+2025/12/08 15:40:03 ✅ Container started: 7525d1397f27
+2025/12/08 15:40:03 ⏳ Waiting for container id 7525d1397f27 image: postgis/postgis:15-3.3. Waiting for: SQL database on port 5432 using driver "postgres"
+2025/12/08 15:40:06 🔔 Container is ready: 7525d1397f27
+=== RUN   TestRepositoryIntegrationSuite/TestUpdateCharacter
+    repository_integration_test.go:110: Warning: failed to truncate world_interviews: pq: relation "world_interviews" does not exist
+    repository_integration_test.go:110: Warning: failed to truncate world_configurations: pq: relation "world_configurations" does not exist
+    repository_integration_test.go:335: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/auth/repository_integration_test.go:335
+        	Error:      	Max difference between 40.7 and 0 allowed is 0.0001, but difference was 40.7
+        	Test:       	TestRepositoryIntegrationSuite/TestUpdateCharacter
+2025/12/08 15:40:06 🐳 Stopping container: 7525d1397f27
+2025/12/08 15:40:07 ✅ Container stopped: 7525d1397f27
+2025/12/08 15:40:07 🐳 Terminating container: 7525d1397f27
+2025/12/08 15:40:07 🚫 Container terminated: 7525d1397f27
+--- FAIL: TestRepositoryIntegrationSuite (4.24s)
+    --- FAIL: TestRepositoryIntegrationSuite/TestUpdateCharacter (0.04s)
+FAIL
+FAIL	mud-platform-backend/internal/auth	4.539s
+FAIL

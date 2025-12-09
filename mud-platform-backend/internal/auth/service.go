@@ -63,6 +63,7 @@ func (s *Service) Register(ctx context.Context, email, username, password string
 		Username:     username,
 		PasswordHash: hashedPassword,
 		CreatedAt:    time.Now().UTC(),
+		LastWorldID:  nil, // Explicitly nil for new users
 	}
 
 	if err := s.repo.CreateUser(ctx, user); err != nil {

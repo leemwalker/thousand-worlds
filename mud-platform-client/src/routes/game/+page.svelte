@@ -1,9 +1,11 @@
 <script lang="ts">
-    import { onMount, onDestroy } from "svelte";
+    import { onMount, onDestroy, tick } from "svelte";
     import { goto } from "$app/navigation";
-    import { gameAPI } from "$lib/services/api";
+    import { gameAPI, type User } from "$lib/services/api";
     import { gameWebSocket, type ServerMessage } from "$lib/services/websocket";
     import WorldEntry from "$lib/components/WorldEntry.svelte";
+    import CharacterSheet from "$lib/components/Character/CharacterSheet.svelte";
+    import type { Skill } from "$lib/types/game";
     import CommandInput from "$lib/components/Input/CommandInput.svelte";
     import QuickButtons from "$lib/components/Input/QuickButtons.svelte";
 
@@ -37,13 +39,33 @@
     // Connection status
     let isConnected = false;
 
+    // Character Sheet state
+    let currentCharacterId: string | null = null;
+    let showCharacterSheet = false;
+    let characterSkills: Record<string, Skill> = {};
+    let characterStats = {
+        name: "Adventurer",
+        level: 1,
+        experience: 0,
+        nextLevelXP: 100,
+        attributes: {
+            strength: 10,
+            dexterity: 10,
+            constitution: 10,
+            intelligence: 10,
+            wisdom: 10,
+            charisma: 10,
+        },
+    };
+
+    let currentUser: User | null = null;
     // Use relative URL to go through Vite proxy with extended timeout
     const API_URL = "/api";
 
     onMount(async () => {
         // Check if user is authenticated via cookie
         try {
-            await gameAPI.getMe();
+            currentUser = await gameAPI.getMe();
         } catch (err) {
             // Not authenticated, redirect to login
             goto("/");
@@ -130,6 +152,27 @@
                 }
             }
 
+            // check for auto-resume
+            if (currentUser?.last_world_id) {
+                try {
+                    const data = await gameAPI.getCharacters();
+                    // Find character for this world
+                    // Assuming getCharacters returns list of characters
+                    // We need to type check roughly or assume any[]
+                    if (data && data.characters) {
+                        const char = data.characters.find(
+                            (c) => c.world_id === currentUser?.last_world_id,
+                        );
+                        if (char) {
+                            await joinGame(char.character_id);
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.error("Auto-resume check failed", e);
+                }
+            }
+
             // Always join Lobby first
             await joinLobby();
         } catch (error) {
@@ -139,6 +182,8 @@
                 "error",
                 "Failed to check status. Starting in game mode.",
             );
+            // Attempt to join lobby (connect WS) even if API check failed
+            joinLobby();
         }
     }
 
@@ -166,10 +211,10 @@
 
     async function startWorldInterview() {
         try {
-            addMessage(
-                "system",
-                "Welcome to Thousand Worlds! Let's create your custom world...",
-            );
+            // addMessage(
+            //     "system",
+            //     "Welcome to Thousand Worlds! Let's create your custom world...",
+            // );
 
             const response = await fetch(`${API_URL}/world/interview/start`, {
                 method: "POST",
@@ -315,10 +360,10 @@
         }
     }
 
-    async function handleCommand() {
-        if (!commandInput.trim()) return;
+    async function handleCommand(cmd?: string) {
+        const input = cmd ? cmd.trim() : commandInput.trim();
+        if (!input) return;
 
-        const input = commandInput.trim();
         addMessage("player", `> ${input}`);
 
         if (onboardingStep === "interview") {
@@ -328,9 +373,23 @@
             return;
         }
 
+        // Intercept character creation command
+        if (input.toLowerCase().startsWith("create character")) {
+            await handleCharacterCommand(input);
+            if (!cmd) commandInput = ""; // Only clear binding if used
+            return;
+        }
+
+        // Intercept status command for UI modal
+        if (input.trim().toLowerCase() === "status") {
+            openCharacterSheet();
+            if (!cmd) commandInput = "";
+            return;
+        }
+
         // Send raw text command to backend - backend will parse and process it
-        gameWebSocket.sendRawCommand(input);
-        commandInput = "";
+        gameWebSocket.sendCommandWithQueue(input);
+        if (!cmd) commandInput = ""; // Only clear binding if used
     }
 
     async function listWorlds() {
@@ -466,35 +525,64 @@
             });
 
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || "Failed to create character");
+                const errorData = await response.json();
+                let errorMessage = "Failed to create character";
+                if (typeof errorData.error === "string") {
+                    errorMessage = errorData.error;
+                } else if (errorData.error && errorData.error.message) {
+                    errorMessage = errorData.error.message;
+                }
+                throw new Error(errorMessage);
             }
 
             const data = await response.json();
             addMessage(
-                "success",
+                "system",
                 `Character "${name}" created! Joining world...`,
             );
 
             // Join game
-            await fetch(`${API_URL}/game/join`, {
+            await joinGame(data.character.character_id);
+        } catch (error: any) {
+            addMessage("error", error.message);
+        }
+    }
+
+    async function joinGame(characterId: string) {
+        try {
+            const joinResponse = await fetch(`${API_URL}/game/join`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
                 credentials: "include", // Send cookies
                 body: JSON.stringify({
-                    character_id: data.character.character_id,
+                    character_id: characterId,
                 }),
             });
 
+            if (!joinResponse.ok) {
+                const joinError = await joinResponse.json();
+                console.error("Failed to join game:", joinError);
+                throw new Error("Failed to join game session.");
+            }
+
+            const joinData = await joinResponse.json();
+
             // Reconnect WebSocket
             gameWebSocket.disconnect();
-            gameWebSocket.connect(data.character.character_id);
+            gameWebSocket.connect(characterId);
+            currentCharacterId = characterId;
             onboardingStep = "game";
-            addMessage("system", "You have entered the world!");
-        } catch (error: any) {
-            addMessage("error", error.message);
+
+            // Use the message from the backend (which includes welcome + look)
+            if (joinData.message) {
+                addMessage("system", joinData.message);
+            } else {
+                addMessage("system", "You have entered the world!");
+            }
+        } catch (e: any) {
+            throw e;
         }
     }
 
@@ -546,7 +634,21 @@
         }
     }
 
-    function addMessage(type: string, text: string) {
+    async function addMessage(type: string, text: string) {
+        // Check scroll position before adding message
+        let shouldScroll = false;
+        const container = document.getElementById("game-output");
+
+        if (container) {
+            const { scrollTop, scrollHeight, clientHeight } = container;
+            // If we are within 100px of the bottom, stay attached
+            if (scrollHeight - scrollTop - clientHeight < 100) {
+                shouldScroll = true;
+            }
+        } else {
+            shouldScroll = true;
+        }
+
         messages = [
             ...messages,
             {
@@ -557,13 +659,11 @@
             },
         ];
 
-        // Auto-scroll to bottom
-        setTimeout(() => {
-            const container = document.querySelector(".messages-container");
-            if (container) {
-                container.scrollTop = container.scrollHeight;
-            }
-        }, 50);
+        await tick();
+
+        if (shouldScroll && container) {
+            container.scrollTop = container.scrollHeight;
+        }
     }
 
     function handleLogout() {
@@ -590,6 +690,23 @@
                 return "text-gray-300";
         }
     }
+
+    async function openCharacterSheet() {
+        if (!currentCharacterId) {
+            addMessage("error", "No active character.");
+            return;
+        }
+
+        try {
+            const data = await gameAPI.getSkills(currentCharacterId);
+            characterSkills = data.skills || {};
+            // In a real app we'd fetch stats too, skipping for now
+            showCharacterSheet = true;
+        } catch (e) {
+            console.error(e);
+            addMessage("error", "Failed to load skills.");
+        }
+    }
 </script>
 
 <div class="flex flex-col h-screen bg-gray-900 text-gray-100 font-mono">
@@ -605,13 +722,21 @@
                 title={isConnected ? "Connected" : "Disconnected"}
             >
                 <div
-                    class={`w-3 h-3 rounded-full ${isConnected ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" : "bg-red-500 animate-pulse"}`}
+                    class={`w-3 h-3 rounded-full ${isConnected ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] connected" : "bg-red-500 animate-pulse"}`}
                 ></div>
                 <span class={isConnected ? "text-gray-400" : "text-red-400"}>
                     {isConnected ? "Connected" : "Reconnecting..."}
                 </span>
             </div>
 
+            {#if onboardingStep === "game"}
+                <button
+                    on:click={openCharacterSheet}
+                    class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-sm transition-colors"
+                >
+                    Character
+                </button>
+            {/if}
             <button
                 on:click={() => {
                     gameAPI.logout();
@@ -636,6 +761,7 @@
             <div
                 class="flex-1 flex flex-col p-4 overflow-y-auto"
                 id="game-output"
+                data-testid="game-output"
             >
                 {#each conversationHistory as msg}
                     <div
@@ -667,10 +793,11 @@
             <div
                 class="flex-1 overflow-y-auto p-4 space-y-2 scroll-smooth"
                 id="game-output"
+                data-testid="game-output"
             >
                 {#each messages as msg (msg.id)}
                     <div
-                        class={`leading-relaxed ${
+                        class={`message leading-relaxed ${
                             msg.type === "error"
                                 ? "text-red-400"
                                 : msg.type === "system"
@@ -682,7 +809,7 @@
                                       : "text-gray-300"
                         }`}
                     >
-                        {@html msg.text}
+                        {@html msg.text.replace(/\n/g, "<br>")}
                     </div>
                 {/each}
             </div>
@@ -691,7 +818,7 @@
         <!-- Input Area -->
         <div class="p-4 bg-gray-800 border-t border-gray-700 space-y-3">
             {#if onboardingStep !== "interview" && onboardingStep !== "checking"}
-                <QuickButtons />
+                <QuickButtons on:submit={(e) => handleCommand(e.detail)} />
             {/if}
 
             {#if onboardingStep === "interview"}
@@ -708,16 +835,48 @@
                 </div>
             {:else if onboardingStep !== "checking"}
                 <!-- Game mode: use thin-client CommandInput -->
-                <CommandInput />
+                <CommandInput on:submit={(e) => handleCommand(e.detail)} />
             {/if}
         </div>
 
         <!-- Entry Modal -->
+
         {#if showEntryModal && entryOptions}
             <WorldEntry
                 options={entryOptions}
                 on:select={handleEntrySelection}
             />
+        {/if}
+
+        <!-- Character Sheet Modal -->
+        {#if showCharacterSheet}
+            <div
+                class="absolute inset-0 bg-black/80 flex items-center justify-center p-4 z-50 transition-opacity"
+                on:click={() => (showCharacterSheet = false)}
+            >
+                <div class="relative max-w-md w-full" on:click|stopPropagation>
+                    <button
+                        class="absolute -top-2 -right-2 bg-gray-700 rounded-full w-8 h-8 flex items-center justify-center text-white hover:bg-gray-600 z-10"
+                        on:click={() => (showCharacterSheet = false)}
+                        data-testid="close-character-sheet"
+                    >
+                        ✕
+                    </button>
+                    <CharacterSheet
+                        characterName={characterStats.name}
+                        level={characterStats.level}
+                        experience={characterStats.experience}
+                        nextLevelXP={characterStats.nextLevelXP}
+                        strength={characterStats.attributes.strength}
+                        dexterity={characterStats.attributes.dexterity}
+                        constitution={characterStats.attributes.constitution}
+                        intelligence={characterStats.attributes.intelligence}
+                        wisdom={characterStats.attributes.wisdom}
+                        charisma={characterStats.attributes.charisma}
+                        skills={characterSkills}
+                    />
+                </div>
+            </div>
         {/if}
     </main>
 </div>

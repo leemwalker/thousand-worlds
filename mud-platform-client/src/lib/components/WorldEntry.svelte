@@ -27,6 +27,7 @@
                 <button
                     class="p-4 border border-gray-700 hover:border-blue-400 hover:bg-blue-900/20 rounded text-left transition-all group"
                     on:click={() => selectOption("watcher")}
+                    data-testid="entry-option-watcher"
                 >
                     <div class="flex items-center justify-between mb-2">
                         <h3
@@ -62,6 +63,7 @@
                             <button
                                 class="p-3 border border-gray-700 hover:border-green-400 hover:bg-green-900/20 rounded text-left transition-all group h-full flex flex-col"
                                 on:click={() => selectOption("npc", npc)}
+                                data-testid="entry-option-npc"
                             >
                                 <div
                                     class="font-bold text-green-300 group-hover:text-green-200 mb-1"
@@ -86,6 +88,7 @@
                 <button
                     class="p-4 border border-gray-700 hover:border-purple-400 hover:bg-purple-900/20 rounded text-left transition-all group"
                     on:click={() => selectOption("custom")}
+                    data-testid="entry-option-custom"
                 >
                     <div class="flex items-center justify-between mb-2">
                         <h3

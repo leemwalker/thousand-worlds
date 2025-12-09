@@ -6,7 +6,21 @@ test.use({
 
 test.describe('iOS Safe Areas and PWA Features', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('http://localhost:5173/game');
+        // Login first
+        await page.goto('/');
+        const timestamp = Date.now();
+        const email = `ios_${timestamp}@example.com`;
+
+        const signUpBtn = page.locator('button:has-text("Sign up")');
+        if (await signUpBtn.isVisible()) {
+            await signUpBtn.click();
+        }
+        await page.locator('input[type="email"]').first().fill(email);
+        await page.getByLabel('Username').fill(`ios_${timestamp}`);
+        await page.locator('input[type="password"]').first().fill('Pass123!');
+        await page.locator('button[type="submit"]', { hasText: 'Create Account' }).click();
+
+        await page.waitForURL(/\/game/);
     });
 
     test('Safe area CSS variables are applied', async ({ page }) => {
@@ -75,8 +89,22 @@ test.describe('iOS Safe Areas and PWA Features', () => {
 
 test.describe('Haptic Feedback Integration', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('http://localhost:5173/game');
-        await page.waitForSelector('input[placeholder="Enter command..."]', { timeout: 5000 });
+        // Login first
+        await page.goto('/');
+        const timestamp = Date.now();
+        const email = `haptic_${timestamp}@example.com`;
+
+        const signUpBtn = page.locator('button:has-text("Sign up")');
+        if (await signUpBtn.isVisible()) {
+            await signUpBtn.click();
+        }
+        await page.locator('input[type="email"]').first().fill(email);
+        await page.getByLabel('Username').fill(`haptic_${timestamp}`);
+        await page.locator('input[type="password"]').first().fill('Pass123!');
+        await page.locator('button[type="submit"]', { hasText: 'Create Account' }).click();
+
+        await page.waitForURL(/\/game/);
+        await page.waitForSelector('input[placeholder="Enter command..."]', { timeout: 10000 });
     });
 
     test('Vibration API is available', async ({ page }) => {
@@ -134,8 +162,23 @@ test.describe('Haptic Feedback Integration', () => {
 
 test.describe('iOS Install Prompt', () => {
     test.beforeEach(async ({ page }) => {
+        // Login
+        await page.goto('/');
+        const timestamp = Date.now();
+        const email = `prompt_${timestamp}@example.com`;
+
+        const signUpBtn = page.locator('button:has-text("Sign up")');
+        if (await signUpBtn.isVisible()) {
+            await signUpBtn.click();
+        }
+        await page.locator('input[type="email"]').first().fill(email);
+        await page.getByLabel('Username').fill(`prompt_${timestamp}`);
+        await page.locator('input[type="password"]').first().fill('Pass123!');
+        await page.locator('button[type="submit"]', { hasText: 'Create Account' }).click();
+
+        await page.waitForURL(/\/game/);
+
         // Clear localStorage to reset prompt state
-        await page.goto('http://localhost:5173/game');
         await page.evaluate(() => {
             localStorage.removeItem('iosInstallPromptDismissed');
         });
@@ -189,8 +232,22 @@ test.describe('iOS Install Prompt', () => {
 
 test.describe('Keyboard Handling', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('http://localhost:5173/game');
-        await page.waitForSelector('input[placeholder="Enter command..."]', { timeout: 5000 });
+        // Login first
+        await page.goto('/');
+        const timestamp = Date.now();
+        const email = `keyboard_${timestamp}@example.com`;
+
+        const signUpBtn = page.locator('button:has-text("Sign up")');
+        if (await signUpBtn.isVisible()) {
+            await signUpBtn.click();
+        }
+        await page.locator('input[type="email"]').first().fill(email);
+        await page.getByLabel('Username').fill(`keyboard_${timestamp}`);
+        await page.locator('input[type="password"]').first().fill('Pass123!');
+        await page.locator('button[type="submit"]', { hasText: 'Create Account' }).click();
+
+        await page.waitForURL(/\/game/);
+        await page.waitForSelector('input[placeholder="Enter command..."]', { timeout: 10000 });
     });
 
     test('Input remains visible when focused', async ({ page }) => {
@@ -223,7 +280,7 @@ test.describe('iOS Detection Utilities', () => {
             });
         });
 
-        await page.goto('http://localhost:5173/game');
+        await page.goto('/game');
 
         const isIOS = await page.evaluate(() => {
             return /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -248,7 +305,7 @@ test.describe('iOS Detection Utilities', () => {
             });
         });
 
-        await page.goto('http://localhost:5173/game');
+        await page.goto('/game');
 
         const isStandalone = await page.evaluate(() => {
             return window.matchMedia('(display-mode: standalone)').matches;
@@ -260,7 +317,21 @@ test.describe('iOS Detection Utilities', () => {
 
 test.describe('Performance on iOS', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('http://localhost:5173/game');
+        // Login first
+        await page.goto('/');
+        const timestamp = Date.now();
+        const email = `perf_ios_${timestamp}@example.com`;
+
+        const signUpBtn = page.locator('button:has-text("Sign up")');
+        if (await signUpBtn.isVisible()) {
+            await signUpBtn.click();
+        }
+        await page.locator('input[type="email"]').first().fill(email);
+        await page.getByLabel('Username').fill(`perf_ios_${timestamp}`);
+        await page.locator('input[type="password"]').first().fill('Pass123!');
+        await page.locator('button[type="submit"]', { hasText: 'Create Account' }).click();
+
+        await page.waitForURL(/\/game/);
     });
 
     test('GPU-accelerated transforms are used', async ({ page }) => {

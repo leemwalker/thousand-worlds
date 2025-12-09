@@ -1,0 +1,375 @@
+=== RUN   TestMobileSDKIntegrationSuite
+    mobile_integration_test.go:43: Warning: migration 000001_create_worlds_table.up.sql: pq: relation "idx_worlds_created_at" already exists
+    mobile_integration_test.go:43: Warning: migration 000013_create_auth_tables.up.sql: pq: relation "idx_users_email" already exists
+    mobile_integration_test.go:43: Warning: migration 000014_create_interview_tables.up.sql: pq: relation "idx_world_configs_interview" already exists
+    mobile_integration_test.go:43: Warning: migration 000016_add_character_description_occupation.up.sql: pq: column "description" of relation "characters" already exists
+    mobile_integration_test.go:43: Warning: migration 000019_add_username_to_users.up.sql: pq: column "username" of relation "users" already exists
+    mobile_integration_test.go:43: Warning: migration 000020_add_world_name_to_configurations.up.sql: pq: column "world_name" of relation "world_configurations" already exists
+=== RUN   TestMobileSDKIntegrationSuite/TestCompleteOnboardingFlow
+    mobile_integration_test.go:138: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:138
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestMobileSDKIntegrationSuite/TestCompleteOnboardingFlow
+    mobile_integration_test.go:142: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:142
+        	Error:      	Should NOT be empty, but was 
+        	Test:       	TestMobileSDKIntegrationSuite/TestCompleteOnboardingFlow
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:25 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60580
+2025/12/07 15:52:25 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:25 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:146: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:146
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestCompleteOnboardingFlow
+=== RUN   TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:25 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60580
+2025/12/07 15:52:25 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:25 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:332: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:332
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:25 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60580
+2025/12/07 15:52:25 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:25 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:336: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:336
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:25 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60580
+2025/12/07 15:52:25 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] Content-Length:[98] Content-Type:[application/json] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:25 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:345: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:345
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:332: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:332
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:336: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:336
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] Content-Length:[98] Content-Type:[application/json] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:345: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:345
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:332: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:332
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:336: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:336
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] Content-Length:[98] Content-Type:[application/json] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:345: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:345
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:332: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:332
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:336: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:336
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] Content-Length:[98] Content-Type:[application/json] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:345: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:345
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:332: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:332
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:336: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:336
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] Content-Length:[98] Content-Type:[application/json] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:345: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:345
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:332: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:332
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+[DEBUG] Client: requireAuth is true but token is empty!
+    mobile_integration_test.go:336: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:336
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+2025/12/07 15:52:26 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60580
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] Content-Length:[98] Content-Type:[application/json] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:332: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:332
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:345: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:345
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+    mobile_integration_test.go:336: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:336
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] Content-Length:[98] Content-Type:[application/json] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:345: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:345
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:332: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:332
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:336: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:336
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] Content-Length:[98] Content-Type:[application/json] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:345: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:345
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:332: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:332
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:336: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:336
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] Content-Length:[98] Content-Type:[application/json] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:345: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:345
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:332: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:332
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: GET /api/game/worlds from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:336: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:336
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] Content-Length:[98] Content-Type:[application/json] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:345: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:345
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestConcurrentClientRequests
+=== RUN   TestMobileSDKIntegrationSuite/TestInvalidCredentialsHandling
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+=== RUN   TestMobileSDKIntegrationSuite/TestMultipleCharactersInDifferentWorlds
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] Content-Length:[92] Content-Type:[application/json] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:218: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:218
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestMultipleCharactersInDifferentWorlds
+=== RUN   TestMobileSDKIntegrationSuite/TestTokenPersistenceAcrossRequests
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: GET /api/auth/me from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:267: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:267
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestTokenPersistenceAcrossRequests
+=== RUN   TestMobileSDKIntegrationSuite/TestWatcherCharacterCreation
+[DEBUG] Client: requireAuth is true but token is empty!
+2025/12/07 15:52:26 [AUTH] Request: POST /api/game/characters from 127.0.0.1:60586
+2025/12/07 15:52:26 [DEBUG] AuthMiddleware Headers: map[Accept-Encoding:[gzip] Content-Length:[86] Content-Type:[application/json] User-Agent:[Go-http-client/1.1]]
+2025/12/07 15:52:26 [AUTH] No token found in cookie, header, or query
+    mobile_integration_test.go:247: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/mud-platform-backend/internal/mobile/mobile_integration_test.go:247
+        	            				/opt/homebrew/Cellar/go/1.25.4/libexec/src/runtime/asm_arm64.s:1268
+        	Error:      	Received unexpected error:
+        	            	HTTP 401: failed to parse error response
+        	Test:       	TestMobileSDKIntegrationSuite/TestWatcherCharacterCreation
+--- FAIL: TestMobileSDKIntegrationSuite (1.16s)
+    --- FAIL: TestMobileSDKIntegrationSuite/TestCompleteOnboardingFlow (0.18s)
+    --- FAIL: TestMobileSDKIntegrationSuite/TestConcurrentClientRequests (0.49s)
+    --- PASS: TestMobileSDKIntegrationSuite/TestInvalidCredentialsHandling (0.10s)
+    --- FAIL: TestMobileSDKIntegrationSuite/TestMultipleCharactersInDifferentWorlds (0.10s)
+    --- FAIL: TestMobileSDKIntegrationSuite/TestTokenPersistenceAcrossRequests (0.10s)
+    --- FAIL: TestMobileSDKIntegrationSuite/TestWatcherCharacterCreation (0.10s)
+FAIL
+FAIL	mud-platform-backend/internal/mobile	3.339s
+FAIL

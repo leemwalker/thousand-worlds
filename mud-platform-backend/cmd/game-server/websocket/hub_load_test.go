@@ -56,7 +56,7 @@ func TestHub_LoadTest_1000Clients(t *testing.T) {
 	authRepo := auth.NewMockRepository()
 	worldRepo := &MockWorldRepository{}
 	// Services
-	lookService := lobby.NewLookService(authRepo, worldRepo, nil)
+	lookService := lobby.NewLookService(authRepo, worldRepo, nil, nil)
 	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
 	gameProc := processor.NewGameProcessor(authRepo, worldRepo, lookService, nil, spatialSvc)
 	hub := websocket.NewHub(gameProc)
@@ -213,7 +213,7 @@ func BenchmarkHub_BroadcastToArea(b *testing.B) {
 	authRepo := auth.NewMockRepository()
 	worldRepo := &MockWorldRepository{}
 	// Services
-	lookService := lobby.NewLookService(authRepo, worldRepo, nil)
+	lookService := lobby.NewLookService(authRepo, worldRepo, nil, nil)
 	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
 	gameProc := processor.NewGameProcessor(authRepo, worldRepo, lookService, nil, spatialSvc)
 	hub := websocket.NewHub(gameProc)
@@ -232,7 +232,7 @@ func BenchmarkHub_BroadcastToAll(b *testing.B) {
 	authRepo := auth.NewMockRepository()
 	worldRepo := &MockWorldRepository{}
 	// Services
-	lookService := lobby.NewLookService(authRepo, worldRepo, nil)
+	lookService := lobby.NewLookService(authRepo, worldRepo, nil, nil)
 	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
 	gameProc := processor.NewGameProcessor(authRepo, worldRepo, lookService, nil, spatialSvc)
 	hub := websocket.NewHub(gameProc)

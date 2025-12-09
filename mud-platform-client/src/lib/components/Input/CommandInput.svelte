@@ -1,6 +1,8 @@
 <script lang="ts">
-    import { gameWebSocket } from "$lib/services/websocket";
+    import { createEventDispatcher } from "svelte";
     import { haptic } from "$lib/stores/haptic";
+
+    const dispatch = createEventDispatcher();
 
     let inputText = "";
     let commandHistory: string[] = [];
@@ -12,8 +14,8 @@
         // Trigger haptic feedback
         haptic.light();
 
-        // Send raw text to backend - NO PARSING
-        gameWebSocket.sendRawCommand(inputText.trim());
+        // Send command to parent
+        dispatch("submit", inputText.trim());
 
         // Track history for up/down navigation
         commandHistory.unshift(inputText);
@@ -51,6 +53,7 @@
 
 <div class="flex gap-2 w-full">
     <input
+        id="game-input"
         type="text"
         bind:value={inputText}
         on:keydown={handleKeydown}
@@ -78,5 +81,6 @@
     input {
         font-size: 16px;
         -webkit-appearance: none;
+        appearance: none;
     }
 </style>

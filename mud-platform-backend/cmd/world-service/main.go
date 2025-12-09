@@ -12,8 +12,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	"mud-platform-backend/internal/auth"
 	"mud-platform-backend/internal/eventstore"
+	"mud-platform-backend/internal/spatial"
 	"mud-platform-backend/internal/world"
+	"mud-platform-backend/internal/worldgen/weather"
 )
 
 func main() {
@@ -55,9 +58,23 @@ func main() {
 	// Create NATS publisher wrapper for ticker manager
 	natsPublisher := &NATSPublisherWrapper{nc: nc}
 
+	// Initialize weather service
+	// We need sql.DB for weather repo
+	sqlDB, err := auth.ConnectDB(config.DatabaseURL)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to connect to database (sql.DB)")
+	}
+	defer sqlDB.Close()
+
+	weatherRepo := weather.NewPostgresRepository(sqlDB)
+	weatherService := weather.NewService(weatherRepo)
+
+	// Create NATS area broadcaster
+	areaBroadcaster := &NATSAreaBroadcaster{nc: nc}
+
 	// Initialize world registry and ticker manager
 	registry := world.NewRegistry()
-	tickerManager := world.NewTickerManager(registry, eventStore, natsPublisher)
+	tickerManager := world.NewTickerManager(registry, eventStore, natsPublisher, weatherService, areaBroadcaster)
 
 	log.Info().Msg("World Service initialized successfully")
 
@@ -122,6 +139,19 @@ func loadConfig() Config {
 }
 
 // maskPassword masks the password in database URL for logging
+// NATSAreaBroadcaster implements world.AreaBroadcaster via NATS
+type NATSAreaBroadcaster struct {
+	nc *nats.Conn
+}
+
+func (b *NATSAreaBroadcaster) BroadcastToArea(center spatial.Position, radius float64, msgType string, data interface{}) {
+	// Publish to NATS for game-server to pick up
+	// Subject: world.broadcast.area
+	// Payload: { Center, Radius, Type, Data }
+	// For now, just logging or simple publish
+	// TODO: Define shared struct for this payload
+}
+
 func maskPassword(dbURL string) string {
 	// Simple masking - in production use proper URL parsing
 	return "postgres://admin:****@localhost:5432/mud_core"

@@ -27,7 +27,9 @@ import (
 	"mud-platform-backend/internal/metrics"
 	"mud-platform-backend/internal/player"
 	"mud-platform-backend/internal/repository"
+	"mud-platform-backend/internal/skills"
 	"mud-platform-backend/internal/world/interview"
+	"mud-platform-backend/internal/worldgen/weather"
 )
 
 func main() {
@@ -126,8 +128,12 @@ func main() {
 		rateLimiter = auth.NewRateLimiter(redisClient)
 	}
 
+	// Initialize weather service
+	weatherRepo := weather.NewPostgresRepository(db)
+	weatherService := weather.NewService(weatherRepo)
+
 	// Initialize look service for lobby commands
-	lookService := lobby.NewLookService(authRepo, worldRepo, interviewRepo)
+	lookService := lobby.NewLookService(authRepo, worldRepo, interviewRepo, weatherService)
 
 	// Initialize spatial service
 	spatialService := player.NewSpatialService(authRepo, worldRepo)
@@ -164,10 +170,15 @@ func main() {
 	// Initialize handlers
 	authHandler := api.NewAuthHandler(authService, sessionManager, rateLimiter)
 	interviewHandler := api.NewInterviewHandler(interviewService)
-	sessionHandler := api.NewSessionHandler(authRepo)
+	sessionHandler := api.NewSessionHandler(authRepo, lookService)
 	entryHandler := api.NewEntryHandler(entryService)
 	worldHandler := api.NewWorldHandler(worldRepo)
 	wsHandler := websocket.NewHandler(hub, lobbyService, authRepo, descGen)
+
+	// Skills
+	skillsRepo := skills.NewRepository(dbPool)
+	skillsService := skills.NewService(skillsRepo)
+	skillsHandler := api.NewSkillsHandler(skillsService)
 
 	// Router setup
 	r := chi.NewRouter()
@@ -251,6 +262,9 @@ func main() {
 			r.Post("/game/join", sessionHandler.JoinGame)
 			r.Get("/game/entry-options", entryHandler.GetEntryOptions)
 			r.Get("/game/worlds", worldHandler.ListWorlds)
+
+			// Skills
+			r.Get("/game/skills", skillsHandler.HandleGetSkills)
 
 			// WebSocket endpoint
 			r.Get("/game/ws", wsHandler.ServeHTTP)

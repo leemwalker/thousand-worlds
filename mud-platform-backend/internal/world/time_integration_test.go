@@ -13,7 +13,7 @@ import (
 func TestTimeProgression_OneYear(t *testing.T) {
 	registry := NewRegistry()
 	natsPublisher := &MockNATSPublisher{}
-	tm := NewTickerManager(registry, nil, natsPublisher)
+	tm := NewTickerManager(registry, nil, natsPublisher, nil, nil)
 	defer tm.StopAll()
 
 	worldID := uuid.New()

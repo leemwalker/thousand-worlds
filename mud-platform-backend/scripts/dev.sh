@@ -7,6 +7,7 @@ fi
 
 # Set defaults if not provided
 export JWT_SECRET="${JWT_SECRET:-dev-secret-key-CHANGE-IN-PRODUCTION}"
+# Prioritize existing DATABASE_URL (e.g. from launch.sh), then build from parts
 export DATABASE_URL="${DATABASE_URL:-postgres://admin:${POSTGRES_PASSWORD:-password123}@127.0.0.1:5432/mud_core?sslmode=disable}"
 export OLLAMA_HOST="${OLLAMA_HOST:-http://localhost:11434}"
 export PORT="${PORT:-8080}"
