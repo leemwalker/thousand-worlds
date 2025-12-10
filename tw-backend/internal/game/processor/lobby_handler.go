@@ -3,8 +3,8 @@ package processor
 import (
 	"context"
 	"fmt"
-	"mud-platform-backend/cmd/game-server/websocket"
-	"mud-platform-backend/internal/lobby"
+	"tw-backend/cmd/game-server/websocket"
+	"tw-backend/internal/lobby"
 )
 
 // handleLobby sends the player back to the lobby

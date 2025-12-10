@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"mud-platform-backend/internal/economy/market"
+	"tw-backend/internal/economy/market"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

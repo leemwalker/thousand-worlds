@@ -6,7 +6,7 @@ import (
 	"log"
 	"strings"
 
-	"mud-platform-backend/cmd/game-server/websocket"
+	"tw-backend/cmd/game-server/websocket"
 )
 
 // handleFace handles the face command to change orientation and look

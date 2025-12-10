@@ -1,7 +1,7 @@
 package damage
 
 import (
-	"mud-platform-backend/internal/character"
+	"tw-backend/internal/character"
 )
 
 // DamageResult holds the final calculation details

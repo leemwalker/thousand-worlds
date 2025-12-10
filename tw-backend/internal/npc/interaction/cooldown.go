@@ -1,7 +1,7 @@
 package interaction
 
 import (
-	"mud-platform-backend/internal/npc/personality"
+	"tw-backend/internal/npc/personality"
 	"time"
 
 	"github.com/google/uuid"

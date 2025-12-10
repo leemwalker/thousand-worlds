@@ -2,7 +2,7 @@ package queue
 
 import (
 	"errors"
-	"mud-platform-backend/internal/ai/dialogue"
+	"tw-backend/internal/ai/dialogue"
 )
 
 // Priority levels

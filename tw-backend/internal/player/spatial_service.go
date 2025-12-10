@@ -7,10 +7,10 @@ import (
 	"math"
 	"strings"
 
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/repository"
-	"mud-platform-backend/internal/spatial"
-	worldspatial "mud-platform-backend/internal/world/spatial"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/repository"
+	"tw-backend/internal/spatial"
+	worldspatial "tw-backend/internal/world/spatial"
 
 	"github.com/google/uuid"
 )

@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/repository"
-	"mud-platform-backend/internal/world/interview"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/repository"
+	"tw-backend/internal/world/interview"
 )
 
 // MockInterviewRepository for testing
@@ -21,6 +21,34 @@ type MockInterviewRepository struct {
 	mock.Mock
 }
 
+func (m *MockInterviewRepository) CreateInterview(ctx context.Context, userID uuid.UUID) (*interview.Interview, error) {
+	return &interview.Interview{ID: uuid.New(), UserID: userID}, nil
+}
+func (m *MockInterviewRepository) GetInterview(ctx context.Context, userID uuid.UUID) (*interview.Interview, error) {
+	return nil, nil
+}
+func (m *MockInterviewRepository) GetAnswers(ctx context.Context, interviewID uuid.UUID) ([]interview.Answer, error) {
+	return []interview.Answer{}, nil
+}
+func (m *MockInterviewRepository) GetActiveInterview(ctx context.Context, userID uuid.UUID) (*interview.Interview, error) {
+	return nil, nil
+}
+
+func (m *MockInterviewRepository) IsWorldNameTaken(ctx context.Context, name string) (bool, error) {
+	return false, nil
+}
+func (m *MockInterviewRepository) UpdateInterviewStatus(ctx context.Context, id uuid.UUID, status interview.Status) error {
+	return nil
+}
+func (m *MockInterviewRepository) UpdateQuestionIndex(ctx context.Context, id uuid.UUID, index int) error {
+	return nil
+}
+func (m *MockInterviewRepository) SaveAnswer(ctx context.Context, interviewID uuid.UUID, index int, text string) error {
+	return nil
+}
+func (m *MockInterviewRepository) SaveConfiguration(ctx context.Context, config *interview.WorldConfiguration) error {
+	return nil
+}
 func (m *MockInterviewRepository) GetConfigurationByWorldID(ctx context.Context, worldID uuid.UUID) (*interview.WorldConfiguration, error) {
 	args := m.Called(worldID)
 	if args.Get(0) == nil {

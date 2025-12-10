@@ -1,6 +1,6 @@
 package dialogue
 
-import "mud-platform-backend/internal/npc/relationship"
+import "tw-backend/internal/npc/relationship"
 
 func (s *DialogueService) getFallbackResponse(rel *relationship.Relationship) string {
 	if rel.CurrentAffinity.Affection > 50 {

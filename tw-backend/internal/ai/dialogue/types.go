@@ -1,14 +1,14 @@
 package dialogue
 
 import (
-	"mud-platform-backend/internal/ai/cache"
-	"mud-platform-backend/internal/ai/ollama"
-	"mud-platform-backend/internal/ai/prompt"
-	"mud-platform-backend/internal/character"
-	"mud-platform-backend/internal/npc/desire"
-	"mud-platform-backend/internal/npc/memory"
-	"mud-platform-backend/internal/npc/personality"
-	"mud-platform-backend/internal/npc/relationship"
+	"tw-backend/internal/ai/cache"
+	"tw-backend/internal/ai/ollama"
+	"tw-backend/internal/ai/prompt"
+	"tw-backend/internal/character"
+	"tw-backend/internal/npc/desire"
+	"tw-backend/internal/npc/memory"
+	"tw-backend/internal/npc/personality"
+	"tw-backend/internal/npc/relationship"
 
 	"github.com/google/uuid"
 )

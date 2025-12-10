@@ -3,7 +3,7 @@ package interview
 import (
 	"context"
 	"fmt"
-	"mud-platform-backend/internal/repository"
+	"tw-backend/internal/repository"
 	"sync"
 	"time"
 

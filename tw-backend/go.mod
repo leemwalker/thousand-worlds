@@ -1,4 +1,4 @@
-module mud-platform-backend
+module tw-backend
 
 go 1.24.0
 

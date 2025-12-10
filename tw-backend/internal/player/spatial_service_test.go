@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/repository"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/repository"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

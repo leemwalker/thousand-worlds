@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/errors"
-	"mud-platform-backend/internal/validation"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/errors"
+	"tw-backend/internal/validation"
 )
 
 // AuthHandler handles authentication endpoints

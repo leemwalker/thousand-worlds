@@ -3,7 +3,7 @@ package weather
 import (
 	"time"
 
-	"mud-platform-backend/internal/worldgen/geography"
+	"tw-backend/internal/worldgen/geography"
 
 	"github.com/google/uuid"
 )

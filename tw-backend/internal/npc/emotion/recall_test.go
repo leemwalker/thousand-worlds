@@ -3,7 +3,7 @@ package emotion
 import (
 	"testing"
 
-	"mud-platform-backend/internal/npc/memory"
+	"tw-backend/internal/npc/memory"
 
 	"github.com/stretchr/testify/assert"
 )

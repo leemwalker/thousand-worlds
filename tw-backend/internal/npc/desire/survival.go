@@ -1,7 +1,7 @@
 package desire
 
 import (
-	"mud-platform-backend/internal/character"
+	"tw-backend/internal/character"
 )
 
 // Context holds environmental data for need calculation

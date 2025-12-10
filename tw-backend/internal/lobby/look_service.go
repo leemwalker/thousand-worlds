@@ -6,13 +6,13 @@ import (
 	"strings"
 	"sync"
 
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/game/formatter"
-	"mud-platform-backend/internal/repository"
-	"mud-platform-backend/internal/world/interview"
-	"mud-platform-backend/internal/worldgen/geography"
-	"mud-platform-backend/internal/worldgen/orchestrator"
-	"mud-platform-backend/internal/worldgen/weather"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/game/formatter"
+	"tw-backend/internal/repository"
+	"tw-backend/internal/world/interview"
+	"tw-backend/internal/worldgen/geography"
+	"tw-backend/internal/worldgen/orchestrator"
+	"tw-backend/internal/worldgen/weather"
 
 	"github.com/google/uuid"
 )

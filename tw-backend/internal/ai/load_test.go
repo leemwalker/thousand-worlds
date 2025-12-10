@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"mud-platform-backend/internal/ai/area"
-	"mud-platform-backend/internal/npc/memory"
+	"tw-backend/internal/ai/area"
+	"tw-backend/internal/npc/memory"
 
 	"github.com/google/uuid"
 )

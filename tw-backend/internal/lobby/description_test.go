@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/repository"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/repository"
 )
 
 // MockWebsocketClient for testing

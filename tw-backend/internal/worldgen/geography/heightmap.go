@@ -5,7 +5,7 @@ import (
 )
 
 // GenerateHeightmap creates the final heightmap
-func GenerateHeightmap(width, height int, plates []TectonicPlate, seed int64, erosionRate float64) *Heightmap {
+func GenerateHeightmap(width, height int, plates []TectonicPlate, seed int64, erosionRate float64, rainfallFactor float64) *Heightmap {
 	hm := NewHeightmap(width, height)
 	noise := NewPerlinGenerator(seed)
 
@@ -71,9 +71,14 @@ func GenerateHeightmap(width, height int, plates []TectonicPlate, seed int64, er
 	ApplyThermalErosion(hm, iterations, seed)
 
 	// Hydraulic erosion for river channels
-	// Drops proportional to area and erosionRate
+	// Drops proportional to area and erosionRate AND rainfallFactor
+	// RainfallFactor defaults to ~1.0 for temperate, 0.25 for arid, 3.0 for wet
 	baseDrops := width * height * 5
-	numDrops := int(float64(baseDrops) * erosionRate)
+	effectiveRainfall := rainfallFactor
+	if effectiveRainfall <= 0 {
+		effectiveRainfall = 1.0 // Safety fallback
+	}
+	numDrops := int(float64(baseDrops) * erosionRate * effectiveRainfall)
 	ApplyHydraulicErosion(hm, numDrops, seed)
 
 	// 4. Smooth (Gaussian blur approximation)

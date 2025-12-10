@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"mud-platform-backend/internal/auth"
+	"tw-backend/internal/auth"
 )
 
 // TestEnsureLobbyCharacter_NewUser tests creating lobby character for new user

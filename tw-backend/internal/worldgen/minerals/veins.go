@@ -3,7 +3,7 @@ package minerals
 import (
 	"math/rand"
 
-	"mud-platform-backend/internal/worldgen/geography"
+	"tw-backend/internal/worldgen/geography"
 )
 
 // DetermineVeinSize calculates the size of the vein based on mineral type and context

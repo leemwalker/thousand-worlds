@@ -10,13 +10,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"mud-platform-backend/cmd/game-server/websocket"
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/game/processor"
-	"mud-platform-backend/internal/lobby"
-	"mud-platform-backend/internal/player"
-	"mud-platform-backend/internal/repository"
-	"mud-platform-backend/internal/world/interview"
+	"tw-backend/cmd/game-server/websocket"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/game/processor"
+	"tw-backend/internal/game/services/entity"
+	"tw-backend/internal/game/services/look"
+	"tw-backend/internal/player"
+	"tw-backend/internal/repository"
+	"tw-backend/internal/world/interview"
 )
 
 // StatefulMockWorldRepository for E2E testing
@@ -133,9 +134,10 @@ func TestWatcherEntryE2E(t *testing.T) {
 	interviewService := interview.NewServiceWithRepository(mockLLM, interviewRepo, worldRepo)
 
 	// Initialize look service and processor
-	lookService := lobby.NewLookService(authRepo, worldRepo, interviewRepo, nil) // Use interviewRepo (repository interface) not service
+	entitySvc := entity.NewService()
+	lookService := look.NewLookService(worldRepo, nil, entitySvc, interviewRepo) // Use interviewRepo (repository interface) not service
 	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
-	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, interviewService, spatialSvc)
+	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, entitySvc, interviewService, spatialSvc, nil)
 
 	// Assign to `proc` if used later, or rename later usages to gameProcessor
 	proc := gameProcessor

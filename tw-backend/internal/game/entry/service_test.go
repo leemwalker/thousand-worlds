@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"mud-platform-backend/internal/lobby"
-	"mud-platform-backend/internal/world/interview"
+	"tw-backend/internal/lobby"
+	"tw-backend/internal/world/interview"
 )
 
 // TestGetEntryOptions_Success tests getting entry options for a valid world

@@ -10,13 +10,16 @@ import (
 
 	"github.com/google/uuid"
 
-	"mud-platform-backend/cmd/game-server/websocket"
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/game/formatter"
-	"mud-platform-backend/internal/lobby"
-	"mud-platform-backend/internal/player"
-	"mud-platform-backend/internal/repository"
-	"mud-platform-backend/internal/world/interview"
+	"tw-backend/cmd/game-server/websocket"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/game/formatter"
+	"tw-backend/internal/game/services/entity"
+	"tw-backend/internal/game/services/look"
+	"tw-backend/internal/lobby"
+	"tw-backend/internal/player"
+	"tw-backend/internal/repository"
+	"tw-backend/internal/world/interview"
+	"tw-backend/internal/worldgen/weather"
 )
 
 var (
@@ -29,19 +32,31 @@ type GameProcessor struct {
 	Hub              *websocket.Hub
 	authRepo         auth.Repository
 	worldRepo        repository.WorldRepository
-	lookService      *lobby.LookService
+	lookService      *look.LookService
+	entityService    *entity.Service
 	interviewService *interview.InterviewService
 	spatialService   *player.SpatialService
+	weatherService   *weather.Service
 }
 
 // NewGameProcessor creates a new game processor
-func NewGameProcessor(authRepo auth.Repository, worldRepo repository.WorldRepository, lookService *lobby.LookService, interviewService *interview.InterviewService, spatialService *player.SpatialService) *GameProcessor {
+func NewGameProcessor(
+	authRepo auth.Repository,
+	worldRepo repository.WorldRepository,
+	lookService *look.LookService,
+	entityService *entity.Service,
+	interviewService *interview.InterviewService,
+	spatialService *player.SpatialService,
+	weatherService *weather.Service,
+) *GameProcessor {
 	return &GameProcessor{
 		authRepo:         authRepo,
 		worldRepo:        worldRepo,
 		lookService:      lookService,
+		entityService:    entityService,
 		interviewService: interviewService,
 		spatialService:   spatialService,
+		weatherService:   weatherService,
 	}
 }
 
@@ -151,6 +166,8 @@ func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.Gam
 		return p.handleUse(ctx, client, cmd)
 	case "lobby":
 		return p.handleLobby(ctx, client)
+	case "weather":
+		return p.handleWeather(ctx, client, cmd)
 	default:
 		return fmt.Errorf("%w: %s", ErrInvalidAction, cmd.Action)
 	}
@@ -546,10 +563,9 @@ func (p *GameProcessor) handleWho(ctx context.Context, client websocket.GameClie
 func (p *GameProcessor) handleLook(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	// If target is specified, it might be an item or feature.
 	// For now, let's assume we are mostly looking at the room if no target or "here".
-	if cmd.Target != nil && *cmd.Target != "" && strings.ToLower(*cmd.Target) != "here" && strings.ToLower(*cmd.Target) != "room" {
-		description := fmt.Sprintf("You examine the %s.", *cmd.Target)
-		client.SendGameMessage("area_description", description, nil)
-		return nil
+	target := ""
+	if cmd.Target != nil {
+		target = *cmd.Target
 	}
 
 	charID := client.GetCharacterID()
@@ -562,8 +578,30 @@ func (p *GameProcessor) handleLook(ctx context.Context, client websocket.GameCli
 		return err
 	}
 
-	// Get dynamic room description from LookService
-	description, err := p.lookService.DescribeRoom(ctx, worldID, char)
+	// Determine orientation name from vector if not stored?
+	// SpatialService has helper for this.
+	orientation := p.spatialService.GetDirectionName(char.OrientationX, char.OrientationY, char.OrientationZ)
+
+	// If specific target (not room/here)
+	if target != "" && strings.ToLower(target) != "here" && strings.ToLower(target) != "room" {
+		description, err := p.lookService.DescribeEntity(ctx, char, target)
+		if err != nil {
+			client.SendGameMessage("error", fmt.Sprintf("You don't see any '%s' here.", target), nil)
+			return nil
+		}
+		client.SendGameMessage("area_description", description, nil)
+		return nil
+	}
+
+	// Describe Room
+	dc := look.DescribeContext{
+		WorldID:     worldID,
+		Character:   char,
+		Orientation: orientation,
+		DetailLevel: 1, // Default to basic
+	}
+
+	description, err := p.lookService.Describe(ctx, dc)
 	if err != nil {
 		log.Printf("[PROCESSOR] Failed to describe room: %v", err)
 		description = "You are in a mysterious place. The mist conceals everything."
@@ -847,5 +885,48 @@ func (p *GameProcessor) handleWatcher(ctx context.Context, client websocket.Game
 		"world_id":     worldID.String(),
 	})
 
+	return nil
+}
+
+// handleWeather allows forcing weather states (God Mode)
+func (p *GameProcessor) handleWeather(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+	if cmd.Target == nil {
+		return errors.New("usage: weather <storm|rain|snow|clear>")
+	}
+
+	weatherTypeStr := strings.ToLower(*cmd.Target)
+
+	// Map string to WeatherState enum
+	var weatherState weather.WeatherType
+	switch weatherTypeStr {
+	case "clear", "sunny":
+		weatherState = weather.WeatherClear
+	case "cloudy", "overcast":
+		weatherState = weather.WeatherCloudy
+	case "rain", "rainy":
+		weatherState = weather.WeatherRain
+	case "storm":
+		weatherState = weather.WeatherStorm
+	case "snow", "snowy":
+		weatherState = weather.WeatherSnow
+	default:
+		return fmt.Errorf("unknown weather type: %s", weatherTypeStr)
+	}
+
+	worldID := client.GetWorldID()
+
+	// For now, we apply this to the WHOLE world.
+	// But the service logic usually works per cell.
+	// We'll add a ForceWeather method to the service that handles this.
+
+	if p.weatherService == nil {
+		return errors.New("weather service not available")
+	}
+
+	if err := p.weatherService.ForceWorldWeather(ctx, worldID, weatherState); err != nil {
+		return fmt.Errorf("failed to set weather: %w", err)
+	}
+
+	client.SendGameMessage("system", fmt.Sprintf("Weather changed to %s.", weatherTypeStr), nil)
 	return nil
 }

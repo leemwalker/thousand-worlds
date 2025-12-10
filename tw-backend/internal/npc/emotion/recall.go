@@ -4,7 +4,7 @@ import (
 	"math"
 	"sort"
 
-	"mud-platform-backend/internal/npc/memory"
+	"tw-backend/internal/npc/memory"
 )
 
 // GetSimilarMemories retrieves memories matching the current emotional state

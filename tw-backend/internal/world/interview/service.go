@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"mud-platform-backend/internal/repository"
-	"mud-platform-backend/internal/worldgen/orchestrator"
+	"tw-backend/internal/repository"
+	"tw-backend/internal/worldgen/orchestrator"
 
 	"github.com/google/uuid"
 )

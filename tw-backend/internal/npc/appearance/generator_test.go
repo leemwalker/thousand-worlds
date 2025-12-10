@@ -3,8 +3,8 @@ package appearance
 import (
 	"testing"
 
-	"mud-platform-backend/internal/character"
-	"mud-platform-backend/internal/npc/genetics"
+	"tw-backend/internal/character"
+	"tw-backend/internal/npc/genetics"
 
 	"github.com/stretchr/testify/assert"
 )

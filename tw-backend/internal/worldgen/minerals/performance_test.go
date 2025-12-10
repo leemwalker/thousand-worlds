@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"mud-platform-backend/internal/worldgen/geography"
+	"tw-backend/internal/worldgen/geography"
 )
 
 func TestPerformance1000Deposits(t *testing.T) {

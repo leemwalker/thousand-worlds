@@ -3,10 +3,10 @@ package orchestrator
 import (
 	"time"
 
-	"mud-platform-backend/internal/worldgen/evolution"
-	"mud-platform-backend/internal/worldgen/geography"
-	"mud-platform-backend/internal/worldgen/minerals"
-	"mud-platform-backend/internal/worldgen/weather"
+	"tw-backend/internal/worldgen/evolution"
+	"tw-backend/internal/worldgen/geography"
+	"tw-backend/internal/worldgen/minerals"
+	"tw-backend/internal/worldgen/weather"
 
 	"github.com/google/uuid"
 )
@@ -49,6 +49,7 @@ type GenerationParams struct {
 	PrecipitationMin float64
 	PrecipitationMax float64
 	ErosionRate      float64 // Multiplier for erosion iterations
+	RainfallFactor   float64 // Multiplier for hydraulic erosion (0.0 to 2.0)
 
 	// Resource parameters
 	MineralDensity  float64 // 0.0 to 1.0

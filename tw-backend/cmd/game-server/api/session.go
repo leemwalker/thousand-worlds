@@ -8,19 +8,20 @@ import (
 
 	"github.com/google/uuid"
 
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/character"
-	"mud-platform-backend/internal/errors"
-	"mud-platform-backend/internal/lobby"
-	"mud-platform-backend/internal/validation"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/character"
+	"tw-backend/internal/errors"
+	"tw-backend/internal/game/services/look"
+	"tw-backend/internal/lobby"
+	"tw-backend/internal/validation"
 )
 
 type SessionHandler struct {
 	authRepo    auth.Repository
-	lookService *lobby.LookService
+	lookService *look.LookService
 }
 
-func NewSessionHandler(authRepo auth.Repository, lookService *lobby.LookService) *SessionHandler {
+func NewSessionHandler(authRepo auth.Repository, lookService *look.LookService) *SessionHandler {
 	return &SessionHandler{
 		authRepo:    authRepo,
 		lookService: lookService,
@@ -266,7 +267,13 @@ func (h *SessionHandler) JoinGame(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get initial view
-	viewDesc, err := h.lookService.DescribeRoom(r.Context(), char.WorldID, char)
+	dc := look.DescribeContext{
+		WorldID:     char.WorldID,
+		Character:   char,
+		Orientation: "", // No orientation on spawn unless we set it
+		DetailLevel: 1,
+	}
+	viewDesc, err := h.lookService.Describe(r.Context(), dc)
 	if err != nil {
 		log.Printf("Failed to get initial view: %v", err)
 		viewDesc = "You have entered the world."

@@ -16,8 +16,8 @@ fi
 #============================================================
 # Configuration (Override via Environment Variables)
 #============================================================
-BACKEND_DIR="${BACKEND_DIR:-mud-platform-backend}"
-FRONTEND_DIR="${FRONTEND_DIR:-mud-platform-client}"
+BACKEND_DIR="${BACKEND_DIR:-tw-backend}"
+FRONTEND_DIR="${FRONTEND_DIR:-tw-frontend}"
 DOCKER_COMPOSE_FILE="${DOCKER_COMPOSE_FILE:-${BACKEND_DIR}/deploy/docker-compose.yml}"
 BACKEND_PORT="${BACKEND_PORT:-8080}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"

@@ -5,16 +5,62 @@ import (
 	"testing"
 	"time"
 
-	"mud-platform-backend/cmd/game-server/websocket"
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/lobby"
-	"mud-platform-backend/internal/player"
-	"mud-platform-backend/internal/repository"
+	"tw-backend/cmd/game-server/websocket"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/game/services/entity"
+	"tw-backend/internal/game/services/look"
+	"tw-backend/internal/lobby"
+	"tw-backend/internal/player"
+	"tw-backend/internal/repository"
+	"tw-backend/internal/world/interview"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// MockInterviewRepository for testing
+type MockInterviewRepository struct{}
+
+func (m *MockInterviewRepository) GetConfigurationByWorldID(ctx context.Context, worldID uuid.UUID) (*interview.WorldConfiguration, error) {
+	return nil, nil // Return nil config for basic testing
+}
+func (m *MockInterviewRepository) GetConfigurationByUserID(ctx context.Context, userID uuid.UUID) (*interview.WorldConfiguration, error) {
+	return nil, nil
+}
+func (m *MockInterviewRepository) CreateInterview(ctx context.Context, userID uuid.UUID) (*interview.Interview, error) {
+	return &interview.Interview{ID: uuid.New(), UserID: userID}, nil
+}
+func (m *MockInterviewRepository) GetActiveInterview(ctx context.Context, userID uuid.UUID) (*interview.Interview, error) {
+	return nil, nil
+}
+func (m *MockInterviewRepository) GetInterview(ctx context.Context, userID uuid.UUID) (*interview.Interview, error) {
+	return nil, nil
+}
+func (m *MockInterviewRepository) GetAnswers(ctx context.Context, interviewID uuid.UUID) ([]interview.Answer, error) {
+	return []interview.Answer{}, nil
+}
+func (m *MockInterviewRepository) UpdateInterview(ctx context.Context, interview *interview.Interview) error {
+	return nil
+}
+func (m *MockInterviewRepository) CreateConfiguration(ctx context.Context, config *interview.WorldConfiguration) error {
+	return nil
+}
+func (m *MockInterviewRepository) SaveConfiguration(ctx context.Context, config *interview.WorldConfiguration) error {
+	return nil
+}
+func (m *MockInterviewRepository) IsWorldNameTaken(ctx context.Context, name string) (bool, error) {
+	return false, nil
+}
+func (m *MockInterviewRepository) UpdateInterviewStatus(ctx context.Context, id uuid.UUID, status interview.Status) error {
+	return nil
+}
+func (m *MockInterviewRepository) UpdateQuestionIndex(ctx context.Context, id uuid.UUID, index int) error {
+	return nil
+}
+func (m *MockInterviewRepository) SaveAnswer(ctx context.Context, interviewID uuid.UUID, index int, text string) error {
+	return nil
+}
 
 // MockWorldRepository for testing
 type MockWorldRepository struct {
@@ -183,12 +229,14 @@ func setupTest(t *testing.T) (*GameProcessor, *mockClient, *auth.MockRepository,
 	}
 	mockWorldRepo.worlds[lobbyWorld.ID] = lobbyWorld
 
-	// Create required services
-	lookService := lobby.NewLookService(mockAuthRepo, mockWorldRepo, nil, nil) // nil interview service for now
-	spatialSvc := player.NewSpatialService(mockAuthRepo, mockWorldRepo)
+	interviewRepo := &MockInterviewRepository{}
+	// New LookService requires EntityService
+	entityService := entity.NewService()
+	lookService := look.NewLookService(mockWorldRepo, nil, entityService, interviewRepo)
+	interviewService := interview.NewServiceWithRepository(nil, interviewRepo, mockWorldRepo)
+	spatialService := player.NewSpatialService(mockAuthRepo, mockWorldRepo)
 
-	// Create processor
-	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, lookService, nil, spatialSvc) // nil lookService and interviewService for tests
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, lookService, entityService, interviewService, spatialService, nil)
 
 	// Create and set up the hub
 	hub := websocket.NewHub(proc)
@@ -257,10 +305,9 @@ func TestHandleOpen_Door(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// Lobby doesn't support 'open', sends error message instead
 	require.NoError(t, err)
 	require.Len(t, client.messages, 1)
-	assert.Contains(t, client.messages[0].Text, "Unknown lobby command")
+	assert.Contains(t, client.messages[0].Text, "You open the door")
 }
 
 func TestHandleOpen_Container(t *testing.T) {
@@ -273,10 +320,9 @@ func TestHandleOpen_Container(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// Lobby doesn't support 'open', sends error message instead
 	require.NoError(t, err)
 	require.Len(t, client.messages, 1)
-	assert.Contains(t, client.messages[0].Text, "Unknown lobby command")
+	assert.Contains(t, client.messages[0].Text, "You open the chest")
 }
 
 func TestHandleOpen_NoTarget(t *testing.T) {
@@ -287,10 +333,9 @@ func TestHandleOpen_NoTarget(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// Lobby doesn't support 'open', sends error message instead
-	require.NoError(t, err)
-	require.Len(t, client.messages, 1)
-	assert.Contains(t, client.messages[0].Text, "Unknown lobby command")
+	// Expect error due to missing target
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "target required")
 }
 
 // TestHandleEnter tests the enter command in lobby
@@ -359,9 +404,10 @@ func TestHandleEnter_NoTarget(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// handleLobbyEnter returns error for nil target
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "target world ID required")
+	// handleEnter returns nil but sends error message
+	require.NoError(t, err)
+	require.Len(t, client.messages, 1)
+	assert.Contains(t, client.messages[0].Text, "Enter what")
 }
 
 // TestHandle Say tests the say command
@@ -416,10 +462,12 @@ func TestHandleWhisper_ToNearbyPlayer(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// Lobby doesn't support 'whisper', sends error message instead
+	// Whisper is supported now
 	require.NoError(t, err)
 	require.Len(t, client.messages, 1)
-	assert.Contains(t, client.messages[0].Text, "Unknown lobby command")
+	// It sends "whisper" type
+	assert.Equal(t, "whisper", client.messages[0].Type)
+	assert.Contains(t, client.messages[0].Text, "You whisper to Bob")
 }
 
 func TestHandleWhisper_NoRecipient(t *testing.T) {
@@ -432,10 +480,8 @@ func TestHandleWhisper_NoRecipient(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// Lobby doesn't support 'whisper', sends error message instead
-	require.NoError(t, err)
-	require.Len(t, client.messages, 1)
-	assert.Contains(t, client.messages[0].Text, "Unknown lobby command")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "recipient required")
 }
 
 func TestHandleWhisper_NoMessage(t *testing.T) {
@@ -448,10 +494,8 @@ func TestHandleWhisper_NoMessage(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// Lobby doesn't support 'whisper', sends error message instead
-	require.NoError(t, err)
-	require.Len(t, client.messages, 1)
-	assert.Contains(t, client.messages[0].Text, "Unknown lobby command")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "message required")
 }
 
 // TestHandleTell tests the tell command
@@ -554,7 +598,8 @@ func TestHandleHelp(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, client.messages, 1)
 	assert.Equal(t, "system", client.messages[0].Type)
-	assert.Contains(t, client.messages[0].Text, "Lobby Commands")
+	assert.Equal(t, "system", client.messages[0].Type)
+	assert.Contains(t, client.messages[0].Text, "Available Commands")
 }
 
 // TestHandleLook tests look command (should still work)
@@ -598,10 +643,10 @@ func TestHandleTake(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// Lobby doesn't support 'take', sends error message instead
 	require.NoError(t, err)
 	require.Len(t, client.messages, 1)
-	assert.Contains(t, client.messages[0].Text, "Unknown lobby command")
+	assert.Equal(t, "item_acquired", client.messages[0].Type)
+	assert.Contains(t, client.messages[0].Text, "pick up")
 }
 
 func TestHandleTake_NoTarget(t *testing.T) {
@@ -612,10 +657,8 @@ func TestHandleTake_NoTarget(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// Lobby doesn't support 'take', sends error message instead
-	require.NoError(t, err)
-	require.Len(t, client.messages, 1)
-	assert.Contains(t, client.messages[0].Text, "Unknown lobby command")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "target item required")
 }
 
 // TestHandleDrop tests the drop command - not supported in lobby
@@ -629,10 +672,9 @@ func TestHandleDrop(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// Lobby doesn't support 'drop', sends error message instead
 	require.NoError(t, err)
 	require.Len(t, client.messages, 1)
-	assert.Contains(t, client.messages[0].Text, "Unknown lobby command")
+	assert.Contains(t, client.messages[0].Text, "You drop the sword")
 }
 
 func TestHandleDrop_NoTarget(t *testing.T) {
@@ -643,10 +685,8 @@ func TestHandleDrop_NoTarget(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// Lobby doesn't support 'drop', sends error message instead
-	require.NoError(t, err)
-	require.Len(t, client.messages, 1)
-	assert.Contains(t, client.messages[0].Text, "Unknown lobby command")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "target item required")
 }
 
 // TestHandleAttack tests the attack command - not supported in lobby
@@ -660,10 +700,12 @@ func TestHandleAttack(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// Lobby doesn't support 'attack', sends error message instead
 	require.NoError(t, err)
 	require.Len(t, client.messages, 1)
-	assert.Contains(t, client.messages[0].Text, "Unknown lobby command")
+	require.NoError(t, err)
+	require.Len(t, client.messages, 1)
+	assert.Equal(t, "combat", client.messages[0].Type)
+	assert.Contains(t, client.messages[0].Text, "You attack")
 }
 
 func TestHandleAttack_NoTarget(t *testing.T) {
@@ -674,10 +716,8 @@ func TestHandleAttack_NoTarget(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// Lobby doesn't support 'attack', sends error message instead
-	require.NoError(t, err)
-	require.Len(t, client.messages, 1)
-	assert.Contains(t, client.messages[0].Text, "Unknown lobby command")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "target required")
 }
 
 // TestHandleTalk tests the talk command - not supported in lobby
@@ -691,10 +731,9 @@ func TestHandleTalk(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// Lobby doesn't support 'talk', sends error message instead
 	require.NoError(t, err)
 	require.Len(t, client.messages, 1)
-	assert.Contains(t, client.messages[0].Text, "Unknown lobby command")
+	assert.Equal(t, "dialogue", client.messages[0].Type)
 }
 
 func TestHandleTalk_NoTarget(t *testing.T) {
@@ -705,10 +744,8 @@ func TestHandleTalk_NoTarget(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// Lobby doesn't support 'talk', sends error message instead
-	require.NoError(t, err)
-	require.Len(t, client.messages, 1)
-	assert.Contains(t, client.messages[0].Text, "Unknown lobby command")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "target required")
 }
 
 // TestHandleInventory tests the inventory command - not supported in lobby
@@ -720,10 +757,11 @@ func TestHandleInventory(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// Lobby doesn't support 'inventory', sends error message instead
 	require.NoError(t, err)
-	require.Len(t, client.messages, 1)
-	assert.Contains(t, client.messages[0].Text, "Unknown lobby command")
+	// Inventory calls sendStateUpdate which sends "state_update"
+	// It doesn't strictly send a message back, but update.
+	// We check for state update count
+	assert.Equal(t, 1, client.stateUpdates)
 }
 
 // TestHandleCraft tests the craft command - not supported in lobby
@@ -737,10 +775,9 @@ func TestHandleCraft(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// Lobby doesn't support 'craft', sends error message instead
 	require.NoError(t, err)
 	require.Len(t, client.messages, 1)
-	assert.Contains(t, client.messages[0].Text, "Unknown lobby command")
+	assert.Contains(t, client.messages[0].Text, "crafted sword")
 }
 
 func TestHandleCraft_NoTarget(t *testing.T) {
@@ -751,10 +788,8 @@ func TestHandleCraft_NoTarget(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// Lobby doesn't support 'craft', sends error message instead
-	require.NoError(t, err)
-	require.Len(t, client.messages, 1)
-	assert.Contains(t, client.messages[0].Text, "Unknown lobby command")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "item required")
 }
 
 // TestHandleUse tests the use command - not supported in lobby
@@ -768,10 +803,9 @@ func TestHandleUse(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// Lobby doesn't support 'use', sends error message instead
 	require.NoError(t, err)
 	require.Len(t, client.messages, 1)
-	assert.Contains(t, client.messages[0].Text, "Unknown lobby command")
+	assert.Contains(t, client.messages[0].Text, "use the potion")
 }
 
 func TestHandleUse_NoTarget(t *testing.T) {
@@ -782,10 +816,8 @@ func TestHandleUse_NoTarget(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// Lobby doesn't support 'use', sends error message instead
-	require.NoError(t, err)
-	require.Len(t, client.messages, 1)
-	assert.Contains(t, client.messages[0].Text, "Unknown lobby command")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "item required")
 }
 
 // TestInvalidCommand tests unknown commands
@@ -797,10 +829,8 @@ func TestInvalidCommand(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	// Lobby handles unknown commands by sending error message, not returning error
-	require.NoError(t, err)
-	require.Len(t, client.messages, 1)
-	assert.Contains(t, client.messages[0].Text, "Unknown lobby command")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid action")
 }
 
 // TestNoCharacter tests command with no character

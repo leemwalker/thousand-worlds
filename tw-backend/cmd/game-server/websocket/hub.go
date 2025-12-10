@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"mud-platform-backend/internal/metrics"
-	"mud-platform-backend/internal/spatial"
+	"tw-backend/internal/metrics"
+	"tw-backend/internal/spatial"
 
 	"github.com/google/uuid"
 )

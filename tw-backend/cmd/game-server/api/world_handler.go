@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"mud-platform-backend/internal/repository"
+	"tw-backend/internal/repository"
 )
 
 type WorldHandler struct {

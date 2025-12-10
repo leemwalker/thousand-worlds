@@ -2,7 +2,7 @@ package personality
 
 import (
 	"math/rand"
-	"mud-platform-backend/internal/npc/genetics"
+	"tw-backend/internal/npc/genetics"
 )
 
 // Personality Gene Keys

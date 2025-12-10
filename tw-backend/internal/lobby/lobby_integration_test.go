@@ -8,9 +8,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
 
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/lobby"
-	"mud-platform-backend/internal/testutil"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/lobby"
+	"tw-backend/internal/testutil"
 )
 
 // LobbyIntegrationSuite tests lobby character creation with real database

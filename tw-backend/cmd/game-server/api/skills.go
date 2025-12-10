@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"mud-platform-backend/internal/skills"
+	"tw-backend/internal/skills"
 
 	"github.com/google/uuid"
 )

@@ -17,7 +17,7 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"mud-platform-backend/internal/world/interview"
+	"tw-backend/internal/world/interview"
 )
 
 type RepositoryIntegrationSuite struct {
@@ -76,31 +76,60 @@ func (s *RepositoryIntegrationSuite) SetupSuite() {
 }
 
 func (s *RepositoryIntegrationSuite) runMigrations() {
-	// Adjust path to find migrations from internal/world/interview
-	migrationsDir := "../../../migrations/postgres"
-
 	files := []string{
 		"000001_create_worlds_table.up.sql",
 		"000013_create_auth_tables.up.sql",
 		"000014_create_interview_tables.up.sql",
-		"000015_add_world_name_to_configurations.up.sql",
-		"000020_add_world_name_to_configurations.up.sql", // Ensure all migrations are run
-		"000023_refactor_interview_tables.up.sql",        // Refactor to use user_id
-		"000024_add_owner_id_to_worlds.up.sql",           // Add owner_id column
+		"000015_add_character_role_and_appearance.up.sql",
+		"000016_add_character_description_occupation.up.sql",
+		"000017_add_performance_indexes.up.sql",
+		"000018_create_lobby_world.up.sql",
+		"000019_add_username_to_users.up.sql",
+		"000020_add_world_name_to_configurations.up.sql",
+		"000021_add_last_world_id_to_users.up.sql",
+		"000022_create_events_table.up.sql",
+		"000023_refactor_interview_tables.up.sql",
+		"000024_add_owner_id_to_worlds.up.sql",
+		"000025_add_is_system_world.up.sql",
+		"000026_add_spatial_navigation_tables.up.sql",
+		"000027_create_skills_tables.up.sql",
+		"000028_add_character_orientation.up.sql",
+		"000030_add_character_last_world_visited.up.sql",
+		"000031_unique_world_name.up.sql",
+	}
+
+	// Try to find the migrations directory
+	basePaths := []string{
+		"../../../migrations/postgres",    // for internal/group/package
+		"../../../../migrations/postgres", // for internal/group/subgroup/package
+		"../../migrations/postgres",       // for internal/package
+		"../migrations/postgres",          // for package
+		"migrations/postgres",             // for root
+	}
+
+	var migrationsDir string
+	for _, path := range basePaths {
+		if _, err := os.Stat(path); err == nil {
+			migrationsDir = path
+			break
+		}
+	}
+
+	if migrationsDir == "" {
+		s.T().Fatal("Could not find migrations directory")
 	}
 
 	for _, file := range files {
 		path := filepath.Join(migrationsDir, file)
-		// Check if file exists, if not try skipping (might be duplicate or handled by migration tool usually)
-		if _, err := os.Stat(path); os.IsNotExist(err) {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			s.T().Logf("Warning: Skipping migration %s: %v", file, err)
 			continue
 		}
-
-		content, err := os.ReadFile(path)
-		s.Require().NoError(err, "Failed to read migration %s", file)
 		_, err = s.db.Exec(string(content))
-		// Ignore errors if table already exists (simple migration runner)
-		// s.Require().NoError(err, "Failed to execute migration %s", file)
+		if err != nil {
+			s.T().Logf("Warning: Migration %s failed (might be applied): %v", file, err)
+		}
 	}
 }
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"mud-platform-backend/internal/auth"
+	"tw-backend/internal/auth"
 	"time"
 
 	"github.com/nats-io/nats.go"

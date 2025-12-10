@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"mud-platform-backend/internal/economy/npc"
+	"tw-backend/internal/economy/npc"
 
 	"github.com/google/uuid"
 )

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"mud-platform-backend/internal/testutil"
+	"tw-backend/internal/testutil"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"

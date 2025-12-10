@@ -137,3 +137,80 @@ func (s *Service) detectWeatherChange(old, new *WeatherState) string {
 
 	return ""
 }
+
+// ForceWorldWeather forces a specific weather type for an entire world
+func (s *Service) ForceWorldWeather(ctx context.Context, worldID uuid.UUID, weatherType WeatherType) error {
+	s.cacheMutex.RLock()
+	cells, ok := s.geoCache[worldID]
+	s.cacheMutex.RUnlock()
+
+	if !ok || len(cells) == 0 {
+		return fmt.Errorf("no geography data found for world %s", worldID)
+	}
+
+	// Lock cache
+	s.cacheMutex.Lock()
+	defer s.cacheMutex.Unlock()
+
+	worldCache, ok := s.stateCache[worldID]
+	if !ok {
+		worldCache = make(map[uuid.UUID]*WeatherState)
+		s.stateCache[worldID] = worldCache
+	}
+
+	currentTime := time.Now()
+
+	// Update all cells
+	for _, cell := range cells {
+		// Create forced state
+		// Ideally we simulate "real" values for this weather type
+		// For now, construct a basic state matching the type
+
+		newState := &WeatherState{
+			CellID:      cell.CellID,
+			Timestamp:   currentTime,
+			State:       weatherType,
+			Temperature: cell.Temperature, // Keep base temp? Or adjust?
+		}
+
+		// Adjust params based on forced weather to be consistent
+		switch weatherType {
+		case WeatherClear:
+			newState.Precipitation = 0
+			newState.Humidity = 0.3
+			newState.Wind = Wind{Speed: 5, Direction: 0}
+			newState.Visibility = 10000
+		case WeatherCloudy:
+			newState.Precipitation = 0
+			newState.Humidity = 0.6
+			newState.Wind = Wind{Speed: 10, Direction: 0}
+			newState.Visibility = 5000
+		case WeatherRain:
+			newState.Precipitation = 5.0
+			newState.Humidity = 0.9
+			newState.Wind = Wind{Speed: 15, Direction: 0}
+			newState.Visibility = 2000
+		case WeatherStorm:
+			newState.Precipitation = 20.0
+			newState.Humidity = 1.0
+			newState.Wind = Wind{Speed: 50, Direction: 0}
+			newState.Visibility = 500
+		case WeatherSnow:
+			newState.Precipitation = 2.0 // Snow water equivalent
+			newState.Humidity = 0.5
+			newState.Temperature = -5.0 // Force cold for snow
+			newState.Wind = Wind{Speed: 10, Direction: 0}
+			newState.Visibility = 1000
+		}
+
+		// Save to DB
+		if err := s.repo.SaveWeatherState(ctx, newState); err != nil {
+			return fmt.Errorf("failed to save forced weather state: %w", err)
+		}
+
+		// Update cache
+		worldCache[cell.CellID] = newState
+	}
+
+	return nil
+}

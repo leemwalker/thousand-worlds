@@ -2,7 +2,7 @@ package interaction
 
 import (
 	"math/rand"
-	"mud-platform-backend/internal/npc/personality"
+	"tw-backend/internal/npc/personality"
 	"strings"
 )
 

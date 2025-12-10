@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"mud-platform-backend/internal/npc/personality"
+	"tw-backend/internal/npc/personality"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

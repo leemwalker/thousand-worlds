@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"mud-platform-backend/internal/ai/ollama"
-	"mud-platform-backend/internal/npc/memory" // For Location struct
+	"tw-backend/internal/ai/ollama"
+	"tw-backend/internal/npc/memory" // For Location struct
 )
 
 // LLMClient defines interface for generating text

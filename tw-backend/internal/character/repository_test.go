@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"mud-platform-backend/internal/eventstore"
+	"tw-backend/internal/eventstore"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

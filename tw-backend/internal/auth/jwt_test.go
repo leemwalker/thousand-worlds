@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"mud-platform-backend/internal/auth"
+	"tw-backend/internal/auth"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

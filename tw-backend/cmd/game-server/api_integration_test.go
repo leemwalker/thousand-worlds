@@ -13,13 +13,15 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/suite"
 
-	"mud-platform-backend/cmd/game-server/api"
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/game/entry"
-	"mud-platform-backend/internal/lobby"
-	"mud-platform-backend/internal/repository"
-	"mud-platform-backend/internal/testutil"
-	"mud-platform-backend/internal/world/interview"
+	"tw-backend/cmd/game-server/api"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/game/entry"
+	"tw-backend/internal/game/services/entity"
+	"tw-backend/internal/game/services/look"
+	"tw-backend/internal/lobby"
+	"tw-backend/internal/repository"
+	"tw-backend/internal/testutil"
+	"tw-backend/internal/world/interview"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -50,7 +52,7 @@ func (s *APIIntegrationSuite) SetupSuite() {
 	// Create pgxpool for WorldRepository
 	dbURL := os.Getenv("TEST_DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgres://admin:password123@localhost:5432/mud_core?sslmode=disable"
+		dbURL = "postgres://admin:test_password_123456@localhost:5432/mud_core?sslmode=disable"
 	}
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	s.Require().NoError(err, "Failed to create pgxpool")
@@ -70,9 +72,10 @@ func (s *APIIntegrationSuite) SetupSuite() {
 	interviewSvc := interview.NewServiceWithRepository(nil, interviewRepo, worldRepo) // LLM client can be nil for tests
 	s.entrySvc = entry.NewService(interviewRepo)
 	s.lobbySvc = lobby.NewService(s.authRepo)
+	entitySvc := entity.NewService()
+	lookService := look.NewLookService(worldRepo, nil, entitySvc, interviewRepo)
 
 	// Create handlers with proper signatures
-	lookService := lobby.NewLookService(s.authRepo, worldRepo, interviewRepo, nil)
 	authHandler := api.NewAuthHandler(s.authService, nil, nil) // SessionManager and RateLimiter can be nil
 	interviewHandler := api.NewInterviewHandler(interviewSvc)
 	sessionHandler := api.NewSessionHandler(s.authRepo, lookService)
@@ -650,11 +653,11 @@ func (s *APIIntegrationSuite) TestGetEntryOptions_Success() {
 	// Insert interview first (FK constraint)
 	interviewQuery := `
 		INSERT INTO world_interviews (
-			id, player_id, current_category, current_topic_index,
-			answers, history, is_complete, created_at, updated_at
+			id, user_id, status, current_question_index,
+			created_at, updated_at
 		) VALUES (
-			$1, $2, 'Theme', 0,
-			'{}', '[]', true, NOW(), NOW()
+			$1, $2, 'completed', 0,
+			NOW(), NOW()
 		)
 	`
 	_, err := s.db.Exec(interviewQuery, interviewID, creatorID)
@@ -663,21 +666,36 @@ func (s *APIIntegrationSuite) TestGetEntryOptions_Success() {
 	query := `
 		INSERT INTO world_configurations (
 			id, interview_id, world_id, created_by,
-			world_name,
-			theme, tone, inspirations, unique_aspect, major_conflicts,
-			tech_level, magic_level, advanced_tech, magic_impact,
-			planet_size, climate_range, land_water_ratio, unique_features, extreme_environments,
-			sentient_species, political_structure, cultural_values, economic_system, religions, taboos,
-			biome_weights, resource_distribution, species_start_attributes,
+			configuration,
 			created_at
 		) VALUES (
 			$1, $2, $3, $4,
-			'Test World',
-			'Fantasy', 'Dark', '[]', 'Magic', '[]',
-			'medieval', 'high', '', 'high',
-			'medium', 'temperate', '50/50', '[]', '[]',
-			'["Human", "Elf"]', 'Monarchy', '[]', 'Barter', '[]', '[]',
-			'{}', '{}', '{}',
+			'{
+				"world_name": "Test World",
+				"theme": "Fantasy",
+				"tone": "Dark",
+				"inspirations": [],
+				"unique_aspect": "Magic",
+				"major_conflicts": [],
+				"tech_level": "medieval",
+				"magic_level": "high",
+				"advanced_tech": "",
+				"magic_impact": "high",
+				"planet_size": "medium",
+				"climate_range": "temperate",
+				"land_water_ratio": "50/50",
+				"unique_features": [],
+				"extreme_environments": [],
+				"sentient_species": ["Human", "Elf"],
+				"political_structure": "Monarchy",
+				"cultural_values": [],
+				"economic_system": "Barter",
+				"religions": [],
+				"taboos": [],
+				"biome_weights": {},
+				"resource_distribution": {},
+				"species_start_attributes": {}
+			}',
 			NOW()
 		)
 	`

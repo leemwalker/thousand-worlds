@@ -12,17 +12,19 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/suite"
 
-	"mud-platform-backend/cmd/game-server/api"
-	gameWS "mud-platform-backend/cmd/game-server/websocket"
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/game/entry"
-	"mud-platform-backend/internal/game/processor"
-	"mud-platform-backend/internal/lobby"
-	"mud-platform-backend/internal/mobile"
-	"mud-platform-backend/internal/player"
-	"mud-platform-backend/internal/repository"
-	"mud-platform-backend/internal/testutil"
-	"mud-platform-backend/internal/world/interview"
+	"tw-backend/cmd/game-server/api"
+	gameWS "tw-backend/cmd/game-server/websocket"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/game/entry"
+	"tw-backend/internal/game/processor"
+	"tw-backend/internal/game/services/entity"
+	"tw-backend/internal/game/services/look"
+	"tw-backend/internal/lobby"
+	"tw-backend/internal/mobile"
+	"tw-backend/internal/player"
+	"tw-backend/internal/repository"
+	"tw-backend/internal/testutil"
+	"tw-backend/internal/world/interview"
 )
 
 // MobileSDKIntegrationSuite tests the mobile SDK end-to-end
@@ -64,9 +66,11 @@ func (s *MobileSDKIntegrationSuite) SetupSuite() {
 	lobbySvc := lobby.NewService(authRepo)
 
 	// Services
-	lookService := lobby.NewLookService(authRepo, worldRepo, interviewRepo, nil)
+	entitySvc := entity.NewService()
+	lookService := look.NewLookService(worldRepo, nil, entitySvc, interviewRepo)
 	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
-	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, nil, spatialSvc) // nil lookService and interviewService for test
+	interviewService := interview.NewServiceWithRepository(nil, interviewRepo, worldRepo)
+	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, entitySvc, interviewService, spatialSvc, nil)
 	hub := gameWS.NewHub(gameProcessor)
 	go hub.Run(context.Background())
 

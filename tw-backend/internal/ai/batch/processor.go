@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"mud-platform-backend/internal/ai/dialogue"
+	"tw-backend/internal/ai/dialogue"
 
 	"github.com/google/uuid"
 )

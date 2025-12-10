@@ -2,8 +2,8 @@ package area
 
 import (
 	"context"
-	"mud-platform-backend/internal/ai/ollama"
-	"mud-platform-backend/internal/npc/memory"
+	"tw-backend/internal/ai/ollama"
+	"tw-backend/internal/npc/memory"
 	"net/http"
 	"net/http/httptest"
 	"strings"

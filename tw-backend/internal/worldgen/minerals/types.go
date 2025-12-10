@@ -1,7 +1,7 @@
 package minerals
 
 import (
-	"mud-platform-backend/internal/worldgen/geography"
+	"tw-backend/internal/worldgen/geography"
 
 	"github.com/google/uuid"
 )

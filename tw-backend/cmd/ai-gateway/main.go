@@ -9,7 +9,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"mud-platform-backend/internal/ai/gateway"
+	"tw-backend/internal/ai/gateway"
 )
 
 func main() {

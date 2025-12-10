@@ -53,7 +53,7 @@ type GameMessageData struct {
 var cfg = Config{
 	BaseURL: "http://localhost:8080",
 	WSURL:   "ws://localhost:8080",
-	DBDSN:   "postgres://admin:password123@localhost:5432/mud_core?sslmode=disable",
+	DBDSN:   "postgres://admin:test_password_123456@localhost:5432/mud_core?sslmode=disable",
 }
 
 func init() {

@@ -9,9 +9,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/eventstore"
-	"mud-platform-backend/internal/repository"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/eventstore"
+	"tw-backend/internal/repository"
 )
 
 // BenchmarkEventReplay benchmarks replaying events from the store.

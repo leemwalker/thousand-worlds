@@ -1,7 +1,7 @@
 package interaction
 
 import (
-	"mud-platform-backend/internal/npc/memory"
+	"tw-backend/internal/npc/memory"
 	"strings"
 	"time"
 )

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"mud-platform-backend/internal/worldgen/evolution"
-	"mud-platform-backend/internal/worldgen/geography"
-	"mud-platform-backend/internal/worldgen/minerals"
-	"mud-platform-backend/internal/worldgen/weather"
+	"tw-backend/internal/worldgen/evolution"
+	"tw-backend/internal/worldgen/geography"
+	"tw-backend/internal/worldgen/minerals"
+	"tw-backend/internal/worldgen/weather"
 
 	"github.com/google/uuid"
 )
@@ -92,7 +92,7 @@ func (s *GeneratorService) generateGeography(params *GenerationParams) (*geograp
 	plates := geography.GeneratePlates(params.PlateCount, params.Width, params.Height, params.Seed)
 
 	// Generate heightmap from tectonic activity
-	heightmap := geography.GenerateHeightmap(params.Width, params.Height, plates, params.Seed, params.ErosionRate)
+	heightmap := geography.GenerateHeightmap(params.Width, params.Height, plates, params.Seed, params.ErosionRate, params.RainfallFactor)
 
 	// Assign ocean/land based on desired ratio
 	seaLevel := geography.AssignOceanLand(heightmap, params.LandWaterRatio)

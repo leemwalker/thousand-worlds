@@ -54,7 +54,7 @@ func CalculateTemperature(cell *GeographyCell, currentTime time.Time, season Sea
 	diurnalDelta := GetDiurnalTemperatureDelta(currentTime)
 	baseTemp += diurnalDelta
 
-	// Elevation lapse rate: -6.5°C per 1000m
+	// Elevation lapse rate: -6.5°C per 1000m (Standard Atmosphere)
 	elevationDelta := -(cell.Elevation / 1000.0) * 6.5
 	baseTemp += elevationDelta
 

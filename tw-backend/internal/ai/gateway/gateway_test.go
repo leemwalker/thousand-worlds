@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"mud-platform-backend/internal/ai/gateway"
+	"tw-backend/internal/ai/gateway"
 )
 
 func TestAIGatewayIntegration(t *testing.T) {

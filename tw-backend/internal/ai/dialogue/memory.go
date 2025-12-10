@@ -1,7 +1,7 @@
 package dialogue
 
 import (
-	"mud-platform-backend/internal/npc/memory"
+	"tw-backend/internal/npc/memory"
 	"time"
 
 	"github.com/google/uuid"

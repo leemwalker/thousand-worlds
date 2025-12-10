@@ -10,9 +10,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
-	"mud-platform-backend/internal/eventstore"
-	"mud-platform-backend/internal/spatial"
-	"mud-platform-backend/internal/worldgen/weather"
+	"tw-backend/internal/eventstore"
+	"tw-backend/internal/spatial"
+	"tw-backend/internal/worldgen/weather"
 )
 
 // NATSPublisher interface for publishing messages to NATS

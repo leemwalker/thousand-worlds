@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"mud-platform-backend/internal/npc/genetics"
+	"tw-backend/internal/npc/genetics"
 )
 
 // AppearanceDescription holds the generated description components

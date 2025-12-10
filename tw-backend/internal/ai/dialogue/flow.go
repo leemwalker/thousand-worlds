@@ -1,7 +1,7 @@
 package dialogue
 
 import (
-	"mud-platform-backend/internal/npc/desire"
+	"tw-backend/internal/npc/desire"
 
 	"github.com/google/uuid"
 )

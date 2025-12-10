@@ -1,7 +1,7 @@
 package dialogue
 
 import (
-	"mud-platform-backend/internal/npc/relationship"
+	"tw-backend/internal/npc/relationship"
 
 	"github.com/google/uuid"
 )

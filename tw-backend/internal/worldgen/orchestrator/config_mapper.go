@@ -56,6 +56,10 @@ func (m *ConfigMapper) MapToParams(config WorldConfig) (*GenerationParams, error
 	params.TemperatureMin, params.TemperatureMax = parseTemperatureRange(config.GetClimateRange())
 	params.PrecipitationMin, params.PrecipitationMax = parsePrecipitationRange(config.GetClimateRange())
 
+	// Calculate RainfallFactor based on max precipitation relative to average (approx 1000mm)
+	// Range: 0.25 (Arid) to 3.0 (Wet)
+	params.RainfallFactor = params.PrecipitationMax / 1000.0
+
 	// Map tech level to mineral density
 	params.MineralDensity = calculateMineralDensity(config.GetTechLevel(), config.GetMagicLevel())
 

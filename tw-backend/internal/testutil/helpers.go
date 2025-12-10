@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"mud-platform-backend/internal/auth"
+	"tw-backend/internal/auth"
 )
 
 // CreateTestUser creates a minimal user for testing purposes
@@ -35,11 +35,19 @@ func CreateTestUser(t *testing.T, repo auth.Repository) *auth.User {
 func CreateTestWorld(t *testing.T, db *sql.DB) uuid.UUID {
 	t.Helper()
 
-	worldID := uuid.New()
+	// Create a dummy owner for the world
+	ownerID := uuid.New()
 	_, err := db.Exec(`
-		INSERT INTO worlds (id, name, shape, created_at)
-		VALUES ($1, $2, $3, NOW())
-	`, worldID, "Test World "+uuid.New().String()[:8], "sphere")
+		INSERT INTO users (user_id, email, password_hash, username, created_at)
+		VALUES ($1, $2, $3, $4, NOW())
+	`, ownerID, "worldowner"+ownerID.String()[:8]+"@test.com", "hash", "Owner"+ownerID.String()[:8])
+	require.NoError(t, err, "Failed to create world owner")
+
+	worldID := uuid.New()
+	_, err = db.Exec(`
+		INSERT INTO worlds (id, name, shape, created_at, owner_id)
+		VALUES ($1, $2, $3, NOW(), $4)
+	`, worldID, "Test World "+uuid.New().String()[:8], "sphere", ownerID)
 	require.NoError(t, err, "Failed to create test world")
 
 	return worldID

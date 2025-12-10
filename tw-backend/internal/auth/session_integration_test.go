@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"mud-platform-backend/internal/auth"
+	"tw-backend/internal/auth"
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"

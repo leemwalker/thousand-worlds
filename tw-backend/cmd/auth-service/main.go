@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"mud-platform-backend/internal/auth"
+	"tw-backend/internal/auth"
 	"os"
 	"os/signal"
 	"syscall"

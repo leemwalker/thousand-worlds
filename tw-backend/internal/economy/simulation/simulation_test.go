@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"mud-platform-backend/internal/economy/npc"
+	"tw-backend/internal/economy/npc"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

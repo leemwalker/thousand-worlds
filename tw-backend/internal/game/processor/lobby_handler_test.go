@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"mud-platform-backend/cmd/game-server/websocket"
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/lobby"
-	"mud-platform-backend/internal/repository"
+	"tw-backend/cmd/game-server/websocket"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/lobby"
+	"tw-backend/internal/repository"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

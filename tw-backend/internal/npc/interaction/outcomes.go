@@ -1,7 +1,7 @@
 package interaction
 
 import (
-	"mud-platform-backend/internal/npc/relationship"
+	"tw-backend/internal/npc/relationship"
 )
 
 // RelationshipUpdate holds changes to affinity

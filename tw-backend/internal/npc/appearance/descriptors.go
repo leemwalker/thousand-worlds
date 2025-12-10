@@ -1,7 +1,7 @@
 package appearance
 
 import (
-	"mud-platform-backend/internal/npc/genetics"
+	"tw-backend/internal/npc/genetics"
 )
 
 // GetHeightDescriptor returns a string description based on height gene

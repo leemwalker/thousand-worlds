@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/testutil"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/testutil"
 
 	"github.com/google/uuid"
 )

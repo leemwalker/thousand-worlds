@@ -2,7 +2,7 @@ package prompt
 
 import (
 	"fmt"
-	"mud-platform-backend/internal/npc/relationship"
+	"tw-backend/internal/npc/relationship"
 )
 
 func buildDriftSection(drift *relationship.DriftMetrics, baseline relationship.BehavioralProfile, current relationship.BehavioralProfile) string {

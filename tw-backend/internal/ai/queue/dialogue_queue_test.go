@@ -2,7 +2,7 @@ package queue
 
 import (
 	"context"
-	"mud-platform-backend/internal/ai/dialogue"
+	"tw-backend/internal/ai/dialogue"
 	"sync"
 	"testing"
 	"time"

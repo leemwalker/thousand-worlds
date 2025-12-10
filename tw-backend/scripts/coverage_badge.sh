@@ -5,7 +5,7 @@ set -euo pipefail
 # Usage: ./coverage_badge.sh [coverage_file]
 
 COVERAGE_FILE="${1:-coverage_unit.out}"
-WORK_DIR="mud-platform-backend"
+WORK_DIR="tw-backend"
 
 if [[ ! -f "$WORK_DIR/$COVERAGE_FILE" ]]; then
     echo '{"schemaVersion": 1, "label": "coverage", "message": "unknown", "color": "inactive"}'

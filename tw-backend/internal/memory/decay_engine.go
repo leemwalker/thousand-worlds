@@ -8,7 +8,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
 
-	"mud-platform-backend/internal/repository"
+	"tw-backend/internal/repository"
 )
 
 const (

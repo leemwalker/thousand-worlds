@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"mud-platform-backend/internal/economy/resources"
+	"tw-backend/internal/economy/resources"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

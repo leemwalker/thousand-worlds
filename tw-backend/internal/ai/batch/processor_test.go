@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"mud-platform-backend/internal/ai/dialogue"
+	"tw-backend/internal/ai/dialogue"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"

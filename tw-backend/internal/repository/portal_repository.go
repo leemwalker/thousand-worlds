@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"mud-platform-backend/internal/world/spatial"
+	"tw-backend/internal/world/spatial"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"

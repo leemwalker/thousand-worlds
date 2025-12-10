@@ -15,8 +15,8 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/testutil"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/testutil"
 )
 
 // RepositoryIntegrationSuite tests the PostgresRepository with a real database

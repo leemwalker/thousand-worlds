@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"mud-platform-backend/internal/world/interview"
+	"tw-backend/internal/world/interview"
 )
 
 type InterviewHandler struct {

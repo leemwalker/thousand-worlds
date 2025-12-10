@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sort"
 
-	"mud-platform-backend/internal/economy/resources"
+	"tw-backend/internal/economy/resources"
 
 	"github.com/google/uuid"
 )

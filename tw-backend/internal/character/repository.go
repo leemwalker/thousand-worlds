@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"mud-platform-backend/internal/eventstore"
+	"tw-backend/internal/eventstore"
 
 	"github.com/google/uuid"
 )

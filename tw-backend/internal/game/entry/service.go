@@ -7,10 +7,10 @@ import (
 	"math/rand"
 	"time"
 
-	"mud-platform-backend/internal/lobby"
-	"mud-platform-backend/internal/npc/appearance"
-	"mud-platform-backend/internal/npc/genetics"
-	"mud-platform-backend/internal/world/interview"
+	"tw-backend/internal/lobby"
+	"tw-backend/internal/npc/appearance"
+	"tw-backend/internal/npc/genetics"
+	"tw-backend/internal/world/interview"
 
 	"github.com/google/uuid"
 )

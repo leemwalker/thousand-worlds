@@ -4,7 +4,7 @@ import (
 	"math"
 	"math/rand"
 
-	"mud-platform-backend/internal/worldgen/geography"
+	"tw-backend/internal/worldgen/geography"
 )
 
 // GenerateCluster generates a cluster of mineral veins around a primary vein

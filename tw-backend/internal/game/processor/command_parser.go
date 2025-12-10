@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"mud-platform-backend/cmd/game-server/websocket"
+	"tw-backend/cmd/game-server/websocket"
 )
 
 // CommandParser parses raw text commands into structured CommandData
@@ -42,6 +42,7 @@ func NewCommandParser() *CommandParser {
 			"reply":     {"r"},
 			"lobby":     {"exit", "leave", "hub"},
 			"create":    nil,
+			"weather":   {"climate", "forecast"},
 		},
 	}
 }

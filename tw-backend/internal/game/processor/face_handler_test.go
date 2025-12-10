@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"mud-platform-backend/cmd/game-server/websocket"
+	"tw-backend/cmd/game-server/websocket"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

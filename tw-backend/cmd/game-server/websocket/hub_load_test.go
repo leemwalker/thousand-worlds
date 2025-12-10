@@ -9,18 +9,62 @@ import (
 	"testing"
 	"time"
 
-	"mud-platform-backend/cmd/game-server/websocket"
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/game/processor"
-	"mud-platform-backend/internal/lobby"
-	"mud-platform-backend/internal/player"
-	"mud-platform-backend/internal/repository"
-	"mud-platform-backend/internal/spatial"
+	"tw-backend/cmd/game-server/websocket"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/game/processor"
+	"tw-backend/internal/game/services/look"
+	"tw-backend/internal/player"
+	"tw-backend/internal/repository"
+	"tw-backend/internal/spatial"
+	"tw-backend/internal/world/interview"
 
 	"github.com/google/uuid"
 	ws "github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 )
+
+// MockInterviewRepository for testing
+type MockInterviewRepository struct{}
+
+func (m *MockInterviewRepository) GetConfigurationByWorldID(ctx context.Context, worldID uuid.UUID) (*interview.WorldConfiguration, error) {
+	return nil, nil // Return nil config for basic testing
+}
+func (m *MockInterviewRepository) GetConfigurationByUserID(ctx context.Context, userID uuid.UUID) (*interview.WorldConfiguration, error) {
+	return nil, nil
+}
+func (m *MockInterviewRepository) CreateInterview(ctx context.Context, userID uuid.UUID) (*interview.Interview, error) {
+	return &interview.Interview{ID: uuid.New(), UserID: userID}, nil
+}
+func (m *MockInterviewRepository) GetInterview(ctx context.Context, userID uuid.UUID) (*interview.Interview, error) {
+	return nil, nil
+}
+func (m *MockInterviewRepository) GetAnswers(ctx context.Context, interviewID uuid.UUID) ([]interview.Answer, error) {
+	return []interview.Answer{}, nil
+}
+func (m *MockInterviewRepository) GetActiveInterview(ctx context.Context, userID uuid.UUID) (*interview.Interview, error) {
+	return nil, nil
+}
+func (m *MockInterviewRepository) UpdateInterview(ctx context.Context, interview *interview.Interview) error {
+	return nil
+}
+func (m *MockInterviewRepository) CreateConfiguration(ctx context.Context, config *interview.WorldConfiguration) error {
+	return nil
+}
+func (m *MockInterviewRepository) SaveConfiguration(ctx context.Context, config *interview.WorldConfiguration) error {
+	return nil
+}
+func (m *MockInterviewRepository) IsWorldNameTaken(ctx context.Context, name string) (bool, error) {
+	return false, nil
+}
+func (m *MockInterviewRepository) UpdateInterviewStatus(ctx context.Context, id uuid.UUID, status interview.Status) error {
+	return nil
+}
+func (m *MockInterviewRepository) UpdateQuestionIndex(ctx context.Context, id uuid.UUID, index int) error {
+	return nil
+}
+func (m *MockInterviewRepository) SaveAnswer(ctx context.Context, interviewID uuid.UUID, index int, text string) error {
+	return nil
+}
 
 // MockWorldRepository for testing
 type MockWorldRepository struct{}
@@ -56,9 +100,10 @@ func TestHub_LoadTest_1000Clients(t *testing.T) {
 	authRepo := auth.NewMockRepository()
 	worldRepo := &MockWorldRepository{}
 	// Services
-	lookService := lobby.NewLookService(authRepo, worldRepo, nil, nil)
+	interviewRepo := &MockInterviewRepository{}
+	lookService := look.NewLookService(worldRepo, nil, nil, interviewRepo)
 	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
-	gameProc := processor.NewGameProcessor(authRepo, worldRepo, lookService, nil, spatialSvc)
+	gameProc := processor.NewGameProcessor(authRepo, worldRepo, lookService, nil, nil, spatialSvc, nil)
 	hub := websocket.NewHub(gameProc)
 	gameProc.SetHub(hub)
 
@@ -213,9 +258,10 @@ func BenchmarkHub_BroadcastToArea(b *testing.B) {
 	authRepo := auth.NewMockRepository()
 	worldRepo := &MockWorldRepository{}
 	// Services
-	lookService := lobby.NewLookService(authRepo, worldRepo, nil, nil)
+	interviewRepo := &MockInterviewRepository{}
+	lookService := look.NewLookService(worldRepo, nil, nil, interviewRepo)
 	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
-	gameProc := processor.NewGameProcessor(authRepo, worldRepo, lookService, nil, spatialSvc)
+	gameProc := processor.NewGameProcessor(authRepo, worldRepo, lookService, nil, nil, spatialSvc, nil)
 	hub := websocket.NewHub(gameProc)
 	gameProc.SetHub(hub)
 
@@ -232,9 +278,10 @@ func BenchmarkHub_BroadcastToAll(b *testing.B) {
 	authRepo := auth.NewMockRepository()
 	worldRepo := &MockWorldRepository{}
 	// Services
-	lookService := lobby.NewLookService(authRepo, worldRepo, nil, nil)
+	interviewRepo := &MockInterviewRepository{}
+	lookService := look.NewLookService(worldRepo, nil, nil, interviewRepo)
 	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
-	gameProc := processor.NewGameProcessor(authRepo, worldRepo, lookService, nil, spatialSvc)
+	gameProc := processor.NewGameProcessor(authRepo, worldRepo, lookService, nil, nil, spatialSvc, nil)
 	hub := websocket.NewHub(gameProc)
 
 	ctx, cancel := context.WithCancel(context.Background())

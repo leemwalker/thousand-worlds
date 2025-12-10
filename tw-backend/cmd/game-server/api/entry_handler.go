@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"mud-platform-backend/internal/game/entry"
+	"tw-backend/internal/game/entry"
 
 	"github.com/google/uuid"
 )

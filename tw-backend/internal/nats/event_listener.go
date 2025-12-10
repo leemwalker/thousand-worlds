@@ -10,7 +10,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
 
-	"mud-platform-backend/internal/service"
+	"tw-backend/internal/service"
 )
 
 type EventListener struct {

@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 
-	"mud-platform-backend/internal/repository"
+	"tw-backend/internal/repository"
 )
 
 // TestWorldStructHasOwnerID tests that World struct has OwnerID field (TDD - should fail initially)

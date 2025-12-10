@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"mud-platform-backend/internal/eventstore"
-	"mud-platform-backend/internal/spatial"
-	"mud-platform-backend/internal/worldgen/geography"
-	"mud-platform-backend/internal/worldgen/weather"
+	"tw-backend/internal/eventstore"
+	"tw-backend/internal/spatial"
+	"tw-backend/internal/worldgen/geography"
+	"tw-backend/internal/worldgen/weather"
 
 	"github.com/stretchr/testify/mock"
 )

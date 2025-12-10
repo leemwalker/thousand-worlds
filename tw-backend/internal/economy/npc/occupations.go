@@ -1,7 +1,7 @@
 package npc
 
 import (
-	"mud-platform-backend/internal/economy/resources"
+	"tw-backend/internal/economy/resources"
 )
 
 // Occupation defines an NPC's economic role and priorities

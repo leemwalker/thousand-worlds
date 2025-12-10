@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 
-	"mud-platform-backend/internal/auth"
+	"tw-backend/internal/auth"
 )
 
 func TestSessionHandler_CreateCharacter(t *testing.T) {

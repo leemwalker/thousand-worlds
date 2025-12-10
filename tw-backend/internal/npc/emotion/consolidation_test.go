@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"mud-platform-backend/internal/npc/memory"
+	"tw-backend/internal/npc/memory"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

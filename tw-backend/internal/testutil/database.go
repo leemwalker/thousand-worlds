@@ -78,6 +78,15 @@ func RunMigrations(t *testing.T, db *sql.DB) {
 		"000019_add_username_to_users.up.sql",
 		"000020_add_world_name_to_configurations.up.sql",
 		"000021_add_last_world_id_to_users.up.sql",
+		"000022_create_events_table.up.sql",
+		"000023_refactor_interview_tables.up.sql",
+		"000024_add_owner_id_to_worlds.up.sql",
+		"000025_add_is_system_world.up.sql",
+		"000026_add_spatial_navigation_tables.up.sql",
+		"000027_create_skills_tables.up.sql",
+		"000028_add_character_orientation.up.sql",
+		"000030_add_character_last_world_visited.up.sql",
+		"000031_unique_world_name.up.sql",
 	}
 
 	// Try to find the migrations directory

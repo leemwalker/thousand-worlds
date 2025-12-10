@@ -1,7 +1,7 @@
 package personality
 
 import (
-	"mud-platform-backend/internal/npc/memory"
+	"tw-backend/internal/npc/memory"
 	"strings"
 )
 

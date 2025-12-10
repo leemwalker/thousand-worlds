@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"mud-platform-backend/internal/world/interview"
+	"tw-backend/internal/world/interview"
 )
 
 // TestEndToEndInterviewWithNaming tests the complete interview flow:

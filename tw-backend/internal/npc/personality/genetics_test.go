@@ -1,7 +1,7 @@
 package personality
 
 import (
-	"mud-platform-backend/internal/npc/genetics"
+	"tw-backend/internal/npc/genetics"
 	"testing"
 )
 

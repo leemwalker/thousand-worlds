@@ -3,7 +3,7 @@ package simulation
 import (
 	"context"
 
-	"mud-platform-backend/internal/economy/npc"
+	"tw-backend/internal/economy/npc"
 )
 
 // SimulationManager runs the economic simulation

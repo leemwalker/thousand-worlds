@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"mud-platform-backend/internal/ai/cache"
-	"mud-platform-backend/internal/ai/ollama"
-	"mud-platform-backend/internal/ai/prompt"
+	"tw-backend/internal/ai/cache"
+	"tw-backend/internal/ai/ollama"
+	"tw-backend/internal/ai/prompt"
 
 	"github.com/google/uuid"
 )

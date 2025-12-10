@@ -8,12 +8,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"mud-platform-backend/cmd/game-server/websocket"
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/game/processor"
-	"mud-platform-backend/internal/lobby"
-	"mud-platform-backend/internal/player"
-	"mud-platform-backend/internal/repository"
+	"tw-backend/cmd/game-server/websocket"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/game/processor"
+	"tw-backend/internal/game/services/entity"
+	"tw-backend/internal/game/services/look"
+	"tw-backend/internal/lobby"
+	"tw-backend/internal/player"
+	"tw-backend/internal/repository"
+	"tw-backend/internal/world/interview"
 )
 
 // TestSpatialMovementE2E tests spatial navigation end-to-end
@@ -223,10 +226,13 @@ func setupSpatialTest(t *testing.T) (*processor.GameProcessor, *TestGameClient, 
 	authRepo := auth.NewMockRepository()
 	worldRepo := NewStatefulMockWorldRepository()
 
-	lookService := lobby.NewLookService(authRepo, worldRepo, nil, nil)
+	interviewRepo := &MockInterviewRepository{}
+	entitySvc := entity.NewService()
+	lookService := look.NewLookService(worldRepo, nil, entitySvc, interviewRepo)
+	interviewSvc := interview.NewServiceWithRepository(nil, interviewRepo, worldRepo)
 	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
 
-	proc := processor.NewGameProcessor(authRepo, worldRepo, lookService, nil, spatialSvc)
+	proc := processor.NewGameProcessor(authRepo, worldRepo, lookService, entitySvc, interviewSvc, spatialSvc, nil)
 
 	hub := websocket.NewHub(proc)
 	proc.SetHub(hub)

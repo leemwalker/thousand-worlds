@@ -17,19 +17,21 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
-	"mud-platform-backend/cmd/game-server/api"
-	"mud-platform-backend/cmd/game-server/websocket"
-	"mud-platform-backend/internal/ai/ollama"
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/game/entry"
-	"mud-platform-backend/internal/game/processor"
-	"mud-platform-backend/internal/lobby"
-	"mud-platform-backend/internal/metrics"
-	"mud-platform-backend/internal/player"
-	"mud-platform-backend/internal/repository"
-	"mud-platform-backend/internal/skills"
-	"mud-platform-backend/internal/world/interview"
-	"mud-platform-backend/internal/worldgen/weather"
+	"tw-backend/cmd/game-server/api"
+	"tw-backend/cmd/game-server/websocket"
+	"tw-backend/internal/ai/ollama"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/game/entry"
+	"tw-backend/internal/game/processor"
+	"tw-backend/internal/game/services/entity"
+	"tw-backend/internal/game/services/look"
+	"tw-backend/internal/lobby"
+	"tw-backend/internal/metrics"
+	"tw-backend/internal/player"
+	"tw-backend/internal/repository"
+	"tw-backend/internal/skills"
+	"tw-backend/internal/world/interview"
+	"tw-backend/internal/worldgen/weather"
 )
 
 func main() {
@@ -132,14 +134,17 @@ func main() {
 	weatherRepo := weather.NewPostgresRepository(db)
 	weatherService := weather.NewService(weatherRepo)
 
+	// Initialize Entity Service
+	entityService := entity.NewService()
+
 	// Initialize look service for lobby commands
-	lookService := lobby.NewLookService(authRepo, worldRepo, interviewRepo, weatherService)
+	lookService := look.NewLookService(worldRepo, weatherService, entityService, interviewRepo)
 
 	// Initialize spatial service
 	spatialService := player.NewSpatialService(authRepo, worldRepo)
 
 	// Initialize game processor
-	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, interviewService, spatialService)
+	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, entityService, interviewService, spatialService, weatherService)
 
 	// Create and start the Hub
 	hub := websocket.NewHub(gameProcessor)

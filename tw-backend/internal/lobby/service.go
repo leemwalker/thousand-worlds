@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"mud-platform-backend/internal/auth"
+	"tw-backend/internal/auth"
 )
 
 type Service struct {

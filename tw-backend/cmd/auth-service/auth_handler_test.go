@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"mud-platform-backend/internal/auth"
+	"tw-backend/internal/auth"
 )
 
 type MockPublisher struct {

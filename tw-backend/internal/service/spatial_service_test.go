@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"mud-platform-backend/internal/repository"
+	"tw-backend/internal/repository"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

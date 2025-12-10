@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"mud-platform-backend/internal/formatter"
+	"tw-backend/internal/formatter"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

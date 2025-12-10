@@ -3,7 +3,7 @@ package emotion
 import (
 	"time"
 
-	"mud-platform-backend/internal/npc/memory"
+	"tw-backend/internal/npc/memory"
 
 	"github.com/google/uuid"
 )

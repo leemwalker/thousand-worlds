@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/lobby"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/lobby"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"mud-platform-backend/cmd/game-server/websocket"
+	"tw-backend/cmd/game-server/websocket"
 )
 
 // handleReply sends a reply to the last person who sent a tell

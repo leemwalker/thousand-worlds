@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"mud-platform-backend/internal/auth"
+	"tw-backend/internal/auth"
 
 	"github.com/google/uuid"
 )

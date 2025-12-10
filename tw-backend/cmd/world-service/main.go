@@ -12,11 +12,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"mud-platform-backend/internal/auth"
-	"mud-platform-backend/internal/eventstore"
-	"mud-platform-backend/internal/spatial"
-	"mud-platform-backend/internal/world"
-	"mud-platform-backend/internal/worldgen/weather"
+	"tw-backend/internal/auth"
+	"tw-backend/internal/eventstore"
+	"tw-backend/internal/spatial"
+	"tw-backend/internal/world"
+	"tw-backend/internal/worldgen/weather"
 )
 
 func main() {

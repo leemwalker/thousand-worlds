@@ -3,10 +3,10 @@ package prompt
 import (
 	"bytes"
 	"fmt"
-	"mud-platform-backend/internal/character"
-	"mud-platform-backend/internal/npc/memory"
-	"mud-platform-backend/internal/npc/personality"
-	"mud-platform-backend/internal/npc/relationship"
+	"tw-backend/internal/character"
+	"tw-backend/internal/npc/memory"
+	"tw-backend/internal/npc/personality"
+	"tw-backend/internal/npc/relationship"
 	"text/template"
 )
 

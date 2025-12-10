@@ -3,7 +3,7 @@ package minerals
 import (
 	"testing"
 
-	"mud-platform-backend/internal/worldgen/geography"
+	"tw-backend/internal/worldgen/geography"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
