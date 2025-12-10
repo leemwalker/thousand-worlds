@@ -1,3 +1,10 @@
+-- Create enum type if it doesn't exist
+DO $$ BEGIN
+    CREATE TYPE interview_status AS ENUM ('not_started', 'in_progress', 'complete', 'cancelled');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
 CREATE TABLE IF NOT EXISTS world_interviews (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL UNIQUE REFERENCES users(user_id) ON DELETE CASCADE,
@@ -6,13 +13,6 @@ CREATE TABLE IF NOT EXISTS world_interviews (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
-
--- Create enum type if it doesn't exist
-DO $$ BEGIN
-    CREATE TYPE interview_status AS ENUM ('not_started', 'in_progress', 'complete', 'cancelled');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
 
 CREATE INDEX IF NOT EXISTS idx_interviews_user ON world_interviews(user_id);
 

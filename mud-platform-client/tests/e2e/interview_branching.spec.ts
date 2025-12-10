@@ -67,62 +67,13 @@ test.describe('Dynamic Interview Branching', () => {
     // Helper to handle portal navigation
     async function enterWorld(page, worldName) {
         const input = page.getByPlaceholder('Enter command...');
-        const output = page.locator('[data-testid="game-output"]');
 
-        for (let i = 0; i < 200; i++) {
-            // Try to enter
-            await input.fill(`enter ${worldName}`);
-            await input.press('Enter');
+        await input.fill(`enter ${worldName}`);
+        await input.press('Enter');
 
-            // Wait for reaction: "Choose Your Path" OR "too far"
-            // We use a race condition check or wait for output update
-            // Simplest: wait a bit and check content.
-            // Better: waitFor function looking for either text.
-
-            try {
-                await expect(async () => {
-                    const text = await output.textContent() || "";
-                    if (text.includes('Choose Your Path') || text.includes('too far')) return;
-                    // Also check for "You are too far" specifically in last message if possible
-                    // But checking full text is okay if we clear it? No we can't clear.
-                    // We assume new message appends.
-                    // Let's look for the SPECIFIC response to our command.
-                    // Since we can't easily isolate, we look for existence of EITHER string in the log
-                    // that appeared AFTER we typed.
-                    // But Playwright expect passes if found anywhere.
-                    // So we must rely on the fact that if "Choose Your Path" is visible (as header), we are good.
-                    // If "too far" is in text, we move.
-                }).toPass({ timeout: 2000 });
-            } catch (e) {
-                // Ignore timeout, check state below
-            }
-
-            // Check if Modal is visible
-            if (await page.getByRole('heading', { name: 'Choose Your Path' }).isVisible()) {
-                await page.getByRole('button', { name: /Watcher/ }).first().click();
-                return; // Success!
-            }
-
-            // Check for "too far" and direction
-            // We need to get the LAST message roughly.
-            // Or just search the whole text.
-            // "Try moving East."
-            const text = await output.textContent() || "";
-            const match = text.match(/Try moving (\w+)/);
-            if (match) {
-                const direction = match[1];
-                console.log(`Portal is too far. Moving ${direction}...`);
-                await input.fill(direction);
-                await input.press('Enter');
-                await page.waitForTimeout(500); // Wait for move
-                // Continue loop to try entering again
-                continue;
-            }
-
-            // If neither, wait and retry?
-            await page.waitForTimeout(500);
-        }
-        throw new Error("Failed to enter world after multiple attempts");
+        // Check if Modal is visible - we expect it to be
+        await expect(page.getByRole('heading', { name: 'Choose Your Path' })).toBeVisible({ timeout: 10000 });
+        await page.getByRole('button', { name: /Watcher/ }).first().click();
     }
 
     test('Path A: Immediate naming at Branch point', async ({ page, browserName }) => {

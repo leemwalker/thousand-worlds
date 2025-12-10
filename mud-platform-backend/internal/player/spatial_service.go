@@ -151,7 +151,12 @@ func (s *SpatialService) GetPortalLocation(world *repository.World, targetID uui
 
 // CheckPortalProximity checks if a character is close enough to enter a portal
 // Returns true if allowed, or false with a hint message if not.
-func (s *SpatialService) CheckPortalProximity(charX, charY, portalX, portalY float64) (bool, string) {
+// If isLobby is true, allows entry from anywhere (global entry).
+func (s *SpatialService) CheckPortalProximity(charX, charY, portalX, portalY float64, isLobby bool) (bool, string) {
+	if isLobby {
+		return true, ""
+	}
+
 	// Euclidean distance <= 5
 	dist := math.Sqrt(math.Pow(charX-portalX, 2) + math.Pow(charY-portalY, 2))
 	if dist <= 5.0 {

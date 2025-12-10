@@ -541,17 +541,22 @@ func TestCheckPortalProximity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, _ := svc.CheckPortalProximity(tt.charX, tt.charY, portalX, portalY)
+			result, _ := svc.CheckPortalProximity(tt.charX, tt.charY, portalX, portalY, false)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
 
 	// Additional tests for CheckPortalProximity
 	// 5,5 to 10,10 distance is approx 7.07 > 5
-	allowed, _ := svc.CheckPortalProximity(5, 5, 10, 10)
+	allowed, _ := svc.CheckPortalProximity(5, 5, 10, 10, false)
 	assert.False(t, allowed)
 
 	// 5,5 to 8,5 distance is 3 <= 5
-	allowed, _ = svc.CheckPortalProximity(5, 5, 8, 5)
+	allowed, _ = svc.CheckPortalProximity(5, 5, 8, 5, false)
+	assert.True(t, allowed)
+
+	// Lobby Bypass check
+	// 1000m away but isLobby=true
+	allowed, _ = svc.CheckPortalProximity(0, 0, 1000, 1000, true)
 	assert.True(t, allowed)
 }

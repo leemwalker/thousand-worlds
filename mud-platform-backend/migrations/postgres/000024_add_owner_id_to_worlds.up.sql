@@ -10,6 +10,13 @@ UPDATE worlds
 SET owner_id = (metadata->>'owner_id')::UUID 
 WHERE metadata->>'owner_id' IS NOT NULL;
 
+-- Step 2b: Create System User if needed and assign to orphan worlds (e.g. Lobby)
+INSERT INTO users (user_id, email, password_hash, username)
+VALUES ('00000000-0000-0000-0000-000000000001', 'system@mud.com', 'system_hash_placeholder', 'System')
+ON CONFLICT (user_id) DO NOTHING;
+
+UPDATE worlds SET owner_id = '00000000-0000-0000-0000-000000000001' WHERE owner_id IS NULL;
+
 -- Step 3: Add NOT NULL constraint after migration
 -- If any worlds still have NULL owner_id, this will fail
 ALTER TABLE worlds ALTER COLUMN owner_id SET NOT NULL;

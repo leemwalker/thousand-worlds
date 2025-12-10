@@ -301,8 +301,9 @@ func (p *GameProcessor) handleEnter(ctx context.Context, client websocket.GameCl
 	// For now, we assume if we are entering a generic World from another generic World, there is a portal location.
 	// We rely on SpatialService to tell us.
 	// Note: Generic "Enter" might not always imply a physical portal (could be a command), but assuming "enter <world>" implies physical travel.
+	isLobby := currentWorld.ID.String() == lobby.LobbyWorldID.String()
 	portalX, portalY := p.spatialService.GetPortalLocation(currentWorld, destWorld.ID)
-	allowed, hint := p.spatialService.CheckPortalProximity(char.PositionX, char.PositionY, portalX, portalY)
+	allowed, hint := p.spatialService.CheckPortalProximity(char.PositionX, char.PositionY, portalX, portalY, isLobby)
 	if !allowed {
 		client.SendGameMessage("error", hint, nil)
 		return nil
