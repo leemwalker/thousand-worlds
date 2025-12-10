@@ -1,0 +1,46 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - heading "Thousand Worlds" [level=1] [ref=e5]
+      - generic [ref=e6]:
+        - generic "Connected" [ref=e7]:
+          - generic [ref=e9]: Connected
+        - button "Logout" [ref=e10] [cursor=pointer]
+    - main [ref=e11]:
+      - generic [ref=e12]:
+        - generic [ref=e13]: "> tell statue start"
+        - generic [ref=e14]: Welcome to the Lobby.
+        - generic [ref=e15]:
+          - text: You are in the West Wing of the Grand Lobby. It is quieter here, with alcoves for rest and meditation. Soft light filters from above, illuminating the smooth stone floor.
+          - text: In the distance, toward the center of the hall, you can see the shimmering lights of the world portals.
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - button "Inventory" [ref=e19] [cursor=pointer]
+            - button "Help" [ref=e20] [cursor=pointer]
+          - group "Movement Controls" [ref=e22]:
+            - button "Northwest" [ref=e23] [cursor=pointer]:
+              - img [ref=e24]
+            - button "North" [ref=e26] [cursor=pointer]:
+              - img [ref=e27]
+            - button "Northeast" [ref=e29] [cursor=pointer]:
+              - img [ref=e30]
+            - button "West" [ref=e32] [cursor=pointer]:
+              - img [ref=e33]
+            - button "Look" [ref=e35] [cursor=pointer]: LOOK
+            - button "East" [ref=e36] [cursor=pointer]:
+              - img [ref=e37]
+            - button "Southwest" [ref=e39] [cursor=pointer]:
+              - img [ref=e40]
+            - button "South" [ref=e42] [cursor=pointer]:
+              - img [ref=e43]
+            - button "Southeast" [ref=e45] [cursor=pointer]:
+              - img [ref=e46]
+        - generic [ref=e48]:
+          - textbox "Enter command..." [active] [ref=e49]
+          - button "Send command" [disabled] [ref=e50]: Send
+  - generic [ref=e51]: untitled page
+```

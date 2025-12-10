@@ -35,6 +35,10 @@ LOG_DIR="${LOG_DIR:-./logs}"
 BACKEND_LOG="${LOG_DIR}/backend.log"
 FRONTEND_LOG="${LOG_DIR}/frontend.log"
 
+# Global state
+BG_PIDS=()
+CLEANUP_IN_PROGRESS="false"
+
 #============================================================
 # Colors for Output
 #============================================================
