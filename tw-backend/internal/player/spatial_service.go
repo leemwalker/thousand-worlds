@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"strings"
 
@@ -80,6 +81,9 @@ func (s *SpatialService) HandleMovementCommand(ctx context.Context, charID uuid.
 
 // CalculateNewPosition calculates the new position based on a delta and world rules
 func (s *SpatialService) CalculateNewPosition(char *auth.Character, world *repository.World, dx, dy float64) (float64, float64, string, error) {
+	// Debug: Log world shape and bounds
+	log.Printf("[SPATIAL] World %s shape=%s BoundsMin=%v BoundsMax=%v", world.ID, world.Shape, world.BoundsMin, world.BoundsMax)
+
 	// Check if world is bounded (Cube or has bounds defined)
 	if world.Shape == repository.WorldShapeCube || (world.BoundsMin != nil && world.BoundsMax != nil) {
 		newX, newY, err := calculateBoundedPosition(char.PositionX, char.PositionY, dx, dy, world)
@@ -278,13 +282,13 @@ func parseDirection(input string) (dx, dy float64, name string) {
 	case "w", "west":
 		return -1, 0, "west"
 	case "ne", "northeast":
-		return 0.707, 0.707, "northeast"
+		return 1, 1, "northeast"
 	case "nw", "northwest":
-		return -0.707, 0.707, "northwest"
+		return -1, 1, "northwest"
 	case "se", "southeast":
-		return 0.707, -0.707, "southeast"
+		return 1, -1, "southeast"
 	case "sw", "southwest":
-		return -0.707, -0.707, "southwest"
+		return -1, -1, "southwest"
 	default:
 		return 0, 0, ""
 	}
@@ -410,7 +414,7 @@ func getDirectionName(dx, dy float64) string {
 }
 
 func calculateSphericalPosition(lon, lat, dx, dy float64, dirName string, dims worldspatial.WorldDimensions) (float64, float64, string) {
-	message := fmt.Sprintf("You move %s.", dirName)
+	message := ""
 
 	// Convert 1 meter to degrees
 	// dx, dy are in meters (1 unit = 1 meter per command)

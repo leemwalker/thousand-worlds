@@ -1,20 +1,28 @@
 package character
 
 import (
+	"context"
 	"fmt"
 	"time"
+
+	"log"
+
+	"tw-backend/internal/auth"
+	"tw-backend/internal/game/constants"
 
 	"github.com/google/uuid"
 )
 
 // CreationService handles character creation logic
 type CreationService struct {
-	// Dependencies would go here (e.g., EventStore, NPCRepository)
+	authRepo auth.Repository
 }
 
 // NewCreationService creates a new CreationService
-func NewCreationService() *CreationService {
-	return &CreationService{}
+func NewCreationService(authRepo auth.Repository) *CreationService {
+	return &CreationService{
+		authRepo: authRepo,
+	}
 }
 
 // GenerationRequest contains data needed to generate a new character
@@ -132,4 +140,95 @@ func (s *CreationService) InhabitNPC(req InhabitationRequest) (*Character, *Char
 	}
 
 	return character, event, nil
+}
+
+// EnsureCharacter ensures the user has a character in the specified world
+// Returns existing character or creates a new one
+func (s *CreationService) EnsureCharacter(ctx context.Context, userID uuid.UUID, worldID uuid.UUID) (*auth.Character, error) {
+	// Validate input
+	if userID == uuid.Nil {
+		return nil, fmt.Errorf("invalid user ID: cannot be nil")
+	}
+
+	// Check if character exists in this world
+	char, err := s.authRepo.GetCharacterByUserAndWorld(ctx, userID, worldID)
+	if err == nil && char != nil {
+		// Character exists
+		return char, nil
+	}
+
+	// Log that we're creating a new character
+	log.Printf("[CHARACTER] Creating new character for user %s in world %s", userID, worldID)
+
+	// Create new character
+	newChar, err := s.createWorldCharacter(ctx, userID, worldID)
+	if err != nil {
+		log.Printf("[CHARACTER] ERROR: Failed to create character for user %s: %v", userID, err)
+		return nil, fmt.Errorf("failed to create character: %w", err)
+	}
+
+	log.Printf("[CHARACTER] Successfully created character %s for user %s", newChar.CharacterID, userID)
+	return newChar, nil
+}
+
+// createWorldCharacter creates a new character in the specified world
+// Copies appearance from user's most recent character if available
+func (s *CreationService) createWorldCharacter(ctx context.Context, userID uuid.UUID, worldID uuid.UUID) (*auth.Character, error) {
+	// Get user's existing characters to copy appearance from
+	userChars, err := s.authRepo.GetUserCharacters(ctx, userID)
+
+	// Default values
+	name := "Traveler"
+	role := "traveler"
+	appearance := `{"form":"humanoid","style":"default"}`
+
+	// Specific defaults for Lobby
+	if constants.IsLobby(worldID) {
+		name = "Ghost"
+		role = "ghost"
+		appearance = `{"form":"translucent","color":"pale"}`
+	}
+
+	// Copy appearance from most recent character if available
+	if err == nil && len(userChars) > 0 {
+		lastChar := userChars[0] // Sorted by LastPlayed DESC or CreatedAt DESC
+		if lastChar.Name != "" {
+			name = lastChar.Name
+		}
+		if lastChar.Appearance != "" {
+			appearance = lastChar.Appearance
+		}
+		// Maintain player role if they have characters (unless it's a specific mechanic to downgrade)
+		// For Lobby, we might want to keep them as "player" even if they look like a ghost?
+		// or if they are entering a new world, they are a "traveler".
+		if !constants.IsLobby(worldID) {
+			role = "player"
+		} else {
+			// In lobby, returning players are "player" role usually?
+			role = "player"
+		}
+	} else if err != nil {
+		// Log warning but continue with default values
+		log.Printf("[CHARACTER] WARNING: Could not retrieve user characters: %v. Using default appearance.", err)
+	}
+
+	// Create the character
+	newChar := &auth.Character{
+		CharacterID: uuid.New(),
+		UserID:      userID,
+		WorldID:     worldID,
+		Name:        name,
+		Role:        role,
+		Appearance:  appearance,
+		PositionX:   5.0, // Default center
+		PositionY:   5.0, // Default center
+		CreatedAt:   time.Now(),
+	}
+
+	// Persist to database
+	if err := s.authRepo.CreateCharacter(ctx, newChar); err != nil {
+		return nil, fmt.Errorf("failed to persist character: %w", err)
+	}
+
+	return newChar, nil
 }

@@ -181,9 +181,11 @@ export class GameWebSocket {
     }
 
     private handleMessage(message: ServerMessage): void {
-        // Handle map updates directly
-        if (message.type === 'map_update' && message.data) {
-            mapStore.setMapData(message.data);
+        // Handle map updates - they come as game_message with data.type='map_update'
+        // The actual map data is in data.metadata
+        if (message.type === 'game_message' && message.data?.type === 'map_update' && message.data?.metadata) {
+            console.log('[WS] Received map_update:', message.data.metadata);
+            mapStore.setMapData(message.data.metadata);
         }
 
         // Notify all handlers

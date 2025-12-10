@@ -69,6 +69,20 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 		worldData, hasWorldData = s.lookService.GetCachedWorldData(char.WorldID)
 	}
 
+	// Get world bounds for boundary checking
+	var minX, minY, maxX, maxY float64 = 0, 0, 10, 10 // Default lobby bounds
+	if s.worldRepo != nil {
+		world, err := s.worldRepo.GetWorld(ctx, char.WorldID)
+		if err == nil && world != nil {
+			if world.BoundsMin != nil {
+				minX, minY = world.BoundsMin.X, world.BoundsMin.Y
+			}
+			if world.BoundsMax != nil {
+				maxX, maxY = world.BoundsMax.X, world.BoundsMax.Y
+			}
+		}
+	}
+
 	tiles := make([]MapTile, 0, MapGridSize*MapGridSize)
 
 	// Generate 9x9 grid centered on player
@@ -77,10 +91,22 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 			tileX := int(math.Round(char.PositionX)) + dx
 			tileY := int(math.Round(char.PositionY)) + dy
 
+			// Check if tile is out of bounds
+			outOfBounds := float64(tileX) < minX || float64(tileX) > maxX ||
+				float64(tileY) < minY || float64(tileY) > maxY
+
 			tile := MapTile{
-				X:        tileX,
-				Y:        tileY,
-				IsPlayer: dx == 0 && dy == 0,
+				X:           tileX,
+				Y:           tileY,
+				IsPlayer:    dx == 0 && dy == 0,
+				OutOfBounds: outOfBounds,
+			}
+
+			// Set biome based on bounds
+			if outOfBounds {
+				tile.Biome = "void" // Void/wall for out-of-bounds tiles
+			} else {
+				tile.Biome = "lobby" // Default biome for in-bounds tiles without world data
 			}
 
 			// Get biome and elevation from world data if available

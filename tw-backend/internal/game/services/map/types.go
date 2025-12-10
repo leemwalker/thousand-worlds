@@ -26,13 +26,14 @@ func GetRenderQuality(perception int) RenderQuality {
 
 // MapTile represents a single tile in the mini-map grid
 type MapTile struct {
-	X         int         `json:"x"`
-	Y         int         `json:"y"`
-	Biome     string      `json:"biome"`
-	Elevation float64     `json:"elevation"`
-	Entities  []MapEntity `json:"entities,omitempty"`
-	Portal    *PortalInfo `json:"portal,omitempty"`
-	IsPlayer  bool        `json:"is_player,omitempty"`
+	X           int         `json:"x"`
+	Y           int         `json:"y"`
+	Biome       string      `json:"biome"`
+	Elevation   float64     `json:"elevation"`
+	Entities    []MapEntity `json:"entities,omitempty"`
+	Portal      *PortalInfo `json:"portal,omitempty"`
+	IsPlayer    bool        `json:"is_player,omitempty"`
+	OutOfBounds bool        `json:"out_of_bounds,omitempty"` // True if tile is outside world bounds
 }
 
 // MapEntity represents an entity visible on the map

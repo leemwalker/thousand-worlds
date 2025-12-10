@@ -13,6 +13,15 @@ import (
 	"tw-backend/internal/worldgen/weather"
 
 	"github.com/google/uuid"
+
+	"tw-backend/internal/auth"
+	"tw-backend/internal/game/constants"
+	"tw-backend/internal/game/formatter"
+	"tw-backend/internal/game/services/entity"
+	"tw-backend/internal/repository"
+	"tw-backend/internal/world/interview"
+	"tw-backend/internal/worldgen/orchestrator"
+	"tw-backend/internal/worldgen/weather"
 )
 
 // LookService definition
@@ -20,6 +29,7 @@ type LookService struct {
 	worldRepo      repository.WorldRepository
 	weatherService *weather.Service
 	entityService  *entity.Service
+	authRepo       auth.Repository
 
 	// We might need to keep the orchestrator/cache logic here or genericize it
 	// For now, let's keep the cache logic as it was essential for description generation
@@ -40,12 +50,14 @@ func NewLookService(
 	weatherService *weather.Service,
 	entityService *entity.Service,
 	interviewRepo InterviewRepository,
+	authRepo auth.Repository,
 ) *LookService {
 	return &LookService{
 		worldRepo:      worldRepo,
 		weatherService: weatherService,
 		entityService:  entityService,
 		interviewRepo:  interviewRepo,
+		authRepo:       authRepo,
 		worldCache:     make(map[uuid.UUID]*orchestrator.GeneratedWorld),
 		generator:      orchestrator.NewGeneratorService(),
 	}
@@ -106,23 +118,95 @@ func (s *LookService) DescribeEntity(ctx context.Context, char *auth.Character, 
 	}
 
 	// 2. Check for Entities
-	if s.entityService == nil {
-		return "", fmt.Errorf("I don't see any '%s' here.", targetName)
+	if s.entityService != nil {
+		entities, err := s.entityService.GetEntitiesAt(ctx, char.WorldID, char.PositionX, char.PositionY, 20.0)
+		if err == nil {
+			for _, e := range entities {
+				if strings.EqualFold(e.Name, targetName) {
+					return s.describeEntityObject(e), nil
+				}
+			}
+		}
 	}
 
-	// Search radius - let's agree on a reasonable visibility range, say 20 meters
-	entities, err := s.entityService.GetEntitiesAt(ctx, char.WorldID, char.PositionX, char.PositionY, 20.0)
-	if err != nil {
-		return "", fmt.Errorf("failed to look for entities: %w", err)
-	}
-
-	for _, e := range entities {
-		if strings.EqualFold(e.Name, targetName) {
-			return s.describeEntityObject(e), nil
+	// 3. Check for Other Players
+	// Look up user by username
+	// Note: This matches any user in the DB, but we should strictly check if they are "here" (in the same world/pos).
+	// However, without a "GetPlayersAt" service, we might just check generic user and see if they are in this world.
+	targetUser, err := s.authRepo.GetUserByUsername(ctx, targetName)
+	if err == nil && targetUser != nil {
+		// Check if they have a character in this world
+		targetChar, err := s.authRepo.GetCharacterByUserAndWorld(ctx, targetUser.UserID, char.WorldID)
+		if err == nil && targetChar != nil {
+			// Check distance? For now assuming if they are in the world and you asked for them, you can see them or we describe them.
+			// Ideally we verify distance < 20.0
+			dx := targetChar.PositionX - char.PositionX
+			dy := targetChar.PositionY - char.PositionY
+			distSq := dx*dx + dy*dy
+			if distSq <= 400 { // 20^2
+				return s.describeCharacter(ctx, targetChar)
+			}
 		}
 	}
 
 	return "", fmt.Errorf("I don't see any '%s' here.", targetName)
+}
+
+func (s *LookService) describeCharacter(ctx context.Context, char *auth.Character) (string, error) {
+	world, err := s.worldRepo.GetWorld(ctx, char.WorldID)
+	if err != nil {
+		return fmt.Sprintf("You see %s, a traveler.", formatter.Format(char.Name, formatter.StyleCyan)), nil
+	}
+
+	config, err := s.interviewRepo.GetConfigurationByWorldID(ctx, world.ID)
+
+	baseDesc := ""
+	name := formatter.Format(char.Name, formatter.StyleCyan)
+	if char.Description != "" {
+		baseDesc = char.Description
+	} else if char.Appearance != "" {
+		baseDesc = fmt.Sprintf("%s appears before you", name)
+	} else {
+		baseDesc = fmt.Sprintf("You see %s", name)
+	}
+
+	// If in lobby, we might want to mention where they came from (LastWorldVisited)
+	if constants.IsLobby(char.WorldID) {
+		if char.LastWorldVisited != nil && *char.LastWorldVisited != uuid.Nil {
+			lastWorld, err := s.worldRepo.GetWorld(ctx, *char.LastWorldVisited)
+			if err == nil {
+				lastWorldConfig, _ := s.interviewRepo.GetConfigurationByWorldID(ctx, *char.LastWorldVisited)
+				worldName := formatter.Format(lastWorld.Name, formatter.StyleBlue)
+				if lastWorldConfig != nil {
+					atmosphere := s.getWorldAtmosphere(lastWorldConfig)
+					return fmt.Sprintf("%s. They carry with them the %s of %s.", baseDesc, atmosphere, worldName), nil
+				}
+				return fmt.Sprintf("%s, recently returned from %s.", baseDesc, worldName), nil
+			}
+		}
+	}
+
+	return fmt.Sprintf("%s.", baseDesc), nil
+}
+
+func (s *LookService) getWorldAtmosphere(config *interview.WorldConfiguration) string {
+	theme := strings.ToLower(config.Theme)
+
+	if strings.Contains(theme, "desert") {
+		return "scent of hot sand and dry winds"
+	} else if strings.Contains(theme, "ocean") {
+		return "salt spray and sound of waves"
+	} else if strings.Contains(theme, "forest") {
+		return "earthy scent and whisper of leaves"
+	} else if strings.Contains(theme, "mountain") {
+		return "crisp cold and echoing heights"
+	} else if strings.Contains(theme, "tech") {
+		return "hum of machinery and scent of ozone"
+	} else if strings.Contains(theme, "magic") {
+		return "crackle of arcane power"
+	}
+
+	return "essence"
 }
 
 func (s *LookService) describeSelf(char *auth.Character) string {

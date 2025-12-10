@@ -21,6 +21,7 @@ import (
 	"tw-backend/cmd/game-server/websocket"
 	"tw-backend/internal/ai/ollama"
 	"tw-backend/internal/auth"
+	"tw-backend/internal/character"
 	"tw-backend/internal/game/entry"
 	"tw-backend/internal/game/processor"
 	"tw-backend/internal/game/services/entity"
@@ -139,6 +140,9 @@ func main() {
 
 	// Initialize look service for lobby commands
 	lookService := look.NewLookService(worldRepo, weatherService, entityService, interviewRepo)
+
+	// Character creation service
+	creationService := character.NewCreationService(authRepo)
 
 	// Initialize spatial service
 	spatialService := player.NewSpatialService(authRepo, worldRepo)

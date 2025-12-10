@@ -625,6 +625,10 @@ func (p *GameProcessor) handleLook(ctx context.Context, client websocket.GameCli
 		"character_id": charID.String(),
 		"world_id":     worldID.String(),
 	})
+
+	// Also send map update when looking at the room
+	p.sendMapUpdate(ctx, client)
+
 	return nil
 }
 
@@ -790,6 +794,8 @@ func (p *GameProcessor) sendMapUpdate(ctx context.Context, client websocket.Game
 	}
 
 	// Send map_update message
+	log.Printf("[PROCESSOR] Sending map_update to client with %d tiles at position (%.1f, %.1f), quality=%s",
+		len(mapData.Tiles), mapData.PlayerX, mapData.PlayerY, mapData.RenderQuality)
 	client.SendGameMessage("map_update", "", mapPayload)
 }
 

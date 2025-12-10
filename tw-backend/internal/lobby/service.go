@@ -79,7 +79,7 @@ func (s *Service) createLobbyCharacter(ctx context.Context, userID uuid.UUID) (*
 		log.Printf("[LOBBY] WARNING: Could not retrieve user characters: %v. Using default appearance.", err)
 	}
 
-	// Create the lobby character
+	// Create the lobby character - position at center of lobby (5,5) for freedom of movement
 	newChar := &auth.Character{
 		CharacterID: uuid.New(),
 		UserID:      userID,
@@ -87,6 +87,8 @@ func (s *Service) createLobbyCharacter(ctx context.Context, userID uuid.UUID) (*
 		Name:        name,
 		Role:        role,
 		Appearance:  appearance,
+		PositionX:   5.0, // Center of 0-10 lobby bounds
+		PositionY:   5.0, // Center of 0-10 lobby bounds
 		CreatedAt:   time.Now(),
 	}
 

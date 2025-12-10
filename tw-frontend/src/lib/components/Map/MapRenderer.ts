@@ -43,6 +43,8 @@ const ASCII_SYMBOLS: Record<string, string> = {
     Desert: ':',
     Tundra: '_',
     Alpine: 'A',
+    lobby: '▪',
+    void: '#',
     default: '?'
 };
 
@@ -62,6 +64,8 @@ const EMOJI_SYMBOLS: Record<string, string> = {
     Desert: '🏜️',
     Tundra: '❄️',
     Alpine: '🗻',
+    lobby: '◻',
+    void: '⬛',
     default: '·'
 };
 
@@ -99,7 +103,8 @@ export class MapRenderer {
         // Render visible tiles
         for (const tile of visibleArea) {
             const screenX = centerX + (tile.x - playerPos.x) * this.tileSize;
-            const screenY = centerY + (tile.y - playerPos.y) * this.tileSize;
+            // Negate Y delta: game uses Y-increases-north, screen uses Y-increases-down
+            const screenY = centerY - (tile.y - playerPos.y) * this.tileSize;
 
             this.renderTile(tile, screenX, screenY);
         }
@@ -318,6 +323,8 @@ export class MapRenderer {
             'tundra': `rgba(224, 255, 255, ${alpha})`,
             'mountain': `rgba(128, 128, 128, ${alpha})`,
             'swamp': `rgba(85, 107, 47, ${alpha})`,
+            'lobby': `rgba(80, 80, 100, ${alpha})`,
+            'void': `rgba(20, 20, 30, ${alpha})`,
         };
         return biomeColors[biome] || `rgba(51, 51, 51, ${alpha})`;
     }

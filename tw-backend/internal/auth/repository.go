@@ -360,18 +360,12 @@ func (r *PostgresRepository) UpdateCharacter(ctx context.Context, char *Characte
 		WHERE character_id = $1
 	`
 
-	// Use PositionX/Y if set, or fall back to Position.Longitude/Latitude
-	lon := char.PositionX
-	lat := char.PositionY
-	if char.Position != nil {
-		lon = char.Position.Longitude
-		lat = char.Position.Latitude
-	}
-
+	// Always use PositionX/Y as the primary source of position data
+	// The Position field is only for backwards compatibility when reading
 	_, err := r.db.ExecContext(ctx, query,
 		char.CharacterID,
 		char.Name,
-		lon, lat, char.PositionZ,
+		char.PositionX, char.PositionY, char.PositionZ,
 		char.OrientationX, char.OrientationY, char.OrientationZ,
 		char.LastPlayed,
 		char.LastWorldVisited,
