@@ -12,6 +12,7 @@ import (
 	"tw-backend/internal/repository"
 	"tw-backend/internal/spatial"
 	worldspatial "tw-backend/internal/world/spatial"
+	"tw-backend/internal/worldentity"
 
 	"github.com/google/uuid"
 )
@@ -26,15 +27,17 @@ type Collider struct {
 
 // SpatialService handles character movement and spatial logic
 type SpatialService struct {
-	authRepo  auth.Repository
-	worldRepo repository.WorldRepository
+	authRepo      auth.Repository
+	worldRepo     repository.WorldRepository
+	entityService *worldentity.Service
 }
 
 // NewSpatialService creates a new SpatialService
-func NewSpatialService(authRepo auth.Repository, worldRepo repository.WorldRepository) *SpatialService {
+func NewSpatialService(authRepo auth.Repository, worldRepo repository.WorldRepository, entityService *worldentity.Service) *SpatialService {
 	return &SpatialService{
-		authRepo:  authRepo,
-		worldRepo: worldRepo,
+		authRepo:      authRepo,
+		worldRepo:     worldRepo,
+		entityService: entityService,
 	}
 }
 
@@ -59,7 +62,7 @@ func (s *SpatialService) HandleMovementCommand(ctx context.Context, charID uuid.
 	}
 
 	// 4. Calculate New Position
-	newX, newY, message, err := s.CalculateNewPosition(char, world, dx, dy)
+	newX, newY, message, err := s.CalculateNewPosition(ctx, char, world, dx, dy)
 	if err != nil {
 		return message, nil // Return user-facing restriction message
 	}
@@ -80,7 +83,7 @@ func (s *SpatialService) HandleMovementCommand(ctx context.Context, charID uuid.
 }
 
 // CalculateNewPosition calculates the new position based on a delta and world rules
-func (s *SpatialService) CalculateNewPosition(char *auth.Character, world *repository.World, dx, dy float64) (float64, float64, string, error) {
+func (s *SpatialService) CalculateNewPosition(ctx context.Context, char *auth.Character, world *repository.World, dx, dy float64) (float64, float64, string, error) {
 	// Debug: Log world shape and bounds
 	log.Printf("[SPATIAL] World %s shape=%s BoundsMin=%v BoundsMax=%v", world.ID, world.Shape, world.BoundsMin, world.BoundsMax)
 
@@ -90,6 +93,16 @@ func (s *SpatialService) CalculateNewPosition(char *auth.Character, world *repos
 		if err != nil {
 			return char.PositionX, char.PositionY, err.Error(), fmt.Errorf("blocked")
 		}
+
+		// Check WorldEntity collisions (database-backed entities)
+		if s.entityService != nil {
+			blocked, entity, checkErr := s.entityService.CheckCollision(ctx, world.ID, newX, newY)
+			if checkErr == nil && blocked {
+				msg := fmt.Sprintf("The way is blocked by the %s.", entity.Name)
+				return char.PositionX, char.PositionY, msg, fmt.Errorf("blocked")
+			}
+		}
+
 		return newX, newY, "", nil
 	}
 
@@ -100,6 +113,15 @@ func (s *SpatialService) CalculateNewPosition(char *auth.Character, world *repos
 	}
 	dims := worldspatial.NewWorldDimensions(circumference)
 	newX, newY, message := calculateSphericalPosition(char.PositionX, char.PositionY, dx, dy, "", dims) // Empty dirName as we formulate message caller-side or here
+
+	// Check WorldEntity collisions for spherical worlds too
+	if s.entityService != nil {
+		blocked, entity, checkErr := s.entityService.CheckCollision(ctx, world.ID, newX, newY)
+		if checkErr == nil && blocked {
+			msg := fmt.Sprintf("The way is blocked by the %s.", entity.Name)
+			return char.PositionX, char.PositionY, msg, fmt.Errorf("blocked")
+		}
+	}
 
 	return newX, newY, message, nil
 }

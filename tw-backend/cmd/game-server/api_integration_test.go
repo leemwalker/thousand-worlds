@@ -18,7 +18,6 @@ import (
 	"tw-backend/internal/game/entry"
 	"tw-backend/internal/game/services/entity"
 	"tw-backend/internal/game/services/look"
-	"tw-backend/internal/lobby"
 	"tw-backend/internal/repository"
 	"tw-backend/internal/testutil"
 	"tw-backend/internal/world/interview"
@@ -40,7 +39,6 @@ type APIIntegrationSuite struct {
 	authService *auth.Service
 	// interviewSvc removed - we create it inline in SetupSuite
 	entrySvc *entry.Service
-	lobbySvc *lobby.Service
 }
 
 // SetupSuite runs once before all tests
@@ -71,9 +69,8 @@ func (s *APIIntegrationSuite) SetupSuite() {
 	s.authService = auth.NewService(authConfig, s.authRepo)
 	interviewSvc := interview.NewServiceWithRepository(nil, interviewRepo, worldRepo) // LLM client can be nil for tests
 	s.entrySvc = entry.NewService(interviewRepo)
-	s.lobbySvc = lobby.NewService(s.authRepo)
 	entitySvc := entity.NewService()
-	lookService := look.NewLookService(worldRepo, nil, entitySvc, interviewRepo)
+	lookService := look.NewLookService(worldRepo, nil, entitySvc, interviewRepo, s.authRepo, nil)
 
 	// Create handlers with proper signatures
 	authHandler := api.NewAuthHandler(s.authService, nil, nil) // SessionManager and RateLimiter can be nil

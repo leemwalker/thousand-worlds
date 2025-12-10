@@ -26,7 +26,6 @@
  * ```
  */
 declare module '$env/static/private' {
-	export const ANTIGRAVITY_AGENT: string;
 	export const TERM_PROGRAM: string;
 	export const NODE: string;
 	export const INIT_CWD: string;
@@ -52,7 +51,6 @@ declare module '$env/static/private' {
 	export const __CF_USER_TEXT_ENCODING: string;
 	export const VSCODE_PROFILE_INITIALIZED: string;
 	export const npm_execpath: string;
-	export const PAGER: string;
 	export const POSTGRES_PASSWORD: string;
 	export const PATH: string;
 	export const npm_package_json: string;
@@ -123,7 +121,6 @@ declare module '$env/static/public' {
  */
 declare module '$env/dynamic/private' {
 	export const env: {
-		ANTIGRAVITY_AGENT: string;
 		TERM_PROGRAM: string;
 		NODE: string;
 		INIT_CWD: string;
@@ -149,7 +146,6 @@ declare module '$env/dynamic/private' {
 		__CF_USER_TEXT_ENCODING: string;
 		VSCODE_PROFILE_INITIALIZED: string;
 		npm_execpath: string;
-		PAGER: string;
 		POSTGRES_PASSWORD: string;
 		PATH: string;
 		npm_package_json: string;

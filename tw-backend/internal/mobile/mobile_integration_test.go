@@ -15,11 +15,11 @@ import (
 	"tw-backend/cmd/game-server/api"
 	gameWS "tw-backend/cmd/game-server/websocket"
 	"tw-backend/internal/auth"
+	"tw-backend/internal/character"
 	"tw-backend/internal/game/entry"
 	"tw-backend/internal/game/processor"
 	"tw-backend/internal/game/services/entity"
 	"tw-backend/internal/game/services/look"
-	"tw-backend/internal/lobby"
 	"tw-backend/internal/mobile"
 	"tw-backend/internal/player"
 	"tw-backend/internal/repository"
@@ -63,14 +63,12 @@ func (s *MobileSDKIntegrationSuite) SetupSuite() {
 	s.authService = auth.NewService(authConfig, authRepo)
 	_ = interview.NewServiceWithRepository(nil, interviewRepo, worldRepo) // Not used directly in tests
 	entrySvc := entry.NewService(interviewRepo)
-	lobbySvc := lobby.NewService(authRepo)
-
 	// Services
 	entitySvc := entity.NewService()
-	lookService := look.NewLookService(worldRepo, nil, entitySvc, interviewRepo)
-	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
+	lookService := look.NewLookService(worldRepo, nil, entitySvc, interviewRepo, authRepo, nil)
+	spatialSvc := player.NewSpatialService(authRepo, worldRepo, nil)
 	interviewService := interview.NewServiceWithRepository(nil, interviewRepo, worldRepo)
-	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, entitySvc, interviewService, spatialSvc, nil, nil)
+	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, entitySvc, interviewService, spatialSvc, nil, nil, nil)
 	hub := gameWS.NewHub(gameProcessor)
 	go hub.Run(context.Background())
 
@@ -79,8 +77,11 @@ func (s *MobileSDKIntegrationSuite) SetupSuite() {
 	sessionHandler := api.NewSessionHandler(authRepo, lookService)
 	entryHandler := api.NewEntryHandler(entrySvc)
 	worldHandler := api.NewWorldHandler(worldRepo)
-	descGen := lobby.NewDescriptionGenerator(worldRepo, authRepo)
-	wsHandler := gameWS.NewHandler(hub, lobbySvc, authRepo, descGen)
+	// Create CreationService
+	creationService := character.NewCreationService(authRepo)
+
+	// Create handler
+	wsHandler := gameWS.NewHandler(hub, creationService, authRepo, lookService)
 
 	// Setup router
 	r := chi.NewRouter()

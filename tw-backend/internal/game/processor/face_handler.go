@@ -66,7 +66,7 @@ func (p *GameProcessor) handleFace(ctx context.Context, client websocket.GameCli
 	}
 
 	// Look 1 unit ahead
-	viewX, viewY, _, err := p.spatialService.CalculateNewPosition(char, world, dx, dy)
+	viewX, viewY, _, err := p.spatialService.CalculateNewPosition(ctx, char, world, dx, dy)
 	if err != nil {
 		// Even if movement is blocked, we might see the wall/obstacle.
 		// CalculateNewPosition returns the blocked pos or current pos with error?

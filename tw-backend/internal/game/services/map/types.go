@@ -39,9 +39,10 @@ type MapTile struct {
 // MapEntity represents an entity visible on the map
 type MapEntity struct {
 	ID     uuid.UUID `json:"id"`
-	Type   string    `json:"type"` // "player", "npc", "resource", "monster"
+	Type   string    `json:"type"` // "player", "npc", "resource", "monster", "static", "item", etc
 	Name   string    `json:"name,omitempty"`
 	Status string    `json:"status,omitempty"` // "friendly", "neutral", "hostile"
+	Glyph  string    `json:"glyph,omitempty"`  // Custom glyph for rendering (e.g., "🗿" for statue)
 }
 
 // PortalInfo represents a portal visible on the map

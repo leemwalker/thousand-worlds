@@ -9,6 +9,7 @@ import (
 	"tw-backend/internal/game/services/look"
 	"tw-backend/internal/repository"
 	"tw-backend/internal/skills"
+	"tw-backend/internal/worldentity"
 	"tw-backend/internal/worldgen/orchestrator"
 )
 
@@ -21,10 +22,11 @@ const (
 
 // Service provides map data generation for the mini-map feature
 type Service struct {
-	worldRepo     repository.WorldRepository
-	skillsRepo    skills.Repository
-	entityService *entity.Service
-	lookService   *look.LookService
+	worldRepo          repository.WorldRepository
+	skillsRepo         skills.Repository
+	entityService      *entity.Service
+	lookService        *look.LookService
+	worldEntityService *worldentity.Service
 }
 
 // NewService creates a new map service
@@ -33,12 +35,14 @@ func NewService(
 	skillsRepo skills.Repository,
 	entityService *entity.Service,
 	lookService *look.LookService,
+	worldEntityService *worldentity.Service,
 ) *Service {
 	return &Service{
-		worldRepo:     worldRepo,
-		skillsRepo:    skillsRepo,
-		entityService: entityService,
-		lookService:   lookService,
+		worldRepo:          worldRepo,
+		skillsRepo:         skillsRepo,
+		entityService:      entityService,
+		lookService:        lookService,
+		worldEntityService: worldEntityService,
 	}
 }
 
@@ -137,7 +141,7 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 				}
 			}
 
-			// Get entities at this tile if entity service is available
+			// Get entities at this tile if entity service is available (in-memory entities)
 			if s.entityService != nil {
 				entities, err := s.entityService.GetEntitiesAt(ctx, char.WorldID, float64(tileX), float64(tileY), 1.0)
 				if err == nil && len(entities) > 0 {
@@ -146,6 +150,21 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 							ID:   e.ID,
 							Type: string(e.Type),
 							Name: e.Name,
+						})
+					}
+				}
+			}
+
+			// Get world entities at this tile (database-backed static objects)
+			if s.worldEntityService != nil {
+				worldEntities, err := s.worldEntityService.GetEntitiesAt(ctx, char.WorldID, float64(tileX), float64(tileY), 1.0)
+				if err == nil && len(worldEntities) > 0 {
+					for _, we := range worldEntities {
+						tile.Entities = append(tile.Entities, MapEntity{
+							ID:    we.ID,
+							Type:  string(we.EntityType),
+							Name:  we.Name,
+							Glyph: we.GetGlyph(),
 						})
 					}
 				}

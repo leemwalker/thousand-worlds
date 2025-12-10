@@ -11,8 +11,8 @@ import (
 	"tw-backend/internal/auth"
 	"tw-backend/internal/character"
 	"tw-backend/internal/errors"
+	"tw-backend/internal/game/constants"
 	"tw-backend/internal/game/services/look"
-	"tw-backend/internal/lobby"
 	"tw-backend/internal/validation"
 )
 
@@ -232,10 +232,10 @@ func (h *SessionHandler) JoinGame(w http.ResponseWriter, r *http.Request) {
 	// 3. Initialize game session
 
 	// Requirement: On login, player must spawn in Lobby.
-	if !lobby.IsLobby(char.WorldID) {
+	if !constants.IsLobby(char.WorldID) {
 		currentWorldID := char.WorldID
 		char.LastWorldVisited = &currentWorldID
-		char.WorldID = lobby.LobbyWorldID
+		char.WorldID = constants.LobbyWorldID
 		char.PositionX = 500.0
 		char.PositionY = 500.0
 		char.PositionZ = 0.0

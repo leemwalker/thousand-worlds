@@ -56,8 +56,8 @@ func TestServiceGetMapData_NoWorldData(t *testing.T) {
 	assert.Equal(t, 81, len(mapData.Tiles))
 	assert.Equal(t, 9, mapData.GridSize)
 
-	// Default quality is low (no skills repo)
-	assert.Equal(t, QualityLow, mapData.RenderQuality)
+	// Default quality is high (perception defaults to 100 for lobby users)
+	assert.Equal(t, QualityHigh, mapData.RenderQuality)
 
 	// Player position should be stored
 	assert.Equal(t, 50.5, mapData.PlayerX)

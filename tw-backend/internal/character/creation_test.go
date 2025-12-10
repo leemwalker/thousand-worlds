@@ -5,10 +5,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+
+	"tw-backend/internal/auth"
 )
 
 func TestGenerateCharacter(t *testing.T) {
-	service := NewCreationService()
+	mockAuthRepo := auth.NewMockRepository()
+	service := NewCreationService(mockAuthRepo)
 	playerID := uuid.New()
 
 	req := GenerationRequest{
@@ -45,7 +48,8 @@ func TestGenerateCharacter(t *testing.T) {
 }
 
 func TestGenerateCharacter_InvalidSpecies(t *testing.T) {
-	service := NewCreationService()
+	mockAuthRepo := auth.NewMockRepository()
+	service := NewCreationService(mockAuthRepo)
 	req := GenerationRequest{
 		Species: "Alien",
 	}
@@ -57,7 +61,8 @@ func TestGenerateCharacter_InvalidSpecies(t *testing.T) {
 }
 
 func TestGenerateCharacter_InvalidPointBuy(t *testing.T) {
-	service := NewCreationService()
+	mockAuthRepo := auth.NewMockRepository()
+	service := NewCreationService(mockAuthRepo)
 	req := GenerationRequest{
 		Species: SpeciesHuman,
 		PointBuyChoices: map[string]int{
@@ -70,7 +75,8 @@ func TestGenerateCharacter_InvalidPointBuy(t *testing.T) {
 }
 
 func TestInhabitNPC(t *testing.T) {
-	service := NewCreationService()
+	mockAuthRepo := auth.NewMockRepository()
+	service := NewCreationService(mockAuthRepo)
 	playerID := uuid.New()
 	npcID := uuid.New()
 

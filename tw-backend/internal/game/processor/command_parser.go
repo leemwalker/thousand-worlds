@@ -32,7 +32,8 @@ func NewCommandParser() *CommandParser {
 			"whisper":   {"psst"},
 			"tell":      {"message", "msg", "pm"},
 			"who":       {"players", "online"},
-			"take":      {"get", "grab", "pick", "pickup"},
+			"get":       {"take", "grab", "pick", "pickup"},
+			"push":      {"pull", "move"},
 			"drop":      {"release", "discard", "throw"},
 			"attack":    {"hit", "fight", "strike", "kill"},
 			"talk":      {"chat"},
@@ -113,7 +114,7 @@ func (p *CommandParser) ParseText(text string) *websocket.CommandData {
 			cmd.Target = &target
 		}
 
-	case "look", "take", "drop", "attack", "talk", "craft", "use", "open", "face":
+	case "look", "get", "push", "drop", "attack", "talk", "craft", "use", "open", "face":
 		// Format: <action> <target>
 		// Join all args as target (handles multi-word targets like "iron sword")
 		if len(args) > 0 {

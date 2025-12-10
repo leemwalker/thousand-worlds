@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"tw-backend/cmd/game-server/websocket"
-	"tw-backend/internal/lobby"
+	"tw-backend/internal/game/constants"
 )
 
 // handleLobby sends the player back to the lobby
@@ -16,7 +16,7 @@ func (p *GameProcessor) handleLobby(ctx context.Context, client websocket.GameCl
 	}
 
 	// 1. Check if already in lobby
-	if lobby.IsLobby(char.WorldID) {
+	if constants.IsLobby(char.WorldID) {
 		client.SendGameMessage("error", "You are already in the lobby.", nil)
 		return nil
 	}
@@ -27,7 +27,7 @@ func (p *GameProcessor) handleLobby(ctx context.Context, client websocket.GameCl
 	char.LastWorldVisited = &currentWorldID
 
 	// 3. Move to Lobby
-	char.WorldID = lobby.LobbyWorldID
+	char.WorldID = constants.LobbyWorldID
 
 	// 4. Set Position to Lobby Spawn (South Entrance)
 	char.PositionX = 5.0

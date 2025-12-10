@@ -8,7 +8,7 @@ import (
 
 	"tw-backend/cmd/game-server/websocket"
 	"tw-backend/internal/auth"
-	"tw-backend/internal/lobby"
+	"tw-backend/internal/game/constants"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -53,14 +53,14 @@ func newMockClientWithReply(username string, worldID uuid.UUID) *mockClientWithR
 
 // Override GetWorldID for lobby testing
 func (m *mockClientWithReply) GetWorldID() uuid.UUID {
-	return lobby.LobbyWorldID
+	return constants.LobbyWorldID
 }
 
 // TestHandleReply_NoMessage tests reply with empty message
 func TestHandleReply_NoMessage(t *testing.T) {
 	processor, _, _, _ := setupTest(t)
 
-	bob := newMockClientWithReply("Bob", lobby.LobbyWorldID)
+	bob := newMockClientWithReply("Bob", constants.LobbyWorldID)
 	bob.SetLastTellSender("Alice")
 
 	cmd := &websocket.CommandData{
@@ -79,7 +79,7 @@ func TestHandleReply_NoMessage(t *testing.T) {
 func TestHandleReply_NoPreviousTell(t *testing.T) {
 	processor, _, _, _ := setupTest(t)
 
-	bob := newMockClientWithReply("Bob", lobby.LobbyWorldID)
+	bob := newMockClientWithReply("Bob", constants.LobbyWorldID)
 
 	message := "Hello!"
 	cmd := &websocket.CommandData{
@@ -101,7 +101,7 @@ func TestHandleReply_SenderOffline(t *testing.T) {
 	hub := websocket.NewHub(processor)
 	processor.SetHub(hub)
 
-	bob := newMockClientWithReply("Bob", lobby.LobbyWorldID)
+	bob := newMockClientWithReply("Bob", constants.LobbyWorldID)
 	bob.SetLastTellSender("Alice")
 
 	message := "Are you there?"
@@ -120,7 +120,7 @@ func TestHandleReply_SenderOffline(t *testing.T) {
 
 // TestHandleReply_ThreadSafe tests concurrent access to last tell sender
 func TestHandleReply_ThreadSafe(t *testing.T) {
-	bob := newMockClientWithReply("Bob", lobby.LobbyWorldID)
+	bob := newMockClientWithReply("Bob", constants.LobbyWorldID)
 
 	done := make(chan bool)
 	iterations := 100
@@ -159,7 +159,7 @@ func setupLobbyCharacter(t *testing.T, authRepo auth.Repository, client *mockCli
 	char := &auth.Character{
 		CharacterID: client.CharacterID,
 		UserID:      client.UserID,
-		WorldID:     lobby.LobbyWorldID,
+		WorldID:     constants.LobbyWorldID,
 		Name:        client.Username,
 		CreatedAt:   time.Now(),
 	}

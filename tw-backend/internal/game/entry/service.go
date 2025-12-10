@@ -7,7 +7,7 @@ import (
 	"math/rand"
 	"time"
 
-	"tw-backend/internal/lobby"
+	"tw-backend/internal/game/constants"
 	"tw-backend/internal/npc/appearance"
 	"tw-backend/internal/npc/genetics"
 	"tw-backend/internal/world/interview"
@@ -42,7 +42,7 @@ type NPCPreview struct {
 
 // GetEntryOptions returns available entry modes for a world
 func (s *Service) GetEntryOptions(ctx context.Context, worldID uuid.UUID) (*EntryOptions, error) {
-	if lobby.IsLobby(worldID) {
+	if constants.IsLobby(worldID) {
 		return nil, fmt.Errorf("cannot get entry options for lobby")
 	}
 

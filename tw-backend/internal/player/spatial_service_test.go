@@ -120,7 +120,7 @@ func (m *MockWorldRepository) DeleteWorld(ctx context.Context, worldID uuid.UUID
 func TestHandleMovementCommand_Bounded(t *testing.T) {
 	mockAuth := new(MockAuthRepository)
 	mockWorld := new(MockWorldRepository)
-	svc := NewSpatialService(mockAuth, mockWorld)
+	svc := NewSpatialService(mockAuth, mockWorld, nil)
 
 	charID := uuid.New()
 	worldID := uuid.New()
@@ -226,7 +226,7 @@ func TestHandleMovementCommand_Bounded(t *testing.T) {
 func TestHandleMovementCommand_Spherical(t *testing.T) {
 	mockAuth := new(MockAuthRepository)
 	mockWorld := new(MockWorldRepository)
-	svc := NewSpatialService(mockAuth, mockWorld)
+	svc := NewSpatialService(mockAuth, mockWorld, nil)
 
 	charID := uuid.New()
 	worldID := uuid.New()
@@ -373,7 +373,7 @@ func TestHandleMovementCommand_Spherical(t *testing.T) {
 func TestCalculateDistance(t *testing.T) {
 	mockAuth := new(MockAuthRepository)
 	mockWorld := new(MockWorldRepository)
-	svc := NewSpatialService(mockAuth, mockWorld)
+	svc := NewSpatialService(mockAuth, mockWorld, nil)
 
 	// Earth radius in meters (approximately)
 	radius := 6371000.0
@@ -422,7 +422,7 @@ func TestCalculateDistance(t *testing.T) {
 func TestHandleMovementCommand_CharacterNotFound(t *testing.T) {
 	mockAuth := new(MockAuthRepository)
 	mockWorld := new(MockWorldRepository)
-	svc := NewSpatialService(mockAuth, mockWorld)
+	svc := NewSpatialService(mockAuth, mockWorld, nil)
 
 	charID := uuid.New()
 	ctx := context.Background()
@@ -439,7 +439,7 @@ func TestHandleMovementCommand_CharacterNotFound(t *testing.T) {
 func TestHandleMovementCommand_WorldNotFound(t *testing.T) {
 	mockAuth := new(MockAuthRepository)
 	mockWorld := new(MockWorldRepository)
-	svc := NewSpatialService(mockAuth, mockWorld)
+	svc := NewSpatialService(mockAuth, mockWorld, nil)
 
 	charID := uuid.New()
 	worldID := uuid.New()
@@ -464,7 +464,7 @@ func TestHandleMovementCommand_WorldNotFound(t *testing.T) {
 func TestGetPortalLocation(t *testing.T) {
 	mockAuth := new(MockAuthRepository)
 	mockWorld := new(MockWorldRepository)
-	svc := NewSpatialService(mockAuth, mockWorld)
+	svc := NewSpatialService(mockAuth, mockWorld, nil)
 
 	// Generic bounded world (0-10)
 	minX, minY := 0.0, 0.0
@@ -519,7 +519,7 @@ func TestGetPortalLocation(t *testing.T) {
 func TestCheckPortalProximity(t *testing.T) {
 	mockAuth := new(MockAuthRepository)
 	mockWorld := new(MockWorldRepository)
-	svc := NewSpatialService(mockAuth, mockWorld)
+	svc := NewSpatialService(mockAuth, mockWorld, nil)
 
 	// Portal at (0, 5) - West wall center
 	portalX, portalY := 0.0, 5.0

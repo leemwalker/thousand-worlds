@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"tw-backend/internal/lobby"
+	"tw-backend/internal/game/constants"
 	"tw-backend/internal/world/interview"
 )
 
@@ -46,7 +46,7 @@ func TestGetEntryOptions_LobbyWorld(t *testing.T) {
 	ctx := context.Background()
 
 	// Try to get entry options for lobby
-	options, err := service.GetEntryOptions(ctx, lobby.LobbyWorldID)
+	options, err := service.GetEntryOptions(ctx, constants.LobbyWorldID)
 
 	// Assert error
 	require.Error(t, err)

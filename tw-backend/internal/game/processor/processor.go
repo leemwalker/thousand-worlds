@@ -13,15 +13,16 @@ import (
 
 	"tw-backend/cmd/game-server/websocket"
 	"tw-backend/internal/auth"
+	"tw-backend/internal/game/constants"
 	"tw-backend/internal/game/formatter"
 	"tw-backend/internal/game/services/entity"
 	"tw-backend/internal/game/services/look"
 	gamemap "tw-backend/internal/game/services/map"
-	"tw-backend/internal/lobby"
 	"tw-backend/internal/player"
 	"tw-backend/internal/repository"
 	"tw-backend/internal/skills"
 	"tw-backend/internal/world/interview"
+	"tw-backend/internal/worldentity"
 	"tw-backend/internal/worldgen/weather"
 )
 
@@ -32,16 +33,17 @@ var (
 
 // GameProcessor handles game command processing
 type GameProcessor struct {
-	Hub              *websocket.Hub
-	authRepo         auth.Repository
-	worldRepo        repository.WorldRepository
-	lookService      *look.LookService
-	entityService    *entity.Service
-	interviewService *interview.InterviewService
-	spatialService   *player.SpatialService
-	weatherService   *weather.Service
-	mapService       *gamemap.Service
-	skillsRepo       skills.Repository
+	Hub                *websocket.Hub
+	authRepo           auth.Repository
+	worldRepo          repository.WorldRepository
+	lookService        *look.LookService
+	entityService      *entity.Service
+	interviewService   *interview.InterviewService
+	spatialService     *player.SpatialService
+	weatherService     *weather.Service
+	mapService         *gamemap.Service
+	skillsRepo         skills.Repository
+	worldEntityService *worldentity.Service
 }
 
 // NewGameProcessor creates a new game processor
@@ -54,20 +56,22 @@ func NewGameProcessor(
 	spatialService *player.SpatialService,
 	weatherService *weather.Service,
 	skillsRepo skills.Repository,
+	worldEntityService *worldentity.Service,
 ) *GameProcessor {
 	// Create map service with available dependencies
-	mapSvc := gamemap.NewService(worldRepo, skillsRepo, entityService, lookService)
+	mapSvc := gamemap.NewService(worldRepo, skillsRepo, entityService, lookService, worldEntityService)
 
 	return &GameProcessor{
-		authRepo:         authRepo,
-		worldRepo:        worldRepo,
-		lookService:      lookService,
-		entityService:    entityService,
-		interviewService: interviewService,
-		spatialService:   spatialService,
-		weatherService:   weatherService,
-		mapService:       mapSvc,
-		skillsRepo:       skillsRepo,
+		authRepo:           authRepo,
+		worldRepo:          worldRepo,
+		lookService:        lookService,
+		entityService:      entityService,
+		interviewService:   interviewService,
+		spatialService:     spatialService,
+		weatherService:     weatherService,
+		mapService:         mapSvc,
+		skillsRepo:         skillsRepo,
+		worldEntityService: worldEntityService,
 	}
 }
 
@@ -160,9 +164,13 @@ func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.Gam
 	case "watcher":
 		return p.handleWatcher(ctx, client, cmd)
 
+	// Object interaction commands (get/take/grab/pick all resolve to "get")
+	case "get":
+		return p.handleGetObject(ctx, client, cmd)
+	case "push":
+		return p.handlePushObject(ctx, client, cmd)
+
 	// Existing commands
-	case "take":
-		return p.handleTake(ctx, client, cmd)
 	case "drop":
 		return p.handleDrop(ctx, client, cmd)
 	case "attack":
@@ -179,6 +187,7 @@ func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.Gam
 		return p.handleLobby(ctx, client)
 	case "weather":
 		return p.handleWeather(ctx, client, cmd)
+
 	default:
 		return fmt.Errorf("%w: %s", ErrInvalidAction, cmd.Action)
 	}
@@ -332,7 +341,7 @@ func (p *GameProcessor) handleEnter(ctx context.Context, client websocket.GameCl
 	// For now, we assume if we are entering a generic World from another generic World, there is a portal location.
 	// We rely on SpatialService to tell us.
 	// Note: Generic "Enter" might not always imply a physical portal (could be a command), but assuming "enter <world>" implies physical travel.
-	isLobby := currentWorld.ID.String() == lobby.LobbyWorldID.String()
+	isLobby := constants.IsLobby(currentWorld.ID)
 	portalX, portalY := p.spatialService.GetPortalLocation(currentWorld, destWorld.ID)
 	allowed, hint := p.spatialService.CheckPortalProximity(char.PositionX, char.PositionY, portalX, portalY, isLobby)
 	if !allowed {
@@ -364,7 +373,7 @@ func (p *GameProcessor) handleSay(ctx context.Context, client websocket.GameClie
 	senderCharID := client.GetCharacterID()
 
 	// Get all clients in the lobby
-	lobbyClients := p.Hub.GetClientsByWorldID(lobby.LobbyWorldID)
+	lobbyClients := p.Hub.GetClientsByWorldID(constants.LobbyWorldID)
 
 	// Send to sender with special formatting
 	formattedMessage := fmt.Sprintf("You say, %s", formatter.Format(fmt.Sprintf("'%s'", message), formatter.StyleGreen))
@@ -632,22 +641,6 @@ func (p *GameProcessor) handleLook(ctx context.Context, client websocket.GameCli
 	return nil
 }
 
-func (p *GameProcessor) handleTake(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
-	if cmd.Target == nil {
-		return errors.New("target item required")
-	}
-
-	// TODO: Integrate with inventory system
-	formattedItem := fmt.Sprintf("You pick up %s.", formatter.Item(*cmd.Target, "common"))
-	client.SendGameMessage("item_acquired", formattedItem, map[string]interface{}{
-		"itemName": *cmd.Target,
-		"quantity": 1,
-	})
-
-	p.sendStateUpdate(client)
-	return nil
-}
-
 func (p *GameProcessor) handleDrop(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	if cmd.Target == nil {
 		return errors.New("target item required")
@@ -817,7 +810,7 @@ func (p *GameProcessor) handleCreateCharacter(ctx context.Context, client websoc
 	charID := uuid.New()
 	userID := client.GetUserID()
 	// Create characters in the lobby world by default if not specified
-	worldID := lobby.LobbyWorldID
+	worldID := constants.LobbyWorldID
 
 	// If 5th argument provided, parse as world ID
 	if len(parts) >= 5 {

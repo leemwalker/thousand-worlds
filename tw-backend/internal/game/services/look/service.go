@@ -9,27 +9,23 @@ import (
 	"tw-backend/internal/game/services/entity"
 	"tw-backend/internal/repository"
 	"tw-backend/internal/world/interview"
+	"tw-backend/internal/worldentity"
 	"tw-backend/internal/worldgen/orchestrator"
 	"tw-backend/internal/worldgen/weather"
 
 	"github.com/google/uuid"
 
-	"tw-backend/internal/auth"
 	"tw-backend/internal/game/constants"
 	"tw-backend/internal/game/formatter"
-	"tw-backend/internal/game/services/entity"
-	"tw-backend/internal/repository"
-	"tw-backend/internal/world/interview"
-	"tw-backend/internal/worldgen/orchestrator"
-	"tw-backend/internal/worldgen/weather"
 )
 
 // LookService definition
 type LookService struct {
-	worldRepo      repository.WorldRepository
-	weatherService *weather.Service
-	entityService  *entity.Service
-	authRepo       auth.Repository
+	worldRepo          repository.WorldRepository
+	weatherService     *weather.Service
+	entityService      *entity.Service
+	worldEntityService *worldentity.Service
+	authRepo           auth.Repository
 
 	// We might need to keep the orchestrator/cache logic here or genericize it
 	// For now, let's keep the cache logic as it was essential for description generation
@@ -51,15 +47,17 @@ func NewLookService(
 	entityService *entity.Service,
 	interviewRepo InterviewRepository,
 	authRepo auth.Repository,
+	worldEntityService *worldentity.Service,
 ) *LookService {
 	return &LookService{
-		worldRepo:      worldRepo,
-		weatherService: weatherService,
-		entityService:  entityService,
-		interviewRepo:  interviewRepo,
-		authRepo:       authRepo,
-		worldCache:     make(map[uuid.UUID]*orchestrator.GeneratedWorld),
-		generator:      orchestrator.NewGeneratorService(),
+		worldRepo:          worldRepo,
+		weatherService:     weatherService,
+		entityService:      entityService,
+		worldEntityService: worldEntityService,
+		interviewRepo:      interviewRepo,
+		authRepo:           authRepo,
+		worldCache:         make(map[uuid.UUID]*orchestrator.GeneratedWorld),
+		generator:          orchestrator.NewGeneratorService(),
 	}
 }
 
@@ -117,7 +115,7 @@ func (s *LookService) DescribeEntity(ctx context.Context, char *auth.Character, 
 		return s.describeSelf(char), nil
 	}
 
-	// 2. Check for Entities
+	// 2. Check for Entities (in-memory)
 	if s.entityService != nil {
 		entities, err := s.entityService.GetEntitiesAt(ctx, char.WorldID, char.PositionX, char.PositionY, 20.0)
 		if err == nil {
@@ -129,22 +127,32 @@ func (s *LookService) DescribeEntity(ctx context.Context, char *auth.Character, 
 		}
 	}
 
-	// 3. Check for Other Players
+	// 3. Check for WorldEntity objects (database-persisted static objects)
+	if s.worldEntityService != nil {
+		worldEntity, err := s.worldEntityService.GetEntityByName(ctx, char.WorldID, targetName)
+		if err == nil && worldEntity != nil {
+			return s.describeWorldEntity(char, worldEntity), nil
+		}
+	}
+
+	// 4. Check for Other Players
 	// Look up user by username
 	// Note: This matches any user in the DB, but we should strictly check if they are "here" (in the same world/pos).
 	// However, without a "GetPlayersAt" service, we might just check generic user and see if they are in this world.
-	targetUser, err := s.authRepo.GetUserByUsername(ctx, targetName)
-	if err == nil && targetUser != nil {
-		// Check if they have a character in this world
-		targetChar, err := s.authRepo.GetCharacterByUserAndWorld(ctx, targetUser.UserID, char.WorldID)
-		if err == nil && targetChar != nil {
-			// Check distance? For now assuming if they are in the world and you asked for them, you can see them or we describe them.
-			// Ideally we verify distance < 20.0
-			dx := targetChar.PositionX - char.PositionX
-			dy := targetChar.PositionY - char.PositionY
-			distSq := dx*dx + dy*dy
-			if distSq <= 400 { // 20^2
-				return s.describeCharacter(ctx, targetChar)
+	if s.authRepo != nil {
+		targetUser, err := s.authRepo.GetUserByUsername(ctx, targetName)
+		if err == nil && targetUser != nil {
+			// Check if they have a character in this world
+			targetChar, err := s.authRepo.GetCharacterByUserAndWorld(ctx, targetUser.UserID, char.WorldID)
+			if err == nil && targetChar != nil {
+				// Check distance? For now assuming if they are in the world and you asked for them, you can see them or we describe them.
+				// Ideally we verify distance < 20.0
+				dx := targetChar.PositionX - char.PositionX
+				dy := targetChar.PositionY - char.PositionY
+				distSq := dx*dx + dy*dy
+				if distSq <= 400 { // 20^2
+					return s.describeCharacter(ctx, targetChar)
+				}
 			}
 		}
 	}
@@ -158,7 +166,7 @@ func (s *LookService) describeCharacter(ctx context.Context, char *auth.Characte
 		return fmt.Sprintf("You see %s, a traveler.", formatter.Format(char.Name, formatter.StyleCyan)), nil
 	}
 
-	config, err := s.interviewRepo.GetConfigurationByWorldID(ctx, world.ID)
+	_, err = s.interviewRepo.GetConfigurationByWorldID(ctx, world.ID)
 
 	baseDesc := ""
 	name := formatter.Format(char.Name, formatter.StyleCyan)
@@ -244,6 +252,30 @@ func (s *LookService) describeEntityObject(e *entity.Entity) string {
 		desc = fmt.Sprintf("You see a %s.", e.Name)
 	}
 	return desc
+}
+
+// describeWorldEntity describes a database-persisted world entity (static objects like statues)
+func (s *LookService) describeWorldEntity(char *auth.Character, e *worldentity.WorldEntity) string {
+	// Calculate distance to entity
+	dx := e.X - char.PositionX
+	dy := e.Y - char.PositionY
+	distSq := dx*dx + dy*dy
+
+	// Format the name
+	name := formatter.Format(e.Name, formatter.StyleYellow)
+
+	// If very close (within 2 meters), show detailed description
+	if distSq <= 4 && e.Details != "" {
+		return fmt.Sprintf("%s\n\n%s", e.Description, e.Details)
+	}
+
+	// Otherwise just show the basic description
+	if e.Description != "" {
+		return e.Description
+	}
+
+	// Fallback if no description
+	return fmt.Sprintf("You see %s here.", name)
 }
 
 // generateBaseDescription uses the world gen logic

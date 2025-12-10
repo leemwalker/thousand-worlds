@@ -10,10 +10,10 @@ import (
 
 	"tw-backend/cmd/game-server/websocket"
 	"tw-backend/internal/auth"
+	"tw-backend/internal/game/constants"
 	"tw-backend/internal/game/processor"
 	"tw-backend/internal/game/services/entity"
 	"tw-backend/internal/game/services/look"
-	"tw-backend/internal/lobby"
 	"tw-backend/internal/player"
 	"tw-backend/internal/repository"
 	"tw-backend/internal/world/interview"
@@ -26,7 +26,7 @@ func TestSpatialMovementE2E(t *testing.T) {
 
 		// Add lobby world
 		lobbyWorld := &repository.World{
-			ID:   lobby.LobbyWorldID,
+			ID:   constants.LobbyWorldID,
 			Name: "Lobby",
 		}
 		worldRepo.worlds[lobbyWorld.ID] = lobbyWorld
@@ -35,7 +35,7 @@ func TestSpatialMovementE2E(t *testing.T) {
 		char := &auth.Character{
 			CharacterID: client.CharacterID,
 			UserID:      client.UserID,
-			WorldID:     lobby.LobbyWorldID,
+			WorldID:     constants.LobbyWorldID,
 			PositionX:   5.0,
 			PositionY:   500.0,
 			Name:        "TestCharacter",
@@ -66,7 +66,7 @@ func TestSpatialMovementE2E(t *testing.T) {
 		proc, client, authRepo, worldRepo := setupSpatialTest(t)
 
 		lobbyWorld := &repository.World{
-			ID:   lobby.LobbyWorldID,
+			ID:   constants.LobbyWorldID,
 			Name: "Lobby",
 		}
 		worldRepo.worlds[lobbyWorld.ID] = lobbyWorld
@@ -75,7 +75,7 @@ func TestSpatialMovementE2E(t *testing.T) {
 		char := &auth.Character{
 			CharacterID: client.CharacterID,
 			UserID:      client.UserID,
-			WorldID:     lobby.LobbyWorldID,
+			WorldID:     constants.LobbyWorldID,
 			PositionX:   5.0,
 			PositionY:   1000.0, // At north wall
 			Name:        "TestCharacter",
@@ -93,7 +93,7 @@ func TestSpatialMovementE2E(t *testing.T) {
 		proc, client, authRepo, worldRepo := setupSpatialTest(t)
 
 		lobbyWorld := &repository.World{
-			ID:   lobby.LobbyWorldID,
+			ID:   constants.LobbyWorldID,
 			Name: "Lobby",
 		}
 		worldRepo.worlds[lobbyWorld.ID] = lobbyWorld
@@ -102,7 +102,7 @@ func TestSpatialMovementE2E(t *testing.T) {
 		char := &auth.Character{
 			CharacterID: client.CharacterID,
 			UserID:      client.UserID,
-			WorldID:     lobby.LobbyWorldID,
+			WorldID:     constants.LobbyWorldID,
 			PositionX:   10.0, // At east wall
 			PositionY:   500.0,
 			Name:        "TestCharacter",
@@ -124,7 +124,7 @@ func TestPortalTransitionE2E(t *testing.T) {
 
 		// Add lobby and target world
 		lobbyWorld := &repository.World{
-			ID:   lobby.LobbyWorldID,
+			ID:   constants.LobbyWorldID,
 			Name: "Lobby",
 		}
 		targetWorld := &repository.World{
@@ -137,7 +137,7 @@ func TestPortalTransitionE2E(t *testing.T) {
 		char := &auth.Character{
 			CharacterID: client.CharacterID,
 			UserID:      client.UserID,
-			WorldID:     lobby.LobbyWorldID,
+			WorldID:     constants.LobbyWorldID,
 			PositionX:   5.0,
 			PositionY:   500.0,
 			Name:        "TestCharacter",
@@ -162,7 +162,7 @@ func TestPortalTransitionE2E(t *testing.T) {
 		proc, client, authRepo, worldRepo := setupSpatialTest(t)
 
 		lobbyWorld := &repository.World{
-			ID:   lobby.LobbyWorldID,
+			ID:   constants.LobbyWorldID,
 			Name: "Lobby",
 		}
 		worldRepo.worlds[lobbyWorld.ID] = lobbyWorld
@@ -170,7 +170,7 @@ func TestPortalTransitionE2E(t *testing.T) {
 		char := &auth.Character{
 			CharacterID: client.CharacterID,
 			UserID:      client.UserID,
-			WorldID:     lobby.LobbyWorldID,
+			WorldID:     constants.LobbyWorldID,
 			PositionX:   5.0,
 			PositionY:   500.0,
 			Name:        "TestCharacter",
@@ -194,7 +194,7 @@ func TestPortalTransitionE2E(t *testing.T) {
 		proc, client, authRepo, worldRepo := setupSpatialTest(t)
 
 		lobbyWorld := &repository.World{
-			ID:   lobby.LobbyWorldID,
+			ID:   constants.LobbyWorldID,
 			Name: "Lobby",
 		}
 		worldRepo.worlds[lobbyWorld.ID] = lobbyWorld
@@ -202,7 +202,7 @@ func TestPortalTransitionE2E(t *testing.T) {
 		char := &auth.Character{
 			CharacterID: client.CharacterID,
 			UserID:      client.UserID,
-			WorldID:     lobby.LobbyWorldID,
+			WorldID:     constants.LobbyWorldID,
 			PositionX:   5.0,
 			PositionY:   500.0,
 			Name:        "TestCharacter",
@@ -228,11 +228,11 @@ func setupSpatialTest(t *testing.T) (*processor.GameProcessor, *TestGameClient, 
 
 	interviewRepo := &MockInterviewRepository{}
 	entitySvc := entity.NewService()
-	lookService := look.NewLookService(worldRepo, nil, entitySvc, interviewRepo)
+	lookService := look.NewLookService(worldRepo, nil, entitySvc, interviewRepo, authRepo, nil)
 	interviewSvc := interview.NewServiceWithRepository(nil, interviewRepo, worldRepo)
-	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
+	spatialSvc := player.NewSpatialService(authRepo, worldRepo, nil)
 
-	proc := processor.NewGameProcessor(authRepo, worldRepo, lookService, entitySvc, interviewSvc, spatialSvc, nil, nil)
+	proc := processor.NewGameProcessor(authRepo, worldRepo, lookService, entitySvc, interviewSvc, spatialSvc, nil, nil, nil)
 
 	hub := websocket.NewHub(proc)
 	proc.SetHub(hub)
@@ -240,7 +240,7 @@ func setupSpatialTest(t *testing.T) (*processor.GameProcessor, *TestGameClient, 
 	client := &TestGameClient{
 		UserID:      uuid.New(),
 		CharacterID: uuid.New(),
-		WorldID:     lobby.LobbyWorldID,
+		WorldID:     constants.LobbyWorldID,
 		Username:    "TestUser",
 	}
 

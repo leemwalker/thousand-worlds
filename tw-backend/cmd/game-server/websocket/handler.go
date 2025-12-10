@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"tw-backend/internal/auth"
-	"tw-backend/internal/lobby"
+	"tw-backend/internal/character"
+	"tw-backend/internal/game/constants"
+	"tw-backend/internal/game/services/look"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -22,20 +24,21 @@ var upgrader = websocket.Upgrader{
 }
 
 // Handler handles WebSocket upgrade requests
+// Handler handles WebSocket upgrade requests
 type Handler struct {
-	Hub          *Hub
-	LobbyService *lobby.Service
-	AuthRepo     auth.Repository
-	DescGen      *lobby.DescriptionGenerator
+	Hub             *Hub
+	CreationService *character.CreationService
+	AuthRepo        auth.Repository
+	LookService     *look.LookService
 }
 
 // NewHandler creates a new WebSocket handler
-func NewHandler(hub *Hub, lobbyService *lobby.Service, authRepo auth.Repository, descGen *lobby.DescriptionGenerator) *Handler {
+func NewHandler(hub *Hub, creationService *character.CreationService, authRepo auth.Repository, lookService *look.LookService) *Handler {
 	return &Handler{
-		Hub:          hub,
-		LobbyService: lobbyService,
-		AuthRepo:     authRepo,
-		DescGen:      descGen,
+		Hub:             hub,
+		CreationService: creationService,
+		AuthRepo:        authRepo,
+		LookService:     lookService,
 	}
 }
 
@@ -73,7 +76,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// If no character ID, join lobby
 	if characterID == uuid.Nil {
 		log.Printf("[WS] No character ID, joining lobby for user %s", userID)
-		lobbyChar, err := h.LobbyService.EnsureLobbyCharacter(r.Context(), userID)
+		lobbyChar, err := h.CreationService.EnsureCharacter(r.Context(), userID, constants.LobbyWorldID)
 		if err != nil {
 			log.Printf("[WS] Failed to join lobby: %v", err)
 			http.Error(w, "Failed to join lobby", http.StatusInternalServerError)
@@ -130,7 +133,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	isFirstTime := user.LastLogin == nil
 
 	// Only send lobby welcome messages if actually in the lobby
-	if lobby.IsLobby(char.WorldID) {
+	if constants.IsLobby(char.WorldID) {
 		// Send Welcome Message
 		if isFirstTime {
 			welcomeMsg := "Welcome to Thousand Worlds, you are in the lobby where you can meet other players who aren't in a world, see the worlds you can visit, and create your own world! Please *look* around at other players and portals to the worlds, *say* hello, and don't forget to *look statue*"
@@ -138,28 +141,23 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			client.SendGameMessage("system", "Welcome to the Lobby.", nil)
 		}
-	} else {
-		// If in a world, we might want to send a brief welcome or just let the description handle it
-		// For now, let's just log it
-		log.Printf("[WS] User %s entering world %s", user.Username, char.WorldID)
-	}
 
-	// Send Lobby Description if in Lobby
-	if lobby.IsLobby(char.WorldID) {
-		hubClients := h.Hub.GetClientsByWorldID(lobby.LobbyWorldID)
-
-		// Adapt clients to lobby.WebsocketClient interface
-		var lobbyClients []lobby.WebsocketClient
-		for _, c := range hubClients {
-			lobbyClients = append(lobbyClients, c)
+		// Generate and send lobby description
+		dc := look.DescribeContext{
+			WorldID:     char.WorldID,
+			Character:   char,
+			DetailLevel: 1,
 		}
-
-		desc, err := h.DescGen.GenerateDescription(r.Context(), user, char, lobbyClients)
+		desc, err := h.LookService.Describe(r.Context(), dc)
 		if err != nil {
 			log.Printf("[WS] Failed to generate lobby description: %v", err)
 		} else {
 			client.SendGameMessage("area_description", desc, nil)
 		}
+	} else {
+		// If in a world, we might want to send a brief welcome or just let the description handle it
+		// For now, let's just log it
+		log.Printf("[WS] User %s entering world %s", user.Username, char.WorldID)
 	}
 
 	// Update LastLogin

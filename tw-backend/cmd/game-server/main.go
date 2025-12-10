@@ -26,12 +26,12 @@ import (
 	"tw-backend/internal/game/processor"
 	"tw-backend/internal/game/services/entity"
 	"tw-backend/internal/game/services/look"
-	"tw-backend/internal/lobby"
 	"tw-backend/internal/metrics"
 	"tw-backend/internal/player"
 	"tw-backend/internal/repository"
 	"tw-backend/internal/skills"
 	"tw-backend/internal/world/interview"
+	"tw-backend/internal/worldentity"
 	"tw-backend/internal/worldgen/weather"
 )
 
@@ -117,7 +117,6 @@ func main() {
 		TokenExpiration: 24 * time.Hour,
 	}
 	authService := auth.NewService(authConfig, authRepo)
-	lobbyService := lobby.NewService(authRepo)
 	entryService := entry.NewService(interviewRepo)
 
 	ollamaClient := ollama.NewClient(os.Getenv("OLLAMA_HOST"), "llama3.2:3b") // 3B model for faster response times
@@ -138,20 +137,24 @@ func main() {
 	// Initialize Entity Service
 	entityService := entity.NewService()
 
+	// Initialize world entity service (for static objects, collision detection)
+	worldEntityRepo := worldentity.NewPostgresRepository(dbPool)
+	worldEntityService := worldentity.NewService(worldEntityRepo)
+
 	// Initialize look service for lobby commands
-	lookService := look.NewLookService(worldRepo, weatherService, entityService, interviewRepo)
+	lookService := look.NewLookService(worldRepo, weatherService, entityService, interviewRepo, authRepo, worldEntityService)
 
 	// Character creation service
 	creationService := character.NewCreationService(authRepo)
 
 	// Initialize spatial service
-	spatialService := player.NewSpatialService(authRepo, worldRepo)
+	spatialService := player.NewSpatialService(authRepo, worldRepo, worldEntityService)
 
 	// Initialize skills repository (needed for map service)
 	skillsRepo := skills.NewRepository(dbPool)
 
 	// Initialize game processor
-	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, entityService, interviewService, spatialService, weatherService, skillsRepo)
+	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, entityService, interviewService, spatialService, weatherService, skillsRepo, worldEntityService)
 
 	// Create and start the Hub
 	hub := websocket.NewHub(gameProcessor)
@@ -177,7 +180,6 @@ func main() {
 	}()
 
 	// Initialize DescriptionGenerator
-	descGen := lobby.NewDescriptionGenerator(worldRepo, authRepo)
 
 	// Initialize handlers
 	authHandler := api.NewAuthHandler(authService, sessionManager, rateLimiter)
@@ -185,7 +187,7 @@ func main() {
 	sessionHandler := api.NewSessionHandler(authRepo, lookService)
 	entryHandler := api.NewEntryHandler(entryService)
 	worldHandler := api.NewWorldHandler(worldRepo)
-	wsHandler := websocket.NewHandler(hub, lobbyService, authRepo, descGen)
+	wsHandler := websocket.NewHandler(hub, creationService, authRepo, lookService)
 
 	// Skills service and handler
 	skillsService := skills.NewService(skillsRepo)

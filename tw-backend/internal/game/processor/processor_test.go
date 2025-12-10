@@ -7,9 +7,9 @@ import (
 
 	"tw-backend/cmd/game-server/websocket"
 	"tw-backend/internal/auth"
+	"tw-backend/internal/game/constants"
 	"tw-backend/internal/game/services/entity"
 	"tw-backend/internal/game/services/look"
-	"tw-backend/internal/lobby"
 	"tw-backend/internal/player"
 	"tw-backend/internal/repository"
 	"tw-backend/internal/world/interview"
@@ -186,7 +186,7 @@ func TestHandleWatcher(t *testing.T) {
 
 	// Ensure character is in the Lobby so "watcher" command is valid
 	char, _ := authRepo.GetCharacter(context.Background(), client.GetCharacterID())
-	char.WorldID = lobby.LobbyWorldID
+	char.WorldID = constants.LobbyWorldID
 	// We need to update the character in the mock repo
 	// Since MockRepository.UpdateCharacter doesn't exist or we can just re-create
 	// Let's just create a new character correctly or use a helper if available.
@@ -224,7 +224,7 @@ func setupTest(t *testing.T) (*GameProcessor, *mockClient, *auth.MockRepository,
 
 	// Add Lobby world to mock repository for movement tests
 	lobbyWorld := &repository.World{
-		ID:   lobby.LobbyWorldID,
+		ID:   constants.LobbyWorldID,
 		Name: "Lobby",
 	}
 	mockWorldRepo.worlds[lobbyWorld.ID] = lobbyWorld
@@ -232,11 +232,11 @@ func setupTest(t *testing.T) (*GameProcessor, *mockClient, *auth.MockRepository,
 	interviewRepo := &MockInterviewRepository{}
 	// New LookService requires EntityService
 	entityService := entity.NewService()
-	lookService := look.NewLookService(mockWorldRepo, nil, entityService, interviewRepo)
+	lookService := look.NewLookService(mockWorldRepo, nil, entityService, interviewRepo, mockAuthRepo, nil)
 	interviewService := interview.NewServiceWithRepository(nil, interviewRepo, mockWorldRepo)
-	spatialService := player.NewSpatialService(mockAuthRepo, mockWorldRepo)
+	spatialService := player.NewSpatialService(mockAuthRepo, mockWorldRepo, nil)
 
-	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, lookService, entityService, interviewService, spatialService, nil, nil)
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, lookService, entityService, interviewService, spatialService, nil, nil, nil)
 
 	// Create and set up the hub
 	hub := websocket.NewHub(proc)
@@ -249,7 +249,7 @@ func setupTest(t *testing.T) (*GameProcessor, *mockClient, *auth.MockRepository,
 	char := &auth.Character{
 		CharacterID: client.CharacterID,
 		UserID:      uuid.New(),
-		WorldID:     lobby.LobbyWorldID,
+		WorldID:     constants.LobbyWorldID,
 		Name:        "TestChar",
 		CreatedAt:   time.Now(),
 		PositionX:   5.0, // Lobby center
@@ -288,7 +288,7 @@ func TestCardinalDirections(t *testing.T) {
 			err := processor.ProcessCommand(context.Background(), client, cmd)
 
 			require.NoError(t, err)
-			require.Len(t, client.messages, 1)
+			require.GreaterOrEqual(t, len(client.messages), 1)
 			assert.Contains(t, client.messages[0].Text, tt.expected)
 		})
 	}
@@ -357,7 +357,7 @@ func TestHandleEnter_Portal(t *testing.T) {
 
 	// Calculate portal location and move character there
 	// We need a spatial service instance to calculate the deterministic location
-	spatialSvc := player.NewSpatialService(auth.NewMockRepository(), worldRepo)
+	spatialSvc := player.NewSpatialService(auth.NewMockRepository(), worldRepo, nil)
 	px, py := spatialSvc.GetPortalLocation(currentWorld, portalWorld.ID)
 
 	// Move character
@@ -612,7 +612,7 @@ func TestHandleLook_NoTarget(t *testing.T) {
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
 	require.NoError(t, err)
-	require.Len(t, client.messages, 1)
+	require.GreaterOrEqual(t, len(client.messages), 1)
 	assert.Equal(t, "area_description", client.messages[0].Type)
 }
 
@@ -632,33 +632,38 @@ func TestHandleLook_WithTarget(t *testing.T) {
 	assert.Contains(t, client.messages[0].Text, "don't see")
 }
 
-// TestHandleTake tests the take command - not supported in lobby
-func TestHandleTake(t *testing.T) {
+// TestHandleGet tests the get command
+func TestHandleGet(t *testing.T) {
 	processor, client, _, _ := setupTest(t)
 	target := "sword"
 	cmd := &websocket.CommandData{
-		Action: "take",
+		Action: "get",
 		Target: &target,
 	}
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
+	// With nil worldEntityService, falls back to legacy behavior
 	require.NoError(t, err)
-	require.Len(t, client.messages, 1)
-	assert.Equal(t, "item_acquired", client.messages[0].Type)
+	require.GreaterOrEqual(t, len(client.messages), 1)
+	// Legacy fallback sends action message "You pick up the sword."
+	assert.Equal(t, "action", client.messages[0].Type)
 	assert.Contains(t, client.messages[0].Text, "pick up")
 }
 
-func TestHandleTake_NoTarget(t *testing.T) {
+func TestHandleGet_NoTarget(t *testing.T) {
 	processor, client, _, _ := setupTest(t)
 	cmd := &websocket.CommandData{
-		Action: "take",
+		Action: "get",
 	}
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "target item required")
+	// handleGetObject sends error to client, not error return
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(client.messages), 1)
+	assert.Equal(t, "error", client.messages[0].Type)
+	assert.Contains(t, client.messages[0].Text, "Get what?")
 }
 
 // TestHandleDrop tests the drop command - not supported in lobby

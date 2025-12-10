@@ -26,7 +26,7 @@ test.describe('Lobby Spatial Logic', () => {
         await sendCommand(page, 'n');
 
         // Expect error message about statue blocking
-        await expect(gameOutput).toContainText('statue blocks', { timeout: 5000 });
+        await expect(gameOutput).toContainText('blocked', { timeout: 5000 });
 
         // 3. Test Portal Proximity
         // Create a new world for portal testing

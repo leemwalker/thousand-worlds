@@ -7,7 +7,7 @@ import (
 
 	"tw-backend/cmd/game-server/websocket"
 	"tw-backend/internal/auth"
-	"tw-backend/internal/lobby"
+	"tw-backend/internal/game/constants"
 	"tw-backend/internal/repository"
 
 	"github.com/google/uuid"
@@ -48,7 +48,7 @@ func TestHandleLobby_Success(t *testing.T) {
 	// Verify character moved to lobby
 	updatedChar, err := authRepo.GetCharacter(context.Background(), client.GetCharacterID())
 	require.NoError(t, err)
-	assert.Equal(t, lobby.LobbyWorldID, updatedChar.WorldID)
+	assert.Equal(t, constants.LobbyWorldID, updatedChar.WorldID)
 	assert.Equal(t, otherWorld.ID, *updatedChar.LastWorldVisited)
 	assert.Equal(t, 5.0, updatedChar.PositionX)
 	assert.Equal(t, 2.0, updatedChar.PositionY)
@@ -67,7 +67,7 @@ func TestHandleLobby_AlreadyInLobby(t *testing.T) {
 	// Just verify it for sanity
 	char, err := authRepo.GetCharacter(context.Background(), client.GetCharacterID())
 	require.NoError(t, err)
-	char.WorldID = lobby.LobbyWorldID
+	char.WorldID = constants.LobbyWorldID
 	authRepo.UpdateCharacter(context.Background(), char)
 
 	cmd := &websocket.CommandData{
@@ -113,6 +113,6 @@ func TestHandleLobby_WatcherRemoval(t *testing.T) {
 
 	updatedChar, err := authRepo.GetCharacter(context.Background(), client.GetCharacterID())
 	require.NoError(t, err)
-	assert.Equal(t, lobby.LobbyWorldID, updatedChar.WorldID)
+	assert.Equal(t, constants.LobbyWorldID, updatedChar.WorldID)
 	// Only verification is WorldID change, as strict removal from "instance" is implied by ID change in this architecture
 }
