@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -15,9 +16,11 @@ import (
 	"tw-backend/internal/game/formatter"
 	"tw-backend/internal/game/services/entity"
 	"tw-backend/internal/game/services/look"
+	gamemap "tw-backend/internal/game/services/map"
 	"tw-backend/internal/lobby"
 	"tw-backend/internal/player"
 	"tw-backend/internal/repository"
+	"tw-backend/internal/skills"
 	"tw-backend/internal/world/interview"
 	"tw-backend/internal/worldgen/weather"
 )
@@ -37,6 +40,8 @@ type GameProcessor struct {
 	interviewService *interview.InterviewService
 	spatialService   *player.SpatialService
 	weatherService   *weather.Service
+	mapService       *gamemap.Service
+	skillsRepo       skills.Repository
 }
 
 // NewGameProcessor creates a new game processor
@@ -48,7 +53,11 @@ func NewGameProcessor(
 	interviewService *interview.InterviewService,
 	spatialService *player.SpatialService,
 	weatherService *weather.Service,
+	skillsRepo skills.Repository,
 ) *GameProcessor {
+	// Create map service with available dependencies
+	mapSvc := gamemap.NewService(worldRepo, skillsRepo, entityService, lookService)
+
 	return &GameProcessor{
 		authRepo:         authRepo,
 		worldRepo:        worldRepo,
@@ -57,6 +66,8 @@ func NewGameProcessor(
 		interviewService: interviewService,
 		spatialService:   spatialService,
 		weatherService:   weatherService,
+		mapService:       mapSvc,
+		skillsRepo:       skillsRepo,
 	}
 }
 
@@ -236,7 +247,10 @@ func (p *GameProcessor) handleDirection(ctx context.Context, client websocket.Ga
 	}
 
 	client.SendGameMessage("movement", msg, nil)
-	// p.sendStateUpdate(client) // Temporarily disabled until implemented to read live DB data
+
+	// Send map update after movement
+	p.sendMapUpdate(ctx, client)
+
 	return nil
 }
 
@@ -741,6 +755,42 @@ func (p *GameProcessor) sendStateUpdate(client websocket.GameClient) {
 	}
 
 	client.SendStateUpdate(state)
+}
+
+// sendMapUpdate sends the mini-map data to the client
+func (p *GameProcessor) sendMapUpdate(ctx context.Context, client websocket.GameClient) {
+	if p.mapService == nil {
+		return
+	}
+
+	charID := client.GetCharacterID()
+	char, err := p.authRepo.GetCharacter(ctx, charID)
+	if err != nil || char == nil {
+		return
+	}
+
+	mapData, err := p.mapService.GetMapData(ctx, char)
+	if err != nil {
+		log.Printf("[PROCESSOR] Failed to get map data: %v", err)
+		return
+	}
+
+	// Convert MapData to map for SendGameMessage
+	// Using JSON marshal/unmarshal for type conversion
+	jsonBytes, err := json.Marshal(mapData)
+	if err != nil {
+		log.Printf("[PROCESSOR] Failed to serialize map data: %v", err)
+		return
+	}
+
+	var mapPayload map[string]interface{}
+	if err := json.Unmarshal(jsonBytes, &mapPayload); err != nil {
+		log.Printf("[PROCESSOR] Failed to convert map data: %v", err)
+		return
+	}
+
+	// Send map_update message
+	client.SendGameMessage("map_update", "", mapPayload)
 }
 
 func (p *GameProcessor) handleCreateCharacter(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {

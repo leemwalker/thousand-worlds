@@ -2,6 +2,7 @@
     import { createEventDispatcher } from "svelte";
     import { haptic } from "$lib/stores/haptic";
     import DPad from "./DPad.svelte";
+    import MiniMap from "$lib/components/Map/MiniMap.svelte";
 
     const dispatch = createEventDispatcher();
 
@@ -21,7 +22,13 @@
 </script>
 
 <div class="flex flex-row gap-4 w-full items-end justify-between">
-    <div class="flex flex-wrap gap-2 w-full justify-start">
+    <!-- MiniMap on the left, mirroring DPad on the right -->
+    <div class="flex-shrink-0">
+        <MiniMap />
+    </div>
+
+    <!-- Quick command buttons in the center -->
+    <div class="flex flex-wrap gap-2 flex-1 justify-center">
         {#each commands as cmd}
             <button
                 on:click={() => sendQuickCommand(cmd.command)}
@@ -33,6 +40,7 @@
         {/each}
     </div>
 
+    <!-- DPad on the right -->
     <div class="flex-shrink-0">
         <DPad on:command={handleMove} />
     </div>

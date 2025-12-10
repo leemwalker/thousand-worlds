@@ -236,7 +236,7 @@ func setupTest(t *testing.T) (*GameProcessor, *mockClient, *auth.MockRepository,
 	interviewService := interview.NewServiceWithRepository(nil, interviewRepo, mockWorldRepo)
 	spatialService := player.NewSpatialService(mockAuthRepo, mockWorldRepo)
 
-	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, lookService, entityService, interviewService, spatialService, nil)
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, lookService, entityService, interviewService, spatialService, nil, nil)
 
 	// Create and set up the hub
 	hub := websocket.NewHub(proc)

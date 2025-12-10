@@ -1,5 +1,6 @@
 import { writable, get } from 'svelte/store';
 import { commandQueue } from './command-queue';
+import { mapStore } from '$lib/stores/map';
 
 export interface ServerMessage {
     type: string;
@@ -180,6 +181,11 @@ export class GameWebSocket {
     }
 
     private handleMessage(message: ServerMessage): void {
+        // Handle map updates directly
+        if (message.type === 'map_update' && message.data) {
+            mapStore.setMapData(message.data);
+        }
+
         // Notify all handlers
         this.messageHandlers.forEach(handler => {
             try {

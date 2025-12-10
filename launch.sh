@@ -495,30 +495,17 @@ run_migrations() {
         return 0
     fi
     
-    print_status "Checking database migrations..."
+    print_status "Running database migrations..."
     
     cd "$BACKEND_DIR"
     
-    # Check if migrate tool is available
-    if command -v migrate &> /dev/null; then
-        print_verbose "Running migrations with migrate tool..."
-        
-        # Get current version
-        local current_version=$(migrate -path migrations -database "$DATABASE_URL" version 2>/dev/null || echo "0")
-        print_verbose "Current migration version: $current_version"
-        
-        # Run migrations
-        if migrate -path migrations -database "$DATABASE_URL" up 2>&1 | tee -a "$LOG_DIR/migrations.log"; then
-            print_status "Migrations completed successfully"
-        else
-            print_error "Migration failed"
-            print_info "Check logs: cat $LOG_DIR/migrations.log"
-            cd - > /dev/null
-            return 1
-        fi
+    # Use the Go-based migrator (same as dev.sh) - handles missing .down.sql files gracefully
+    if go run cmd/migrate/main.go 2>&1; then
+        print_status "Migrations completed successfully"
     else
-        print_warning "'migrate' tool not found, skipping migrations"
-        print_info "Install with: brew install golang-migrate (macOS) or see https://github.com/golang-migrate/migrate"
+        print_error "Migration failed"
+        cd - > /dev/null
+        return 1
     fi
     
     cd - > /dev/null
@@ -537,13 +524,7 @@ cleanup() {
     echo ""
     print_status "Stopping services gracefully..."
     
-    # Send SIGTERM to all tracked processes
-    for pid in "${BG_PIDS[@]}"; do
-        if kill -0 $pid 2>/dev/null; then
-            print_verbose "Sending SIGTERM to PID $pid"
-            kill -TERM $pid 2>/dev/null || true
-        fi
-    done
+    # Send SIGTERM to all tracked processes (check if array is non-empty first)
     if [ ${#BG_PIDS[@]} -gt 0 ]; then
         for pid in "${BG_PIDS[@]}"; do
             if kill -0 $pid 2>/dev/null; then
@@ -551,36 +532,34 @@ cleanup() {
                 kill -TERM $pid 2>/dev/null || true
             fi
         done
-    fi
-    
-    # Wait up to 10 seconds for graceful shutdown
-    local timeout=10
-    while [ $timeout -gt 0 ]; do
-        local all_stopped=true
-        if [ ${#BG_PIDS[@]} -gt 0 ]; then
+        
+        # Wait up to 10 seconds for graceful shutdown
+        local timeout=10
+        while [ $timeout -gt 0 ]; do
+            local all_stopped=true
             for pid in "${BG_PIDS[@]}"; do
                 if kill -0 "$pid" 2>/dev/null; then
                     all_stopped=false
                     break
                 fi
             done
-        fi
+            
+            if [ "$all_stopped" = true ]; then
+                break
+            fi
+            
+            sleep 1
+            timeout=$((timeout - 1))
+        done
         
-        if [ "$all_stopped" = true ]; then
-            break
-        fi
-        
-        sleep 1
-        timeout=$((timeout - 1))
-    done
-    
-    # Force kill if still running
-    for pid in "${BG_PIDS[@]}"; do
-        if kill -0 $pid 2>/dev/null; then
-            print_warning "Force killing PID $pid"
-            kill -9 $pid 2>/dev/null || true
-        fi
-    done
+        # Force kill if still running
+        for pid in "${BG_PIDS[@]}"; do
+            if kill -0 $pid 2>/dev/null; then
+                print_warning "Force killing PID $pid"
+                kill -9 $pid 2>/dev/null || true
+            fi
+        done
+    fi
     
     # Docker cleanup
     if [ "$STOP_DOCKER_ON_EXIT" = "true" ]; then

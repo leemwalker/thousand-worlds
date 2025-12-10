@@ -74,7 +74,7 @@ func (s *LookService) Describe(ctx context.Context, dc DescribeContext) (string,
 	// 3. Get Environmental Details (Weather, Time)
 	// We pass the generated data if available to be more precise
 	envDesc := ""
-	genData, ok := s.getCachedWorldData(dc.WorldID)
+	genData, ok := s.GetCachedWorldData(dc.WorldID)
 	if ok && genData != nil {
 		envDesc = s.generateEnvironmentDescription(ctx, dc.WorldID, genData, dc.Character)
 	}
@@ -266,7 +266,7 @@ func (s *LookService) generateEntityDescription(ctx context.Context, worldID uui
 
 func (s *LookService) getWorldData(ctx context.Context, worldID uuid.UUID, config *interview.WorldConfiguration) (*orchestrator.GeneratedWorld, error) {
 	// Check cache
-	if data, ok := s.getCachedWorldData(worldID); ok {
+	if data, ok := s.GetCachedWorldData(worldID); ok {
 		return data, nil
 	}
 
@@ -284,7 +284,8 @@ func (s *LookService) getWorldData(ctx context.Context, worldID uuid.UUID, confi
 	return data, nil
 }
 
-func (s *LookService) getCachedWorldData(worldID uuid.UUID) (*orchestrator.GeneratedWorld, bool) {
+// GetCachedWorldData returns cached generated world data if available
+func (s *LookService) GetCachedWorldData(worldID uuid.UUID) (*orchestrator.GeneratedWorld, bool) {
 	data, ok := s.worldCache[worldID]
 	return data, ok
 }

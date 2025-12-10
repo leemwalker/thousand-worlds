@@ -143,8 +143,11 @@ func main() {
 	// Initialize spatial service
 	spatialService := player.NewSpatialService(authRepo, worldRepo)
 
+	// Initialize skills repository (needed for map service)
+	skillsRepo := skills.NewRepository(dbPool)
+
 	// Initialize game processor
-	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, entityService, interviewService, spatialService, weatherService)
+	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, entityService, interviewService, spatialService, weatherService, skillsRepo)
 
 	// Create and start the Hub
 	hub := websocket.NewHub(gameProcessor)
@@ -180,8 +183,7 @@ func main() {
 	worldHandler := api.NewWorldHandler(worldRepo)
 	wsHandler := websocket.NewHandler(hub, lobbyService, authRepo, descGen)
 
-	// Skills
-	skillsRepo := skills.NewRepository(dbPool)
+	// Skills service and handler
 	skillsService := skills.NewService(skillsRepo)
 	skillsHandler := api.NewSkillsHandler(skillsService)
 

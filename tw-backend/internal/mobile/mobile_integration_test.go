@@ -70,7 +70,7 @@ func (s *MobileSDKIntegrationSuite) SetupSuite() {
 	lookService := look.NewLookService(worldRepo, nil, entitySvc, interviewRepo)
 	spatialSvc := player.NewSpatialService(authRepo, worldRepo)
 	interviewService := interview.NewServiceWithRepository(nil, interviewRepo, worldRepo)
-	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, entitySvc, interviewService, spatialSvc, nil)
+	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, entitySvc, interviewService, spatialSvc, nil, nil)
 	hub := gameWS.NewHub(gameProcessor)
 	go hub.Run(context.Background())
 

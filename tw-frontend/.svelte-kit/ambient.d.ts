@@ -67,11 +67,9 @@ declare module '$env/static/private' {
 	export const npm_config_npm_version: string;
 	export const VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
 	export const XPC_FLAGS: string;
-	export const FORCE_COLOR: string;
 	export const npm_config_node_gyp: string;
 	export const npm_package_version: string;
 	export const XPC_SERVICE_NAME: string;
-	export const DEBUG_COLORS: string;
 	export const VSCODE_INJECTION: string;
 	export const ANTIGRAVITY_CLI_ALIAS: string;
 	export const SHLVL: string;
@@ -82,9 +80,7 @@ declare module '$env/static/private' {
 	export const LOGNAME: string;
 	export const npm_lifecycle_script: string;
 	export const VSCODE_GIT_IPC_HANDLE: string;
-	export const BROWSER: string;
 	export const npm_config_user_agent: string;
-	export const PLAYWRIGHT_TEST: string;
 	export const VSCODE_GIT_ASKPASS_NODE: string;
 	export const GIT_ASKPASS: string;
 	export const INFOPATH: string;
@@ -163,11 +159,9 @@ declare module '$env/dynamic/private' {
 		npm_config_npm_version: string;
 		VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
 		XPC_FLAGS: string;
-		FORCE_COLOR: string;
 		npm_config_node_gyp: string;
 		npm_package_version: string;
 		XPC_SERVICE_NAME: string;
-		DEBUG_COLORS: string;
 		VSCODE_INJECTION: string;
 		ANTIGRAVITY_CLI_ALIAS: string;
 		SHLVL: string;
@@ -178,9 +172,7 @@ declare module '$env/dynamic/private' {
 		LOGNAME: string;
 		npm_lifecycle_script: string;
 		VSCODE_GIT_IPC_HANDLE: string;
-		BROWSER: string;
 		npm_config_user_agent: string;
-		PLAYWRIGHT_TEST: string;
 		VSCODE_GIT_ASKPASS_NODE: string;
 		GIT_ASKPASS: string;
 		INFOPATH: string;
