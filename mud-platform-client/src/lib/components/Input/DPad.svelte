@@ -31,8 +31,7 @@
             stroke-width="2"
             stroke-linecap="round"
             stroke-linejoin="round"
-            class="transform -rotate-45"
-            ><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></svg
+            style="transform: rotate(-45deg)"><path d="m18 15-6-6-6 6" /></svg
         >
     </button>
     <button
@@ -67,8 +66,7 @@
             stroke-width="2"
             stroke-linecap="round"
             stroke-linejoin="round"
-            class="transform rotate-45"
-            ><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></svg
+            style="transform: rotate(45deg)"><path d="m18 15-6-6-6 6" /></svg
         >
     </button>
 
@@ -87,7 +85,8 @@
             stroke="currentColor"
             stroke-width="2"
             stroke-linecap="round"
-            stroke-linejoin="round"><path d="m15 18-6-6 6-6" /></svg
+            stroke-linejoin="round"
+            style="transform: rotate(-90deg)"><path d="m18 15-6-6-6 6" /></svg
         >
     </button>
     <button
@@ -111,7 +110,8 @@
             stroke="currentColor"
             stroke-width="2"
             stroke-linecap="round"
-            stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg
+            stroke-linejoin="round"
+            style="transform: rotate(90deg)"><path d="m18 15-6-6-6 6" /></svg
         >
     </button>
 
@@ -131,8 +131,7 @@
             stroke-width="2"
             stroke-linecap="round"
             stroke-linejoin="round"
-            class="transform -rotate-135"
-            ><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></svg
+            style="transform: rotate(-135deg)"><path d="m18 15-6-6-6 6" /></svg
         >
     </button>
     <button
@@ -149,7 +148,8 @@
             stroke="currentColor"
             stroke-width="2"
             stroke-linecap="round"
-            stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg
+            stroke-linejoin="round"
+            style="transform: rotate(180deg)"><path d="m18 15-6-6-6 6" /></svg
         >
     </button>
     <button
@@ -167,8 +167,7 @@
             stroke-width="2"
             stroke-linecap="round"
             stroke-linejoin="round"
-            class="transform rotate-135"
-            ><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></svg
+            style="transform: rotate(135deg)"><path d="m18 15-6-6-6 6" /></svg
         >
     </button>
 </div>

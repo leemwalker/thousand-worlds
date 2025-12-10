@@ -13,6 +13,7 @@ const (
 	CategoryTheme     Category = "Theme"
 	CategoryTechLevel Category = "Tech Level"
 	CategoryGeography Category = "Geography"
+	CategoryGeology   Category = "Geology"
 	CategoryCulture   Category = "Culture"
 )
 
@@ -64,6 +65,9 @@ type WorldConfiguration struct {
 	UniqueAspect   string
 	MajorConflicts []string
 
+	// Geological Age
+	GeologicalAge string // "young", "mature", "old"
+
 	// Tech Level
 	TechLevel    string // "stone_age", "medieval", "industrial", "modern", "futur", "mixed"
 	MagicLevel   string // "none", "rare", "common", "dominant"
@@ -99,6 +103,7 @@ func (w *WorldConfiguration) GetLandWaterRatio() string    { return w.LandWaterR
 func (w *WorldConfiguration) GetClimateRange() string      { return w.ClimateRange }
 func (w *WorldConfiguration) GetTechLevel() string         { return w.TechLevel }
 func (w *WorldConfiguration) GetMagicLevel() string        { return w.MagicLevel }
+func (w *WorldConfiguration) GetGeologicalAge() string     { return w.GeologicalAge }
 func (w *WorldConfiguration) GetSentientSpecies() []string { return w.SentientSpecies }
 func (w *WorldConfiguration) GetResourceDistribution() map[string]float64 {
 	return w.ResourceDistribution

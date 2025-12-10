@@ -103,7 +103,22 @@ func (s *InterviewService) ProcessResponse(ctx context.Context, playerID uuid.UU
 		return "The interview is already complete.", true, nil
 	}
 
-	// 0. Check for "change" command
+	// 0a. Check for Global Interrupt "the name is <name>"
+	// Only active after Q7 (index 6) has been presented (so CurrentTopicIndex >= 6)
+	// But actually, if they are responding to Q7, the index IS 6.
+	// The requirement says: "After Q7, if the user *ever* types 'the name is <name>'".
+	// This implies it works during Q7 (as a way to name immediately) and ANY time after.
+	// Q7 is index 6. So if index >= 6.
+	interruptRegex := regexp.MustCompile(`(?i)^the name is\s+(.+)$`)
+	if session.State.CurrentTopicIndex >= 6 {
+		matches := interruptRegex.FindStringSubmatch(strings.TrimSpace(response))
+		if len(matches) == 2 {
+			worldName := strings.TrimSpace(matches[1])
+			return s.finalizeInterview(ctx, session, worldName)
+		}
+	}
+
+	// 0b. Check for "change" command
 	// Format: change <topic> to <value>
 	lowerResp := strings.ToLower(strings.TrimSpace(response))
 	if strings.HasPrefix(lowerResp, "change ") {
@@ -157,6 +172,35 @@ func (s *InterviewService) ProcessResponse(ctx context.Context, playerID uuid.UU
 	// Get current topic
 	currentTopic := AllTopics[session.State.CurrentTopicIndex]
 
+	// Special handling for Branch Topic (Index 6)
+	if currentTopic.Name == "Branch" {
+		lowerResp := strings.ToLower(strings.TrimSpace(response))
+		if lowerResp == "continue" {
+			// Save answer and proceed
+			// Note: We don't strictly *need* to save "continue" as an answer, but it keeps history consistent.
+			if err := s.saveAnswerAndAdvance(ctx, session, response); err != nil {
+				return "", false, err
+			}
+			// Proceed to next question logic (handled below by falling through or re-invoking)
+			// Actually need to trigger next question generation immediately.
+			nextTopic := AllTopics[session.State.CurrentTopicIndex]
+			prompt := BuildInterviewPrompt(session.State, nextTopic, session.History)
+			// Q8 (Factions) is normal generation.
+			question, err := s.client.Generate(prompt)
+			if err != nil {
+				return "", false, err
+			}
+			return question, false, nil
+		}
+
+		// If they didn't say continue, and they didn't trigger the global "the name is" (checked above),
+		// then they might have typed something invalid or just "name is <name>" if they forgot "the".
+		// But let's stick to the strict requirement or minimal guidance.
+		// If they just type a name without "the name is", we treat it as invalid answer to the branch question?
+		// or reprompt.
+		return "Please reply with 'the name is <world name>' to finish or 'continue' to provide more details.", false, nil
+	}
+
 	// Special handling for World Name topic - validate before saving
 	if currentTopic.Name == "World Name" {
 		// Validate world name
@@ -186,33 +230,29 @@ func (s *InterviewService) ProcessResponse(ctx context.Context, playerID uuid.UU
 		}
 	}
 
-	// 1. Save answer for current topic
-	if err := s.repo.SaveAnswer(ctx, session.ID, session.State.CurrentTopicIndex, response); err != nil {
-		return "", false, fmt.Errorf("failed to save answer: %w", err)
+	// 1. Save answer and advance
+	if err := s.saveAnswerAndAdvance(ctx, session, response); err != nil {
+		return "", false, err
 	}
 
-	// 2. Update history (in memory for prompt generation)
-	session.History = append(session.History, ConversationTurn{
-		Answer: response,
-	})
-	session.State.Answers[currentTopic.Name] = response
-
-	// 3. Advance topic
-	nextIndex := session.State.CurrentTopicIndex + 1
-
-	// Update index explicitly
-	if err := s.repo.UpdateQuestionIndex(ctx, session.ID, nextIndex); err != nil {
-		return "", false, fmt.Errorf("failed to update question index: %w", err)
-	}
-	session.State.CurrentTopicIndex = nextIndex
-
-	if nextIndex >= len(AllTopics) {
+	if session.State.CurrentTopicIndex >= len(AllTopics) {
 		// Determine we just finished the last question. Enter Review Mode.
 		return s.generateReviewSummary(session), false, nil
 	}
 
 	// 5. Generate next question
-	nextTopic := AllTopics[nextIndex]
+	nextTopic := AllTopics[session.State.CurrentTopicIndex]
+
+	// Check if next topic is Branch - if so, use specialized prompt logic (handled in BuildInterviewPrompt or here?)
+	// Actually, Prompt.go handles the text for Branch, but LLM generation call is here.
+	// If Prompt returns detailed text for Branch, we might want to bypass LLM.
+	// Let's modify BuildInterviewPrompt to return the exact string, and if it is Branch, we skip LLM.
+	// Or we can check here.
+	if nextTopic.Name == "Branch" {
+		prompt := BuildInterviewPrompt(session.State, nextTopic, session.History)
+		return prompt, false, nil
+	}
+
 	prompt := BuildInterviewPrompt(session.State, nextTopic, session.History)
 	question, err := s.client.Generate(prompt)
 	if err != nil {
@@ -222,95 +262,145 @@ func (s *InterviewService) ProcessResponse(ctx context.Context, playerID uuid.UU
 	return question, false, nil
 }
 
+// saveAnswerAndAdvance handles saving the answer, updating history, and incrementing the index
+func (s *InterviewService) saveAnswerAndAdvance(ctx context.Context, session *InterviewSession, response string) error {
+	// 1. Save answer for current topic
+	if err := s.repo.SaveAnswer(ctx, session.ID, session.State.CurrentTopicIndex, response); err != nil {
+		return fmt.Errorf("failed to save answer: %w", err)
+	}
+
+	// 2. Update history (in memory for prompt generation)
+	session.History = append(session.History, ConversationTurn{
+		Answer: response,
+	})
+	currentTopic := AllTopics[session.State.CurrentTopicIndex]
+	session.State.Answers[currentTopic.Name] = response
+
+	// 3. Advance topic
+	nextIndex := session.State.CurrentTopicIndex + 1
+
+	// Update index explicitly
+	if err := s.repo.UpdateQuestionIndex(ctx, session.ID, nextIndex); err != nil {
+		return fmt.Errorf("failed to update question index: %w", err)
+	}
+	session.State.CurrentTopicIndex = nextIndex
+	return nil
+}
+
 // handleReviewResponse handles interaction during review phase
 func (s *InterviewService) handleReviewResponse(ctx context.Context, session *InterviewSession, playerID uuid.UUID, response string) (string, bool, error) {
 	lowerResp := strings.ToLower(strings.TrimSpace(response))
 	if lowerResp == "yes" || lowerResp == "create" || lowerResp == "confirm" || lowerResp == "looks good" {
 		// Proceed to completion
-		if err := s.repo.UpdateInterviewStatus(ctx, session.ID, StatusCompleted); err != nil {
-			return "", false, fmt.Errorf("failed to complete interview: %w", err)
-		}
-
-		// Extract and save configuration
-		config, err := s.extractor.ExtractConfiguration(session, playerID)
-		if err != nil {
-			return "", false, fmt.Errorf("failed to extract configuration: %w", err)
-		}
-
-		if err := s.repo.SaveConfiguration(ctx, config); err != nil {
-			return "", false, fmt.Errorf("failed to save configuration: %w", err)
-		}
-
-		// Create the world
-		radius := 1000.0
-		world := &repository.World{
-			ID:        uuid.New(),
-			Name:      config.WorldName,
-			OwnerID:   playerID,
-			Shape:     repository.WorldShapeSphere,
-			Radius:    &radius,
-			Metadata:  make(map[string]interface{}),
-			CreatedAt: time.Now(),
-		}
-
-		// Add world metadata
-		world.Metadata["theme"] = config.Theme
-		world.Metadata["description"] = fmt.Sprintf("A %s world with %s tone.", config.Theme, config.Tone)
-
-		fmt.Printf("[DEBUG] Attempting to create world: ID=%s, Name='%s', OwnerID=%s\n", world.ID, world.Name, world.OwnerID)
-		if err := s.worldRepo.CreateWorld(ctx, world); err != nil {
-			fmt.Printf("[DEBUG] Failed to create world: %v\n", err)
-			return "", false, fmt.Errorf("failed to create world: %w", err)
-		}
-		fmt.Printf("[DEBUG] Successfully created world %s\n", world.ID)
-
-		// Generate procedural content for the world
-		fmt.Printf("[DEBUG] Generating procedural content for world %s\n", world.ID)
-		generator := orchestrator.NewGeneratorService()
-		generated, err := generator.GenerateWorld(ctx, world.ID, config)
-		if err != nil {
-			// Log error but don't fail - world record exists
-			fmt.Printf("[WARN] Failed to generate world content: %v\n", err)
-		} else {
-			fmt.Printf("[DEBUG] World generation completed in %v\n", generated.Metadata.GenerationTime)
-			fmt.Printf("[DEBUG] Generated: %d plates, %d biomes, sea level: %.2f\n",
-				len(generated.Geography.Plates),
-				len(generated.Geography.Biomes),
-				generated.Metadata.SeaLevel)
-
-			// Store generation metadata in world metadata
-			world.Metadata["generated"] = true
-			world.Metadata["generation_seed"] = generated.Metadata.Seed
-			world.Metadata["generation_time"] = generated.Metadata.GenerationTime.String()
-			world.Metadata["sea_level"] = generated.Metadata.SeaLevel
-			world.Metadata["land_ratio"] = generated.Metadata.LandRatio
-			world.Metadata["dimensions"] = map[string]int{
-				"width":  generated.Metadata.DimensionsX,
-				"height": generated.Metadata.DimensionsY,
-			}
-
-			// Update world with generation metadata
-			if err := s.worldRepo.UpdateWorld(ctx, world); err != nil {
-				fmt.Printf("[WARN] Failed to update world metadata: %v\n", err)
-			}
-
-			// TODO: Persist geography, minerals, species to permanent storage
-			// For now, generation is ephemeral and will need to be regenerated on world load
-			// Future PR will add database tables for heightmap, minerals, species persistence
-		}
-
-		// Link configuration to the new world ID
-		config.WorldID = &world.ID
-		if err := s.repo.SaveConfiguration(ctx, config); err != nil {
-			// Just log error, don't fail as world is created
-			fmt.Printf("[ERROR] failed to link configuration to world: %v\n", err)
-		}
-
-		return fmt.Sprintf("Thank you! I have gathered all the information, and your world has been created. Your world is being forged. You may now enter it using 'enter %s'.", world.Name), true, nil
+		// If world name was not set (e.g. if we skipped it via an old flow or something),
+		// we should theoretically use the one in answers.
+		// NOTE: In the new flow, we might need to be careful if answers map has "World Name".
+		// But finalizeInterview will extract it from the session/answers.
+		return s.finalizeInterview(ctx, session, "")
 	}
 
 	// Assume user wants to change something but didn't use "change" command correctly, or just chatting
 	return "Please type 'reply yes' to create your world, or use 'reply change <topic> to <value>' to modify an answer.\n\n" + s.generateReviewSummary(session), false, nil
+}
+
+// finalizeInterview creates the world and returns the completion message
+func (s *InterviewService) finalizeInterview(ctx context.Context, session *InterviewSession, overrideName string) (string, bool, error) {
+	if err := s.repo.UpdateInterviewStatus(ctx, session.ID, StatusCompleted); err != nil {
+		return "", false, fmt.Errorf("failed to complete interview: %w", err)
+	}
+
+	// Extract and save configuration
+	config, err := s.extractor.ExtractConfiguration(session, session.PlayerID)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to extract configuration: %w", err)
+	}
+
+	// If overrideName is provided (from interrupt or branch), use it
+	if overrideName != "" {
+		config.WorldName = overrideName
+		// Ensure it's in answers too for consistency if we persist
+		session.State.Answers["World Name"] = overrideName
+	}
+	// Fallback validation for name
+	if config.WorldName == "" {
+		// Try answers
+		config.WorldName = session.State.Answers["World Name"]
+		if config.WorldName == "" {
+			// fallback
+			config.WorldName = "Unnamed World"
+		}
+	}
+
+	if err := s.repo.SaveConfiguration(ctx, config); err != nil {
+		return "", false, fmt.Errorf("failed to save configuration: %w", err)
+	}
+
+	// Create the world
+	radius := 1000.0
+	world := &repository.World{
+		ID:        uuid.New(),
+		Name:      config.WorldName,
+		OwnerID:   session.PlayerID,
+		Shape:     repository.WorldShapeSphere,
+		Radius:    &radius,
+		Metadata:  make(map[string]interface{}),
+		CreatedAt: time.Now(),
+	}
+
+	// Add world metadata
+	world.Metadata["theme"] = config.Theme
+	world.Metadata["description"] = fmt.Sprintf("A %s world with %s tone.", config.Theme, config.Tone)
+
+	fmt.Printf("[DEBUG] Attempting to create world: ID=%s, Name='%s', OwnerID=%s\n", world.ID, world.Name, world.OwnerID)
+	if err := s.worldRepo.CreateWorld(ctx, world); err != nil {
+		fmt.Printf("[DEBUG] Failed to create world: %v\n", err)
+		return "", false, fmt.Errorf("failed to create world: %w", err)
+	}
+	fmt.Printf("[DEBUG] Successfully created world %s\n", world.ID)
+
+	// Generate procedural content for the world
+	fmt.Printf("[DEBUG] Generating procedural content for world %s\n", world.ID)
+	generator := orchestrator.NewGeneratorService()
+	generated, err := generator.GenerateWorld(ctx, world.ID, config)
+	if err != nil {
+		// Log error but don't fail - world record exists
+		fmt.Printf("[WARN] Failed to generate world content: %v\n", err)
+	} else {
+		fmt.Printf("[DEBUG] World generation completed in %v\n", generated.Metadata.GenerationTime)
+		fmt.Printf("[DEBUG] Generated: %d plates, %d biomes, sea level: %.2f\n",
+			len(generated.Geography.Plates),
+			len(generated.Geography.Biomes),
+			generated.Metadata.SeaLevel)
+
+		// Store generation metadata in world metadata
+		world.Metadata["generated"] = true
+		world.Metadata["generation_seed"] = generated.Metadata.Seed
+		world.Metadata["generation_time"] = generated.Metadata.GenerationTime.String()
+		world.Metadata["sea_level"] = generated.Metadata.SeaLevel
+		world.Metadata["land_ratio"] = generated.Metadata.LandRatio
+		world.Metadata["dimensions"] = map[string]int{
+			"width":  generated.Metadata.DimensionsX,
+			"height": generated.Metadata.DimensionsY,
+		}
+
+		// Update world with generation metadata
+		if err := s.worldRepo.UpdateWorld(ctx, world); err != nil {
+			fmt.Printf("[WARN] Failed to update world metadata: %v\n", err)
+		}
+
+		// TODO: Persist geography, minerals, species to permanent storage
+		// For now, generation is ephemeral and will need to be regenerated on world load
+		// Future PR will add database tables for heightmap, minerals, species persistence
+	}
+
+	// Link configuration to the new world ID
+	config.WorldID = &world.ID
+	if err := s.repo.SaveConfiguration(ctx, config); err != nil {
+		// Just log error, don't fail as world is created
+		fmt.Printf("[ERROR] failed to link configuration to world: %v\n", err)
+	}
+
+	return fmt.Sprintf("Thank you! I have gathered all the information, and your world has been created. Your world is being forged. You may now enter it using 'enter %s'.", world.Name), true, nil
 }
 
 // generateReviewSummary creates a summary of the current world configuration for review

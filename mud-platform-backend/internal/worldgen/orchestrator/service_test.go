@@ -18,6 +18,7 @@ type mockWorldConfig struct {
 	magicLevel           string
 	sentientSpecies      []string
 	resourceDistribution map[string]float64
+	geologicalAge        string
 }
 
 func (m *mockWorldConfig) GetPlanetSize() string        { return m.planetSize }
@@ -25,6 +26,7 @@ func (m *mockWorldConfig) GetLandWaterRatio() string    { return m.landWaterRati
 func (m *mockWorldConfig) GetClimateRange() string      { return m.climateRange }
 func (m *mockWorldConfig) GetTechLevel() string         { return m.techLevel }
 func (m *mockWorldConfig) GetMagicLevel() string        { return m.magicLevel }
+func (m *mockWorldConfig) GetGeologicalAge() string     { return m.geologicalAge }
 func (m *mockWorldConfig) GetSentientSpecies() []string { return m.sentientSpecies }
 func (m *mockWorldConfig) GetResourceDistribution() map[string]float64 {
 	return m.resourceDistribution
@@ -48,6 +50,7 @@ func TestConfigMapper_MapToParams(t *testing.T) {
 				planetSize:     "small",
 				landWaterRatio: "30% land, 70% water",
 				climateRange:   "temperate",
+				geologicalAge:  "mature",
 			},
 			expectedWidth:  100,
 			expectedHeight: 100,
@@ -61,6 +64,7 @@ func TestConfigMapper_MapToParams(t *testing.T) {
 				planetSize:     "large",
 				landWaterRatio: "70% land, 30% water",
 				climateRange:   "varied",
+				geologicalAge:  "old",
 			},
 			expectedWidth:  500,
 			expectedHeight: 500,
@@ -74,6 +78,7 @@ func TestConfigMapper_MapToParams(t *testing.T) {
 				planetSize:     "",
 				landWaterRatio: "",
 				climateRange:   "moderate",
+				geologicalAge:  "", // Default
 			},
 			expectedWidth:  200,
 			expectedHeight: 200,
@@ -109,6 +114,7 @@ func TestGenerateWorld(t *testing.T) {
 		techLevel:       "medieval",
 		magicLevel:      "common",
 		sentientSpecies: []string{"Human", "Elf"},
+		geologicalAge:   "young",
 	}
 
 	worldID := uuid.New()
@@ -151,6 +157,7 @@ func TestGenerateGeography(t *testing.T) {
 		PlateCount:     5,
 		LandWaterRatio: 0.3,
 		Seed:           12345,
+		ErosionRate:    1.0,
 	}
 
 	geoMap, seaLevel, err := service.generateGeography(params)
@@ -273,6 +280,28 @@ func TestCalculateMineralDensity(t *testing.T) {
 			density := calculateMineralDensity(tt.techLevel, tt.magicLevel)
 			assert.GreaterOrEqual(t, density, tt.minDensity, tt.description)
 			assert.LessOrEqual(t, density, tt.maxDensity, tt.description)
+		})
+	}
+}
+
+func TestCalculateAgeParameters(t *testing.T) {
+	tests := []struct {
+		name                 string
+		age                  string
+		expectedErosion      float64
+		expectedBiodiversity float64
+	}{
+		{"Young", "Young world", 0.3, 0.7},
+		{"Old", "Very Old", 2.5, 1.5},
+		{"Mature", "Mature", 1.0, 1.0},
+		{"Empty", "", 1.0, 1.0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			erosion, biodiversity := calculateAgeParameters(tt.age)
+			assert.Equal(t, tt.expectedErosion, erosion)
+			assert.Equal(t, tt.expectedBiodiversity, biodiversity)
 		})
 	}
 }

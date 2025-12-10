@@ -20,10 +20,8 @@
     }
 </script>
 
-<div class="flex flex-col gap-4 w-full items-center">
-    <DPad on:command={handleMove} />
-
-    <div class="flex flex-wrap gap-2 w-full justify-center">
+<div class="flex flex-row gap-4 w-full items-end justify-between">
+    <div class="flex flex-wrap gap-2 w-full justify-start">
         {#each commands as cmd}
             <button
                 on:click={() => sendQuickCommand(cmd.command)}
@@ -33,5 +31,9 @@
                 {cmd.label}
             </button>
         {/each}
+    </div>
+
+    <div class="flex-shrink-0">
+        <DPad on:command={handleMove} />
     </div>
 </div>

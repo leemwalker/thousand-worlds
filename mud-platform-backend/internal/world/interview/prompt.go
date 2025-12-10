@@ -11,6 +11,18 @@ func BuildInterviewPrompt(state InterviewState, nextTopic Topic, history []Conve
 	totalQuestions := len(AllTopics)
 	questionsAnswered := state.CurrentTopicIndex
 
+	// 1b. Check for Static Branch Prompt
+	if nextTopic.Name == "Branch" {
+		var summary strings.Builder
+		for _, topic := range AllTopics {
+			if ans, ok := state.Answers[topic.Name]; ok {
+				summary.WriteString(fmt.Sprintf("- %s: %s\n", topic.Name, ans))
+			}
+		}
+
+		return fmt.Sprintf("Based on your answers so far:\n%s\nWe have reached a decision point. Do you wish to name your world now and begin generation, or continue with more detailed questions? Reply with 'the name is <world name>' to finish or 'continue' to provide more details.", summary.String())
+	}
+
 	// 2. Format gathered info
 	var existingAnswers strings.Builder
 	for _, topic := range AllTopics {

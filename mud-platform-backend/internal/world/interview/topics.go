@@ -1,6 +1,7 @@
 package interview
 
 // AllTopics defines the ordered list of topics for the interview
+// AllTopics defines the ordered list of topics for the interview
 var AllTopics = []Topic{
 	// Core Concept
 	{Category: CategoryTheme, Name: "Core Concept", Description: "Describe the world's theme, tone, and key inspirations in one sentence."},
@@ -16,6 +17,15 @@ var AllTopics = []Topic{
 
 	// Conflict
 	{Category: CategoryTheme, Name: "Conflict", Description: "What is the central conflict or tension driving events in this world?"},
+
+	// Geological Age
+	{Category: CategoryGeography, Name: "Geological Age", Description: "How old is this world geologically? (Young with sharp peaks, Mature, or Old with smoothed mountains)"},
+
+	// Branching Point (Q7)
+	{Category: CategoryTheme, Name: "Branch", Description: "Decision point: Name world or continue."},
+
+	// Factions (Q8)
+	{Category: CategoryCulture, Name: "Factions", Description: "Describe the major factions or groups."},
 
 	// World Name (Final Question)
 	{Category: CategoryTheme, Name: "World Name", Description: "What should this world be called? Generate 2 creative, unique name suggestions based on the world's theme, tone, and characteristics."},

@@ -70,26 +70,8 @@ func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.Gam
 		return ErrNoCharacter
 	}
 
-	// Check if character is in Lobby
-	// We can check this by querying the character's location or by checking if the client is in "lobby mode"
-	// For now, let's assume if the character's WorldID is LobbyWorldID, they are in the lobby.
-	// However, the client interface doesn't expose WorldID directly.
-	// We might need to fetch the character or rely on the client knowing its state.
-	// But wait, the client just sends commands.
-	// Let's fetch the character to be sure, or optimize by caching WorldID in the client.
-	// For this implementation, let's fetch the character from AuthRepo to check WorldID.
-	// Optimization: The client struct in websocket package has CharacterID.
-	// We should probably add WorldID to the GameClient interface or fetch it.
-	// Let's fetch it for now to be safe and stateless.
-
-	char, err := p.authRepo.GetCharacter(ctx, charID)
-	if err != nil {
-		return fmt.Errorf("failed to get character: %w", err)
-	}
-
-	if lobby.IsLobby(char.WorldID) {
-		return p.processLobbyCommand(ctx, client, cmd)
-	}
+	// Check if character is in Lobby - logic removed as requested for generic handling.
+	// All commands are now processed via the generic switch.
 
 	// Route command to appropriate handler
 	switch cmd.Action {
@@ -129,7 +111,7 @@ func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.Gam
 		return p.handleEnter(ctx, client, cmd)
 
 	// Observation
-	case "look":
+	case "look", "l":
 		return p.handleLook(ctx, client, cmd)
 
 	// Communication
@@ -139,10 +121,18 @@ func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.Gam
 		return p.handleWhisper(ctx, client, cmd)
 	case "tell":
 		return p.handleTell(ctx, client, cmd)
+	case "reply", "r":
+		return p.handleReply(ctx, client, cmd)
 
 	// Social
 	case "who":
 		return p.handleWho(ctx, client)
+
+	// Creation / Management
+	case "create":
+		return p.handleCreate(ctx, client, cmd)
+	case "watcher":
+		return p.handleWatcher(ctx, client, cmd)
 
 	// Existing commands
 	case "take":
@@ -166,203 +156,18 @@ func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.Gam
 	}
 }
 
-// processLobbyCommand handles commands specifically for the lobby
-func (p *GameProcessor) processLobbyCommand(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
-	log.Printf("[LOBBY] Processing command: Action='%s', Target='%v', Recipient='%v'", cmd.Action, cmd.Target, cmd.Recipient)
-	switch cmd.Action {
-	case "look", "l":
-		return p.handleLobbyLook(ctx, client, cmd)
-	case "create":
-		// Handle "create world"
-		if cmd.Target != nil {
-			target := strings.ToLower(*cmd.Target)
-			if target == "world" {
-				return p.handleCreateWorld(ctx, client)
-			}
-			// Handle "create character Name Role Race"
-			if strings.HasPrefix(target, "character") {
-				return p.handleCreateCharacter(ctx, client, cmd)
-			}
+func (p *GameProcessor) handleCreate(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+	if cmd.Target != nil {
+		target := strings.ToLower(*cmd.Target)
+		if target == "world" {
+			return p.handleCreateWorld(ctx, client)
 		}
-		return fmt.Errorf("unknown create command")
-	case "enter":
-		return p.handleLobbyEnter(ctx, client, cmd)
-	case "say":
-		return p.handleSay(ctx, client, cmd) // Reuse generic say for now
-	case "tell":
-		return p.handleTell(ctx, client, cmd) // Allow tell in lobby
-	case "reply", "r":
-		return p.handleReply(ctx, client, cmd) // New reply command
-	case "who":
-		return p.handleWho(ctx, client) // Reuse generic who for now
-	case "help":
-		return p.handleLobbyHelp(ctx, client)
-	case "watcher":
-		return p.handleWatcher(ctx, client, cmd)
-	// Direction commands for moving in the lobby
-	case "n", "north", "s", "south", "e", "east", "w", "west":
-		return p.handleDirection(ctx, client, cmd.Action)
-	// Orientation
-	case "face":
-		return p.handleFace(ctx, client, cmd)
-	case "lobby":
-		return p.handleLobby(ctx, client)
-	default:
-		client.SendGameMessage("error", "Unknown lobby command. Type 'help' for available commands.", nil)
-		return nil
-	}
-}
-
-func (p *GameProcessor) handleLobbyHelp(ctx context.Context, client websocket.GameClient) error {
-	helpText := `
-Lobby Commands:
-  look                      - See the lobby description, available worlds, and other players.
-  look <player_name>        - Inspect another player.
-  look <portal_name>        - Inspect a world portal.
-  look statue               - Examine the central statue.
-  create world              - Start the process of creating a new world.
-  enter <world_id>          - Enter a specific world.
-  say <message>             - Chat with other players in the lobby.
-  tell <player> <message>   - Send a private message to any online player.
-  reply <message>           - Reply to the last person who sent you a tell.
-  who                       - See who is online.
-`
-	client.SendGameMessage("system", helpText, nil)
-	return nil
-}
-
-func (p *GameProcessor) handleLobbyLook(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
-	// Get user ID for personalized descriptions
-	charID := client.GetCharacterID()
-	char, err := p.authRepo.GetCharacter(ctx, charID)
-	if err != nil {
-		return fmt.Errorf("failed to get character: %w", err)
-	}
-
-	// Check if there's a target
-	if cmd.Target != nil && *cmd.Target != "" {
-		target := strings.ToLower(strings.TrimSpace(*cmd.Target))
-
-		// Check for statue
-		if target == "statue" {
-			desc, err := p.lookService.DescribeStatue(ctx, char.UserID)
-			if err != nil {
-				client.SendGameMessage("error", "You can't see that here.", nil)
-				return nil
-			}
-			client.SendGameMessage("look_result", desc, nil)
-			return nil
-		}
-
-		// Try to look at a player first
-		playerDesc, err := p.lookService.DescribePlayer(ctx, target)
-		if err == nil {
-			client.SendGameMessage("look_result", playerDesc, nil)
-			return nil
-		}
-
-		// Try to look at a portal/world
-		portalDesc, err := p.lookService.DescribePortal(ctx, target)
-		if err == nil {
-			client.SendGameMessage("look_result", portalDesc, nil)
-			return nil
-		}
-
-		// Nothing found
-		client.SendGameMessage("error", "You don't see that here.", nil)
-		return nil
-	}
-
-	// No target - show general lobby description
-	// 1. Description
-	// No target - show general lobby description
-
-	// Get all clients in lobby
-	clients := p.Hub.GetClientsByWorldID(lobby.LobbyWorldID)
-
-	// Convert to lobby.WebsocketClient interface
-	var lobbyClients []lobby.WebsocketClient
-	for _, c := range clients {
-		lobbyClients = append(lobbyClients, c)
-	}
-
-	// Get dynamic description
-	desc, err := p.lookService.GetLobbyDescription(ctx, char.UserID, charID, lobbyClients)
-	if err != nil {
-		log.Printf("[PROCESSOR] Failed to generate lobby description: %v", err)
-		desc = "You are in the Grand Lobby of Thousand Worlds." // Fallback
-	}
-
-	client.SendGameMessage("area_description", desc, nil)
-	return nil
-}
-
-func (p *GameProcessor) handleLobbyEnter(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
-	if cmd.Target == nil {
-		return errors.New("target world ID required")
-	}
-
-	worldIDStr := strings.TrimSpace(*cmd.Target)
-	worldID, err := uuid.Parse(worldIDStr)
-	if err != nil {
-		// Not a UUID, try to find world by name
-		worlds, errList := p.worldRepo.ListWorlds(ctx)
-		if errList != nil {
-			client.SendGameMessage("error", "Failed to search for world.", nil)
-			return nil
-		}
-
-		var foundWorld *repository.World
-		targetName := strings.ToLower(worldIDStr)
-
-		for _, w := range worlds {
-			if strings.ToLower(w.Name) == targetName {
-				foundWorld = &w
-				break
-			}
-		}
-
-		if foundWorld != nil {
-			worldID = foundWorld.ID
-		} else {
-			client.SendGameMessage("error", fmt.Sprintf("There is no portal to '%s' here.", worldIDStr), nil)
-			return nil
+		// Handle "create character Name Role Race"
+		if strings.HasPrefix(target, "character") {
+			return p.handleCreateCharacter(ctx, client, cmd)
 		}
 	}
-
-	// Verify world exists
-	_, err = p.worldRepo.GetWorld(ctx, worldID)
-	if err != nil {
-		client.SendGameMessage("error", "World not found.", nil)
-		return nil
-	}
-
-	// PROXIMITY CHECK
-	charID := client.GetCharacterID()
-	char, err := p.authRepo.GetCharacter(ctx, charID)
-	if err != nil {
-		return fmt.Errorf("failed to get character: %w", err)
-	}
-
-	// Get current world for spatial calculations
-	currentWorld, err := p.worldRepo.GetWorld(ctx, char.WorldID)
-	if err != nil {
-		return fmt.Errorf("failed to get current world: %w", err)
-	}
-
-	portalX, portalY := p.spatialService.GetPortalLocation(currentWorld, worldID)
-	allowed, hint := p.spatialService.CheckPortalProximity(char.PositionX, char.PositionY, portalX, portalY)
-	if !allowed {
-		client.SendGameMessage("error", hint, nil)
-		return nil
-	}
-
-	// Trigger entry options on client
-	// The client will then fetch entry options and show the modal
-	client.SendGameMessage("trigger_entry_options", worldID.String(), map[string]interface{}{
-		"world_id": worldID.String(),
-	})
-	return nil
+	return fmt.Errorf("unknown create command. Try 'create world'.")
 }
 
 func (p *GameProcessor) handleCreateWorld(ctx context.Context, client websocket.GameClient) error {
@@ -439,6 +244,12 @@ func (p *GameProcessor) handleEnter(ctx context.Context, client websocket.GameCl
 
 	targetStr := strings.TrimSpace(*cmd.Target)
 	charID := client.GetCharacterID()
+	// Get character
+	char, err := p.authRepo.GetCharacter(ctx, charID)
+	if err != nil {
+		client.SendGameMessage("error", "Failed to find your character.", nil)
+		return nil
+	}
 
 	// 1. Resolve target to a World
 	var destWorld *repository.World
@@ -472,48 +283,38 @@ func (p *GameProcessor) handleEnter(ctx context.Context, client websocket.GameCl
 		}
 	}
 
-	// 2. Get character
-	char, err := p.authRepo.GetCharacter(ctx, charID)
-	if err != nil {
-		client.SendGameMessage("error", "Failed to find your character.", nil)
-		return nil
-	}
-
-	// 3. Check if already in that world
+	// 2. Check if already in that world
 	if char.WorldID == destWorld.ID {
 		client.SendGameMessage("info", "You are already in that world.", nil)
 		return nil
 	}
 
-	// 4. Check if entering lobby (special case)
-	if lobby.IsLobby(destWorld.ID) {
-		client.SendGameMessage("info", "You step back through the portal into the Grand Lobby.", nil)
-		char.WorldID = destWorld.ID
-		// Reset position to lobby center
-		char.PositionX = 5.0   // LobbyCenter X
-		char.PositionY = 500.0 // LobbyCenter Y
-		char.PositionZ = 0
-	} else {
-		// 5. Transition to destination world
-		client.SendGameMessage("movement", fmt.Sprintf("You step through the shimmering portal into %s.", destWorld.Name), nil)
-		char.WorldID = destWorld.ID
-		// Set spawn position (could be defined per-world, default to 0,0,0)
-		char.PositionX = 0
-		char.PositionY = 0
-		char.PositionZ = 0
+	// 3. Proximity Check (Unified)
+	// We check proximity to the portal for the destination world
+	// Get current world for spatial calculations
+	currentWorld, err := p.worldRepo.GetWorld(ctx, char.WorldID)
+	if err != nil {
+		return fmt.Errorf("failed to get current world: %w", err)
 	}
 
-	// 6. Persist character update
-	if err := p.authRepo.UpdateCharacter(ctx, char); err != nil {
-		log.Printf("[PROCESSOR] Failed to update character world: %v", err)
-		client.SendGameMessage("error", "Failed to transition to new world.", nil)
+	// Logic: If current world has spatially mapped portals (like Lobby or others with 'bounds'), check proximity.
+	// For now, we assume if we are entering a generic World from another generic World, there is a portal location.
+	// We rely on SpatialService to tell us.
+	// Note: Generic "Enter" might not always imply a physical portal (could be a command), but assuming "enter <world>" implies physical travel.
+	portalX, portalY := p.spatialService.GetPortalLocation(currentWorld, destWorld.ID)
+	allowed, hint := p.spatialService.CheckPortalProximity(char.PositionX, char.PositionY, portalX, portalY)
+	if !allowed {
+		client.SendGameMessage("error", hint, nil)
 		return nil
 	}
 
-	// 7. Update client's world context (if applicable)
-	// The client should recognize the world change from the message or poll state.
-	// Send state update with new world info.
-	p.sendStateUpdate(client)
+	// 4. Trigger Entry Options (Unified Flow)
+	// Instead of auto-moving, we trigger the entry options modal.
+	// This allows the user to choose "New Character" or "Existing Character" or "Watcher".
+	// This unifies the flow so "enter <world>" behaves the same everywhere.
+	client.SendGameMessage("trigger_entry_options", destWorld.ID.String(), map[string]interface{}{
+		"world_id": destWorld.ID.String(),
+	})
 
 	return nil
 }

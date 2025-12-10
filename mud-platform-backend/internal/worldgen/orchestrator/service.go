@@ -92,7 +92,7 @@ func (s *GeneratorService) generateGeography(params *GenerationParams) (*geograp
 	plates := geography.GeneratePlates(params.PlateCount, params.Width, params.Height, params.Seed)
 
 	// Generate heightmap from tectonic activity
-	heightmap := geography.GenerateHeightmap(params.Width, params.Height, plates, params.Seed)
+	heightmap := geography.GenerateHeightmap(params.Width, params.Height, plates, params.Seed, params.ErosionRate)
 
 	// Assign ocean/land based on desired ratio
 	seaLevel := geography.AssignOceanLand(heightmap, params.LandWaterRatio)

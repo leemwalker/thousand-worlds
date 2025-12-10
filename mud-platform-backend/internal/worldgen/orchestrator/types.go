@@ -48,6 +48,7 @@ type GenerationParams struct {
 	TemperatureMax   float64
 	PrecipitationMin float64
 	PrecipitationMax float64
+	ErosionRate      float64 // Multiplier for erosion iterations
 
 	// Resource parameters
 	MineralDensity  float64 // 0.0 to 1.0
@@ -55,6 +56,7 @@ type GenerationParams struct {
 
 	// Species parameters
 	InitialSpeciesCount int
+	BioDiversityRate    float64 // Multiplier for species diversity
 	SpeciesTemplates    []evolution.Species
 
 	// Random seed

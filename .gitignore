@@ -29,3 +29,8 @@ node_modules/
 # Test coverage
 coverage/
 *.out
+
+# Test results
+mud-platform-client/test-results
+*.png
+*.webm

@@ -14,6 +14,7 @@ type WorldConfig interface {
 	GetClimateRange() string
 	GetTechLevel() string
 	GetMagicLevel() string
+	GetGeologicalAge() string
 	GetSentientSpecies() []string
 	GetResourceDistribution() map[string]float64
 }
@@ -58,6 +59,9 @@ func (m *ConfigMapper) MapToParams(config WorldConfig) (*GenerationParams, error
 	// Map tech level to mineral density
 	params.MineralDensity = calculateMineralDensity(config.GetTechLevel(), config.GetMagicLevel())
 
+	// Map geological age to erosion and biodiversity parameters
+	params.ErosionRate, params.BioDiversityRate = calculateAgeParameters(config.GetGeologicalAge())
+
 	// Map resource distribution from config
 	if config.GetResourceDistribution() != nil {
 		params.ResourceWeights = config.GetResourceDistribution()
@@ -78,7 +82,7 @@ func (m *ConfigMapper) MapToParams(config WorldConfig) (*GenerationParams, error
 	}
 
 	// Map sentient species to initial species count
-	params.InitialSpeciesCount = calculateInitialSpeciesCount(config)
+	params.InitialSpeciesCount = int(float64(calculateInitialSpeciesCount(config)) * params.BioDiversityRate)
 
 	return params, nil
 }
@@ -207,4 +211,21 @@ func calculateInitialSpeciesCount(config WorldConfig) int {
 	}
 
 	return count
+}
+
+// calculateAgeParameters returns erosion and biodiversity multipliers based on age
+func calculateAgeParameters(age string) (erosion, bioDiversity float64) {
+	lower := strings.ToLower(age)
+
+	switch {
+	case strings.Contains(lower, "young") || strings.Contains(lower, "new"):
+		// Sharp peaks, steep valleys, active geology
+		return 0.3, 0.7 // Less erosion, lower diversity (less time to evolve)
+	case strings.Contains(lower, "old") || strings.Contains(lower, "ancient"):
+		// Smoothed mountains, settled geology
+		return 2.5, 1.5 // High erosion, high diversity
+	default:
+		// Mature/Medium
+		return 1.0, 1.0
+	}
 }

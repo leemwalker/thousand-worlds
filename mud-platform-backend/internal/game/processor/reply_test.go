@@ -67,7 +67,7 @@ func TestHandleReply_NoMessage(t *testing.T) {
 		Action: "reply",
 	}
 
-	err := processor.processLobbyCommand(context.Background(), bob, cmd)
+	err := processor.ProcessCommand(context.Background(), bob, cmd)
 	require.NoError(t, err)
 
 	require.Len(t, bob.messages, 1)
@@ -87,7 +87,7 @@ func TestHandleReply_NoPreviousTell(t *testing.T) {
 		Message: &message,
 	}
 
-	err := processor.processLobbyCommand(context.Background(), bob, cmd)
+	err := processor.ProcessCommand(context.Background(), bob, cmd)
 	require.NoError(t, err)
 
 	require.Len(t, bob.messages, 1)
@@ -110,7 +110,7 @@ func TestHandleReply_SenderOffline(t *testing.T) {
 		Message: &message,
 	}
 
-	err := processor.processLobbyCommand(context.Background(), bob, cmd)
+	err := processor.ProcessCommand(context.Background(), bob, cmd)
 	require.NoError(t, err)
 
 	require.Len(t, bob.messages, 1)
