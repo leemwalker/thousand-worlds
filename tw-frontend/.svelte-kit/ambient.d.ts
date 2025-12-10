@@ -51,7 +51,6 @@ declare module '$env/static/private' {
 	export const __CF_USER_TEXT_ENCODING: string;
 	export const npm_execpath: string;
 	export const PAGER: string;
-	export const POSTGRES_PASSWORD: string;
 	export const PATH: string;
 	export const npm_package_json: string;
 	export const _: string;
@@ -86,16 +85,12 @@ declare module '$env/static/private' {
 	export const BROWSER: string;
 	export const npm_config_user_agent: string;
 	export const PLAYWRIGHT_TEST: string;
-	export const PORT: string;
 	export const VSCODE_GIT_ASKPASS_NODE: string;
 	export const GIT_ASKPASS: string;
 	export const INFOPATH: string;
 	export const HOMEBREW_CELLAR: string;
-	export const JWT_SECRET: string;
-	export const DATABASE_URL: string;
 	export const npm_node_execpath: string;
 	export const npm_config_prefix: string;
-	export const OLLAMA_HOST: string;
 	export const COLORTERM: string;
 	export const NODE_ENV: string;
 }
@@ -152,7 +147,6 @@ declare module '$env/dynamic/private' {
 		__CF_USER_TEXT_ENCODING: string;
 		npm_execpath: string;
 		PAGER: string;
-		POSTGRES_PASSWORD: string;
 		PATH: string;
 		npm_package_json: string;
 		_: string;
@@ -187,16 +181,12 @@ declare module '$env/dynamic/private' {
 		BROWSER: string;
 		npm_config_user_agent: string;
 		PLAYWRIGHT_TEST: string;
-		PORT: string;
 		VSCODE_GIT_ASKPASS_NODE: string;
 		GIT_ASKPASS: string;
 		INFOPATH: string;
 		HOMEBREW_CELLAR: string;
-		JWT_SECRET: string;
-		DATABASE_URL: string;
 		npm_node_execpath: string;
 		npm_config_prefix: string;
-		OLLAMA_HOST: string;
 		COLORTERM: string;
 		NODE_ENV: string;
 		[key: `PUBLIC_${string}`]: undefined;

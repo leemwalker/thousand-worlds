@@ -12,7 +12,7 @@ func TestGenerateHeightmap(t *testing.T) {
 	seed := int64(12345)
 
 	plates := GeneratePlates(count, width, height, seed)
-	hm := GenerateHeightmap(width, height, plates, seed, 1.0)
+	hm := GenerateHeightmap(10, 10, plates, 0, 1.0, 1.0)
 
 	assert.NotNil(t, hm)
 	assert.Equal(t, width, hm.Width)

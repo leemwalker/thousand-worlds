@@ -17,7 +17,7 @@ func TestGeographicRealism(t *testing.T) {
 	assert.Equal(t, 10, len(plates))
 
 	// 2. Heightmap
-	hm := GenerateHeightmap(width, height, plates, seed, 1.0)
+	hm := GenerateHeightmap(width, height, plates, seed, 1.0, 1.0) // High erosion, default rainfall
 	assert.NotNil(t, hm)
 
 	// 3. Ocean/Land

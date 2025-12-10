@@ -12,7 +12,7 @@ func TestGenerateRivers(t *testing.T) {
 	seed := int64(12345)
 
 	plates := GeneratePlates(count, width, height, seed)
-	hm := GenerateHeightmap(width, height, plates, seed, 1.0)
+	hm := GenerateHeightmap(width, height, plates, 0, 1.0, 1.0)
 
 	// Ensure some land exists
 	seaLevel := AssignOceanLand(hm, 0.3) // 30% land

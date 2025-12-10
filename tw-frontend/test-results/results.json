@@ -1,7 +1,7 @@
 {
   "config": {
-    "configFile": "/Users/walker/git/thousand-worlds/mud-platform-client/playwright.config.ts",
-    "rootDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+    "configFile": "/Users/walker/git/thousand-worlds/tw-frontend/playwright.config.ts",
+    "rootDir": "/Users/walker/git/thousand-worlds/tw-frontend/tests/e2e",
     "forbidOnly": false,
     "fullyParallel": true,
     "globalSetup": null,
@@ -11,7 +11,7 @@
     "grepInvert": null,
     "maxFailures": 0,
     "metadata": {
-      "actualWorkers": 2
+      "actualWorkers": 6
     },
     "preserveOutput": "always",
     "reporter": [
@@ -37,15 +37,15 @@
     "quiet": false,
     "projects": [
       {
-        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "outputDir": "/Users/walker/git/thousand-worlds/tw-frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 2
+          "actualWorkers": 6
         },
         "id": "chromium-desktop",
         "name": "chromium-desktop",
-        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testDir": "/Users/walker/git/thousand-worlds/tw-frontend/tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -53,15 +53,15 @@
         "timeout": 60000
       },
       {
-        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "outputDir": "/Users/walker/git/thousand-worlds/tw-frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 2
+          "actualWorkers": 6
         },
         "id": "firefox-desktop",
         "name": "firefox-desktop",
-        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testDir": "/Users/walker/git/thousand-worlds/tw-frontend/tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -69,15 +69,15 @@
         "timeout": 60000
       },
       {
-        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "outputDir": "/Users/walker/git/thousand-worlds/tw-frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 2
+          "actualWorkers": 6
         },
         "id": "webkit-desktop",
         "name": "webkit-desktop",
-        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testDir": "/Users/walker/git/thousand-worlds/tw-frontend/tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -85,15 +85,15 @@
         "timeout": 60000
       },
       {
-        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "outputDir": "/Users/walker/git/thousand-worlds/tw-frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 2
+          "actualWorkers": 6
         },
         "id": "iphone-12",
         "name": "iphone-12",
-        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testDir": "/Users/walker/git/thousand-worlds/tw-frontend/tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -101,15 +101,15 @@
         "timeout": 60000
       },
       {
-        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "outputDir": "/Users/walker/git/thousand-worlds/tw-frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 2
+          "actualWorkers": 6
         },
         "id": "iphone-14-pro",
         "name": "iphone-14-pro",
-        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testDir": "/Users/walker/git/thousand-worlds/tw-frontend/tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -117,15 +117,15 @@
         "timeout": 60000
       },
       {
-        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "outputDir": "/Users/walker/git/thousand-worlds/tw-frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 2
+          "actualWorkers": 6
         },
         "id": "iphone-se",
         "name": "iphone-se",
-        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testDir": "/Users/walker/git/thousand-worlds/tw-frontend/tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -133,15 +133,15 @@
         "timeout": 60000
       },
       {
-        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "outputDir": "/Users/walker/git/thousand-worlds/tw-frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 2
+          "actualWorkers": 6
         },
         "id": "pixel-5",
         "name": "pixel-5",
-        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testDir": "/Users/walker/git/thousand-worlds/tw-frontend/tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -149,15 +149,15 @@
         "timeout": 60000
       },
       {
-        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "outputDir": "/Users/walker/git/thousand-worlds/tw-frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 2
+          "actualWorkers": 6
         },
         "id": "galaxy-s9",
         "name": "galaxy-s9",
-        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testDir": "/Users/walker/git/thousand-worlds/tw-frontend/tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -165,15 +165,15 @@
         "timeout": 60000
       },
       {
-        "outputDir": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results",
+        "outputDir": "/Users/walker/git/thousand-worlds/tw-frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 2
+          "actualWorkers": 6
         },
         "id": "ipad-pro",
         "name": "ipad-pro",
-        "testDir": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e",
+        "testDir": "/Users/walker/git/thousand-worlds/tw-frontend/tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -189,42 +189,33 @@
     "workers": 6,
     "webServer": {
       "command": "npm run dev",
-      "url": "http://127.0.0.1:5173",
+      "url": "http://localhost:5173",
       "reuseExistingServer": true,
       "timeout": 120000
     }
   },
   "suites": [
     {
-      "title": "interview_branching.spec.ts",
-      "file": "interview_branching.spec.ts",
+      "title": "ui_interaction.spec.ts",
+      "file": "ui_interaction.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "Dynamic Interview Branching",
-          "file": "interview_branching.spec.ts",
+          "title": "UI Interaction E2E",
+          "file": "ui_interaction.spec.ts",
           "line": 4,
           "column": 6,
           "specs": [
             {
-              "title": "Path A: Immediate naming at Branch point",
-              "ok": false,
+              "title": "CommandInput sends raw text via WebSocket",
+              "ok": true,
               "tags": [],
               "tests": [
                 {
-                  "timeout": 900000,
-                  "annotations": [
-                    {
-                      "type": "slow",
-                      "location": {
-                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/interview_branching.spec.ts",
-                        "line": 80,
-                        "column": 14
-                      }
-                    }
-                  ],
+                  "timeout": 60000,
+                  "annotations": [],
                   "expectedStatus": "passed",
                   "projectId": "chromium-desktop",
                   "projectName": "chromium-desktop",
@@ -232,95 +223,33 @@
                     {
                       "workerIndex": 0,
                       "parallelIndex": 0,
-                      "status": "failed",
-                      "duration": 62168,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('[data-testid=\"game-output\"]')\nExpected substring: \u001b[32m\"voice resonates\"\u001b[39m\nReceived string:    \u001b[31m\"> tell statue start Welcome to the Lobby. You are in the West Wing of the Grand Lobby. It is quieter here, with alcoves for rest and meditation. Soft light filters from above, illuminating the smooth stone floor.In the distance, toward the center of the hall, you can see the shimmering lights of the world portals.u_242896de stands nearby. \"\u001b[39m\nTimeout: 60000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 60000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-testid=\"game-output\"]')\u001b[22m\n\u001b[2m    2 × locator resolved to <div id=\"game-output\" data-testid=\"game-output\" class=\"flex-1 overflow-y-auto p-4 space-y-2 scroll-smooth s-G_44JrUNJz-e\">…</div>\u001b[22m\n\u001b[2m      - unexpected value \"> tell statue start \"\u001b[22m\n\u001b[2m    61 × locator resolved to <div id=\"game-output\" data-testid=\"game-output\" class=\"flex-1 overflow-y-auto p-4 space-y-2 scroll-smooth s-G_44JrUNJz-e\">…</div>\u001b[22m\n\u001b[2m       - unexpected value \"> tell statue start Welcome to the Lobby. You are in the West Wing of the Grand Lobby. It is quieter here, with alcoves for rest and meditation. Soft light filters from above, illuminating the smooth stone floor.In the distance, toward the center of the hall, you can see the shimmering lights of the world portals.u_242896de stands nearby. \"\u001b[22m\n",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('[data-testid=\"game-output\"]')\nExpected substring: \u001b[32m\"voice resonates\"\u001b[39m\nReceived string:    \u001b[31m\"> tell statue start Welcome to the Lobby. You are in the West Wing of the Grand Lobby. It is quieter here, with alcoves for rest and meditation. Soft light filters from above, illuminating the smooth stone floor.In the distance, toward the center of the hall, you can see the shimmering lights of the world portals.u_242896de stands nearby. \"\u001b[39m\nTimeout: 60000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 60000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-testid=\"game-output\"]')\u001b[22m\n\u001b[2m    2 × locator resolved to <div id=\"game-output\" data-testid=\"game-output\" class=\"flex-1 overflow-y-auto p-4 space-y-2 scroll-smooth s-G_44JrUNJz-e\">…</div>\u001b[22m\n\u001b[2m      - unexpected value \"> tell statue start \"\u001b[22m\n\u001b[2m    61 × locator resolved to <div id=\"game-output\" data-testid=\"game-output\" class=\"flex-1 overflow-y-auto p-4 space-y-2 scroll-smooth s-G_44JrUNJz-e\">…</div>\u001b[22m\n\u001b[2m       - unexpected value \"> tell statue start Welcome to the Lobby. You are in the West Wing of the Grand Lobby. It is quieter here, with alcoves for rest and meditation. Soft light filters from above, illuminating the smooth stone floor.In the distance, toward the center of the hall, you can see the shimmering lights of the world portals.u_242896de stands nearby. \"\u001b[22m\n\n    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/interview_branching.spec.ts:95:67",
-                        "location": {
-                          "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/interview_branching.spec.ts",
-                          "column": 67,
-                          "line": 95
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 93 |\u001b[39m\n \u001b[90m 94 |\u001b[39m         \u001b[90m// Wait for interview start\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 95 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mlocator(\u001b[32m'[data-testid=\"game-output\"]'\u001b[39m))\u001b[33m.\u001b[39mtoContainText(\u001b[32m'voice resonates'\u001b[39m\u001b[33m,\u001b[39m { timeout\u001b[33m:\u001b[39m \u001b[35m60000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                                                   \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 96 |\u001b[39m\n \u001b[90m 97 |\u001b[39m         \u001b[36mconst\u001b[39m answers \u001b[33m=\u001b[39m [\n \u001b[90m 98 |\u001b[39m             \u001b[32m\"High Fantasy\"\u001b[39m\u001b[33m,\u001b[39m \u001b[90m// Core Concept\u001b[39m\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/interview_branching.spec.ts",
-                            "column": 67,
-                            "line": 95
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('[data-testid=\"game-output\"]')\nExpected substring: \u001b[32m\"voice resonates\"\u001b[39m\nReceived string:    \u001b[31m\"> tell statue start Welcome to the Lobby. You are in the West Wing of the Grand Lobby. It is quieter here, with alcoves for rest and meditation. Soft light filters from above, illuminating the smooth stone floor.In the distance, toward the center of the hall, you can see the shimmering lights of the world portals.u_242896de stands nearby. \"\u001b[39m\nTimeout: 60000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 60000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-testid=\"game-output\"]')\u001b[22m\n\u001b[2m    2 × locator resolved to <div id=\"game-output\" data-testid=\"game-output\" class=\"flex-1 overflow-y-auto p-4 space-y-2 scroll-smooth s-G_44JrUNJz-e\">…</div>\u001b[22m\n\u001b[2m      - unexpected value \"> tell statue start \"\u001b[22m\n\u001b[2m    61 × locator resolved to <div id=\"game-output\" data-testid=\"game-output\" class=\"flex-1 overflow-y-auto p-4 space-y-2 scroll-smooth s-G_44JrUNJz-e\">…</div>\u001b[22m\n\u001b[2m       - unexpected value \"> tell statue start Welcome to the Lobby. You are in the West Wing of the Grand Lobby. It is quieter here, with alcoves for rest and meditation. Soft light filters from above, illuminating the smooth stone floor.In the distance, toward the center of the hall, you can see the shimmering lights of the world portals.u_242896de stands nearby. \"\u001b[22m\n\n\n\u001b[0m \u001b[90m 93 |\u001b[39m\n \u001b[90m 94 |\u001b[39m         \u001b[90m// Wait for interview start\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 95 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mlocator(\u001b[32m'[data-testid=\"game-output\"]'\u001b[39m))\u001b[33m.\u001b[39mtoContainText(\u001b[32m'voice resonates'\u001b[39m\u001b[33m,\u001b[39m { timeout\u001b[33m:\u001b[39m \u001b[35m60000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                                                   \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 96 |\u001b[39m\n \u001b[90m 97 |\u001b[39m         \u001b[36mconst\u001b[39m answers \u001b[33m=\u001b[39m [\n \u001b[90m 98 |\u001b[39m             \u001b[32m\"High Fantasy\"\u001b[39m\u001b[33m,\u001b[39m \u001b[90m// Core Concept\u001b[39m\u001b[0m\n\u001b[2m    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/interview_branching.spec.ts:95:67\u001b[22m"
-                        }
-                      ],
-                      "stdout": [
-                        {
-                          "text": "Found toggle button, clicking...\n"
-                        }
-                      ],
+                      "status": "passed",
+                      "duration": 3740,
+                      "errors": [],
+                      "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-12-10T04:26:15.639Z",
-                      "annotations": [
-                        {
-                          "type": "slow",
-                          "location": {
-                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/interview_branching.spec.ts",
-                            "line": 80,
-                            "column": 14
-                          }
-                        }
-                      ],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/interview_branching-Dynami-f9e90-iate-naming-at-Branch-point-chromium-desktop/test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/interview_branching-Dynami-f9e90-iate-naming-at-Branch-point-chromium-desktop/video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/interview_branching-Dynami-f9e90-iate-naming-at-Branch-point-chromium-desktop/error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/interview_branching.spec.ts",
-                        "column": 67,
-                        "line": 95
-                      }
+                      "startTime": "2025-12-10T14:29:52.579Z",
+                      "annotations": [],
+                      "attachments": []
                     }
                   ],
-                  "status": "unexpected"
+                  "status": "expected"
                 }
               ],
-              "id": "a2d2b4044dc7ab9cf8d8-444433633dede2ac32d5",
-              "file": "interview_branching.spec.ts",
-              "line": 79,
+              "id": "ae95227675d6bc1ab9a3-dc9eb9784e3babaefd8a",
+              "file": "ui_interaction.spec.ts",
+              "line": 10,
               "column": 5
             },
             {
-              "title": "Path B: Continue then Global Interrupt",
-              "ok": false,
+              "title": "QuickButtons send commands on click",
+              "ok": true,
               "tags": [],
               "tests": [
                 {
-                  "timeout": 900000,
-                  "annotations": [
-                    {
-                      "type": "slow",
-                      "location": {
-                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/interview_branching.spec.ts",
-                        "line": 141,
-                        "column": 14
-                      }
-                    }
-                  ],
+                  "timeout": 60000,
+                  "annotations": [],
                   "expectedStatus": "passed",
                   "projectId": "chromium-desktop",
                   "projectName": "chromium-desktop",
@@ -328,76 +257,305 @@
                     {
                       "workerIndex": 1,
                       "parallelIndex": 1,
-                      "status": "failed",
-                      "duration": 62168,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('[data-testid=\"game-output\"]')\nExpected substring: \u001b[32m\"voice resonates\"\u001b[39m\nReceived string:    \u001b[31m\"> tell statue start Welcome to the Lobby. You are in the West Wing of the Grand Lobby. It is quieter here, with alcoves for rest and meditation. Soft light filters from above, illuminating the smooth stone floor.In the distance, toward the center of the hall, you can see the shimmering lights of the world portals. \"\u001b[39m\nTimeout: 60000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 60000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-testid=\"game-output\"]')\u001b[22m\n\u001b[2m    2 × locator resolved to <div id=\"game-output\" data-testid=\"game-output\" class=\"flex-1 overflow-y-auto p-4 space-y-2 scroll-smooth s-G_44JrUNJz-e\">…</div>\u001b[22m\n\u001b[2m      - unexpected value \"> tell statue start \"\u001b[22m\n\u001b[2m    61 × locator resolved to <div id=\"game-output\" data-testid=\"game-output\" class=\"flex-1 overflow-y-auto p-4 space-y-2 scroll-smooth s-G_44JrUNJz-e\">…</div>\u001b[22m\n\u001b[2m       - unexpected value \"> tell statue start Welcome to the Lobby. You are in the West Wing of the Grand Lobby. It is quieter here, with alcoves for rest and meditation. Soft light filters from above, illuminating the smooth stone floor.In the distance, toward the center of the hall, you can see the shimmering lights of the world portals. \"\u001b[22m\n",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('[data-testid=\"game-output\"]')\nExpected substring: \u001b[32m\"voice resonates\"\u001b[39m\nReceived string:    \u001b[31m\"> tell statue start Welcome to the Lobby. You are in the West Wing of the Grand Lobby. It is quieter here, with alcoves for rest and meditation. Soft light filters from above, illuminating the smooth stone floor.In the distance, toward the center of the hall, you can see the shimmering lights of the world portals. \"\u001b[39m\nTimeout: 60000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 60000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-testid=\"game-output\"]')\u001b[22m\n\u001b[2m    2 × locator resolved to <div id=\"game-output\" data-testid=\"game-output\" class=\"flex-1 overflow-y-auto p-4 space-y-2 scroll-smooth s-G_44JrUNJz-e\">…</div>\u001b[22m\n\u001b[2m      - unexpected value \"> tell statue start \"\u001b[22m\n\u001b[2m    61 × locator resolved to <div id=\"game-output\" data-testid=\"game-output\" class=\"flex-1 overflow-y-auto p-4 space-y-2 scroll-smooth s-G_44JrUNJz-e\">…</div>\u001b[22m\n\u001b[2m       - unexpected value \"> tell statue start Welcome to the Lobby. You are in the West Wing of the Grand Lobby. It is quieter here, with alcoves for rest and meditation. Soft light filters from above, illuminating the smooth stone floor.In the distance, toward the center of the hall, you can see the shimmering lights of the world portals. \"\u001b[22m\n\n    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/interview_branching.spec.ts:153:67",
-                        "location": {
-                          "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/interview_branching.spec.ts",
-                          "column": 67,
-                          "line": 153
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 151 |\u001b[39m         \u001b[36mawait\u001b[39m input\u001b[33m.\u001b[39mfill(\u001b[32m'tell statue start'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 152 |\u001b[39m         \u001b[36mawait\u001b[39m input\u001b[33m.\u001b[39mpress(\u001b[32m'Enter'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 153 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mlocator(\u001b[32m'[data-testid=\"game-output\"]'\u001b[39m))\u001b[33m.\u001b[39mtoContainText(\u001b[32m'voice resonates'\u001b[39m\u001b[33m,\u001b[39m { timeout\u001b[33m:\u001b[39m \u001b[35m60000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                   \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 154 |\u001b[39m\n \u001b[90m 155 |\u001b[39m         \u001b[36mconst\u001b[39m answers \u001b[33m=\u001b[39m [\n \u001b[90m 156 |\u001b[39m             \u001b[32m\"Sci-Fi\"\u001b[39m\u001b[33m,\u001b[39m\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/interview_branching.spec.ts",
-                            "column": 67,
-                            "line": 153
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('[data-testid=\"game-output\"]')\nExpected substring: \u001b[32m\"voice resonates\"\u001b[39m\nReceived string:    \u001b[31m\"> tell statue start Welcome to the Lobby. You are in the West Wing of the Grand Lobby. It is quieter here, with alcoves for rest and meditation. Soft light filters from above, illuminating the smooth stone floor.In the distance, toward the center of the hall, you can see the shimmering lights of the world portals. \"\u001b[39m\nTimeout: 60000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 60000ms\u001b[22m\n\u001b[2m  - waiting for locator('[data-testid=\"game-output\"]')\u001b[22m\n\u001b[2m    2 × locator resolved to <div id=\"game-output\" data-testid=\"game-output\" class=\"flex-1 overflow-y-auto p-4 space-y-2 scroll-smooth s-G_44JrUNJz-e\">…</div>\u001b[22m\n\u001b[2m      - unexpected value \"> tell statue start \"\u001b[22m\n\u001b[2m    61 × locator resolved to <div id=\"game-output\" data-testid=\"game-output\" class=\"flex-1 overflow-y-auto p-4 space-y-2 scroll-smooth s-G_44JrUNJz-e\">…</div>\u001b[22m\n\u001b[2m       - unexpected value \"> tell statue start Welcome to the Lobby. You are in the West Wing of the Grand Lobby. It is quieter here, with alcoves for rest and meditation. Soft light filters from above, illuminating the smooth stone floor.In the distance, toward the center of the hall, you can see the shimmering lights of the world portals. \"\u001b[22m\n\n\n\u001b[0m \u001b[90m 151 |\u001b[39m         \u001b[36mawait\u001b[39m input\u001b[33m.\u001b[39mfill(\u001b[32m'tell statue start'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 152 |\u001b[39m         \u001b[36mawait\u001b[39m input\u001b[33m.\u001b[39mpress(\u001b[32m'Enter'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 153 |\u001b[39m         \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mlocator(\u001b[32m'[data-testid=\"game-output\"]'\u001b[39m))\u001b[33m.\u001b[39mtoContainText(\u001b[32m'voice resonates'\u001b[39m\u001b[33m,\u001b[39m { timeout\u001b[33m:\u001b[39m \u001b[35m60000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                   \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 154 |\u001b[39m\n \u001b[90m 155 |\u001b[39m         \u001b[36mconst\u001b[39m answers \u001b[33m=\u001b[39m [\n \u001b[90m 156 |\u001b[39m             \u001b[32m\"Sci-Fi\"\u001b[39m\u001b[33m,\u001b[39m\u001b[0m\n\u001b[2m    at /Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/interview_branching.spec.ts:153:67\u001b[22m"
-                        }
-                      ],
-                      "stdout": [
-                        {
-                          "text": "Found toggle button, clicking...\n"
-                        }
-                      ],
+                      "status": "passed",
+                      "duration": 3715,
+                      "errors": [],
+                      "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-12-10T04:26:15.638Z",
-                      "annotations": [
-                        {
-                          "type": "slow",
-                          "location": {
-                            "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/interview_branching.spec.ts",
-                            "line": 141,
-                            "column": 14
-                          }
-                        }
-                      ],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/interview_branching-Dynami-06d42-tinue-then-Global-Interrupt-chromium-desktop/test-failed-1.png"
-                        },
-                        {
-                          "name": "video",
-                          "contentType": "video/webm",
-                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/interview_branching-Dynami-06d42-tinue-then-Global-Interrupt-chromium-desktop/video.webm"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "/Users/walker/git/thousand-worlds/mud-platform-client/test-results/interview_branching-Dynami-06d42-tinue-then-Global-Interrupt-chromium-desktop/error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "/Users/walker/git/thousand-worlds/mud-platform-client/tests/e2e/interview_branching.spec.ts",
-                        "column": 67,
-                        "line": 153
+                      "startTime": "2025-12-10T14:29:52.579Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ae95227675d6bc1ab9a3-16af0a01447e7b34dca6",
+              "file": "ui_interaction.spec.ts",
+              "line": 25,
+              "column": 5
+            },
+            {
+              "title": "Command history navigation with arrow keys",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium-desktop",
+                  "projectName": "chromium-desktop",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 3768,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-10T14:29:52.580Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ae95227675d6bc1ab9a3-8245e4716eeca49ecf15",
+              "file": "ui_interaction.spec.ts",
+              "line": 37,
+              "column": 5
+            },
+            {
+              "title": "Escape key clears input",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium-desktop",
+                  "projectName": "chromium-desktop",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 3724,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-10T14:29:52.586Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ae95227675d6bc1ab9a3-653570d9ca1cabddc7e1",
+              "file": "ui_interaction.spec.ts",
+              "line": 65,
+              "column": 5
+            },
+            {
+              "title": "Send button disabled when input empty",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium-desktop",
+                  "projectName": "chromium-desktop",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 3737,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-10T14:29:52.583Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ae95227675d6bc1ab9a3-41ba95b3c9654714eb15",
+              "file": "ui_interaction.spec.ts",
+              "line": 74,
+              "column": 5
+            },
+            {
+              "title": "Messages render in output area",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium-desktop",
+                  "projectName": "chromium-desktop",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 3723,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-10T14:29:52.580Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ae95227675d6bc1ab9a3-3e3de801d5aad2457d59",
+              "file": "ui_interaction.spec.ts",
+              "line": 90,
+              "column": 5
+            },
+            {
+              "title": "Auto-scroll to bottom on new message",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium-desktop",
+                  "projectName": "chromium-desktop",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 3802,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-10T14:29:56.527Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ae95227675d6bc1ab9a3-4d059e291e2f331cf09e",
+              "file": "ui_interaction.spec.ts",
+              "line": 103,
+              "column": 5
+            }
+          ]
+        },
+        {
+          "title": "Performance E2E",
+          "file": "ui_interaction.spec.ts",
+          "line": 125,
+          "column": 15,
+          "specs": [
+            {
+              "title": "Command response time under 1000ms (excluding network)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/tw-frontend/tests/e2e/ui_interaction.spec.ts",
+                        "line": 125,
+                        "column": 15
                       }
                     }
                   ],
-                  "status": "unexpected"
+                  "expectedStatus": "skipped",
+                  "projectId": "chromium-desktop",
+                  "projectName": "chromium-desktop",
+                  "results": [
+                    {
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
+                      "status": "skipped",
+                      "duration": 0,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-10T14:29:56.527Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/tw-frontend/tests/e2e/ui_interaction.spec.ts",
+                            "line": 125,
+                            "column": 15
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
                 }
               ],
-              "id": "a2d2b4044dc7ab9cf8d8-ee86069411c4f97b2ae7",
-              "file": "interview_branching.spec.ts",
-              "line": 140,
+              "id": "ae95227675d6bc1ab9a3-d0dfc29bee4b323f4760",
+              "file": "ui_interaction.spec.ts",
+              "line": 131,
+              "column": 5
+            },
+            {
+              "title": "Handles rapid commands without lag",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/walker/git/thousand-worlds/tw-frontend/tests/e2e/ui_interaction.spec.ts",
+                        "line": 125,
+                        "column": 15
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "chromium-desktop",
+                  "projectName": "chromium-desktop",
+                  "results": [
+                    {
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
+                      "status": "skipped",
+                      "duration": 0,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-12-10T14:29:56.528Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/walker/git/thousand-worlds/tw-frontend/tests/e2e/ui_interaction.spec.ts",
+                            "line": 125,
+                            "column": 15
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "ae95227675d6bc1ab9a3-a1723a9a48ceeda90197",
+              "file": "ui_interaction.spec.ts",
+              "line": 144,
               "column": 5
             }
           ]
@@ -407,11 +565,11 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2025-12-10T04:26:14.032Z",
-    "duration": 64182,
-    "expected": 0,
-    "skipped": 0,
-    "unexpected": 2,
+    "startTime": "2025-12-10T14:29:50.778Z",
+    "duration": 9607.607,
+    "expected": 7,
+    "skipped": 2,
+    "unexpected": 0,
     "flaky": 0
   }
 }

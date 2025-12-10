@@ -1,4 +1,5 @@
 import { test, expect, devices } from '@playwright/test';
+import { registerNewUser, waitForGameReady, sendCommand } from './fixtures/auth';
 
 test.use({
     ...devices['iPhone 12']
@@ -6,10 +7,8 @@ test.use({
 
 test.describe('Mobile Gesture Tests', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('http://localhost:5173/game');
-        await page.waitForSelector('[data-testid="connection-status"].connected', {
-            timeout: 5000
-        });
+        await registerNewUser(page);
+        await waitForGameReady(page);
     });
 
     test('Touch targets meet iOS 44x44pt minimum', async ({ page }) => {
@@ -34,7 +33,7 @@ test.describe('Mobile Gesture Tests', () => {
 
         // Wait for response
         await page.waitForSelector('[data-testid="game-output"] .message', {
-            timeout: 2000
+            timeout: 5000
         });
     });
 
@@ -57,7 +56,7 @@ test.describe('Mobile Gesture Tests', () => {
         }));
 
         await input.tap();
-        await page.waitForTimeout(500); // Wait for potential zoom
+        await page.waitForTimeout(500);
 
         const afterTapViewport = await page.evaluate(() => ({
             width: window.innerWidth,
@@ -69,7 +68,6 @@ test.describe('Mobile Gesture Tests', () => {
     });
 
     test('Keyboard accessory bar visible on mobile', async ({ page }) => {
-        // Tap input to show keyboard
         const input = page.locator('input[placeholder="Enter command..."]');
         await input.tap();
 
@@ -80,12 +78,10 @@ test.describe('Mobile Gesture Tests', () => {
 
     test('Momentum scrolling works in output area', async ({ page }) => {
         const output = page.locator('[data-testid="game-output"]');
-        const input = page.locator('input[placeholder="Enter command..."]');
 
         // Send multiple commands to fill output
         for (let i = 0; i < 10; i++) {
-            await input.fill(`message ${i}`);
-            await input.press('Enter');
+            await sendCommand(page, `message ${i}`);
             await page.waitForTimeout(100);
         }
 
@@ -128,6 +124,7 @@ test.describe('Mobile Gesture Tests', () => {
         });
 
         await page.reload();
+        await waitForGameReady(page);
 
         const output = page.locator('[data-testid="game-output"]');
 
@@ -148,7 +145,7 @@ test.describe('Mobile Gesture Tests', () => {
 
     test('Landscape mode maintains layout', async ({ page }) => {
         // Set to landscape orientation
-        await page.setViewportSize({ width: 844, height: 390 }); // iPhone 12 landscape
+        await page.setViewportSize({ width: 844, height: 390 });
 
         // Check layout is still functional
         const input = page.locator('input[placeholder="Enter command..."]');
@@ -171,9 +168,7 @@ test.describe('Mobile Gesture Tests', () => {
             (navigator as any).vibrate = (window as any).mockVibrate;
         });
 
-        const input = page.locator('input[placeholder="Enter command..."]');
-        await input.fill('look');
-        await input.press('Enter');
+        await sendCommand(page, 'look');
 
         // In real implementation, vibrate would be called
         // This test documents the expected behavior

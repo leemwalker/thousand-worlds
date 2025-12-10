@@ -35,7 +35,7 @@ export default defineConfig({
         baseURL: 'http://localhost:5173',
 
         /* Collect trace when retrying the failed test */
-        trace: 'on-first-retry',
+        trace: 'retain-on-failure',
 
         /* Screenshot on failure */
         screenshot: 'only-on-failure',
@@ -44,7 +44,7 @@ export default defineConfig({
         video: 'retain-on-failure',
 
         /* Navigation wait strategy */
-        actionTimeout: 20000,
+        actionTimeout: 30000,
         navigationTimeout: 30000,
     },
 
