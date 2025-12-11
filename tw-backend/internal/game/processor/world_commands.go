@@ -50,6 +50,39 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		return nil
 	}
 
+	// Get world for circumference/seed
+	world, err := p.worldRepo.GetWorld(ctx, char.WorldID)
+	if err != nil {
+		client.SendGameMessage("error", "Could not get world info", nil)
+		return nil
+	}
+
+	// Initialize geology if not exists
+	geology, exists := p.worldGeology[char.WorldID]
+	if !exists {
+		// Default circumference if not set (Earth-like: 40,000 km = 40,000,000 m)
+		circumference := 40_000_000.0
+		if world.Circumference != nil {
+			circumference = *world.Circumference
+		}
+
+		// Use world ID bytes as seed for determinism
+		seed := int64(char.WorldID[0])<<56 | int64(char.WorldID[1])<<48 |
+			int64(char.WorldID[2])<<40 | int64(char.WorldID[3])<<32 |
+			int64(char.WorldID[4])<<24 | int64(char.WorldID[5])<<16 |
+			int64(char.WorldID[6])<<8 | int64(char.WorldID[7])
+
+		geology = ecosystem.NewWorldGeology(char.WorldID, seed, circumference)
+		p.worldGeology[char.WorldID] = geology
+	}
+
+	// Initialize terrain if first simulation
+	if !geology.IsInitialized() {
+		client.SendGameMessage("system", "Initializing world geology...", nil)
+		geology.InitializeGeology()
+		client.SendGameMessage("system", "Geology initialized with tectonic plates and terrain.", nil)
+	}
+
 	// Conversion: 100 ticks = 1 year
 	ticksPerYear := int64(100)
 	totalTicks := years * ticksPerYear
@@ -74,8 +107,10 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 
 	// Simulation loop
 	batchSize := int64(10000)
-	weatherUpdateInterval := int64(100) // Every 100 ticks (1 year)
+	weatherUpdateInterval := int64(100)     // Every 100 ticks (1 year)
+	geologyUpdateInterval := int64(1000000) // Every 1M ticks (10,000 years)
 	lastWeatherUpdate := int64(0)
+	lastGeologyUpdate := int64(0)
 
 	for tick := int64(0); tick < totalTicks; tick += batchSize {
 		remaining := totalTicks - tick
@@ -90,11 +125,14 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		newEvents := len(geoManager.ActiveEvents) - previousEventCount
 		geologicalEvents += newEvents
 
-		// Report major events
+		// Report and apply terrain effects from new events
 		if newEvents > 0 {
 			for i := len(geoManager.ActiveEvents) - newEvents; i < len(geoManager.ActiveEvents); i++ {
 				e := geoManager.ActiveEvents[i]
 				client.SendGameMessage("system", fmt.Sprintf("⚠️ GEOLOGICAL EVENT: %s (severity: %.0f%%)", e.Type, e.Severity*100), nil)
+
+				// Apply terrain effects from event
+				geology.ApplyEvent(e)
 			}
 		}
 
@@ -129,6 +167,13 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			}
 		}
 
+		// Simulate geology periodically (every 10,000 simulated years)
+		if tick+currentBatch-lastGeologyUpdate >= geologyUpdateInterval {
+			yearsElapsed := (tick + currentBatch - lastGeologyUpdate) / ticksPerYear
+			geology.SimulateGeology(yearsElapsed)
+			lastGeologyUpdate = tick + currentBatch
+		}
+
 		// Update max generation
 		for _, e := range p.ecosystemService.Entities {
 			if e.Generation > generations {
@@ -140,6 +185,9 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		geoManager.UpdateActiveEvents(tick + currentBatch)
 	}
 
+	// Get geology stats for summary
+	geoStats := geology.GetStats()
+
 	// Summary
 	finalCount := len(p.ecosystemService.Entities)
 	var sb strings.Builder
@@ -150,6 +198,12 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	sb.WriteString(fmt.Sprintf("Extinctions: %d\n", extinctions))
 	sb.WriteString(fmt.Sprintf("Max Generation: %d\n", generations))
 	sb.WriteString(fmt.Sprintf("Geological Events: %d\n", geologicalEvents))
+	sb.WriteString("--- Terrain Stats ---\n")
+	sb.WriteString(fmt.Sprintf("Tectonic Plates: %d\n", geoStats.PlateCount))
+	sb.WriteString(fmt.Sprintf("Avg Elevation: %.0fm\n", geoStats.AverageElevation))
+	sb.WriteString(fmt.Sprintf("Max Elevation: %.0fm\n", geoStats.MaxElevation))
+	sb.WriteString(fmt.Sprintf("Sea Level: %.0fm\n", geoStats.SeaLevel))
+	sb.WriteString(fmt.Sprintf("Land Coverage: %.1f%%\n", geoStats.LandPercent))
 
 	client.SendGameMessage("system", sb.String(), nil)
 	return nil
@@ -178,6 +232,22 @@ func (p *GameProcessor) handleWorldInfo(ctx context.Context, client websocket.Ga
 		sb.WriteString(fmt.Sprintf("Circumference: %.0f km\n", circumKm))
 	}
 	sb.WriteString(fmt.Sprintf("Entities: %d\n", len(p.ecosystemService.Entities)))
+
+	// Show terrain stats if geology has been simulated
+	if geology, exists := p.worldGeology[char.WorldID]; exists && geology.IsInitialized() {
+		geoStats := geology.GetStats()
+		sb.WriteString("--- Terrain ---\n")
+		sb.WriteString(fmt.Sprintf("Tectonic Plates: %d\n", geoStats.PlateCount))
+		sb.WriteString(fmt.Sprintf("Avg Elevation: %.0fm\n", geoStats.AverageElevation))
+		sb.WriteString(fmt.Sprintf("Max Elevation: %.0fm\n", geoStats.MaxElevation))
+		sb.WriteString(fmt.Sprintf("Min Elevation: %.0fm\n", geoStats.MinElevation))
+		sb.WriteString(fmt.Sprintf("Sea Level: %.0fm\n", geoStats.SeaLevel))
+		sb.WriteString(fmt.Sprintf("Land Coverage: %.1f%%\n", geoStats.LandPercent))
+		sb.WriteString(fmt.Sprintf("Years Simulated: %d\n", geoStats.YearsSimulated))
+	} else {
+		sb.WriteString("--- Terrain ---\n")
+		sb.WriteString("Not yet simulated. Use 'world simulate <years>' to generate terrain.\n")
+	}
 
 	client.SendGameMessage("system", sb.String(), nil)
 	return nil

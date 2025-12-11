@@ -61,11 +61,11 @@ func TestVariation(t *testing.T) {
 
 	seed1 := int64(1001)
 	plates1 := GeneratePlates(5, width, height, seed1)
-	hm1 := GenerateHeightmap(width, height, plates1, seed1, 1.0)
+	hm1 := GenerateHeightmap(width, height, plates1, seed1, 1.0, 1.0)
 
 	seed2 := int64(1002)
 	plates2 := GeneratePlates(5, width, height, seed2)
-	hm2 := GenerateHeightmap(width, height, plates2, seed2, 1.0)
+	hm2 := GenerateHeightmap(width, height, plates2, seed2, 1.0, 1.0)
 
 	// Compare centroids of first plate
 	assert.NotEqual(t, plates1[0].Centroid, plates2[0].Centroid, "Different seeds should produce different plates")

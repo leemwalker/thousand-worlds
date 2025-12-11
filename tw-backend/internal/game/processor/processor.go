@@ -46,6 +46,9 @@ type GameProcessor struct {
 	skillsRepo         skills.Repository
 	worldEntityService *worldentity.Service
 	ecosystemService   *ecosystem.Service
+
+	// WorldGeology stores geological state per world (worldID -> geology)
+	worldGeology map[uuid.UUID]*ecosystem.WorldGeology
 }
 
 // NewGameProcessor creates a new game processor
@@ -76,6 +79,7 @@ func NewGameProcessor(
 		skillsRepo:         skillsRepo,
 		worldEntityService: worldEntityService,
 		ecosystemService:   ecosystemService,
+		worldGeology:       make(map[uuid.UUID]*ecosystem.WorldGeology),
 	}
 }
 

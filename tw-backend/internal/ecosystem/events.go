@@ -9,10 +9,12 @@ import (
 type GeologicalEventType string
 
 const (
-	EventVolcanicWinter GeologicalEventType = "volcanic_winter"
-	EventAsteroidImpact GeologicalEventType = "asteroid_impact"
-	EventIceAge         GeologicalEventType = "ice_age"
-	EventOceanAnoxia    GeologicalEventType = "ocean_anoxia"
+	EventVolcanicWinter   GeologicalEventType = "volcanic_winter"
+	EventAsteroidImpact   GeologicalEventType = "asteroid_impact"
+	EventIceAge           GeologicalEventType = "ice_age"
+	EventOceanAnoxia      GeologicalEventType = "ocean_anoxia"
+	EventContinentalDrift GeologicalEventType = "continental_drift"
+	EventFloodBasalt      GeologicalEventType = "flood_basalt"
 )
 
 // GeologicalEvent represents an active environmental event
@@ -105,6 +107,32 @@ func (g *GeologicalEventManager) CheckForNewEvents(currentTick, ticksElapsed int
 				TemperatureMod: 5 + g.rng.Float64()*10, // Warmer
 				SunlightMod:    1.0,
 				OxygenMod:      0.3 + g.rng.Float64()*0.4, // 30-70% oxygen
+			})
+		}
+
+		// Continental drift: 0.03% per 10k ticks (happens over long timescales)
+		if g.rng.Float64() < 0.0003*(float64(chunkSize)/10000.0) {
+			g.ActiveEvents = append(g.ActiveEvents, GeologicalEvent{
+				Type:           EventContinentalDrift,
+				StartTick:      currentTick,
+				DurationTicks:  500000 + g.rng.Int63n(500000), // 5-10M years
+				Severity:       0.3 + g.rng.Float64()*0.5,
+				TemperatureMod: 0, // No direct temperature effect
+				SunlightMod:    1.0,
+				OxygenMod:      1.0,
+			})
+		}
+
+		// Flood basalt: 0.01% per 10k ticks (rare but impactful)
+		if g.rng.Float64() < 0.0001*(float64(chunkSize)/10000.0) {
+			g.ActiveEvents = append(g.ActiveEvents, GeologicalEvent{
+				Type:           EventFloodBasalt,
+				StartTick:      currentTick,
+				DurationTicks:  10000 + g.rng.Int63n(20000), // 100-300k years
+				Severity:       0.6 + g.rng.Float64()*0.4,
+				TemperatureMod: -3 - g.rng.Float64()*7, // -3 to -10 degrees (volcanic gases)
+				SunlightMod:    0.7 + g.rng.Float64()*0.2,
+				OxygenMod:      0.9,
 			})
 		}
 	}

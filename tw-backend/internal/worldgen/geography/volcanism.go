@@ -69,12 +69,13 @@ func ApplyHotspots(hm *Heightmap, plates []TectonicPlate, seed int64) {
 			}
 
 			// Apply volcano capability
-			applyVolcano(hm, vx, vy, radius, currentIntensity)
+			ApplyVolcano(hm, vx, vy, radius, currentIntensity)
 		}
 	}
 }
 
-func applyVolcano(hm *Heightmap, x, y, radius, height float64) {
+// ApplyVolcano adds a single volcanic cone to the heightmap
+func ApplyVolcano(hm *Heightmap, x, y, radius, height float64) {
 	// Simple cone or bell curve
 	radCeil := int(math.Ceil(radius * 3))
 
