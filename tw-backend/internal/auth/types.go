@@ -35,6 +35,7 @@ type Character struct {
 	OrientationX     float64    `json:"orientation_x"`
 	OrientationY     float64    `json:"orientation_y"`
 	OrientationZ     float64    `json:"orientation_z"`
+	IsFlying         bool       `json:"is_flying"`
 	CreatedAt        time.Time  `json:"created_at"`
 	LastPlayed       *time.Time `json:"last_played,omitempty"`
 	LastWorldVisited *uuid.UUID `json:"last_world_visited,omitempty"`

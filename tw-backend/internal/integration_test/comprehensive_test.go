@@ -120,10 +120,10 @@ func TestComprehensiveIntegration(t *testing.T) {
 	// Initialize game processor
 	interviewRepo := &MockInterviewRepository{}
 	entitySvc := entity.NewService()
-	lookService := look.NewLookService(worldRepo, nil, entitySvc, interviewRepo, authRepo, nil)
+	lookService := look.NewLookService(worldRepo, nil, entitySvc, interviewRepo, authRepo, nil, nil)
 	interviewSvc := interview.NewServiceWithRepository(nil, interviewRepo, worldRepo)
 	spatialSvc := player.NewSpatialService(authRepo, worldRepo, nil)
-	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, entitySvc, interviewSvc, spatialSvc, nil, nil, nil)
+	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, entitySvc, interviewSvc, spatialSvc, nil, nil, nil, nil)
 	hub := websocket.NewHub(gameProcessor)
 	gameProcessor.SetHub(hub)
 

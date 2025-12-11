@@ -13,6 +13,7 @@ import (
 
 	"tw-backend/cmd/game-server/websocket"
 	"tw-backend/internal/auth"
+	"tw-backend/internal/ecosystem"
 	"tw-backend/internal/game/constants"
 	"tw-backend/internal/game/formatter"
 	"tw-backend/internal/game/services/entity"
@@ -44,6 +45,7 @@ type GameProcessor struct {
 	mapService         *gamemap.Service
 	skillsRepo         skills.Repository
 	worldEntityService *worldentity.Service
+	ecosystemService   *ecosystem.Service
 }
 
 // NewGameProcessor creates a new game processor
@@ -57,9 +59,10 @@ func NewGameProcessor(
 	weatherService *weather.Service,
 	skillsRepo skills.Repository,
 	worldEntityService *worldentity.Service,
+	ecosystemService *ecosystem.Service,
 ) *GameProcessor {
 	// Create map service with available dependencies
-	mapSvc := gamemap.NewService(worldRepo, skillsRepo, entityService, lookService, worldEntityService)
+	mapSvc := gamemap.NewService(worldRepo, skillsRepo, entityService, lookService, worldEntityService, ecosystemService)
 
 	return &GameProcessor{
 		authRepo:           authRepo,
@@ -72,6 +75,7 @@ func NewGameProcessor(
 		mapService:         mapSvc,
 		skillsRepo:         skillsRepo,
 		worldEntityService: worldEntityService,
+		ecosystemService:   ecosystemService,
 	}
 }
 
@@ -187,6 +191,12 @@ func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.Gam
 		return p.handleLobby(ctx, client)
 	case "weather":
 		return p.handleWeather(ctx, client, cmd)
+	case "ecosystem":
+		return p.handleEcosystem(ctx, client, cmd)
+	case "world":
+		return p.handleWorld(ctx, client, cmd)
+	case "fly":
+		return p.handleFly(ctx, client, cmd)
 
 	default:
 		return fmt.Errorf("%w: %s", ErrInvalidAction, cmd.Action)
@@ -204,7 +214,7 @@ func (p *GameProcessor) handleCreate(ctx context.Context, client websocket.GameC
 			return p.handleCreateCharacter(ctx, client, cmd)
 		}
 	}
-	return fmt.Errorf("unknown create command. Try 'create world'.")
+	return fmt.Errorf("unknown create command: try 'create world'")
 }
 
 func (p *GameProcessor) handleCreateWorld(ctx context.Context, client websocket.GameClient) error {
@@ -278,7 +288,7 @@ func (p *GameProcessor) handleOpen(ctx context.Context, client websocket.GameCli
 // handleEnter enters through portals, doorways, or archways
 func (p *GameProcessor) handleEnter(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	if cmd.Target == nil || strings.TrimSpace(*cmd.Target) == "" {
-		client.SendGameMessage("error", "Enter what? Try 'enter <world name>'.", nil)
+		client.SendGameMessage("error", "Enter what? Try 'enter <portal name>' or 'enter <world name>'.", nil)
 		return nil
 	}
 
@@ -291,35 +301,64 @@ func (p *GameProcessor) handleEnter(ctx context.Context, client websocket.GameCl
 		return nil
 	}
 
-	// 1. Resolve target to a World
+	// 1. First check if target matches a nearby portal entity with destination_world_id
 	var destWorld *repository.World
-	worldID, err := uuid.Parse(targetStr)
-	if err == nil {
-		// Valid UUID
-		destWorld, err = p.worldRepo.GetWorld(ctx, worldID)
-		if err != nil {
-			client.SendGameMessage("error", "That portal doesn't seem to lead anywhere.", nil)
-			return nil
-		}
-	} else {
-		// Try to find world by name
-		worlds, errList := p.worldRepo.ListWorlds(ctx)
-		if errList != nil {
-			client.SendGameMessage("error", "Failed to search for portals.", nil)
-			return nil
-		}
-
-		targetName := strings.ToLower(targetStr)
-		for _, w := range worlds {
-			if strings.ToLower(w.Name) == targetName {
-				destWorld = &w
-				break
+	if p.worldEntityService != nil {
+		entities, err := p.worldEntityService.GetEntitiesAt(ctx, char.WorldID, char.PositionX, char.PositionY, 5.0)
+		if err == nil {
+			targetLower := strings.ToLower(targetStr)
+			for _, e := range entities {
+				// Check if entity name matches target
+				if !strings.Contains(strings.ToLower(e.Name), targetLower) {
+					continue
+				}
+				// Check if it has a destination_world_id in metadata
+				if e.Metadata != nil {
+					if destID, ok := e.Metadata["destination_world_id"].(string); ok {
+						worldID, parseErr := uuid.Parse(destID)
+						if parseErr == nil {
+							destWorld, err = p.worldRepo.GetWorld(ctx, worldID)
+							if err == nil && destWorld != nil {
+								// Found portal with valid destination
+								break
+							}
+						}
+					}
+				}
 			}
 		}
+	}
 
-		if destWorld == nil {
-			client.SendGameMessage("error", fmt.Sprintf("There is no portal to '%s' here.", targetStr), nil)
-			return nil
+	// 2. If no portal entity found, fall back to world name/UUID lookup
+	if destWorld == nil {
+		worldID, err := uuid.Parse(targetStr)
+		if err == nil {
+			// Valid UUID
+			destWorld, err = p.worldRepo.GetWorld(ctx, worldID)
+			if err != nil {
+				client.SendGameMessage("error", "That portal doesn't seem to lead anywhere.", nil)
+				return nil
+			}
+		} else {
+			// Try to find world by name
+			worlds, errList := p.worldRepo.ListWorlds(ctx)
+			if errList != nil {
+				client.SendGameMessage("error", "Failed to search for portals.", nil)
+				return nil
+			}
+
+			targetName := strings.ToLower(targetStr)
+			for _, w := range worlds {
+				if strings.ToLower(w.Name) == targetName {
+					destWorld = &w
+					break
+				}
+			}
+
+			if destWorld == nil {
+				client.SendGameMessage("error", fmt.Sprintf("There is no portal to '%s' here.", targetStr), nil)
+				return nil
+			}
 		}
 	}
 

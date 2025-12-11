@@ -93,6 +93,7 @@ func (s *Service) CheckCollision(ctx context.Context, worldID uuid.UUID, x, y fl
 	// Get all entities in the world (cached if available)
 	entities, err := s.GetEntitiesInWorld(ctx, worldID)
 	if err != nil {
+		fmt.Printf("[COLLISION] Error getting entities: %v\n", err)
 		return false, nil, err
 	}
 

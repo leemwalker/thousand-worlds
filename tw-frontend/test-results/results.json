@@ -11,7 +11,7 @@
     "grepInvert": null,
     "maxFailures": 0,
     "metadata": {
-      "actualWorkers": 6
+      "actualWorkers": 4
     },
     "preserveOutput": "always",
     "reporter": [
@@ -41,7 +41,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 6
+          "actualWorkers": 4
         },
         "id": "chromium-desktop",
         "name": "chromium-desktop",
@@ -57,7 +57,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 6
+          "actualWorkers": 4
         },
         "id": "firefox-desktop",
         "name": "firefox-desktop",
@@ -73,7 +73,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 6
+          "actualWorkers": 4
         },
         "id": "webkit-desktop",
         "name": "webkit-desktop",
@@ -89,7 +89,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 6
+          "actualWorkers": 4
         },
         "id": "iphone-12",
         "name": "iphone-12",
@@ -105,7 +105,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 6
+          "actualWorkers": 4
         },
         "id": "iphone-14-pro",
         "name": "iphone-14-pro",
@@ -121,7 +121,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 6
+          "actualWorkers": 4
         },
         "id": "iphone-se",
         "name": "iphone-se",
@@ -137,7 +137,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 6
+          "actualWorkers": 4
         },
         "id": "pixel-5",
         "name": "pixel-5",
@@ -153,7 +153,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 6
+          "actualWorkers": 4
         },
         "id": "galaxy-s9",
         "name": "galaxy-s9",
@@ -169,7 +169,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 6
+          "actualWorkers": 4
         },
         "id": "ipad-pro",
         "name": "ipad-pro",
@@ -196,20 +196,20 @@
   },
   "suites": [
     {
-      "title": "ui_interaction.spec.ts",
-      "file": "ui_interaction.spec.ts",
+      "title": "ecosystem.spec.ts",
+      "file": "ecosystem.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "UI Interaction E2E",
-          "file": "ui_interaction.spec.ts",
+          "title": "Ecosystem System",
+          "file": "ecosystem.spec.ts",
           "line": 4,
           "column": 6,
           "specs": [
             {
-              "title": "CommandInput sends raw text via WebSocket",
+              "title": "ecosystem status shows entity count",
               "ok": true,
               "tags": [],
               "tests": [
@@ -224,12 +224,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 3740,
+                      "duration": 3523,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-12-10T14:29:52.579Z",
+                      "startTime": "2025-12-11T01:07:47.597Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -237,13 +237,13 @@
                   "status": "expected"
                 }
               ],
-              "id": "ae95227675d6bc1ab9a3-dc9eb9784e3babaefd8a",
-              "file": "ui_interaction.spec.ts",
-              "line": 10,
+              "id": "38b2a269275004c531aa-9e32c176ea519535fcd6",
+              "file": "ecosystem.spec.ts",
+              "line": 5,
               "column": 5
             },
             {
-              "title": "QuickButtons send commands on click",
+              "title": "spawn entity and view with look",
               "ok": true,
               "tags": [],
               "tests": [
@@ -258,12 +258,12 @@
                       "workerIndex": 1,
                       "parallelIndex": 1,
                       "status": "passed",
-                      "duration": 3715,
+                      "duration": 3770,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-12-10T14:29:52.579Z",
+                      "startTime": "2025-12-11T01:07:47.595Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -271,13 +271,13 @@
                   "status": "expected"
                 }
               ],
-              "id": "ae95227675d6bc1ab9a3-16af0a01447e7b34dca6",
-              "file": "ui_interaction.spec.ts",
-              "line": 25,
+              "id": "38b2a269275004c531aa-c41b8eff99cdc22c0265",
+              "file": "ecosystem.spec.ts",
+              "line": 14,
               "column": 5
             },
             {
-              "title": "Command history navigation with arrow keys",
+              "title": "breed two entities and check lineage",
               "ok": true,
               "tags": [],
               "tests": [
@@ -292,12 +292,12 @@
                       "workerIndex": 2,
                       "parallelIndex": 2,
                       "status": "passed",
-                      "duration": 3768,
+                      "duration": 4784,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-12-10T14:29:52.580Z",
+                      "startTime": "2025-12-11T01:07:47.596Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -305,13 +305,13 @@
                   "status": "expected"
                 }
               ],
-              "id": "ae95227675d6bc1ab9a3-8245e4716eeca49ecf15",
-              "file": "ui_interaction.spec.ts",
-              "line": 37,
+              "id": "38b2a269275004c531aa-14fc6ebb2f1572e1c00e",
+              "file": "ecosystem.spec.ts",
+              "line": 35,
               "column": 5
             },
             {
-              "title": "Escape key clears input",
+              "title": "ecosystem log shows AI decisions",
               "ok": true,
               "tags": [],
               "tests": [
@@ -326,12 +326,12 @@
                       "workerIndex": 3,
                       "parallelIndex": 3,
                       "status": "passed",
-                      "duration": 3724,
+                      "duration": 5161,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-12-10T14:29:52.586Z",
+                      "startTime": "2025-12-11T01:07:47.596Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -339,223 +339,9 @@
                   "status": "expected"
                 }
               ],
-              "id": "ae95227675d6bc1ab9a3-653570d9ca1cabddc7e1",
-              "file": "ui_interaction.spec.ts",
-              "line": 65,
-              "column": 5
-            },
-            {
-              "title": "Send button disabled when input empty",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium-desktop",
-                  "projectName": "chromium-desktop",
-                  "results": [
-                    {
-                      "workerIndex": 4,
-                      "parallelIndex": 4,
-                      "status": "passed",
-                      "duration": 3737,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-12-10T14:29:52.583Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "ae95227675d6bc1ab9a3-41ba95b3c9654714eb15",
-              "file": "ui_interaction.spec.ts",
-              "line": 74,
-              "column": 5
-            },
-            {
-              "title": "Messages render in output area",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium-desktop",
-                  "projectName": "chromium-desktop",
-                  "results": [
-                    {
-                      "workerIndex": 5,
-                      "parallelIndex": 5,
-                      "status": "passed",
-                      "duration": 3723,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-12-10T14:29:52.580Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "ae95227675d6bc1ab9a3-3e3de801d5aad2457d59",
-              "file": "ui_interaction.spec.ts",
-              "line": 90,
-              "column": 5
-            },
-            {
-              "title": "Auto-scroll to bottom on new message",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium-desktop",
-                  "projectName": "chromium-desktop",
-                  "results": [
-                    {
-                      "workerIndex": 5,
-                      "parallelIndex": 5,
-                      "status": "passed",
-                      "duration": 3802,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-12-10T14:29:56.527Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "ae95227675d6bc1ab9a3-4d059e291e2f331cf09e",
-              "file": "ui_interaction.spec.ts",
-              "line": 103,
-              "column": 5
-            }
-          ]
-        },
-        {
-          "title": "Performance E2E",
-          "file": "ui_interaction.spec.ts",
-          "line": 125,
-          "column": 15,
-          "specs": [
-            {
-              "title": "Command response time under 1000ms (excluding network)",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [
-                    {
-                      "type": "skip",
-                      "location": {
-                        "file": "/Users/walker/git/thousand-worlds/tw-frontend/tests/e2e/ui_interaction.spec.ts",
-                        "line": 125,
-                        "column": 15
-                      }
-                    }
-                  ],
-                  "expectedStatus": "skipped",
-                  "projectId": "chromium-desktop",
-                  "projectName": "chromium-desktop",
-                  "results": [
-                    {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
-                      "status": "skipped",
-                      "duration": 0,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-12-10T14:29:56.527Z",
-                      "annotations": [
-                        {
-                          "type": "skip",
-                          "location": {
-                            "file": "/Users/walker/git/thousand-worlds/tw-frontend/tests/e2e/ui_interaction.spec.ts",
-                            "line": 125,
-                            "column": 15
-                          }
-                        }
-                      ],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "skipped"
-                }
-              ],
-              "id": "ae95227675d6bc1ab9a3-d0dfc29bee4b323f4760",
-              "file": "ui_interaction.spec.ts",
-              "line": 131,
-              "column": 5
-            },
-            {
-              "title": "Handles rapid commands without lag",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [
-                    {
-                      "type": "skip",
-                      "location": {
-                        "file": "/Users/walker/git/thousand-worlds/tw-frontend/tests/e2e/ui_interaction.spec.ts",
-                        "line": 125,
-                        "column": 15
-                      }
-                    }
-                  ],
-                  "expectedStatus": "skipped",
-                  "projectId": "chromium-desktop",
-                  "projectName": "chromium-desktop",
-                  "results": [
-                    {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
-                      "status": "skipped",
-                      "duration": 0,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-12-10T14:29:56.528Z",
-                      "annotations": [
-                        {
-                          "type": "skip",
-                          "location": {
-                            "file": "/Users/walker/git/thousand-worlds/tw-frontend/tests/e2e/ui_interaction.spec.ts",
-                            "line": 125,
-                            "column": 15
-                          }
-                        }
-                      ],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "skipped"
-                }
-              ],
-              "id": "ae95227675d6bc1ab9a3-a1723a9a48ceeda90197",
-              "file": "ui_interaction.spec.ts",
-              "line": 144,
+              "id": "38b2a269275004c531aa-e21fdf80b5b521e9bf89",
+              "file": "ecosystem.spec.ts",
+              "line": 87,
               "column": 5
             }
           ]
@@ -565,10 +351,10 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2025-12-10T14:29:50.778Z",
-    "duration": 9607.607,
-    "expected": 7,
-    "skipped": 2,
+    "startTime": "2025-12-11T01:07:46.545Z",
+    "duration": 6629.714,
+    "expected": 4,
+    "skipped": 0,
     "unexpected": 0,
     "flaky": 0
   }

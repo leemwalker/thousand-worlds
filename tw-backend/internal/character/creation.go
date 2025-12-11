@@ -183,10 +183,16 @@ func (s *CreationService) createWorldCharacter(ctx context.Context, userID uuid.
 	appearance := `{"form":"humanoid","style":"default"}`
 
 	// Specific defaults for Lobby
+	// Specific defaults for Lobby
+	posX := 5.0
+	posY := 5.0
+
 	if constants.IsLobby(worldID) {
 		name = "Ghost"
 		role = "ghost"
 		appearance = `{"form":"translucent","color":"pale"}`
+		posX = 5.0
+		posY = 2.0
 	}
 
 	// Copy appearance from most recent character if available
@@ -220,8 +226,8 @@ func (s *CreationService) createWorldCharacter(ctx context.Context, userID uuid.
 		Name:        name,
 		Role:        role,
 		Appearance:  appearance,
-		PositionX:   5.0, // Default center
-		PositionY:   5.0, // Default center
+		PositionX:   posX,
+		PositionY:   posY,
 		CreatedAt:   time.Now(),
 	}
 

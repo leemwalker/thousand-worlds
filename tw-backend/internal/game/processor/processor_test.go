@@ -232,11 +232,11 @@ func setupTest(t *testing.T) (*GameProcessor, *mockClient, *auth.MockRepository,
 	interviewRepo := &MockInterviewRepository{}
 	// New LookService requires EntityService
 	entityService := entity.NewService()
-	lookService := look.NewLookService(mockWorldRepo, nil, entityService, interviewRepo, mockAuthRepo, nil)
+	lookService := look.NewLookService(mockWorldRepo, nil, entityService, interviewRepo, mockAuthRepo, nil, nil)
 	interviewService := interview.NewServiceWithRepository(nil, interviewRepo, mockWorldRepo)
 	spatialService := player.NewSpatialService(mockAuthRepo, mockWorldRepo, nil)
 
-	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, lookService, entityService, interviewService, spatialService, nil, nil, nil)
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, lookService, entityService, interviewService, spatialService, nil, nil, nil, nil)
 
 	// Create and set up the hub
 	hub := websocket.NewHub(proc)

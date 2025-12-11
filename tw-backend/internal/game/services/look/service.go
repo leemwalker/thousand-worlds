@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"tw-backend/internal/auth"
+	"tw-backend/internal/ecosystem"
 	"tw-backend/internal/game/services/entity"
 	"tw-backend/internal/repository"
 	"tw-backend/internal/world/interview"
@@ -25,6 +26,7 @@ type LookService struct {
 	weatherService     *weather.Service
 	entityService      *entity.Service
 	worldEntityService *worldentity.Service
+	ecosystemService   *ecosystem.Service
 	authRepo           auth.Repository
 
 	// We might need to keep the orchestrator/cache logic here or genericize it
@@ -48,12 +50,14 @@ func NewLookService(
 	interviewRepo InterviewRepository,
 	authRepo auth.Repository,
 	worldEntityService *worldentity.Service,
+	ecosystemService *ecosystem.Service,
 ) *LookService {
 	return &LookService{
 		worldRepo:          worldRepo,
 		weatherService:     weatherService,
 		entityService:      entityService,
 		worldEntityService: worldEntityService,
+		ecosystemService:   ecosystemService,
 		interviewRepo:      interviewRepo,
 		authRepo:           authRepo,
 		worldCache:         make(map[uuid.UUID]*orchestrator.GeneratedWorld),
@@ -135,7 +139,20 @@ func (s *LookService) DescribeEntity(ctx context.Context, char *auth.Character, 
 		}
 	}
 
-	// 4. Check for Other Players
+	// 4. Check for Ecosystem Entities
+	if s.ecosystemService != nil {
+		// ecosystem entities don't have unique names yet, so we match by Species
+		// Get nearby entities
+		ecoEntities := s.ecosystemService.GetEntitiesAt(char.WorldID, char.PositionX, char.PositionY, 20.0)
+		for _, e := range ecoEntities {
+			// Check if target name matches species (e.g. "rabbit")
+			if strings.EqualFold(string(e.Species), targetName) {
+				return fmt.Sprintf("You see a %s.\nIt looks healthy and alert.", e.Species), nil
+			}
+		}
+	}
+
+	// 5. Check for Other Players
 	// Look up user by username
 	// Note: This matches any user in the DB, but we should strictly check if they are "here" (in the same world/pos).
 	// However, without a "GetPlayersAt" service, we might just check generic user and see if they are in this world.
@@ -361,18 +378,22 @@ func (s *LookService) getWeatherDescription(state *weather.WeatherState) string 
 }
 
 func (s *LookService) generateEntityDescription(ctx context.Context, worldID uuid.UUID, char *auth.Character) string {
-	if s.entityService == nil {
-		return ""
-	}
-
-	entities, err := s.entityService.GetEntitiesAt(ctx, worldID, char.PositionX, char.PositionY, 20.0)
-	if err != nil || len(entities) == 0 {
-		return ""
-	}
-
 	var descriptions []string
-	for _, e := range entities {
-		descriptions = append(descriptions, fmt.Sprintf("A %s is here.", e.Name))
+
+	if s.entityService != nil {
+		entities, err := s.entityService.GetEntitiesAt(ctx, worldID, char.PositionX, char.PositionY, 20.0)
+		if err == nil && len(entities) > 0 {
+			for _, e := range entities {
+				descriptions = append(descriptions, fmt.Sprintf("A %s is here.", e.Name))
+			}
+		}
+	}
+
+	if s.ecosystemService != nil {
+		ecoEntities := s.ecosystemService.GetEntitiesAt(worldID, char.PositionX, char.PositionY, 20.0)
+		for _, e := range ecoEntities {
+			descriptions = append(descriptions, fmt.Sprintf("A %s is here.", e.Species))
+		}
 	}
 
 	return strings.Join(descriptions, "\n")

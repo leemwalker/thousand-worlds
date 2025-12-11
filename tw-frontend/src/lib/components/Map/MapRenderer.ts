@@ -18,6 +18,7 @@ export interface MapEntity {
     type: string;
     name?: string;
     status?: string;
+    glyph?: string;
 }
 
 export interface PortalInfo {
@@ -251,7 +252,8 @@ export class MapRenderer {
         // Entity takes higher priority
         if (tile.entities && tile.entities.length > 0) {
             const entity = tile.entities[0];
-            emoji = EMOJI_SYMBOLS[entity.type] || '👤';
+            // Use entity's custom glyph if available, otherwise fallback to type-based emoji
+            emoji = entity.glyph || EMOJI_SYMBOLS[entity.type] || '👤';
         }
 
         // Draw emoji

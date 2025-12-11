@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"tw-backend/internal/auth"
+	"tw-backend/internal/ecosystem"
+	"tw-backend/internal/ecosystem/state"
 	"tw-backend/internal/game/services/entity"
 )
 
@@ -70,4 +72,31 @@ func TestDescribeEntity_Other(t *testing.T) {
 	_, err = s.DescribeEntity(context.Background(), char, "Shield")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "don't see any 'Shield' here")
+}
+
+func TestDescribeEntity_Ecosystem(t *testing.T) {
+	mockEcosystem := ecosystem.NewService(0)
+	s := &LookService{
+		ecosystemService: mockEcosystem,
+	}
+
+	worldID := uuid.New()
+	char := &auth.Character{
+		WorldID:   worldID,
+		PositionX: 10,
+		PositionY: 10,
+	}
+
+	// Spawn Rabbit nearby
+	rabbit := mockEcosystem.Spawner.CreateEntity(state.SpeciesRabbit, 1)
+	rabbit.WorldID = worldID
+	rabbit.PositionX = 12
+	rabbit.PositionY = 10
+	mockEcosystem.Entities[rabbit.EntityID] = rabbit
+
+	// Look for it
+	desc, err := s.DescribeEntity(context.Background(), char, "Rabbit")
+	require.NoError(t, err)
+	assert.Contains(t, desc, "You see a rabbit.")
+	assert.Contains(t, desc, "healthy and alert")
 }

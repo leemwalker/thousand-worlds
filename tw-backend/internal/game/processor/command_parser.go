@@ -44,6 +44,7 @@ func NewCommandParser() *CommandParser {
 			"lobby":     {"exit", "leave", "hub"},
 			"create":    nil,
 			"weather":   {"climate", "forecast"},
+			"ecosystem": {"eco"},
 		},
 	}
 }
@@ -136,6 +137,19 @@ func (p *CommandParser) ParseText(text string) *websocket.CommandData {
 		// Format: watcher <world_id>
 		if len(args) > 0 {
 			target := strings.Join(args, " ")
+			cmd.Target = &target
+		}
+
+	case "ecosystem":
+		// Format: ecosystem <subcommand> <args>
+		// e.g. ecosystem spawn rabbit -> Target="spawn", Message="rabbit"
+		if len(args) >= 2 {
+			target := args[0]
+			message := strings.Join(args[1:], " ")
+			cmd.Target = &target
+			cmd.Message = &message
+		} else if len(args) == 1 {
+			target := args[0]
 			cmd.Target = &target
 		}
 

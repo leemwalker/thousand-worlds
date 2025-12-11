@@ -22,6 +22,7 @@ import (
 	"tw-backend/internal/ai/ollama"
 	"tw-backend/internal/auth"
 	"tw-backend/internal/character"
+	"tw-backend/internal/ecosystem"
 	"tw-backend/internal/game/entry"
 	"tw-backend/internal/game/processor"
 	"tw-backend/internal/game/services/entity"
@@ -141,8 +142,33 @@ func main() {
 	worldEntityRepo := worldentity.NewPostgresRepository(dbPool)
 	worldEntityService := worldentity.NewService(worldEntityRepo)
 
+	// Initialize ecosystem service
+	ecosystemService := ecosystem.NewService(time.Now().Unix())
+
+	// Start ecosystem simulation loop
+	go func() {
+		ticker := time.NewTicker(200 * time.Millisecond) // 5 ticks per second
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				ecosystemService.Tick()
+			}
+		}
+	}()
+
 	// Initialize look service for lobby commands
-	lookService := look.NewLookService(worldRepo, weatherService, entityService, interviewRepo, authRepo, worldEntityService)
+	lookService := look.NewLookService(
+		worldRepo,
+		weatherService,
+		entityService,
+		interviewRepo,
+		authRepo,
+		worldEntityService,
+		ecosystemService,
+	)
 
 	// Character creation service
 	creationService := character.NewCreationService(authRepo)
@@ -154,7 +180,18 @@ func main() {
 	skillsRepo := skills.NewRepository(dbPool)
 
 	// Initialize game processor
-	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, entityService, interviewService, spatialService, weatherService, skillsRepo, worldEntityService)
+	gameProcessor := processor.NewGameProcessor(
+		authRepo,
+		worldRepo,
+		lookService,
+		entityService,
+		interviewService,
+		spatialService,
+		weatherService,
+		skillsRepo,
+		worldEntityService,
+		ecosystemService,
+	)
 
 	// Create and start the Hub
 	hub := websocket.NewHub(gameProcessor)

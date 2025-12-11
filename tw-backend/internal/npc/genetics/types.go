@@ -49,4 +49,18 @@ const (
 	GeneNose       = "nose"
 	GeneJaw        = "jaw"
 	GeneCheek      = "cheek"
+	// Environmental Tolerance
+	GeneColdTolerance = "cold_tolerance"
+	GeneHeatTolerance = "heat_tolerance"
+	GeneUVResistance  = "uv_resistance"
+	GeneHumidity      = "humidity_tolerance"
+	GeneAltitude      = "altitude_tolerance"
+	// Metabolic
+	GeneMetabolism       = "metabolism"
+	GeneReproductionRate = "reproduction_rate"
+	GeneLifespan         = "lifespan"
+	// Appearance
+	GenePattern = "pattern"
+	GeneTexture = "texture"
+	GeneSize    = "size"
 )

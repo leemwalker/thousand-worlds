@@ -198,6 +198,7 @@ func (r *PostgresRepository) GetCharacter(ctx context.Context, characterID uuid.
 			COALESCE(c.role, ''), COALESCE(c.appearance::text, ''), COALESCE(c.description, ''), COALESCE(c.occupation, ''),
 			COALESCE(c.position_x, 0), COALESCE(c.position_y, 0), COALESCE(c.position_z, 0),
 			COALESCE(c.orientation_x, 0), COALESCE(c.orientation_y, 1), COALESCE(c.orientation_z, 0),
+			COALESCE(c.is_flying, false),
 			c.created_at, c.last_played, c.last_world_visited
 		FROM characters c
 		WHERE c.character_id = $1
@@ -220,6 +221,7 @@ func (r *PostgresRepository) GetCharacter(ctx context.Context, characterID uuid.
 		&char.OrientationX,
 		&char.OrientationY,
 		&char.OrientationZ,
+		&char.IsFlying,
 		&char.CreatedAt,
 		&char.LastPlayed,
 		&char.LastWorldVisited,
@@ -356,7 +358,8 @@ func (r *PostgresRepository) UpdateCharacter(ctx context.Context, char *Characte
 		    position = ST_SetSRID(ST_MakePoint($3, $4), 4326), 
 		    position_x = $3, position_y = $4, position_z = $5,
 		    orientation_x = $6, orientation_y = $7, orientation_z = $8,
-		    last_played = $9, last_world_visited = $10
+		    is_flying = $9,
+		    last_played = $10, last_world_visited = $11
 		WHERE character_id = $1
 	`
 
@@ -367,6 +370,7 @@ func (r *PostgresRepository) UpdateCharacter(ctx context.Context, char *Characte
 		char.Name,
 		char.PositionX, char.PositionY, char.PositionZ,
 		char.OrientationX, char.OrientationY, char.OrientationZ,
+		char.IsFlying,
 		char.LastPlayed,
 		char.LastWorldVisited,
 	)

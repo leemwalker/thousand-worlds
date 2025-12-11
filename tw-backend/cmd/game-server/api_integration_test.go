@@ -70,7 +70,7 @@ func (s *APIIntegrationSuite) SetupSuite() {
 	interviewSvc := interview.NewServiceWithRepository(nil, interviewRepo, worldRepo) // LLM client can be nil for tests
 	s.entrySvc = entry.NewService(interviewRepo)
 	entitySvc := entity.NewService()
-	lookService := look.NewLookService(worldRepo, nil, entitySvc, interviewRepo, s.authRepo, nil)
+	lookService := look.NewLookService(worldRepo, nil, entitySvc, interviewRepo, s.authRepo, nil, nil)
 
 	// Create handlers with proper signatures
 	authHandler := api.NewAuthHandler(s.authService, nil, nil) // SessionManager and RateLimiter can be nil
