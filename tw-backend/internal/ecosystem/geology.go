@@ -164,8 +164,42 @@ func (g *WorldGeology) SimulateGeology(yearsElapsed int64) {
 		geography.ApplyHydraulicErosion(g.Heightmap, drops, g.Seed+g.TotalYearsSimulated)
 	}
 
+	// Apply hotspot activity
+	g.applyHotspotActivity(float64(yearsElapsed))
+
+	// Regenerate dynamic features
+	// Rivers and biomes change as terrain evolves
+	g.Rivers = geography.GenerateRivers(g.Heightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
+	g.Biomes = geography.AssignBiomes(g.Heightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
+
 	// Update heightmap min/max
 	g.updateHeightmapStats()
+}
+
+// applyHotspotActivity adds volcanic material at hotspot locations
+func (g *WorldGeology) applyHotspotActivity(years float64) {
+	// Probability of eruption per year at a hotspot
+	// say 1 eruption every 1000 years
+	numEruptions := int(years / 1000.0)
+	if numEruptions == 0 && g.rng.Float64() < (years/1000.0) {
+		numEruptions = 1
+	}
+
+	for _, hotspot := range g.Hotspots {
+		for i := 0; i < numEruptions; i++ {
+			// Small eruption
+			// Jitter location slightly (within 2-3 pixels) to create a cluster/shield volcano
+			jx := hotspot.X + (g.rng.Float64()*4 - 2)
+			jy := hotspot.Y + (g.rng.Float64()*4 - 2)
+
+			// Height addition (small, builds up over time)
+			// 10-30m per eruption
+			height := 10.0 + g.rng.Float64()*20.0
+			radius := 1.5 // Small distinct cones
+
+			geography.ApplyVolcano(g.Heightmap, jx, jy, radius, height)
+		}
+	}
 }
 
 // advancePlates moves tectonic plates and recalculates boundaries
@@ -413,6 +447,9 @@ func (g *WorldGeology) GetStats() GeologyStats {
 		SeaLevel:         g.SeaLevel,
 		LandPercent:      landPercent,
 		PlateCount:       len(g.Plates),
+		HotspotCount:     len(g.Hotspots),
+		RiverCount:       len(g.Rivers),
+		BiomeCount:       len(g.Biomes),
 		YearsSimulated:   g.TotalYearsSimulated,
 	}
 }
