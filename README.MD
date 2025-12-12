@@ -22,7 +22,7 @@ For a detailed feature list, see [`features.md`](features.md).
 
 ```
 thousand-worlds/
-├── mud-platform-backend/     # Go microservices backend
+├── tw-backend/               # Go microservices backend
 │   ├── cmd/                  # Service entry points
 │   │   ├── game-server/     # Main game server (API + WebSocket)
 │   │   ├── auth-service/    # Authentication service
@@ -42,7 +42,7 @@ thousand-worlds/
 │       ├── world/          # World generation, interview
 │       └── worldgen/       # Procedural generation algorithms
 │
-├── mud-platform-client/     # SvelteKit PWA frontend
+├── tw-frontend/              # SvelteKit PWA frontend
 │   ├── src/
 │   │   ├── routes/          # SvelteKit pages
 │   │   │   ├── +page.svelte    # Landing/login page
@@ -54,7 +54,7 @@ thousand-worlds/
 │   │       └── types/          # TypeScript types
 │   └── static/              # PWA assets, icons
 │
-└── deploy/                   # Infrastructure
+└── tw-backend/deploy/        # Infrastructure
     ├── docker-compose.prod.yml
     └── postgres/            # Database migrations
 ```
@@ -226,7 +226,7 @@ worlds (
 ### Running Backend Locally
 
 ```bash
-cd mud-platform-backend
+cd tw-backend
 
 # Start dependencies
 docker-compose up -d postgres redis mongodb nats
@@ -359,7 +359,7 @@ Configured in `vite.config.ts`:
 ### Running Frontend Locally
 
 ```bash
-cd mud-platform-client
+cd tw-frontend
 
 # Install dependencies
 npm install
@@ -532,3 +532,6 @@ This is a personal project, but contributions are welcome! Please:
 - **Issues**: Use GitHub Issues for bug reports
 - **Documentation**: See [`features.md`](features.md) for detailed feature list
 - **Roadmap**: See [`roadmap.md`](roadmap.md) for development plan
+- **Optimization**: See [`optimizeandfix.md`](optimizeandfix.md) for improvement recommendations
+- **Backend**: See [`tw-backend/README.md`](tw-backend/README.md) for backend documentation
+- **Frontend**: See [`tw-frontend/README.md`](tw-frontend/README.md) for frontend documentation

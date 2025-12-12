@@ -103,6 +103,6 @@ func (jm *JobManager) ProcessMemories(memories []Memory) {
 		}
 
 		// 3. Save updates
-		jm.repo.UpdateMemory(mem)
+		_ = jm.repo.UpdateMemory(mem) // Best-effort update during batch processing
 	}
 }

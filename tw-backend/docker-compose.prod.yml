@@ -21,6 +21,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    command: postgres -c shared_buffers=4GB
 
   mongo:
     image: mongo:7.0
@@ -73,6 +74,13 @@ services:
       - OLLAMA_MAX_LOADED_MODELS=1
     networks:
       - mud_net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
 
   # Application services
   game-server:
@@ -96,6 +104,21 @@ services:
         condition: service_started
       nats:
         condition: service_started
+    networks:
+      - mud_net
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../tw-frontend
+      dockerfile: Dockerfile
+    container_name: mud_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - ORIGIN=http://localhost:3000
+    depends_on:
+      - game-server
     networks:
       - mud_net
     restart: unless-stopped

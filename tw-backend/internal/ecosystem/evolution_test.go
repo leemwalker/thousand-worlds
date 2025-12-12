@@ -10,6 +10,7 @@ import (
 
 func TestEvolutionManager_Reproduce(t *testing.T) {
 	em := NewEvolutionManager()
+	em.MutationRate = 0.0 // Disable mutation for deterministic inheritance test
 
 	// 1. Setup Parents with distinct traits
 	// Parent 1: Speed=High (AA)
@@ -43,12 +44,9 @@ func TestEvolutionManager_Reproduce(t *testing.T) {
 	assert.Equal(t, 2, child.Generation)
 	assert.NotNil(t, child.DNA)
 
-	// Check gene: should be Aa (Heterozygous) if simple inheritance holds
-	// But mutation might flip it. With 0.05 rate, highly likely to be Aa.
+	// Check gene: should be Aa (Heterozygous) since mutation is disabled
+	// P1 is AA, it gives A. P2 is aa, it gives a. Child must be Aa or aA.
 	speedGene := child.DNA.Genes["speed"]
-	// Verify it inherited 'A' from one and 'a' from other
-	// Since P1 is AA, it gives A. P2 is aa, it gives a.
-	// So child must be Aa or aA.
 	assert.True(t, (speedGene.Allele1 == "A" && speedGene.Allele2 == "a") || (speedGene.Allele1 == "a" && speedGene.Allele2 == "A"), "Child should inherit alleles from parents")
 }
 

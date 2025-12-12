@@ -99,7 +99,7 @@ func (tm *TickerManager) SpawnTicker(worldID uuid.UUID, worldName string, dilati
 
 	if err := tm.registry.RegisterWorld(world); err != nil {
 		// If world already exists, update it instead
-		tm.registry.UpdateWorld(worldID, func(w *WorldState) {
+		_ = tm.registry.UpdateWorld(worldID, func(w *WorldState) {
 			w.Status = StatusRunning
 			w.DilationFactor = dilationFactor
 		})
@@ -166,7 +166,7 @@ func (tm *TickerManager) StopTicker(worldID uuid.UUID) error {
 	// Update registry and record pause time
 	var tickCount int64
 	pauseTime := time.Now()
-	tm.registry.UpdateWorld(worldID, func(w *WorldState) {
+	_ = tm.registry.UpdateWorld(worldID, func(w *WorldState) {
 		w.Status = StatusPaused
 		w.PausedAt = pauseTime
 		tickCount = w.TickCount

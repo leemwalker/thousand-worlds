@@ -85,7 +85,9 @@ type ResourceNode struct {
 func (n *ResourceNode) GetCategory() ResourceCategory {
 	// Simple keyword matching for now
 	// In a real system, this might be a DB field or a lookup map
-	name := n.Name
+	name := strings.Title(n.Name) // Normalize case for checks, or just check both cases.
+	// Better:
+	name = n.Name
 
 	switch n.Type {
 	case ResourceMineral:
@@ -151,7 +153,7 @@ func (n *ResourceNode) GetCategory() ResourceCategory {
 }
 
 func contains(s, substr string) bool {
-	return strings.Contains(s, substr)
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }
 
 // MineralDeposit represents the Phase 8.2b mineral deposit structure

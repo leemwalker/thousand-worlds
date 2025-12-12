@@ -25,7 +25,7 @@ func (tm *TickerManager) performCatchupThenRun(t *ticker, world *WorldState) {
 		Msg("Performing catch-up")
 
 	// Clear pause time in registry
-	tm.registry.UpdateWorld(t.worldID, func(w *WorldState) {
+	_ = tm.registry.UpdateWorld(t.worldID, func(w *WorldState) {
 		w.PausedAt = time.Time{}
 	})
 

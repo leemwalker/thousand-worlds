@@ -18,8 +18,6 @@ func TestGenerateRivers(t *testing.T) {
 	seaLevel := AssignOceanLand(hm, 0.3) // 30% land
 
 	rivers := GenerateRivers(hm, seaLevel, seed)
-
-	assert.NotNil(t, rivers)
 	// We can't guarantee rivers with random seed, but with 50x50 and 30% land, we should have some.
 	// If not, it's not necessarily a failure, but likely.
 

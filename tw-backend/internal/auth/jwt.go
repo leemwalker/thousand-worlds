@@ -123,16 +123,29 @@ func (tm *TokenManager) ValidateToken(tokenString string) (*Claims, error) {
 		return nil, errors.New("failed to unmarshal decrypted data")
 	}
 
-	// 3. Construct full Claims object
+	// 3. Construct full Claims object with safe type assertions
+	sub, ok := mapClaims["sub"].(string)
+	if !ok {
+		return nil, errors.New("invalid subject claim")
+	}
+	exp, ok := mapClaims["exp"].(float64)
+	if !ok {
+		return nil, errors.New("invalid expiration claim")
+	}
+	iat, ok := mapClaims["iat"].(float64)
+	if !ok {
+		return nil, errors.New("invalid issued-at claim")
+	}
+
 	claims := &Claims{
-		UserID:   mapClaims["sub"].(string), // Assumes sub is string
+		UserID:   sub,
 		Username: sensitiveData.Username,
 		Roles:    sensitiveData.Roles,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "mud-platform",
-			Subject:   mapClaims["sub"].(string),
-			ExpiresAt: jwt.NewNumericDate(time.Unix(int64(mapClaims["exp"].(float64)), 0)),
-			IssuedAt:  jwt.NewNumericDate(time.Unix(int64(mapClaims["iat"].(float64)), 0)),
+			Subject:   sub,
+			ExpiresAt: jwt.NewNumericDate(time.Unix(int64(exp), 0)),
+			IssuedAt:  jwt.NewNumericDate(time.Unix(int64(iat), 0)),
 		},
 	}
 

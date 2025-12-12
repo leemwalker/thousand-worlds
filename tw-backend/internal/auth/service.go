@@ -99,7 +99,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (string, *U
 
 	// Update last login
 	user.LastLogin = timePtr(time.Now().UTC())
-	s.repo.UpdateUser(ctx, user)
+	_ = s.repo.UpdateUser(ctx, user) // Best-effort update, login succeeds regardless
 
 	return token, user, nil
 }

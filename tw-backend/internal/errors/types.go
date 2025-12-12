@@ -8,10 +8,10 @@ import (
 
 // AppError represents an application-level error with HTTP context
 type AppError struct {
-	Code       string `json:"code"`        // Machine-readable code (e.g., "AUTH_INVALID_CREDENTIALS")
-	Message    string `json:"message"`     // Human-readable message
-	HTTPStatus int    `json:"-"`           // HTTP status code (not serialized)
-	Err        error  `json:"-"`           // Underlying error (not serialized)
+	Code       string `json:"code"`    // Machine-readable code (e.g., "AUTH_INVALID_CREDENTIALS")
+	Message    string `json:"message"` // Human-readable message
+	HTTPStatus int    `json:"-"`       // HTTP status code (not serialized)
+	Err        error  `json:"-"`       // Underlying error (not serialized)
 }
 
 func (e *AppError) Error() string {
@@ -82,5 +82,5 @@ func RespondWithError(w http.ResponseWriter, err error) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(appErr.HTTPStatus)
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response) // Error intentionally ignored - response already committed
 }

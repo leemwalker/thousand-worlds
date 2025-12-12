@@ -103,6 +103,16 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to parse database URL for pgxpool:", err)
 	}
+
+	// Configure connection pool for production use
+	poolConfig.MaxConns = 50                      // Maximum connections in pool
+	poolConfig.MinConns = 10                      // Minimum idle connections to maintain
+	poolConfig.MaxConnLifetime = time.Hour        // Recycle connections after 1 hour
+	poolConfig.MaxConnIdleTime = 30 * time.Minute // Close idle connections after 30 min
+	poolConfig.HealthCheckPeriod = time.Minute    // Health check every minute
+
+	log.Printf("Database pool configured: MaxConns=%d, MinConns=%d", poolConfig.MaxConns, poolConfig.MinConns)
+
 	dbPool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {
 		log.Fatal("Failed to connect to database with pgxpool:", err)

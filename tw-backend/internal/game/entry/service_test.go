@@ -65,10 +65,11 @@ func TestGetEntryOptions_NonExistentWorld(t *testing.T) {
 	// Get entry options
 	options, err := service.GetEntryOptions(ctx, worldID)
 
-	// Assert error
-	require.Error(t, err)
-	assert.Nil(t, options)
-	assert.Contains(t, err.Error(), "world config")
+	// Assert resilience (defaults used)
+	require.NoError(t, err)
+	require.NotNil(t, options)
+	assert.True(t, options.CanEnterAsWatcher)
+	assert.NotEmpty(t, options.AvailableNPCs)
 }
 
 // TestGenerateRandomNPCs_CreatesUniqueNPCs tests NPC generation

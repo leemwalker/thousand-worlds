@@ -1,10 +1,12 @@
 package crafting
 
 import (
+	"os"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestTechTreeStructure(t *testing.T) {
@@ -121,4 +123,49 @@ func TestTechTreeCustomization(t *testing.T) {
 	assert.Equal(t, 2, len(result))
 	assert.Equal(t, "Stone Tools", result[0].Name)
 	assert.Equal(t, "Iron Tools", result[1].Name)
+}
+
+func TestTechTreeManager_UnlockTechNode(t *testing.T) {
+	repo := new(MockRepository)
+	manager := NewTechTreeManager(repo)
+
+	entityID := uuid.New()
+	nodeID := uuid.New()
+
+	node := &TechNode{
+		NodeID:         nodeID,
+		Name:           "Test Node",
+		UnlocksRecipes: []uuid.UUID{uuid.New()},
+	}
+
+	repo.On("GetTechNode", nodeID).Return(node, nil)
+	repo.On("IsTechUnlocked", entityID, nodeID).Return(false, nil)
+	repo.On("UnlockTech", entityID, nodeID).Return(nil)
+	repo.On("DiscoverRecipe", mock.Anything).Return(nil)
+
+	err := manager.UnlockTechNode(entityID, nodeID)
+	assert.NoError(t, err)
+
+	repo.AssertCalled(t, "UnlockTech", entityID, nodeID)
+	repo.AssertCalled(t, "DiscoverRecipe", mock.Anything)
+}
+
+func TestLoadTechTreeFromFile(t *testing.T) {
+	// Create temp file
+	file, err := os.CreateTemp("", "techtree-*.json")
+	assert.NoError(t, err)
+	defer os.Remove(file.Name())
+
+	content := `[
+		{"name": "Node 1", "tier": 1},
+		{"name": "Node 2", "tier": 2}
+	]`
+	file.WriteString(content)
+	file.Close()
+
+	nodes, err := LoadTechTreeFromFile(file.Name())
+	assert.NoError(t, err)
+	assert.Len(t, nodes, 2)
+	assert.Equal(t, "Node 1", nodes[0].Name)
+	assert.NotEqual(t, uuid.Nil, nodes[0].NodeID)
 }

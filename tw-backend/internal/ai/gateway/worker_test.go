@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/mock"
 )
@@ -101,4 +102,39 @@ func TestProcessRequest_NoResponseSubject(t *testing.T) {
 
 	mockClient.AssertExpectations(t)
 	mockPublisher.AssertExpectations(t)
+}
+
+func TestStartWorker(t *testing.T) {
+	mockClient := new(MockAIClient)
+	mockPublisher := new(MockPublisher)
+
+	// Consume any old messages
+loop:
+	for {
+		select {
+		case <-RequestQueue:
+		default:
+			break loop
+		}
+	}
+
+	StartWorker(mockPublisher, mockClient)
+
+	mockClient.On("Generate", "test-start", "").Return("resp", nil)
+	// We might or might not publish depending on response subject, let's set it
+	req := AIRequest{ID: "worker-test", Prompt: "test-start", ResponseSubject: "reply"}
+
+	// Expect publish
+	done := make(chan bool)
+	mockPublisher.On("Publish", "reply", mock.Anything).Run(func(args mock.Arguments) {
+		done <- true
+	}).Return(nil)
+
+	RequestQueue <- req
+
+	select {
+	case <-done:
+	case <-time.After(1 * time.Second):
+		t.Fatal("Worker did not process request")
+	}
 }

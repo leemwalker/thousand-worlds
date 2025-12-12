@@ -1,6 +1,7 @@
 package crafting
 
 import (
+	"os"
 	"testing"
 
 	"github.com/google/uuid"
@@ -13,11 +14,17 @@ type MockRepository struct {
 	mock.Mock
 }
 
-func (m *MockRepository) CreateTechTree(tree *TechTree) error                      { return nil }
-func (m *MockRepository) GetTechTree(treeID uuid.UUID) (*TechTree, error)          { return nil, nil }
-func (m *MockRepository) GetTechTreeByWorld(worldID uuid.UUID) (*TechTree, error)  { return nil, nil }
-func (m *MockRepository) CreateTechNode(node *TechNode) error                      { return nil }
-func (m *MockRepository) GetTechNode(nodeID uuid.UUID) (*TechNode, error)          { return nil, nil }
+func (m *MockRepository) CreateTechTree(tree *TechTree) error                     { return nil }
+func (m *MockRepository) GetTechTree(treeID uuid.UUID) (*TechTree, error)         { return nil, nil }
+func (m *MockRepository) GetTechTreeByWorld(worldID uuid.UUID) (*TechTree, error) { return nil, nil }
+func (m *MockRepository) CreateTechNode(node *TechNode) error                     { return nil }
+func (m *MockRepository) GetTechNode(nodeID uuid.UUID) (*TechNode, error) {
+	args := m.Called(nodeID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*TechNode), args.Error(1)
+}
 func (m *MockRepository) GetTechNodesByTree(treeID uuid.UUID) ([]*TechNode, error) { return nil, nil }
 func (m *MockRepository) GetTechNodesByLevel(level TechLevel) ([]*TechNode, error) { return nil, nil }
 func (m *MockRepository) CreateRecipe(recipe *Recipe) error                        { return nil }
@@ -32,14 +39,18 @@ func (m *MockRepository) GetRecipesByTechNode(nodeID uuid.UUID) ([]*Recipe, erro
 func (m *MockRepository) GetRecipesBySkill(skill string, maxLevel int) ([]*Recipe, error) {
 	return nil, nil
 }
-func (m *MockRepository) UpdateRecipe(recipe *Recipe) error                     { return nil }
-func (m *MockRepository) DeleteRecipe(recipeID uuid.UUID) error                 { return nil }
-func (m *MockRepository) UnlockTech(entityID uuid.UUID, nodeID uuid.UUID) error { return nil }
+func (m *MockRepository) UpdateRecipe(recipe *Recipe) error     { return nil }
+func (m *MockRepository) DeleteRecipe(recipeID uuid.UUID) error { return nil }
+func (m *MockRepository) UnlockTech(entityID uuid.UUID, nodeID uuid.UUID) error {
+	args := m.Called(entityID, nodeID)
+	return args.Error(0)
+}
 func (m *MockRepository) GetUnlockedTech(entityID uuid.UUID) ([]*UnlockedTech, error) {
 	return nil, nil
 }
 func (m *MockRepository) IsTechUnlocked(entityID uuid.UUID, nodeID uuid.UUID) (bool, error) {
-	return false, nil
+	args := m.Called(entityID, nodeID)
+	return args.Bool(0), args.Error(1)
 }
 
 func (m *MockRepository) DiscoverRecipe(knowledge *RecipeKnowledge) error {
@@ -148,4 +159,91 @@ func TestTeachRecipeLowAffection(t *testing.T) {
 	err := manager.TeachRecipe(teacherID, studentID, recipeID, 20)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "relationship too low")
+}
+
+func TestExperimentWithIngredients(t *testing.T) {
+	repo := new(MockRepository)
+	manager := NewRecipeManager(repo)
+
+	entityID := uuid.New()
+	station := &CraftingStation{}
+
+	// Test failure (random chance logic, but we can test inputs)
+	// Since random is used without seed control in the source, we can't deterministically test success/fail
+	// unless we mock rand or retry many times.
+	// However, the function returns nil, nil for now as per source code.
+
+	ingredients := []Ingredient{
+		{ResourceID: uuid.New(), Quantity: 1},
+	}
+
+	recipe, err := manager.ExperimentWithIngredients(entityID, ingredients, station, 50)
+	assert.NoError(t, err)
+	assert.Nil(t, recipe) // Implementation currently returns nil, nil
+}
+
+func TestLoadRecipesFromFile(t *testing.T) {
+	// Create temp file
+	file, err := os.CreateTemp("", "recipes-*.json")
+	assert.NoError(t, err)
+	defer os.Remove(file.Name())
+
+	content := `[
+		{"name": "Recipe 1", "ingredients": [{"resource_id": "00000000-0000-0000-0000-000000000001", "quantity": 1}]}
+	]`
+	file.WriteString(content)
+	file.Close()
+
+	recipes, err := LoadRecipesFromFile(file.Name())
+	assert.NoError(t, err)
+	assert.Len(t, recipes, 1)
+	assert.Equal(t, "Recipe 1", recipes[0].Name)
+	assert.NotEqual(t, uuid.Nil, recipes[0].RecipeID)
+}
+
+func TestGetCraftableRecipes_Substitutes(t *testing.T) {
+	repo := new(MockRepository)
+	manager := NewRecipeManager(repo)
+
+	entityID := uuid.New()
+	mainID := uuid.New()
+	subID := uuid.New()
+
+	recipe := &Recipe{
+		RecipeID: uuid.New(),
+		Name:     "Sub Test",
+		Ingredients: []Ingredient{
+			{
+				ResourceID: mainID,
+				Quantity:   10,
+				Substitute: []uuid.UUID{subID},
+			},
+		},
+	}
+
+	repo.On("GetKnownRecipes", entityID).Return([]*Recipe{recipe}, nil)
+
+	// Case 1: Enough main resource
+	resources1 := map[uuid.UUID]int{mainID: 10}
+	craftable1, err := manager.GetCraftableRecipes(entityID, resources1)
+	assert.NoError(t, err)
+	assert.Len(t, craftable1, 1)
+
+	// Case 2: Mix of main and sub
+	resources2 := map[uuid.UUID]int{mainID: 5, subID: 5}
+	craftable2, err := manager.GetCraftableRecipes(entityID, resources2)
+	assert.NoError(t, err)
+	assert.Len(t, craftable2, 1)
+
+	// Case 3: Only sub
+	resources3 := map[uuid.UUID]int{subID: 10}
+	craftable3, err := manager.GetCraftableRecipes(entityID, resources3)
+	assert.NoError(t, err)
+	assert.Len(t, craftable3, 1)
+
+	// Case 4: Insufficient total
+	resources4 := map[uuid.UUID]int{mainID: 4, subID: 5}
+	craftable4, err := manager.GetCraftableRecipes(entityID, resources4)
+	assert.NoError(t, err)
+	assert.Empty(t, craftable4)
 }

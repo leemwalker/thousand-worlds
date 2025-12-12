@@ -81,7 +81,8 @@ func CreateUserAndLogin(t *testing.T, baseURL string) (email string, token strin
 	var loginData map[string]interface{}
 	DecodeJSON(t, loginResp, &loginData)
 
-	token = loginData["token"].(string)
+	token, ok := loginData["token"].(string)
+	require.True(t, ok, "Token should be a string")
 	require.NotEmpty(t, token, "Token should not be empty")
 
 	return email, token

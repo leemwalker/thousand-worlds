@@ -59,6 +59,39 @@ loop:
 	}
 }
 
+func TestStartListener_ReplySubject(t *testing.T) {
+	// Drain queue
+loop:
+	for {
+		select {
+		case <-RequestQueue:
+		default:
+			break loop
+		}
+	}
+
+	mockSub := new(MockSubscriber)
+	mockSub.On("Subscribe", "ai.request.>", mock.Anything).Return(nil, nil)
+	StartListener(mockSub)
+
+	req := AIRequest{ID: "123", Prompt: "test"}
+	data, _ := json.Marshal(req)
+	msg := &nats.Msg{
+		Subject: "ai.request.123",
+		Reply:   "inbox.456", // specific reply subject
+		Data:    data,
+	}
+
+	mockSub.callback(msg)
+
+	select {
+	case received := <-RequestQueue:
+		assert.Equal(t, "inbox.456", received.ResponseSubject)
+	case <-time.After(1 * time.Second):
+		t.Fatal("Request not queued")
+	}
+}
+
 func TestStartListener_InvalidJSON(t *testing.T) {
 	mockSub := new(MockSubscriber)
 	mockSub.On("Subscribe", "ai.request.>", mock.Anything).Return(nil, nil)

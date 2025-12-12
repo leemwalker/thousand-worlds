@@ -136,7 +136,8 @@ func loginUser(t *testing.T, user TestUser) string {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var respData map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&respData)
+	err = json.NewDecoder(resp.Body).Decode(&respData)
+	require.NoError(t, err, "Failed to decode login response")
 
 	token, ok := respData["token"].(string)
 	require.True(t, ok)
@@ -199,7 +200,7 @@ func sendGameCommandWithParams(t *testing.T, ws *websocket.Conn, action string, 
 }
 
 func readNextMessage(ws *websocket.Conn, timeout time.Duration) (string, string, error) {
-	ws.SetReadDeadline(time.Now().Add(timeout))
+	_ = ws.SetReadDeadline(time.Now().Add(timeout)) // Error intentionally ignored - best effort deadline
 	var msg ServerMessage
 	err := ws.ReadJSON(&msg)
 	if err != nil {
@@ -286,7 +287,7 @@ func waitForMessageContent(ws *websocket.Conn, contentSnippet string, timeout ti
 	}
 }
 
-func cleanupTestData(t *testing.T, db *sql.DB, username string) {
+func cleanupTestData(_ *testing.T, db *sql.DB, username string) {
 	// Get User ID
 	var userID string
 	err := db.QueryRow("SELECT user_id FROM users WHERE username = $1", username).Scan(&userID)

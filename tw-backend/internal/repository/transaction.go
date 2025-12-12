@@ -29,8 +29,8 @@ func (t *Transactor) WithTransaction(ctx context.Context, fn func(*sql.Tx) error
 	// Ensure transaction is rolled back on panic
 	defer func() {
 		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p) // Re-throw panic after rollback
+			_ = tx.Rollback() // Best effort rollback on panic
+			panic(p)          // Re-throw panic after rollback
 		}
 	}()
 
@@ -59,7 +59,7 @@ func (t *Transactor) WithTransactionIsolation(ctx context.Context, opts *sql.TxO
 
 	defer func() {
 		if p := recover(); p != nil {
-			tx.Rollback()
+			_ = tx.Rollback() // Best effort rollback on panic
 			panic(p)
 		}
 	}()

@@ -23,11 +23,17 @@ bin/
 dist/
 build/
 
+# Compiled Go binaries
+tw-backend/game-server
+tw-backend/ai-gateway
+tw-backend/main
+
 # Dependencies
 node_modules/
 
 # Test coverage
 coverage/
+.coverage/
 *.out
 
 # Test results

@@ -1,0 +1,766 @@
+openapi: 3.0.3
+info:
+  title: Thousand Worlds MUD Platform API
+  description: |
+    REST API for the Thousand Worlds MUD Platform backend.
+    
+    ## Authentication
+    Most endpoints require JWT authentication. Obtain a token via `/api/auth/login` 
+    and include it in the `Authorization` header as `Bearer <token>` or via the 
+    `auth_token` HttpOnly cookie (set automatically on login).
+    
+    ## WebSocket
+    Real-time game communication uses WebSocket at `/api/game/ws`.
+  version: 1.0.0
+  contact:
+    name: Thousand Worlds
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+tags:
+  - name: Authentication
+    description: User registration, login, and session management
+  - name: Session
+    description: Character and game session management
+  - name: Interview
+    description: World creation interview with LLM
+  - name: World
+    description: World listing and management
+  - name: Game
+    description: Core gameplay endpoints
+  - name: Health
+    description: Service health checks
+
+paths:
+  # ============ AUTHENTICATION ============
+  /api/auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register a new user
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/login:
+    post:
+      tags: [Authentication]
+      summary: Authenticate user and receive JWT token
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          headers:
+            Set-Cookie:
+              description: HttpOnly auth_token cookie
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/auth/me:
+    get:
+      tags: [Authentication]
+      summary: Get current authenticated user
+      operationId: getMe
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Logout and invalidate session
+      operationId: logout
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: X-Session-ID
+          in: header
+          schema:
+            type: string
+          description: Optional session ID to invalidate
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Logged out successfully
+
+  # ============ SESSION / CHARACTERS ============
+  /api/game/characters:
+    get:
+      tags: [Session]
+      summary: Get all characters for current user
+      operationId: getCharacters
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: List of characters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetCharactersResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Session]
+      summary: Create a new character
+      operationId: createCharacter
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCharacterRequest'
+      responses:
+        '201':
+          description: Character created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateCharacterResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Character already exists in this world
+
+  /api/game/join:
+    post:
+      tags: [Session]
+      summary: Join game with a character
+      operationId: joinGame
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinGameRequest'
+      responses:
+        '200':
+          description: Joined game successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JoinGameResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Not your character
+        '404':
+          description: Character not found
+
+  /api/game/entry-options:
+    get:
+      tags: [Session]
+      summary: Get available entry options for game
+      operationId: getEntryOptions
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Entry options
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ============ WORLD INTERVIEW ============
+  /api/world/interview/start:
+    post:
+      tags: [Interview]
+      summary: Start a new world creation interview
+      operationId: startInterview
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '201':
+          description: Interview started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartInterviewResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/world/interview/message:
+    post:
+      tags: [Interview]
+      summary: Send a message/response to the interview
+      operationId: processInterviewMessage
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageRequest'
+      responses:
+        '200':
+          description: Message processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/world/interview/active:
+    get:
+      tags: [Interview]
+      summary: Get active interview session
+      operationId: getActiveInterview
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Active interview found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartInterviewResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No active interview found
+
+  /api/world/interview/finalize:
+    post:
+      tags: [Interview]
+      summary: Finalize interview and generate world
+      operationId: finalizeInterview
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [session_id]
+              properties:
+                session_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: World configuration generated
+          content:
+            application/json:
+              schema:
+                type: object
+                description: World configuration from interview
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ============ WORLD ============
+  /api/game/worlds:
+    get:
+      tags: [World]
+      summary: List all available worlds
+      operationId: listWorlds
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: List of worlds
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/World'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ============ SKILLS ============
+  /api/game/skills:
+    get:
+      tags: [Game]
+      summary: Get skills for current character
+      operationId: getSkills
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Character skills
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ============ WEBSOCKET ============
+  /api/game/ws:
+    get:
+      tags: [Game]
+      summary: WebSocket connection for real-time gameplay
+      description: |
+        Upgrade to WebSocket for real-time game communication.
+        Requires authentication via Bearer token or cookie.
+        
+        **Message Format:** JSON with `type` and `payload` fields.
+        
+        **Client → Server Types:**
+        - `command`: Game command (move, look, say, etc.)
+        
+        **Server → Client Types:**
+        - `output`: Game output/description
+        - `error`: Error message
+        - `state`: State update
+      operationId: gameWebSocket
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '101':
+          description: Switching Protocols (WebSocket upgrade)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ============ HEALTH ============
+  /health:
+    get:
+      tags: [Health]
+      summary: Basic health check
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: OK
+
+  /metrics:
+    get:
+      tags: [Health]
+      summary: Prometheus metrics endpoint
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token from login response
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: auth_token
+      description: HttpOnly cookie set on login
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    # ============ REQUEST SCHEMAS ============
+    RegisterRequest:
+      type: object
+      required: [email, username, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: player@example.com
+        username:
+          type: string
+          minLength: 1
+          example: PlayerOne
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: SecurePassword123!
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: player@example.com
+        password:
+          type: string
+          format: password
+          example: SecurePassword123!
+
+    CreateCharacterRequest:
+      type: object
+      required: [world_id, name, species]
+      properties:
+        world_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          example: Aragorn
+        species:
+          type: string
+          example: human
+        role:
+          type: string
+          enum: [player, watcher, admin]
+          default: player
+        appearance:
+          type: string
+          description: JSON string of appearance data
+        description:
+          type: string
+          maxLength: 500
+        occupation:
+          type: string
+          maxLength: 100
+
+    JoinGameRequest:
+      type: object
+      required: [character_id]
+      properties:
+        character_id:
+          type: string
+          format: uuid
+
+    MessageRequest:
+      type: object
+      required: [session_id, message]
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        message:
+          type: string
+
+    # ============ RESPONSE SCHEMAS ============
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT token for API clients
+        user:
+          $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        last_login:
+          type: string
+          format: date-time
+          nullable: true
+        last_world_id:
+          type: string
+          format: uuid
+          nullable: true
+
+    UserInfo:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        last_world_id:
+          type: string
+          format: uuid
+          nullable: true
+
+    Character:
+      type: object
+      properties:
+        character_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        world_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        role:
+          type: string
+          enum: [player, watcher, admin]
+        appearance:
+          type: string
+        description:
+          type: string
+        occupation:
+          type: string
+        position_x:
+          type: number
+        position_y:
+          type: number
+        position_z:
+          type: number
+        orientation_x:
+          type: number
+        orientation_y:
+          type: number
+        orientation_z:
+          type: number
+        is_flying:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        last_played:
+          type: string
+          format: date-time
+          nullable: true
+
+    Attributes:
+      type: object
+      properties:
+        might:
+          type: integer
+        agility:
+          type: integer
+        endurance:
+          type: integer
+        reflexes:
+          type: integer
+        vitality:
+          type: integer
+        intellect:
+          type: integer
+        cunning:
+          type: integer
+        willpower:
+          type: integer
+        presence:
+          type: integer
+        intuition:
+          type: integer
+
+    SecondaryAttributes:
+      type: object
+      properties:
+        max_hp:
+          type: integer
+        max_stamina:
+          type: integer
+        max_focus:
+          type: integer
+        max_mana:
+          type: integer
+        max_nerve:
+          type: integer
+
+    CreateCharacterResponse:
+      type: object
+      properties:
+        character:
+          $ref: '#/components/schemas/Character'
+        attributes:
+          $ref: '#/components/schemas/Attributes'
+          nullable: true
+        secondary_attributes:
+          $ref: '#/components/schemas/SecondaryAttributes'
+          nullable: true
+
+    GetCharactersResponse:
+      type: object
+      properties:
+        characters:
+          type: array
+          items:
+            $ref: '#/components/schemas/Character'
+
+    JoinGameResponse:
+      type: object
+      properties:
+        character:
+          $ref: '#/components/schemas/Character'
+        world_id:
+          type: string
+          format: uuid
+        message:
+          type: string
+          description: Welcome message and initial room description
+
+    StartInterviewResponse:
+      type: object
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        question:
+          type: string
+          description: Current interview question from LLM
+
+    MessageResponse:
+      type: object
+      properties:
+        question:
+          type: string
+          description: Next question or empty if completed
+        completed:
+          type: boolean
+          description: Whether interview is complete
+
+    World:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        shape:
+          type: string
+          enum: [spherical, bounded_cube, infinite]
+        radius:
+          type: number
+          nullable: true
+        bounds:
+          type: object
+          nullable: true
+        owner_id:
+          type: string
+          format: uuid
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: healthy
+        uptime:
+          type: string
+          example: 2h34m12s
+        connected_users:
+          type: integer
+        goroutines:
+          type: integer
+        memory_mb:
+          type: number
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        details:
+          type: string

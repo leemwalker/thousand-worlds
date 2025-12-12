@@ -13,7 +13,8 @@ func (h ActionHeap) Less(i, j int) bool { return h[i].ExecuteAt.Before(h[j].Exec
 func (h ActionHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
 
 func (h *ActionHeap) Push(x interface{}) {
-	*h = append(*h, x.(*CombatAction))
+	action, _ := x.(*CombatAction) // Type assertion guaranteed by heap.Push caller
+	*h = append(*h, action)
 }
 
 func (h *ActionHeap) Pop() interface{} {
@@ -53,7 +54,8 @@ func (q *CombatQueue) Dequeue() *CombatAction {
 	if len(q.actions) == 0 {
 		return nil
 	}
-	return heap.Pop(&q.actions).(*CombatAction)
+	action, _ := heap.Pop(&q.actions).(*CombatAction) // Type assertion guaranteed by heap implementation
+	return action
 }
 
 // Peek returns the next action without removing it

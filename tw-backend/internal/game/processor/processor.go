@@ -221,14 +221,14 @@ func (p *GameProcessor) handleCreate(ctx context.Context, client websocket.GameC
 	return fmt.Errorf("unknown create command: try 'create world'")
 }
 
-func (p *GameProcessor) handleCreateWorld(ctx context.Context, client websocket.GameClient) error {
+func (p *GameProcessor) handleCreateWorld(_ context.Context, client websocket.GameClient) error {
 	// Trigger interview start on client
 	client.SendGameMessage("start_interview", "Starting world creation interview...", nil)
 	return nil
 }
 
 // Command handlers
-func (p *GameProcessor) handleHelp(ctx context.Context, client websocket.GameClient) error {
+func (p *GameProcessor) handleHelp(_ context.Context, client websocket.GameClient) error {
 	helpText := `
 Available Commands:
   Movement:
@@ -278,7 +278,7 @@ func (p *GameProcessor) handleDirection(ctx context.Context, client websocket.Ga
 }
 
 // handleOpen opens doors or containers
-func (p *GameProcessor) handleOpen(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+func (p *GameProcessor) handleOpen(_ context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	if cmd.Target == nil {
 		return errors.New("target required for open command")
 	}
@@ -404,7 +404,7 @@ func (p *GameProcessor) handleEnter(ctx context.Context, client websocket.GameCl
 }
 
 // handleSay broadcasts a message to the player's area
-func (p *GameProcessor) handleSay(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+func (p *GameProcessor) handleSay(_ context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	// Validate message is not empty
 	if cmd.Message == nil || strings.TrimSpace(*cmd.Message) == "" {
 		client.SendGameMessage("error", "What do you want to say?", nil)
@@ -444,7 +444,7 @@ func (p *GameProcessor) handleSay(ctx context.Context, client websocket.GameClie
 }
 
 // handleWhisper sends a private message to a nearby player (5m range)
-func (p *GameProcessor) handleWhisper(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+func (p *GameProcessor) handleWhisper(_ context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	if cmd.Recipient == nil {
 		return errors.New("recipient required for whisper command")
 	}
@@ -604,7 +604,7 @@ func (p *GameProcessor) handleTell(ctx context.Context, client websocket.GameCli
 }
 
 // handleWho lists all currently online players
-func (p *GameProcessor) handleWho(ctx context.Context, client websocket.GameClient) error {
+func (p *GameProcessor) handleWho(_ context.Context, client websocket.GameClient) error {
 	if p.Hub == nil {
 		return errors.New("game server not fully initialized")
 	}
@@ -684,7 +684,7 @@ func (p *GameProcessor) handleLook(ctx context.Context, client websocket.GameCli
 	return nil
 }
 
-func (p *GameProcessor) handleDrop(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+func (p *GameProcessor) handleDrop(_ context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	if cmd.Target == nil {
 		return errors.New("target item required")
 	}
@@ -695,7 +695,7 @@ func (p *GameProcessor) handleDrop(ctx context.Context, client websocket.GameCli
 	return nil
 }
 
-func (p *GameProcessor) handleAttack(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+func (p *GameProcessor) handleAttack(_ context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	if cmd.Target == nil {
 		return errors.New("target required for attack")
 	}
@@ -713,7 +713,7 @@ func (p *GameProcessor) handleAttack(ctx context.Context, client websocket.GameC
 	return nil
 }
 
-func (p *GameProcessor) handleTalk(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+func (p *GameProcessor) handleTalk(_ context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	if cmd.Target == nil {
 		return errors.New("target required for talk")
 	}
@@ -731,13 +731,13 @@ func (p *GameProcessor) handleTalk(ctx context.Context, client websocket.GameCli
 	return nil
 }
 
-func (p *GameProcessor) handleInventory(ctx context.Context, client websocket.GameClient) error {
+func (p *GameProcessor) handleInventory(_ context.Context, client websocket.GameClient) error {
 	// TODO: Get actual inventory from database
 	p.sendStateUpdate(client)
 	return nil
 }
 
-func (p *GameProcessor) handleCraft(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+func (p *GameProcessor) handleCraft(_ context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	if cmd.Target == nil {
 		return errors.New("item required for crafting")
 	}
@@ -753,7 +753,7 @@ func (p *GameProcessor) handleCraft(ctx context.Context, client websocket.GameCl
 	return nil
 }
 
-func (p *GameProcessor) handleUse(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+func (p *GameProcessor) handleUse(_ context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	if cmd.Target == nil {
 		return errors.New("item required for use")
 	}

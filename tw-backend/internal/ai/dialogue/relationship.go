@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *DialogueService) updateRelationship(npcID, speakerID uuid.UUID, output string, rel *relationship.Relationship) {
+func (s *DialogueService) updateRelationship(npcID, speakerID uuid.UUID, output string, _ *relationship.Relationship) {
 	// Simple sentiment analysis for relationship update
 	// In real system, this would be more complex or use the LLM's output metadata
 

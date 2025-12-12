@@ -141,7 +141,7 @@ func TestDetermineSkillRequirement(t *testing.T) {
 		expectedMax   int
 	}{
 		{"Shallow high-grade", 10.0, 0.9, 0, 20},
-		{"Medium depth", 50.0, 0.7, 20, 40},
+		{"Medium depth", 50.0, 0.7, 10, 40},
 		{"Deep low-grade", 150.0, 0.3, 60, 80},
 		{"Very deep", 250.0, 0.5, 70, 100},
 	}

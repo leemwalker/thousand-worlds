@@ -42,7 +42,7 @@ func (pq PriorityQueue) Swap(i, j int) {
 }
 
 func (pq *PriorityQueue) Push(x interface{}) {
-	n := x.(*Node)
+	n, _ := x.(*Node) // Type assertion guaranteed by heap.Push caller
 	n.Index = len(*pq)
 	*pq = append(*pq, n)
 }
@@ -68,7 +68,7 @@ func FindPath(world WorldMap, start, end Point) []Point {
 	nodeCache[start] = startNode
 
 	for openSet.Len() > 0 {
-		current := heap.Pop(openSet).(*Node)
+		current, _ := heap.Pop(openSet).(*Node) // Type assertion guaranteed by heap implementation
 
 		if distance(current.Point, end) < 1.0 { // Reached destination (within tolerance)
 			return reconstructPath(current)

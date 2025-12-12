@@ -89,6 +89,6 @@ func (hc *HealthChecker) Handler() http.HandlerFunc {
 		}
 
 		w.WriteHeader(statusCode)
-		json.NewEncoder(w).Encode(status)
+		_ = json.NewEncoder(w).Encode(status) // Error intentionally ignored - response already committed
 	}
 }

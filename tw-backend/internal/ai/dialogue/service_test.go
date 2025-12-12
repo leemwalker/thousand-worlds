@@ -2,6 +2,7 @@ package dialogue
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"tw-backend/internal/npc/relationship"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -132,4 +134,58 @@ func TestDialogueService_GenerateDialogue(t *testing.T) {
 	if resp.Text == "" {
 		t.Error("Expected response text")
 	}
+}
+
+func TestDialogueService_GenerateDialogue_Errors(t *testing.T) {
+	npcRepo := new(MockNPCRepo)
+	memRepo := new(MockMemRepo)
+	relRepo := new(MockRelRepo)
+	desireRepo := new(MockDesireRepo)
+
+	pb := prompt.NewPromptBuilder()
+	client := ollama.NewClient("http://mock-ollama", "test-model")
+	cache := cache.NewDialogueCache(time.Minute)
+	service := NewDialogueService(npcRepo, memRepo, relRepo, desireRepo, pb, client, cache)
+
+	npcID := uuid.New()
+	speakerID := uuid.New()
+
+	// 1. NPC Repo Error
+	npcRepo.On("GetNPC", npcID).Return(&character.Character{}, errors.New("npc error")).Once()
+	_, err := service.GenerateDialogue(context.Background(), npcID, speakerID, "Hello")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "fetch npc state")
+
+	// 2. Relationship Repo Error
+	npcRepo.On("GetNPC", npcID).Return(&character.Character{Name: "Bob"}, nil)
+	npcRepo.On("GetPersonality", npcID).Return(personality.NewPersonality(), nil)
+	npcRepo.On("GetMood", npcID).Return(personality.NewMood("Neutral", 0.5), nil)
+	relRepo.On("GetRelationship", npcID, speakerID).Return(&relationship.Relationship{}, errors.New("rel error")).Once()
+
+	_, err = service.GenerateDialogue(context.Background(), npcID, speakerID, "Hello")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "fetch relationship")
+
+	// 3. Desire Repo Error
+	npcRepo.On("GetNPC", npcID).Return(&character.Character{Name: "Bob"}, nil)
+	npcRepo.On("GetPersonality", npcID).Return(personality.NewPersonality(), nil)
+	npcRepo.On("GetMood", npcID).Return(personality.NewMood("Neutral", 0.5), nil)
+	relRepo.On("GetRelationship", npcID, speakerID).Return(&relationship.Relationship{}, nil)
+	desireRepo.On("GetDesireProfile", npcID).Return(&desire.DesireProfile{}, errors.New("desire error")).Once()
+
+	_, err = service.GenerateDialogue(context.Background(), npcID, speakerID, "Hello")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "fetch desires")
+
+	// 4. Memory Repo Error
+	npcRepo.On("GetNPC", npcID).Return(&character.Character{Name: "Bob"}, nil)
+	npcRepo.On("GetPersonality", npcID).Return(personality.NewPersonality(), nil)
+	npcRepo.On("GetMood", npcID).Return(personality.NewMood("Neutral", 0.5), nil)
+	relRepo.On("GetRelationship", npcID, speakerID).Return(&relationship.Relationship{}, nil)
+	desireRepo.On("GetDesireProfile", npcID).Return(desire.NewDesireProfile(npcID), nil)
+	memRepo.On("GetMemories", npcID, 5).Return([]memory.Memory{}, errors.New("mem error")).Once()
+
+	_, err = service.GenerateDialogue(context.Background(), npcID, speakerID, "Hello")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "fetch memories")
 }
