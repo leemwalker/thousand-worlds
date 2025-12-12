@@ -80,14 +80,12 @@ services:
       resources:
         limits:
           memory: 8G
-    # !!! UNCOMMENT BELOW FOR NVIDIA GPU SUPPORT !!!
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
+    # GPU ACCELERATION (Optional - requires supported AMD GPU with ROCm)
+    # For AMD GPUs (RDNA2+), use rocm/ollama image and add devices:
+    # image: ollama/ollama:rocm
+    # devices:
+    #   - /dev/kfd
+    #   - /dev/dri
 
 networks:
   mud_net:

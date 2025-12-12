@@ -76,13 +76,16 @@ services:
       - mud_net
     deploy:
       resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [ gpu ]
+        limits:
+          memory: 8G
+    # GPU ACCELERATION (Optional - requires supported AMD GPU with ROCm)
+    # For AMD GPUs (RDNA2+), uncomment and use rocm/ollama image:
+    # image: ollama/ollama:rocm
+    # devices:
+    #   - /dev/kfd
+    #   - /dev/dri
 
-  # Application services
+    # Application services
   game-server:
     build:
       context: .
