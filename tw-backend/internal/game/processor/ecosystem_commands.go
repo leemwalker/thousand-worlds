@@ -57,7 +57,7 @@ func (p *GameProcessor) handleEcosystem(ctx context.Context, client websocket.Ga
 	}
 }
 
-func (p *GameProcessor) handleEcosystemStatus(ctx context.Context, client websocket.GameClient) error {
+func (p *GameProcessor) handleEcosystemStatus(_ context.Context, client websocket.GameClient) error {
 	// For MVP, just dump all entities irrespective of location
 	// Later filter by client.GetWorldID()
 
@@ -141,7 +141,7 @@ func (p *GameProcessor) handleEcosystemSpawn(ctx context.Context, client websock
 	return nil
 }
 
-func (p *GameProcessor) handleEcosystemLog(ctx context.Context, client websocket.GameClient, targetID string) error {
+func (p *GameProcessor) handleEcosystemLog(_ context.Context, client websocket.GameClient, targetID string) error {
 	// Find entity by partial ID
 	var targetEntity *state.LivingEntityState
 	for id, e := range p.ecosystemService.Entities {
@@ -177,7 +177,7 @@ func (p *GameProcessor) handleEcosystemLog(ctx context.Context, client websocket
 	return nil
 }
 
-func (p *GameProcessor) handleEcosystemLineage(ctx context.Context, client websocket.GameClient, targetID string) error {
+func (p *GameProcessor) handleEcosystemLineage(_ context.Context, client websocket.GameClient, targetID string) error {
 	// Find entity by partial ID
 	var targetEntity *state.LivingEntityState
 	for id, e := range p.ecosystemService.Entities {
@@ -224,7 +224,7 @@ func (p *GameProcessor) handleEcosystemLineage(ctx context.Context, client webso
 	return nil
 }
 
-func (p *GameProcessor) handleEcosystemBreed(ctx context.Context, client websocket.GameClient, args string) error {
+func (p *GameProcessor) handleEcosystemBreed(_ context.Context, client websocket.GameClient, args string) error {
 	// Parse args: "id1 id2"
 	parts := strings.Fields(args)
 	if len(parts) < 2 {

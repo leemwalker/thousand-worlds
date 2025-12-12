@@ -6,7 +6,7 @@ import (
 )
 
 // handleFly toggles flight mode for the character
-func (p *GameProcessor) handleFly(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+func (p *GameProcessor) handleFly(ctx context.Context, client websocket.GameClient, _ *websocket.CommandData) error {
 	charID := client.GetCharacterID()
 	char, err := p.authRepo.GetCharacter(ctx, charID)
 	if err != nil {

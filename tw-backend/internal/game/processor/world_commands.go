@@ -161,7 +161,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 					// Calculate simulated season based on tick
 					simulatedYear := (tick + i) / 100
 					season := p.getSeasonFromYear(simulatedYear)
-					p.weatherService.UpdateWorldWeather(ctx, char.WorldID, time.Now(), season)
+					_, _ = p.weatherService.UpdateWorldWeather(ctx, char.WorldID, time.Now(), season)
 				}
 				lastWeatherUpdate = tick + i
 			}

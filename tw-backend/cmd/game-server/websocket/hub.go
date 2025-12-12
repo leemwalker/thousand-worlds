@@ -124,7 +124,7 @@ func (h *Hub) BroadcastToCharacter(characterID uuid.UUID, msgType string, data i
 	h.mu.RUnlock()
 
 	if ok {
-		client.SendMessage(msgType, data)
+		_ = client.SendMessage(msgType, data)
 	}
 }
 
@@ -138,7 +138,7 @@ func (h *Hub) BroadcastToAll(msgType string, data interface{}) {
 	h.mu.RUnlock()
 
 	for _, client := range clients {
-		client.SendMessage(msgType, data)
+		_ = client.SendMessage(msgType, data)
 	}
 }
 
@@ -188,7 +188,7 @@ func (h *Hub) BroadcastToArea(center spatial.Position, radius float64, msgType s
 	if len(clients) < workerThreshold {
 		// Small broadcast - send serially (avoid goroutine overhead)
 		for _, client := range clients {
-			client.SendMessage(msgType, data)
+			_ = client.SendMessage(msgType, data)
 		}
 		return
 	}
@@ -212,7 +212,7 @@ func (h *Hub) broadcastConcurrent(clients []*Client, msgType string, data interf
 		go func() {
 			defer wg.Done()
 			for client := range jobs {
-				client.SendMessage(msgType, data)
+				_ = client.SendMessage(msgType, data)
 			}
 		}()
 	}
