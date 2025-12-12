@@ -1,5 +1,4 @@
-# Development docker-compose with application services
-version: '3.8'
+# Production docker-compose with application services
 
 services:
   # Infrastructure services (from existing docker-compose.yml)
