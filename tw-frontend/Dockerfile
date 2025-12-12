@@ -1,8 +1,16 @@
-FROM node:22-alpine AS builder
+# Use Debian-based image for building (better native module compatibility)
+FROM node:22-slim AS builder
 
-# Install build dependencies for native modules (canvas, node-gyp)
-RUN apk add --no-cache python3 make g++ \
-    cairo-dev pango-dev jpeg-dev giflib-dev librsvg-dev
+# Install build dependencies for canvas
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libcairo2-dev \
+    libpango1.0-dev \
+    libjpeg-dev \
+    libgif-dev \
+    librsvg2-dev \
+    libpixman-1-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -11,6 +19,7 @@ COPY . .
 RUN npm run build
 RUN npm prune --production
 
+# Use Alpine for smaller runtime image
 FROM node:22-alpine
 WORKDIR /app
 COPY --from=builder /app/build build/
