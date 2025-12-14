@@ -97,8 +97,8 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	ticksPerYear := int64(100)
 	totalTicks := years * ticksPerYear
 
-	// Cap at 100M ticks to prevent infinite runs (1M years max)
-	maxTicks := int64(100_000_000)
+	// Cap at 10M ticks to keep simulation reasonable (100k years max for now)
+	maxTicks := int64(10_000_000)
 	if totalTicks > maxTicks {
 		totalTicks = maxTicks
 		client.SendGameMessage("system", fmt.Sprintf("Capping simulation to %d years (limit).", maxTicks/ticksPerYear), nil)
@@ -119,10 +119,20 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	batchSize := int64(10000)
 	weatherUpdateInterval := int64(100)     // Every 100 ticks (1 year)
 	geologyUpdateInterval := int64(1000000) // Every 1M ticks (10,000 years)
+	progressInterval := totalTicks / 10     // Report every 10%
 	lastWeatherUpdate := int64(0)
 	lastGeologyUpdate := int64(0)
+	lastProgressReport := int64(0)
 
 	for tick := int64(0); tick < totalTicks; tick += batchSize {
+		// Progress reporting
+		if tick-lastProgressReport >= progressInterval && progressInterval > 0 {
+			percent := (tick * 100) / totalTicks
+			yearsCompleted := tick / ticksPerYear
+			client.SendGameMessage("system", fmt.Sprintf("⏳ Progress: %d%% (%d years, %d entities)", percent, yearsCompleted, len(p.ecosystemService.Entities)), nil)
+			lastProgressReport = tick
+		}
+
 		remaining := totalTicks - tick
 		currentBatch := batchSize
 		if remaining < currentBatch {

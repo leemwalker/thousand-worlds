@@ -46,7 +46,26 @@ func (s *Service) SpawnBiomes(biomes []geography.Biome) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for _, b := range biomes {
+	// Cap total entities to prevent memory issues
+	const maxEntities = 1000
+
+	// If we have many biomes, sample them rather than spawning for all
+	biomesToProcess := biomes
+	if len(biomes) > 200 {
+		// Sample ~200 biomes randomly
+		sampled := make([]geography.Biome, 200)
+		step := len(biomes) / 200
+		for i := 0; i < 200; i++ {
+			sampled[i] = biomes[i*step]
+		}
+		biomesToProcess = sampled
+	}
+
+	for _, b := range biomesToProcess {
+		if len(s.Entities) >= maxEntities {
+			break // Cap reached
+		}
+
 		// Calculate density based on biome type
 		count := 5 // default
 		if b.Type == geography.BiomeDesert {
@@ -54,6 +73,12 @@ func (s *Service) SpawnBiomes(biomes []geography.Biome) {
 		}
 		if b.Type == geography.BiomeRainforest {
 			count = 10
+		}
+
+		// Don't exceed max
+		remaining := maxEntities - len(s.Entities)
+		if count > remaining {
+			count = remaining
 		}
 
 		newEntities := s.Spawner.SpawnEntitiesForBiome(b.Type, count)
