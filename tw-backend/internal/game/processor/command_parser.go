@@ -45,6 +45,8 @@ func NewCommandParser() *CommandParser {
 			"create":    nil,
 			"weather":   {"climate", "forecast"},
 			"ecosystem": {"eco"},
+			"world":     nil,
+			"fly":       nil,
 		},
 	}
 }
@@ -150,6 +152,26 @@ func (p *CommandParser) ParseText(text string) *websocket.CommandData {
 			cmd.Message = &message
 		} else if len(args) == 1 {
 			target := args[0]
+			cmd.Target = &target
+		}
+
+	case "world":
+		// Format: world <subcommand> <args>
+		// e.g. world simulate 1000000 -> Target="simulate", Message="1000000"
+		if len(args) >= 2 {
+			target := args[0]
+			message := strings.Join(args[1:], " ")
+			cmd.Target = &target
+			cmd.Message = &message
+		} else if len(args) == 1 {
+			target := args[0]
+			cmd.Target = &target
+		}
+
+	case "fly":
+		// Format: fly <height>
+		if len(args) >= 1 {
+			target := strings.Join(args, " ")
 			cmd.Target = &target
 		}
 
