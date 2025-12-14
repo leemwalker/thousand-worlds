@@ -105,22 +105,44 @@ func (s *Service) Tick() {
 	defer s.mu.Unlock()
 
 	for id, entity := range s.Entities {
-		// 1. Update Biological Needs
+		// 1. Age the entity
+		entity.Age++
+
+		// 2. Update Biological Needs
 		// TODO: Pass actual environment multipliers
 		s.Needs.Tick(entity, nil)
 
-		// 2. Run AI
+		// 3. Run AI
 		if tree, ok := s.Behaviors[id]; ok {
 			tree.Tick(entity)
 		}
 
-		// 3. Check Death (flora don't die from hunger/thirst)
+		// 4. Check Death
+		shouldDie := false
+
+		// Age-based death (lifespan varies by diet type)
+		// Flora: ~500 ticks, Herbivores: ~300, Carnivores: ~400
+		maxAge := int64(500)
+		switch entity.Diet {
+		case state.DietHerbivore:
+			maxAge = 300
+		case state.DietCarnivore, state.DietOmnivore:
+			maxAge = 400
+		}
+		if entity.Age > maxAge {
+			shouldDie = true
+		}
+
+		// Starvation/dehydration death (not for flora)
 		if entity.Diet != state.DietPhotosynthetic {
 			if entity.Needs.Hunger >= 100 || entity.Needs.Thirst >= 100 {
-				// Kill entity
-				delete(s.Entities, id)
-				delete(s.Behaviors, id)
+				shouldDie = true
 			}
+		}
+
+		if shouldDie {
+			delete(s.Entities, id)
+			delete(s.Behaviors, id)
 		}
 	}
 }
