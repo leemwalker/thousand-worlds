@@ -8,7 +8,10 @@ import (
 	"time"
 	"tw-backend/cmd/game-server/websocket"
 	"tw-backend/internal/ecosystem"
+	"tw-backend/internal/ecosystem/state"
 	"tw-backend/internal/worldgen/weather"
+
+	"github.com/google/uuid"
 )
 
 // handleWorld handles world-level commands including simulation
@@ -81,6 +84,13 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		client.SendGameMessage("system", "Initializing world geology...", nil)
 		geology.InitializeGeology()
 		client.SendGameMessage("system", "Geology initialized with tectonic plates and terrain.", nil)
+
+		// Spawn initial creatures based on generated biomes
+		if len(geology.Biomes) > 0 {
+			client.SendGameMessage("system", "Spawning initial life forms...", nil)
+			p.ecosystemService.SpawnBiomes(geology.Biomes)
+			client.SendGameMessage("system", fmt.Sprintf("Spawned %d entities across %d biomes.", len(p.ecosystemService.Entities), len(geology.Biomes)), nil)
+		}
 	}
 
 	// Conversion: 100 ticks = 1 year
@@ -174,6 +184,10 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			lastGeologyUpdate = tick + currentBatch
 		}
 
+		// Reproduction pass: entities with high reproduction urge can mate
+		// Process at batch level for performance
+		p.processReproduction()
+
 		// Update max generation
 		for _, e := range p.ecosystemService.Entities {
 			if e.Generation > generations {
@@ -266,5 +280,56 @@ func (p *GameProcessor) getSeasonFromYear(simulatedYear int64) weather.Season {
 		return weather.SeasonFall
 	default:
 		return weather.SeasonWinter
+	}
+}
+
+// processReproduction handles reproduction for entities with high reproduction urge
+func (p *GameProcessor) processReproduction() {
+	em := p.ecosystemService.GetEvolutionManager()
+	if em == nil {
+		return
+	}
+
+	// Collect entities ready to reproduce (urge > 80)
+	var readyToMate []*state.LivingEntityState
+	for _, e := range p.ecosystemService.Entities {
+		if e.Needs.ReproductionUrge > 80 {
+			readyToMate = append(readyToMate, e)
+		}
+	}
+
+	// Match pairs of same species
+	mated := make(map[uuid.UUID]bool)
+	for i, e1 := range readyToMate {
+		if mated[e1.EntityID] {
+			continue
+		}
+		for j := i + 1; j < len(readyToMate); j++ {
+			e2 := readyToMate[j]
+			if mated[e2.EntityID] {
+				continue
+			}
+			// Same species required
+			if e1.Species != e2.Species {
+				continue
+			}
+
+			// Reproduce
+			child, err := em.Reproduce(e1, e2)
+			if err != nil {
+				continue
+			}
+
+			// Add child to ecosystem
+			p.ecosystemService.Entities[child.EntityID] = child
+
+			// Reset parents' urge
+			e1.Needs.ReproductionUrge = 0
+			e2.Needs.ReproductionUrge = 0
+
+			mated[e1.EntityID] = true
+			mated[e2.EntityID] = true
+			break
+		}
 	}
 }
