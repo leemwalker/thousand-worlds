@@ -41,11 +41,21 @@ export class GameWebSocket {
             this.currentCharacterId = characterId;
         }
 
-        // Use the same host that served the page, but with ws:// protocol
-        // This works for both localhost development (via Vite proxy) and production
+        // Build WebSocket URL
+        // In development (Vite proxy on port 5173), use the same host
+        // In production, WebSocket must go directly to game-server on port 8080
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.host; // Use current host (e.g. localhost:5173)
-        let wsUrl = `${protocol}//${host}/api/game/ws`; // Cookie sent automatically!
+        const hostname = window.location.hostname;
+        const port = window.location.port;
+
+        // If running on frontend's production port (3000) or any non-dev port, 
+        // connect directly to backend on port 8080
+        const isDevServer = port === '5173';
+        const wsHost = isDevServer
+            ? `${hostname}:${port}` // Use Vite proxy in development
+            : `${hostname}:8080`;   // Direct to backend in production
+
+        let wsUrl = `${protocol}//${wsHost}/api/game/ws`;
 
 
         if (this.currentCharacterId) {
