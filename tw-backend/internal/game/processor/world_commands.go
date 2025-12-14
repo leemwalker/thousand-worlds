@@ -212,6 +212,12 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	// Get geology stats for summary
 	geoStats := geology.GetStats()
 
+	// Count species populations
+	speciesCounts := make(map[state.Species]int)
+	for _, e := range p.ecosystemService.Entities {
+		speciesCounts[e.Species]++
+	}
+
 	// Summary
 	finalCount := len(p.ecosystemService.Entities)
 	var sb strings.Builder
@@ -228,6 +234,37 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	sb.WriteString(fmt.Sprintf("Max Elevation: %.0fm\n", geoStats.MaxElevation))
 	sb.WriteString(fmt.Sprintf("Sea Level: %.0fm\n", geoStats.SeaLevel))
 	sb.WriteString(fmt.Sprintf("Land Coverage: %.1f%%\n", geoStats.LandPercent))
+
+	// Species breakdown (top 5)
+	sb.WriteString("--- Species Population ---\n")
+	type speciesCount struct {
+		species state.Species
+		count   int
+	}
+	var speciesList []speciesCount
+	for s, c := range speciesCounts {
+		speciesList = append(speciesList, speciesCount{s, c})
+	}
+	// Sort by count descending
+	for i := 0; i < len(speciesList); i++ {
+		for j := i + 1; j < len(speciesList); j++ {
+			if speciesList[j].count > speciesList[i].count {
+				speciesList[i], speciesList[j] = speciesList[j], speciesList[i]
+			}
+		}
+	}
+	// Show top 5
+	shown := 0
+	for _, sc := range speciesList {
+		if shown >= 5 {
+			break
+		}
+		sb.WriteString(fmt.Sprintf("%s: %d\n", sc.species, sc.count))
+		shown++
+	}
+	if len(speciesList) > 5 {
+		sb.WriteString(fmt.Sprintf("...and %d more species\n", len(speciesList)-5))
+	}
 
 	client.SendGameMessage("system", sb.String(), nil)
 	return nil
