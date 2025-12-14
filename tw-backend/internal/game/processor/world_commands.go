@@ -300,6 +300,12 @@ func (p *GameProcessor) processReproduction() {
 		return
 	}
 
+	// Population cap - no reproduction if at capacity
+	const maxPopulation = 2000
+	if len(p.ecosystemService.Entities) >= maxPopulation {
+		return
+	}
+
 	// Collect entities ready to reproduce (urge > 80)
 	var readyToMate []*state.LivingEntityState
 	for _, e := range p.ecosystemService.Entities {
