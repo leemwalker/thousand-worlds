@@ -177,6 +177,95 @@ func (ps *PopulationSimulator) ApplyContinentalEffects() int {
 	return affectedSpecies
 }
 
+// ApplyHabitatFragmentation applies effects of local habitat fragmentation
+// Fragmentation reduces gene flow, increases genetic drift, stresses large species
+func (ps *PopulationSimulator) ApplyHabitatFragmentation() int {
+	affectedSpecies := 0
+
+	for _, biome := range ps.Biomes {
+		frag := biome.Fragmentation
+
+		for _, species := range biome.Species {
+			if species.Count == 0 {
+				continue
+			}
+
+			// HIGHLY FRAGMENTED (>0.6): Stress effects
+			if frag > 0.6 {
+				// Large species suffer most from fragmentation (need large ranges)
+				if species.Traits.Size > 4.0 {
+					stress := (frag - 0.6) * (species.Traits.Size / 10.0)
+					if ps.rng.Float64() < stress*0.1 {
+						// Population penalty for large species
+						species.Count = int64(float64(species.Count) * (1.0 - stress*0.05))
+						if species.Count < 1 {
+							species.Count = 1
+						}
+						affectedSpecies++
+					}
+				}
+
+				// Increased genetic drift in fragmented habitats
+				if ps.rng.Float64() < frag*0.1 {
+					driftAmount := ps.rng.NormFloat64() * frag * 0.01
+					traitIndex := ps.rng.Intn(5)
+					switch traitIndex {
+					case 0:
+						species.Traits.Size += driftAmount * 2
+					case 1:
+						species.Traits.Speed += driftAmount * 2
+					case 2:
+						species.Traits.Strength += driftAmount * 2
+					case 3:
+						species.TraitVariance += driftAmount * 0.5
+					case 4:
+						species.Traits.Intelligence += driftAmount
+					}
+					species.Traits = clampTraits(species.Traits)
+					affectedSpecies++
+				}
+			}
+
+			// CONNECTED HABITAT (<0.3): Genetic homogenization
+			if frag < 0.3 && ps.rng.Float64() < 0.05 {
+				// Well-connected habitats slowly reduce extreme traits
+				species.TraitVariance *= 0.999
+				if species.TraitVariance < 0.01 {
+					species.TraitVariance = 0.01
+				}
+			}
+		}
+	}
+
+	return affectedSpecies
+}
+
+// UpdateBiomeFragmentation changes fragmentation based on population and events
+func (ps *PopulationSimulator) UpdateBiomeFragmentation() {
+	for _, biome := range ps.Biomes {
+		// Fragmentation naturally increases slightly over time (habitat loss)
+		biome.Fragmentation += ps.rng.NormFloat64() * 0.001
+
+		// High population density can fragment habitat
+		totalPop := biome.TotalPopulation()
+		density := float64(totalPop) / float64(biome.CarryingCapacity+1)
+		if density > 0.8 {
+			biome.Fragmentation += 0.001 * (density - 0.8)
+		}
+
+		// Mean reversion toward 0.3 (equilibrium)
+		biome.Fragmentation += (0.3 - biome.Fragmentation) * 0.0001
+
+		// Clamp
+		if biome.Fragmentation < 0 {
+			biome.Fragmentation = 0
+		}
+		if biome.Fragmentation > 1.0 {
+			biome.Fragmentation = 1.0
+		}
+	}
+}
+
 // UpdateOxygenLevel slowly varies atmospheric oxygen over geological time
 // Based on historical Earth data: O2 varied from 15% to 35% over billions of years
 // Returns the new oxygen level

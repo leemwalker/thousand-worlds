@@ -225,6 +225,7 @@ type BiomePopulation struct {
 	BiomeType        geography.BiomeType              `json:"biome_type"`
 	Species          map[uuid.UUID]*SpeciesPopulation `json:"species"`
 	CarryingCapacity int64                            `json:"carrying_capacity"` // Max total population
+	Fragmentation    float64                          `json:"fragmentation"`     // 0.0 = connected, 1.0 = isolated patches
 	YearsSimulated   int64                            `json:"years_simulated"`
 }
 
