@@ -245,6 +245,74 @@ func CalculateBiomeFitness(traits EvolvableTraits, biomeType geography.BiomeType
 		fitness += traits.Camouflage * 0.1
 	}
 
+	// Covering affects biome fitness
+	coveringFitness := 0.0
+
+	switch traits.Covering {
+	case CoveringFur:
+		// Insulation in cold climates
+		if biomeType == geography.BiomeTundra || biomeType == geography.BiomeTaiga {
+			coveringFitness += 0.2
+		}
+		if biomeType == geography.BiomeAlpine {
+			coveringFitness += 0.15 // Thinner air needs more insulation
+		}
+		// Overheating in hot/humid climates
+		if biomeType == geography.BiomeDesert {
+			coveringFitness -= 0.15 // Dry heat worse
+		}
+		if biomeType == geography.BiomeRainforest {
+			coveringFitness -= 0.1 // Humidity problematic
+		}
+		// Size interaction: large furred animals overheat more (square-cube law)
+		if traits.Size > 5.0 && (biomeType == geography.BiomeDesert || biomeType == geography.BiomeRainforest) {
+			coveringFitness -= 0.1 * (traits.Size - 5.0) / 5.0
+		}
+
+	case CoveringScales:
+		// Water retention in arid environments
+		if biomeType == geography.BiomeDesert {
+			coveringFitness += 0.15
+		}
+		// Hydrodynamics in aquatic
+		if biomeType == geography.BiomeOcean {
+			coveringFitness += 0.1
+		}
+		// Less insulation in extreme cold
+		if biomeType == geography.BiomeTundra {
+			coveringFitness -= 0.1
+		}
+
+	case CoveringFeathers:
+		// Best insulation-to-weight ratio
+		if biomeType == geography.BiomeAlpine || biomeType == geography.BiomeTaiga {
+			coveringFitness += 0.18
+		}
+		// Water resistance
+		if biomeType == geography.BiomeRainforest {
+			coveringFitness += 0.05
+		}
+
+	case CoveringShell:
+		// Mobility penalty in all biomes
+		coveringFitness -= 0.05
+		// Desiccation resistance
+		if biomeType == geography.BiomeDesert {
+			coveringFitness += 0.1
+		}
+
+	case CoveringSkin:
+		// Amphibian-like: needs moisture
+		if biomeType == geography.BiomeRainforest || biomeType == geography.BiomeOcean {
+			coveringFitness += 0.1
+		}
+		if biomeType == geography.BiomeDesert {
+			coveringFitness -= 0.2 // Dries out
+		}
+	}
+
+	fitness += coveringFitness
+
 	// Clamp fitness to reasonable range
 	if fitness < 0.5 {
 		fitness = 0.5
