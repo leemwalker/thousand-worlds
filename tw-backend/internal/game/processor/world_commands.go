@@ -162,9 +162,21 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			floraTraits := population.DefaultTraitsForDiet(population.DietPhotosynthetic)
 			floraTraits.FloraGrowth = population.GetFloraGrowthForBiome(biomeType)
 			floraTraits.Covering = population.GetCoveringForDiet(population.DietPhotosynthetic, biomeType)
+
+			// Boost traits for harsh biomes
+			switch biomeType {
+			case geography.BiomeDesert:
+				floraTraits.HeatResistance = 0.9
+				floraTraits.Fertility = 3.0 // Desert plants adapted to reproduce rapidly
+			case geography.BiomeOcean:
+				floraTraits.Fertility = 2.5
+			case geography.BiomeTundra, geography.BiomeAlpine:
+				floraTraits.ColdResistance = 0.9
+			}
+
 			floraSpecies := &population.SpeciesPopulation{
 				SpeciesID:     uuid.New(),
-				Name:          population.GenerateSpeciesName(floraTraits, population.DietPhotosynthetic, biomeType),
+				Name:          fmt.Sprintf("%s %s", biomeType, population.GenerateSpeciesName(floraTraits, population.DietPhotosynthetic, biomeType)),
 				Count:         500,
 				Traits:        floraTraits,
 				TraitVariance: 0.3,
@@ -177,9 +189,23 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			// Herbivore with biome-specific covering
 			herbTraits := population.DefaultTraitsForDiet(population.DietHerbivore)
 			herbTraits.Covering = population.GetCoveringForDiet(population.DietHerbivore, biomeType)
+
+			// Boost herbivore traits for harsh biomes
+			switch biomeType {
+			case geography.BiomeDesert:
+				herbTraits.HeatResistance = 0.9
+				herbTraits.Fertility = 1.5
+				herbTraits.Speed = 3.0 // Slower, conserve energy
+			case geography.BiomeOcean:
+				herbTraits.Fertility = 1.5
+				herbTraits.Speed = 4.0
+			case geography.BiomeTundra, geography.BiomeAlpine:
+				herbTraits.ColdResistance = 0.9
+			}
+
 			herbSpecies := &population.SpeciesPopulation{
 				SpeciesID:     uuid.New(),
-				Name:          population.GenerateSpeciesName(herbTraits, population.DietHerbivore, biomeType),
+				Name:          fmt.Sprintf("%s %s", biomeType, population.GenerateSpeciesName(herbTraits, population.DietHerbivore, biomeType)),
 				Count:         200,
 				Traits:        herbTraits,
 				TraitVariance: 0.3,
@@ -192,9 +218,21 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			// Carnivore with biome-specific covering
 			carnTraits := population.DefaultTraitsForDiet(population.DietCarnivore)
 			carnTraits.Covering = population.GetCoveringForDiet(population.DietCarnivore, biomeType)
+
+			// Boost carnivore traits for harsh biomes
+			switch biomeType {
+			case geography.BiomeDesert:
+				carnTraits.HeatResistance = 0.85
+				carnTraits.NightVision = 0.8 // Hunt at night
+			case geography.BiomeOcean:
+				carnTraits.Speed = 7.0 // Fast swimmers
+			case geography.BiomeTundra, geography.BiomeAlpine:
+				carnTraits.ColdResistance = 0.9
+			}
+
 			carnSpecies := &population.SpeciesPopulation{
 				SpeciesID:     uuid.New(),
-				Name:          population.GenerateSpeciesName(carnTraits, population.DietCarnivore, biomeType),
+				Name:          fmt.Sprintf("%s %s", biomeType, population.GenerateSpeciesName(carnTraits, population.DietCarnivore, biomeType)),
 				Count:         50,
 				Traits:        carnTraits,
 				TraitVariance: 0.3,
