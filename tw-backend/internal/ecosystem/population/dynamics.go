@@ -15,6 +15,8 @@ type PopulationSimulator struct {
 	CurrentYear              int64
 	OxygenLevel              float64 // Atmospheric O2 as fraction (0.21 = 21%, modern baseline)
 	ContinentalFragmentation float64 // 0.0 = supercontinent (Pangaea), 1.0 = fully fragmented
+	RecoveryPhase            bool    // True if recovering from mass extinction
+	RecoveryCounter          int64   // Years remaining in recovery phase
 	rng                      *rand.Rand
 }
 
@@ -238,6 +240,43 @@ func (ps *PopulationSimulator) ApplyHabitatFragmentation() int {
 	}
 
 	return affectedSpecies
+}
+
+// ApplyRecoveryEffects applies dynamics specific to post-extinction recovery
+// - Lilliput Effect: Large species are disadvantaged, small species thrive
+// - Disaster Taxa: Generalists (high variance) get a boost
+func (ps *PopulationSimulator) ApplyRecoveryEffects() {
+	if !ps.RecoveryPhase {
+		return
+	}
+
+	for _, biome := range ps.Biomes {
+		for _, species := range biome.Species {
+			if species.Count == 0 {
+				continue
+			}
+
+			// Lilliput Effect: Large species suffer higher mortality during recovery instability
+			if species.Traits.Size > 3.0 {
+				sizePenalty := (species.Traits.Size - 3.0) * 0.05
+				if ps.rng.Float64() < sizePenalty {
+					species.Count = int64(float64(species.Count) * 0.9) // 10% reduction
+				}
+			} else if species.Traits.Size < 1.0 {
+				// Small species ("disaster taxa") reproduce faster in empty niches
+				if ps.rng.Float64() < 0.2 {
+					species.Count = int64(float64(species.Count) * 1.1)
+				}
+			}
+
+			// Generalists (high variance) survive better in unstable recovery period
+			if species.TraitVariance > 0.5 {
+				if ps.rng.Float64() < 0.1 {
+					species.Count = int64(float64(species.Count) * 1.05)
+				}
+			}
+		}
+	}
 }
 
 // UpdateBiomeFragmentation changes fragmentation based on population and events
@@ -483,6 +522,12 @@ func (ps *PopulationSimulator) SimulateYear() {
 
 	// Apply age structure transitions (juveniles mature, mortality by age)
 	ps.ApplyAgeStructure()
+
+	// Check for mass extinction events (triggers recovery phase)
+	ps.CheckForMassExtinction()
+
+	// Apply post-extinction recovery dynamics (Lilliput effect, etc.)
+	ps.ApplyRecoveryEffects()
 }
 
 // simulateBiomeYear runs population dynamics for a single biome
@@ -867,25 +912,89 @@ func (ps *PopulationSimulator) ApplyCoEvolution() int {
 	return coevolutionEvents
 }
 
+// CheckForMassExtinction detects if a mass extinction event has occurred
+// Triggers recovery phase if >50% of species went extinct recently
+func (ps *PopulationSimulator) CheckForMassExtinction() {
+	if ps.RecoveryPhase {
+		ps.RecoveryCounter--
+		if ps.RecoveryCounter <= 0 {
+			ps.RecoveryPhase = false
+		}
+		return
+	}
+
+	// Only check periodically to save performance (every 100 years)
+	if ps.CurrentYear%100 != 0 {
+		return
+	}
+
+	if ps.FossilRecord == nil || len(ps.FossilRecord.Extinct) == 0 {
+		return
+	}
+
+	// Count extinctions in last 500 years
+	recentExtinctions := 0
+	checkWindow := int64(500)
+	for i := len(ps.FossilRecord.Extinct) - 1; i >= 0; i-- {
+		fossil := ps.FossilRecord.Extinct[i]
+		if ps.CurrentYear-fossil.ExistedUntil < checkWindow {
+			recentExtinctions++
+		} else {
+			break // Sorted by time usually, or just optimization
+		}
+	}
+
+	if recentExtinctions == 0 {
+		return
+	}
+
+	// Estimate total species count checkWindow years ago
+	currentSpecies := 0
+	for _, biome := range ps.Biomes {
+		currentSpecies += len(biome.Species)
+	}
+
+	totalThen := currentSpecies + recentExtinctions
+	if totalThen < 10 {
+		return // Too few species to call it a mass extinction
+	}
+
+	extinctionRate := float64(recentExtinctions) / float64(totalThen)
+
+	// Mass extinction threshold: >50% loss
+	if extinctionRate > 0.5 {
+		ps.RecoveryPhase = true
+		ps.RecoveryCounter = 20000 // 20k years of recovery/adaptive radiation
+	}
+}
+
 // CheckSpeciation checks if any species should split based on trait divergence
 // Returns the number of new species created
 func (ps *PopulationSimulator) CheckSpeciation() int {
 	newSpeciesCount := 0
 
-	// Calculate adaptive radiation bonus (more speciation after extinctions)
+	// Adaptive radiation bonus
 	adaptiveRadiationBonus := 0.0
-	if ps.FossilRecord != nil && len(ps.FossilRecord.Extinct) > 0 {
-		// Check for recent extinctions (within last 50000 years)
+
+	// Bonus from recovery phase (post-mass extinction)
+	if ps.RecoveryPhase {
+		adaptiveRadiationBonus = 0.4 // High speciation during recovery
+	} else if ps.FossilRecord != nil && len(ps.FossilRecord.Extinct) > 0 {
+		// Minor bonus from recent local extinctions
 		recentExtinctions := 0
-		for _, fossil := range ps.FossilRecord.Extinct {
+		for i := len(ps.FossilRecord.Extinct) - 1; i >= 0; i-- {
+			fossil := ps.FossilRecord.Extinct[i]
 			if ps.CurrentYear-fossil.ExistedUntil < 50000 {
 				recentExtinctions++
+			} else {
+				if ps.CurrentYear-fossil.ExistedUntil > 50000 {
+					break // Optimization
+				}
 			}
 		}
-		// Each recent extinction increases speciation chance (adaptive radiation)
-		adaptiveRadiationBonus = float64(recentExtinctions) * 0.02
-		if adaptiveRadiationBonus > 0.3 {
-			adaptiveRadiationBonus = 0.3 // Cap at 30% bonus
+		adaptiveRadiationBonus = float64(recentExtinctions) * 0.01
+		if adaptiveRadiationBonus > 0.1 {
+			adaptiveRadiationBonus = 0.1
 		}
 	}
 
