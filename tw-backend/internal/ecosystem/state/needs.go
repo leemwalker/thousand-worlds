@@ -15,11 +15,12 @@ const (
 	ThresholdEnergyCritical = 10.0 // When energy is low, it's critical (assuming 100=Rested, 0=Exhausted)
 	ThresholdMateReady      = 80.0
 
-	// Base Decay Rates (per tick)
-	BaseHungerRate       = 0.05
-	BaseThirstRate       = 0.08
-	BaseEnergyRate       = 0.03
-	BaseReproductionRate = 0.2
+	// Base Decay Rates (per tick) - Slow for long simulations
+	// At these rates: hunger reaches 100 in 20,000 ticks (200 years)
+	BaseHungerRate       = 0.005
+	BaseThirstRate       = 0.005
+	BaseEnergyRate       = 0.003
+	BaseReproductionRate = 0.02
 )
 
 // NeedSystem manages the calculation of needs
