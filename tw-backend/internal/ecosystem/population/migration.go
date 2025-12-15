@@ -206,22 +206,51 @@ func (ps *PopulationSimulator) ApplyMigrationCycle() int64 {
 }
 
 // ApplyBiomeTransitions checks for and applies biome type changes
-func (ps *PopulationSimulator) ApplyBiomeTransitions(eventType ExtinctionEventType, severity float64) {
+// Returns the number of biomes that transitioned
+func (ps *PopulationSimulator) ApplyBiomeTransitions(eventType ExtinctionEventType, severity float64) int {
 	var event string
+	minSeverity := 0.5 // Default severity threshold
+
 	switch eventType {
 	case EventIceAge:
 		event = "ice_age"
+		minSeverity = 0.5
+	case EventAsteroidImpact:
+		if severity > 0.8 {
+			event = "ice_age" // Nuclear winter from impact debris
+			minSeverity = 0.8
+		} else {
+			return 0
+		}
+	case EventFloodBasalt:
+		event = "warming" // Volcanic CO2 causes global warming
+		minSeverity = 0.7
 	case EventVolcanicWinter:
-		// Volcanic winter doesn't change biomes directly
-		return
+		if severity > 0.7 {
+			event = "ice_age" // Extreme volcanic winter
+			minSeverity = 0.7
+		} else {
+			return 0
+		}
+	case EventContinentalDrift:
+		// Continental drift can cause drought in interior regions
+		event = "drought"
+		minSeverity = 0.6
 	default:
-		return
+		return 0
 	}
 
+	if severity < minSeverity {
+		return 0
+	}
+
+	transitioned := 0
 	for _, biome := range ps.Biomes {
 		newType := GetBiomeTransitionTarget(biome.BiomeType, event)
-		if newType != biome.BiomeType && severity > 0.5 {
+		if newType != biome.BiomeType {
 			TransitionBiome(biome, newType, severity)
+			transitioned++
 		}
 	}
+	return transitioned
 }

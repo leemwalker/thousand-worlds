@@ -279,6 +279,12 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		// Check for speciation every 10000 years
 		if popSim.CurrentYear%10000 == 0 {
 			popSim.CheckSpeciation()
+
+			// Allow species to migrate between biomes
+			migrants := popSim.ApplyMigrationCycle()
+			if migrants > 100 {
+				client.SendGameMessage("system", fmt.Sprintf("🦋 %d individuals migrated to new biomes", migrants), nil)
+			}
 		}
 
 		// Check for geological events (every 10000 years)
@@ -300,6 +306,12 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 					deaths := popSim.ApplyExtinctionEvent(eventType, e.Severity)
 					if deaths > 100 {
 						client.SendGameMessage("system", fmt.Sprintf("   💀 %d organisms perished", deaths), nil)
+					}
+
+					// Apply biome transitions from climate change
+					transitioned := popSim.ApplyBiomeTransitions(eventType, e.Severity)
+					if transitioned > 0 {
+						client.SendGameMessage("system", fmt.Sprintf("   🌍 %d biomes shifted due to climate change", transitioned), nil)
 					}
 				}
 			}
