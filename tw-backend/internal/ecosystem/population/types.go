@@ -209,7 +209,9 @@ type SpeciesPopulation struct {
 	SpeciesID     uuid.UUID       `json:"species_id"`
 	Name          string          `json:"name"`           // e.g., "Plains Deer", "Mountain Wolf"
 	AncestorID    *uuid.UUID      `json:"ancestor_id"`    // Parent species (for lineage tracking)
-	Count         int64           `json:"count"`          // Current population
+	Count         int64           `json:"count"`          // Current total population
+	JuvenileCount int64           `json:"juvenile_count"` // Pre-reproductive individuals
+	AdultCount    int64           `json:"adult_count"`    // Reproductive adults
 	Traits        EvolvableTraits `json:"traits"`         // Average traits for population
 	TraitVariance float64         `json:"trait_variance"` // Genetic diversity (0.0 to 1.0)
 	Diet          DietType        `json:"diet"`

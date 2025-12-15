@@ -42,6 +42,51 @@ func CalculateReproductionModifier(size float64) float64 {
 	return math.Sqrt(5.0 / size)
 }
 
+// CalculateJuvenileSurvival returns the probability of a juvenile surviving to adulthood
+// K-strategists (large, intelligent) have higher juvenile survival due to parental care
+// r-strategists (small, high litter) have lower survival but compensate with numbers
+func CalculateJuvenileSurvival(traits EvolvableTraits) float64 {
+	// Base survival rate
+	baseSurvival := 0.3
+
+	// Size increases survival (larger animals protect offspring better)
+	sizeBonus := math.Min(0.3, traits.Size*0.03)
+
+	// Intelligence increases survival (better parenting, teaching)
+	intelligenceBonus := traits.Intelligence * 0.2
+
+	// Social animals have group protection for young
+	socialBonus := traits.Social * 0.1
+
+	// High fertility (r-strategy) typically means lower per-offspring investment
+	fertilityPenalty := math.Min(0.2, (traits.Fertility-1.0)*0.1)
+	if fertilityPenalty < 0 {
+		fertilityPenalty = 0
+	}
+
+	survival := baseSurvival + sizeBonus + intelligenceBonus + socialBonus - fertilityPenalty
+
+	// Clamp to reasonable range
+	if survival < 0.1 {
+		survival = 0.1
+	}
+	if survival > 0.9 {
+		survival = 0.9
+	}
+
+	return survival
+}
+
+// CalculateMaturationRate returns the fraction of juveniles that mature to adult each year
+// Based on maturity age - longer maturation = lower rate
+func CalculateMaturationRate(maturityAge float64) float64 {
+	if maturityAge < 0.5 {
+		maturityAge = 0.5
+	}
+	// Rate is inverse of maturity age (1 year maturity = 100% mature per year)
+	return 1.0 / maturityAge
+}
+
 // NewPopulationSimulator creates a new simulator
 func NewPopulationSimulator(worldID uuid.UUID, seed int64) *PopulationSimulator {
 	return &PopulationSimulator{
@@ -206,6 +251,72 @@ func (ps *PopulationSimulator) ApplyOxygenEffects() int {
 	return affectedSpecies
 }
 
+// ApplyAgeStructure processes age-related population dynamics each year
+// - Juveniles mature to adults based on maturity age
+// - Juveniles have higher mortality (predation targets young)
+// - Adults die based on lifespan
+// - Births add to juvenile population (not adult)
+func (ps *PopulationSimulator) ApplyAgeStructure() {
+	for _, biome := range ps.Biomes {
+		// Count predators for juvenile predation modifier
+		var predatorPop int64
+		for _, sp := range biome.Species {
+			if sp.Diet == DietCarnivore || sp.Diet == DietOmnivore {
+				predatorPop += sp.Count
+			}
+		}
+		predatorDensity := float64(predatorPop) / float64(biome.CarryingCapacity+1)
+
+		for _, species := range biome.Species {
+			if species.Count == 0 || species.Diet == DietPhotosynthetic {
+				continue // Flora don't have juveniles in this model
+			}
+
+			// Initialize age structure if not set (migration from old data)
+			if species.JuvenileCount == 0 && species.AdultCount == 0 && species.Count > 0 {
+				// Assume 70% adults, 30% juveniles at steady state
+				species.AdultCount = int64(float64(species.Count) * 0.7)
+				species.JuvenileCount = species.Count - species.AdultCount
+			}
+
+			// Calculate survival and maturation rates
+			juvenileSurvival := CalculateJuvenileSurvival(species.Traits)
+			maturationRate := CalculateMaturationRate(species.Traits.Maturity)
+
+			// Predators preferentially hunt juveniles (easier prey)
+			predatorPenalty := predatorDensity * 0.2
+			juvenileSurvival *= (1.0 - predatorPenalty)
+
+			// Apply juvenile mortality
+			survivingJuveniles := int64(float64(species.JuvenileCount) * juvenileSurvival)
+
+			// Juveniles mature to adults
+			maturing := int64(float64(survivingJuveniles) * maturationRate)
+			if maturing > survivingJuveniles {
+				maturing = survivingJuveniles
+			}
+			survivingJuveniles -= maturing
+
+			// Adult mortality based on lifespan
+			adultSurvival := 1.0 - (1.0 / species.Traits.Lifespan)
+			if adultSurvival < 0.5 {
+				adultSurvival = 0.5
+			}
+			survivingAdults := int64(float64(species.AdultCount) * adultSurvival)
+
+			// Update counts
+			species.JuvenileCount = survivingJuveniles
+			species.AdultCount = survivingAdults + maturing
+			species.Count = species.JuvenileCount + species.AdultCount
+
+			// Ensure minimums
+			if species.Count < 1 && (species.JuvenileCount > 0 || species.AdultCount > 0) {
+				species.Count = 1
+			}
+		}
+	}
+}
+
 // ApplySexualSelection implements Fisher's runaway selection and the handicap principle
 // High display traits boost reproduction success but increase predation vulnerability
 // Returns the number of species where sexual selection affected evolution
@@ -280,6 +391,9 @@ func (ps *PopulationSimulator) SimulateYear() {
 		biome.YearsSimulated++
 		ps.simulateBiomeYear(biome)
 	}
+
+	// Apply age structure transitions (juveniles mature, mortality by age)
+	ps.ApplyAgeStructure()
 }
 
 // simulateBiomeYear runs population dynamics for a single biome
