@@ -126,6 +126,72 @@ func (ps *PopulationSimulator) ApplyOxygenEffects() int {
 	return affectedSpecies
 }
 
+// ApplySexualSelection implements Fisher's runaway selection and the handicap principle
+// High display traits boost reproduction success but increase predation vulnerability
+// Returns the number of species where sexual selection affected evolution
+func (ps *PopulationSimulator) ApplySexualSelection() int {
+	affectedSpecies := 0
+
+	for _, biome := range ps.Biomes {
+		// Count predator presence for handicap cost calculation
+		var predatorPop int64
+		for _, sp := range biome.Species {
+			if sp.Diet == DietCarnivore || sp.Diet == DietOmnivore {
+				predatorPop += sp.Count
+			}
+		}
+		predatorDensity := float64(predatorPop) / float64(biome.CarryingCapacity+1)
+
+		for _, species := range biome.Species {
+			if species.Count == 0 || species.Diet == DietPhotosynthetic {
+				continue // Plants don't have sexual selection in this model
+			}
+
+			display := species.Traits.Display
+
+			// BENEFIT: High display increases reproductive success
+			// (Fisherian runaway selection - females prefer showy males)
+			if display > 0.2 && ps.rng.Float64() < display*0.3 {
+				// Display boosts effective fertility
+				fertilityBonus := display * 0.1
+				species.Traits.Fertility = math.Min(3.0, species.Traits.Fertility+fertilityBonus*0.01)
+
+				// Runaway selection: tendency to evolve even more display
+				if ps.rng.Float64() < 0.2 {
+					species.Traits.Display = math.Min(1.0, species.Traits.Display+0.005)
+				}
+				affectedSpecies++
+			}
+
+			// COST: High display increases predation risk (handicap principle)
+			// Bright colors, large antlers make animals easier to spot
+			if display > 0.3 && predatorDensity > 0.1 {
+				predationCost := display * predatorDensity * 0.02
+				// Slight population penalty from increased predation
+				if ps.rng.Float64() < predationCost {
+					species.Count = int64(float64(species.Count) * (1.0 - predationCost*0.1))
+					if species.Count < 1 {
+						species.Count = 1
+					}
+				}
+
+				// Selection pressure to reduce display when predators are abundant
+				if ps.rng.Float64() < predatorDensity*0.1 {
+					species.Traits.Display = math.Max(0, species.Traits.Display-0.002)
+				}
+			}
+
+			// EQUILIBRIUM: Display evolves based on predator-reproduction balance
+			// Low predator environments allow extravagant displays (island effect)
+			if predatorDensity < 0.05 && display < 0.5 && ps.rng.Float64() < 0.1 {
+				species.Traits.Display = math.Min(1.0, species.Traits.Display+0.003)
+			}
+		}
+	}
+
+	return affectedSpecies
+}
+
 // SimulateYear advances the simulation by one year using Lotka-Volterra dynamics
 func (ps *PopulationSimulator) SimulateYear() {
 	ps.CurrentYear++

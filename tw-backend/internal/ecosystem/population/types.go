@@ -39,6 +39,7 @@ type EvolvableTraits struct {
 	// Appearance traits
 	Covering    CoveringType    `json:"covering"`     // Body covering (fur, scales, feathers, etc.)
 	FloraGrowth FloraGrowthType `json:"flora_growth"` // Growth type for plants (evergreen, deciduous, etc.)
+	Display     float64         `json:"display"`      // Sexual display (0.0-1.0): bright colors, antlers, etc.
 }
 
 // DietType determines what a species primarily consumes

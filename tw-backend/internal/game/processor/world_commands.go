@@ -281,6 +281,9 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 
 			// Apply genetic drift (stronger effect on small populations)
 			popSim.ApplyGeneticDrift()
+
+			// Apply sexual selection (display traits affect reproduction)
+			popSim.ApplySexualSelection()
 		}
 
 		// Check for speciation every 10000 years
