@@ -164,10 +164,13 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			floraTraits.Covering = population.GetCoveringForDiet(population.DietPhotosynthetic, biomeType)
 
 			// Boost traits for harsh biomes
+			var startingFlora int64 = 500
 			switch biomeType {
 			case geography.BiomeDesert:
-				floraTraits.HeatResistance = 0.9
-				floraTraits.Fertility = 3.0 // Desert plants adapted to reproduce rapidly
+				floraTraits.HeatResistance = 0.95
+				floraTraits.Fertility = 4.0  // Desert plants adapt to reproduce very rapidly
+				floraTraits.Camouflage = 0.8 // Thorns and spines deter grazers
+				startingFlora = 1000         // More flora to support sparse desert ecosystem
 			case geography.BiomeOcean:
 				floraTraits.Fertility = 2.5
 			case geography.BiomeTundra, geography.BiomeAlpine:
@@ -177,7 +180,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			floraSpecies := &population.SpeciesPopulation{
 				SpeciesID:     uuid.New(),
 				Name:          fmt.Sprintf("%s %s", biomeType, population.GenerateSpeciesName(floraTraits, population.DietPhotosynthetic, biomeType)),
-				Count:         500,
+				Count:         startingFlora,
 				Traits:        floraTraits,
 				TraitVariance: 0.3,
 				Diet:          population.DietPhotosynthetic,
