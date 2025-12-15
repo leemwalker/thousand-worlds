@@ -1,6 +1,7 @@
 package population
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 	"tw-backend/internal/worldgen/geography"
@@ -13,10 +14,11 @@ type PopulationSimulator struct {
 	Biomes                   map[uuid.UUID]*BiomePopulation
 	FossilRecord             *FossilRecord
 	CurrentYear              int64
-	OxygenLevel              float64 // Atmospheric O2 as fraction (0.21 = 21%, modern baseline)
-	ContinentalFragmentation float64 // 0.0 = supercontinent (Pangaea), 1.0 = fully fragmented
-	RecoveryPhase            bool    // True if recovering from mass extinction
-	RecoveryCounter          int64   // Years remaining in recovery phase
+	OxygenLevel              float64  // Atmospheric O2 as fraction (0.21 = 21%, modern baseline)
+	ContinentalFragmentation float64  // 0.0 = supercontinent (Pangaea), 1.0 = fully fragmented
+	RecoveryPhase            bool     // True if recovering from mass extinction
+	RecoveryCounter          int64    // Years remaining in recovery phase
+	Events                   []string // Log of significant events this year
 	rng                      *rand.Rand
 }
 
@@ -524,12 +526,34 @@ func (ps *PopulationSimulator) UpdateBiomeFragmentation() {
 // UpdateOxygenLevel slowly varies atmospheric oxygen over geological time
 // Based on historical Earth data: O2 varied from 15% to 35% over billions of years
 // Returns the new oxygen level
+// UpdateOxygenLevel slowly varies atmospheric oxygen over geological time
+// Based on historical Earth data: O2 varied from 15% to 35% over billions of years
+// Returns the new oxygen level
 func (ps *PopulationSimulator) UpdateOxygenLevel() float64 {
+	oldLevel := ps.OxygenLevel
+
+	// Biotic Effect: Flora increases O2 (photosynthesis), Fauna consumes it (respiration)
+	var totalFlora, totalFauna int64
+	for _, biome := range ps.Biomes {
+		for _, sp := range biome.Species {
+			if sp.Diet == DietPhotosynthetic {
+				totalFlora += sp.Count
+			} else {
+				totalFauna += sp.Count
+			}
+		}
+	}
+
+	// Scale effect so it's significant over millennia but stable annually
+	// 1 million plants adds ~0.01% O2 per year if unchecked? No, slower.
+	// Use 1e-8 per individual (1M -> 0.01)
+	bioticChange := (float64(totalFlora)*1.0e-8 - float64(totalFauna)*2.0e-8)
+
 	// Slow random walk with mean reversion to 0.21
 	meanReversion := (0.21 - ps.OxygenLevel) * 0.0001
 	randomChange := ps.rng.NormFloat64() * 0.0005 // Very slow change
 
-	ps.OxygenLevel += meanReversion + randomChange
+	ps.OxygenLevel += meanReversion + randomChange + bioticChange
 
 	// Clamp to historical extremes (15% - 35%)
 	if ps.OxygenLevel < 0.15 {
@@ -537,6 +561,25 @@ func (ps *PopulationSimulator) UpdateOxygenLevel() float64 {
 	}
 	if ps.OxygenLevel > 0.35 {
 		ps.OxygenLevel = 0.35
+	}
+
+	// Reporting: Detect significant changes
+	diff := ps.OxygenLevel - oldLevel
+
+	// Report rapid shifts (> 0.5% in one year)
+	if math.Abs(diff) > 0.005 {
+		changeType := "Rising"
+		if diff < 0 {
+			changeType = "Falling"
+		}
+		ps.Events = append(ps.Events, fmt.Sprintf("Oxygen %s Rapidly: %.1f%% -> %.1f%%", changeType, oldLevel*100, ps.OxygenLevel*100))
+	}
+	
+	// Check for major thresholds (Independent of rapid shifts)
+	if oldLevel < 0.20 && ps.OxygenLevel >= 0.20 {
+		ps.Events = append(ps.Events, fmt.Sprintf("Oxygen Crossed 20%% Threshold (Life Thriving): %.1f%%", ps.OxygenLevel*100))
+	} else if oldLevel > 0.18 && ps.OxygenLevel <= 0.18 {
+		ps.Events = append(ps.Events, fmt.Sprintf("Oxygen Dropped Below 18%% (Hypoxia Risk): %.1f%%", ps.OxygenLevel*100))
 	}
 
 	return ps.OxygenLevel
@@ -730,6 +773,7 @@ func (ps *PopulationSimulator) ApplySexualSelection() int {
 // SimulateYear advances the simulation by one year using Lotka-Volterra dynamics
 func (ps *PopulationSimulator) SimulateYear() {
 	ps.CurrentYear++
+	ps.Events = []string{} // Clear logs from previous year
 
 	for _, biome := range ps.Biomes {
 		biome.YearsSimulated++
