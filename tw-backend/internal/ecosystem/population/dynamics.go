@@ -16,6 +16,30 @@ type PopulationSimulator struct {
 	rng          *rand.Rand
 }
 
+// CalculateMetabolicRate returns the metabolic rate based on size using Kleiber's Law
+// Metabolic rate scales with mass^0.75 (larger animals are more efficient per kg)
+// Returns a multiplier for food requirements (1.0 = baseline at size 5)
+func CalculateMetabolicRate(size float64) float64 {
+	if size <= 0 {
+		size = 1
+	}
+	// Kleiber's Law: B = B0 * M^0.75
+	// Normalize to size 5 as baseline (medium animal)
+	return math.Pow(size/5.0, 0.75)
+}
+
+// CalculateReproductionModifier returns reproduction rate modifier based on size
+// Smaller animals reproduce faster (r-strategy), larger slower (K-strategy)
+// Returns a multiplier for reproduction rate (1.0 = baseline at size 5)
+func CalculateReproductionModifier(size float64) float64 {
+	if size <= 0 {
+		size = 1
+	}
+	// Inverse square root relationship - smaller = faster reproduction
+	// Normalize to size 5 as baseline
+	return math.Sqrt(5.0 / size)
+}
+
 // NewPopulationSimulator creates a new simulator
 func NewPopulationSimulator(worldID uuid.UUID, seed int64) *PopulationSimulator {
 	return &PopulationSimulator{
@@ -73,18 +97,25 @@ func (ps *PopulationSimulator) simulateBiomeYear(biome *BiomePopulation) {
 			newCount = int64(math.Max(10, p+growth-grazingRate*p))
 
 		case DietHerbivore:
-			// Herbivores: prey dynamics
+			// Herbivores: prey dynamics with Kleiber's Law
 			// dH/dt = (birth_rate * H) - (predation_rate * H * C)
 			fitness := CalculateBiomeFitness(species.Traits, biome.BiomeType)
-			birthRate := 0.25 * species.Traits.Fertility * fitness       // Slightly higher birth rate
-			deathRate := (0.05 / species.Traits.Lifespan * 10) / fitness // Lower base death rate
+
+			// Kleiber's Law: smaller animals reproduce faster, larger need more food
+			reproModifier := CalculateReproductionModifier(species.Traits.Size)
+			metabolicRate := CalculateMetabolicRate(species.Traits.Size)
+
+			birthRate := 0.25 * species.Traits.Fertility * fitness * reproModifier
+			deathRate := (0.05 / species.Traits.Lifespan * 10) / fitness
 
 			// Predation scales with predator count but herbivores get defensive bonuses
-			predationRate := 0.0001 * (1 - species.Traits.Speed*0.05) * (1 - species.Traits.Camouflage*0.3)
+			// Larger herbivores are harder to take down
+			sizeDefense := 1.0 - math.Min(0.3, species.Traits.Size*0.03)
+			predationRate := 0.0001 * (1 - species.Traits.Speed*0.05) * (1 - species.Traits.Camouflage*0.3) * sizeDefense
 
 			p := float64(oldCount)
-			// More forgiving food availability - herbivores are efficient grazers
-			foodAvailability := math.Min(1.0, float64(floraCount)/float64(oldCount+1)*0.3)
+			// Food availability scaled by metabolic rate - larger animals need more
+			foodAvailability := math.Min(1.0, float64(floraCount)/float64(oldCount+1)*0.3/metabolicRate)
 			if floraCount > 100 {
 				foodAvailability = math.Max(0.5, foodAvailability) // Minimum 50% if flora exists
 			}
@@ -95,10 +126,17 @@ func (ps *PopulationSimulator) simulateBiomeYear(biome *BiomePopulation) {
 			newCount = int64(math.Max(1, p+growth)) // Don't drop below 1 from dynamics alone
 
 		case DietCarnivore, DietOmnivore:
-			// Carnivores: predator dynamics with improved survival
+			// Carnivores: predator dynamics with Kleiber's Law
 			// dC/dt = (efficiency * predation * H * C) - (death_rate * C)
 			fitness := CalculateBiomeFitness(species.Traits, biome.BiomeType)
-			efficiency := 0.3 * (1 + species.Traits.Intelligence*0.3) * fitness
+
+			// Kleiber's Law: smaller predators reproduce faster, larger are better hunters
+			reproModifier := CalculateReproductionModifier(species.Traits.Size)
+			metabolicRate := CalculateMetabolicRate(species.Traits.Size)
+
+			// Larger predators are more effective hunters but need more food
+			sizeHuntingBonus := 1.0 + math.Min(0.3, species.Traits.Size*0.03)
+			efficiency := 0.3 * (1 + species.Traits.Intelligence*0.3) * fitness * sizeHuntingBonus
 			predationRate := 0.002 * (0.5 + species.Traits.Speed*0.1) * (0.5 + species.Traits.Strength*0.1)
 			deathRate := (0.05 / species.Traits.Lifespan * 10) / fitness
 
@@ -108,9 +146,9 @@ func (ps *PopulationSimulator) simulateBiomeYear(biome *BiomePopulation) {
 				preyCount += floraCount / 5 // Omnivores get more calories from flora
 			}
 
-			// Ensure minimum prey availability for survival
-			preyRatio := math.Min(1.0, float64(preyCount)/float64(oldCount+1)*0.2)
-			growth := efficiency * predationRate * float64(preyCount) * p * preyRatio
+			// Prey ratio scaled by metabolic rate - larger predators need more prey
+			preyRatio := math.Min(1.0, float64(preyCount)/float64(oldCount+1)*0.2/metabolicRate)
+			growth := efficiency * predationRate * float64(preyCount) * p * preyRatio * reproModifier
 			death := deathRate * p * (1 - preyRatio*0.5)  // Less death when prey available
 			newCount = int64(math.Max(1, p+growth-death)) // Don't go below 1 unless truly extinct
 		}
