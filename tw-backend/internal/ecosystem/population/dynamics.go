@@ -279,6 +279,95 @@ func (ps *PopulationSimulator) ApplyRecoveryEffects() {
 	}
 }
 
+// calculateNicheOverlap returns 0.0-1.0 representing how much two species compete
+func calculateNicheOverlap(s1, s2 *SpeciesPopulation) float64 {
+	if s1.Diet != s2.Diet {
+		return 0.0 // Different trophic levels/diets don't compete directly
+	}
+
+	// Size overlap: similar sized animals compete for same food sources/dens
+	// Size 1 vs Size 2 -> (1.0 / 2.0) = 0.5 diff factor?
+	// Using linear difference relative to max size
+	sizeDiff := math.Abs(s1.Traits.Size - s2.Traits.Size)
+	maxSize := math.Max(s1.Traits.Size, s2.Traits.Size)
+	if maxSize < 0.1 {
+		maxSize = 0.1
+	}
+	sizeOverlap := 1.0 - (sizeDiff / maxSize)
+	if sizeOverlap < 0 {
+		sizeOverlap = 0
+	}
+
+	// Activity overlap (NightVision): similar activity times = more competition
+	activityDiff := math.Abs(s1.Traits.NightVision - s2.Traits.NightVision)
+	activityOverlap := 1.0 - activityDiff // 0 diff = 1.0 overlap
+
+	// Weighted overlap (Size is most important determinant of niche)
+	return sizeOverlap*0.7 + activityOverlap*0.3
+}
+
+// ApplyNichePartitioning reduces population of overlapping species and encourages divergence
+// Character Displacement: species with overlapping niches will evolve apart
+func (ps *PopulationSimulator) ApplyNichePartitioning() {
+	for _, biome := range ps.Biomes {
+		// Convert map to slice for pair iteration
+		speciesList := make([]*SpeciesPopulation, 0, len(biome.Species))
+		for _, s := range biome.Species {
+			if s.Count > 0 {
+				speciesList = append(speciesList, s)
+			}
+		}
+
+		// Check every pair for competition
+		for i := 0; i < len(speciesList); i++ {
+			for j := i + 1; j < len(speciesList); j++ {
+				s1 := speciesList[i]
+				s2 := speciesList[j]
+
+				overlap := calculateNicheOverlap(s1, s2)
+
+				// If distinct competition exists
+				if overlap > 0.4 {
+					// Competition penalty - both populations suffer
+					// Intensity depends on density relative to carrying capacity
+					density := float64(s1.Count+s2.Count) / float64(biome.CarryingCapacity+1)
+					competitionFactor := overlap * density * 0.1
+
+					if ps.rng.Float64() < competitionFactor {
+						s1.Count = int64(float64(s1.Count) * 0.95)
+						s2.Count = int64(float64(s2.Count) * 0.95)
+					}
+
+					// Character displacement (Divergence)
+					// Push traits apart to reduce overlap
+					if ps.rng.Float64() < 0.2 { // 20% chance of evolutionary response
+						// Diverge Sizes
+						if s1.Traits.Size > s2.Traits.Size {
+							s1.Traits.Size *= 1.01
+							s2.Traits.Size *= 0.99
+						} else {
+							s1.Traits.Size *= 0.99
+							s2.Traits.Size *= 1.01
+						}
+
+						// Diverge Activity (Night Vision)
+						if s1.Traits.NightVision > s2.Traits.NightVision {
+							s1.Traits.NightVision = math.Min(1.0, s1.Traits.NightVision+0.01)
+							s2.Traits.NightVision = math.Max(0.0, s2.Traits.NightVision-0.01)
+						} else {
+							s1.Traits.NightVision = math.Max(0.0, s1.Traits.NightVision-0.01)
+							s2.Traits.NightVision = math.Min(1.0, s2.Traits.NightVision+0.01)
+						}
+
+						s1.Traits = clampTraits(s1.Traits)
+						s2.Traits = clampTraits(s2.Traits)
+					}
+				}
+			}
+		}
+	}
+}
+
 // UpdateBiomeFragmentation changes fragmentation based on population and events
 func (ps *PopulationSimulator) UpdateBiomeFragmentation() {
 	for _, biome := range ps.Biomes {
@@ -522,6 +611,9 @@ func (ps *PopulationSimulator) SimulateYear() {
 
 	// Apply age structure transitions (juveniles mature, mortality by age)
 	ps.ApplyAgeStructure()
+
+	// Apply niche partitioning (competition for resources)
+	ps.ApplyNichePartitioning()
 
 	// Check for mass extinction events (triggers recovery phase)
 	ps.CheckForMassExtinction()
