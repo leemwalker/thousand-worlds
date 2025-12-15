@@ -341,6 +341,27 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 					if transitioned > 0 {
 						client.SendGameMessage("system", fmt.Sprintf("   🌍 %d biomes shifted due to climate change", transitioned), nil)
 					}
+
+					// Update continental configuration for drift events
+					if eventType == population.EventContinentalDrift {
+						oldFrag := popSim.ContinentalFragmentation
+						newFrag := popSim.UpdateContinentalConfiguration(true, e.Severity)
+						popSim.ApplyContinentalEffects()
+
+						// Report significant configuration changes
+						fragChange := math.Abs(newFrag - oldFrag)
+						if fragChange > 0.05 {
+							var status string
+							if newFrag > 0.7 {
+								status = "fragmented (high endemism)"
+							} else if newFrag < 0.3 {
+								status = "unified (supercontinent forming)"
+							} else {
+								status = "moderate"
+							}
+							client.SendGameMessage("system", fmt.Sprintf("   🗺️ Continental configuration: %s (%.0f%%)", status, newFrag*100), nil)
+						}
+					}
 				}
 			}
 

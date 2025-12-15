@@ -10,11 +10,12 @@ import (
 
 // PopulationSimulator handles macro-level population dynamics
 type PopulationSimulator struct {
-	Biomes       map[uuid.UUID]*BiomePopulation
-	FossilRecord *FossilRecord
-	CurrentYear  int64
-	OxygenLevel  float64 // Atmospheric O2 as fraction (0.21 = 21%, modern baseline)
-	rng          *rand.Rand
+	Biomes                   map[uuid.UUID]*BiomePopulation
+	FossilRecord             *FossilRecord
+	CurrentYear              int64
+	OxygenLevel              float64 // Atmospheric O2 as fraction (0.21 = 21%, modern baseline)
+	ContinentalFragmentation float64 // 0.0 = supercontinent (Pangaea), 1.0 = fully fragmented
+	rng                      *rand.Rand
 }
 
 // CalculateMetabolicRate returns the metabolic rate based on size using Kleiber's Law
@@ -44,12 +45,91 @@ func CalculateReproductionModifier(size float64) float64 {
 // NewPopulationSimulator creates a new simulator
 func NewPopulationSimulator(worldID uuid.UUID, seed int64) *PopulationSimulator {
 	return &PopulationSimulator{
-		Biomes:       make(map[uuid.UUID]*BiomePopulation),
-		FossilRecord: &FossilRecord{WorldID: worldID, Extinct: []*ExtinctSpecies{}},
-		CurrentYear:  0,
-		OxygenLevel:  0.21, // Modern Earth baseline (21%)
-		rng:          rand.New(rand.NewSource(seed)),
+		Biomes:                   make(map[uuid.UUID]*BiomePopulation),
+		FossilRecord:             &FossilRecord{WorldID: worldID, Extinct: []*ExtinctSpecies{}},
+		CurrentYear:              0,
+		OxygenLevel:              0.21, // Modern Earth baseline (21%)
+		ContinentalFragmentation: 0.5,  // Start at medium fragmentation
+		rng:                      rand.New(rand.NewSource(seed)),
 	}
+}
+
+// UpdateContinentalConfiguration gradually changes continental fragmentation
+// Continental drift events can trigger rapid changes
+// Returns the new fragmentation level
+func (ps *PopulationSimulator) UpdateContinentalConfiguration(driftEvent bool, severity float64) float64 {
+	if driftEvent {
+		// Drift events cause significant fragmentation changes
+		change := ps.rng.NormFloat64() * 0.1 * severity
+		ps.ContinentalFragmentation += change
+	} else {
+		// Very slow random walk over time
+		ps.ContinentalFragmentation += ps.rng.NormFloat64() * 0.001
+	}
+
+	// Mean reversion toward 0.5 (equilibrium)
+	ps.ContinentalFragmentation += (0.5 - ps.ContinentalFragmentation) * 0.0001
+
+	// Clamp to valid range
+	if ps.ContinentalFragmentation < 0 {
+		ps.ContinentalFragmentation = 0
+	}
+	if ps.ContinentalFragmentation > 1 {
+		ps.ContinentalFragmentation = 1
+	}
+
+	return ps.ContinentalFragmentation
+}
+
+// ApplyContinentalEffects applies effects based on continental configuration
+// Supercontinent (0): Uniform climate, easy migration, lower endemism
+// Fragmented (1): Diverse climates, species isolation, high endemism
+func (ps *PopulationSimulator) ApplyContinentalEffects() int {
+	affectedSpecies := 0
+	frag := ps.ContinentalFragmentation
+
+	for _, biome := range ps.Biomes {
+		for _, species := range biome.Species {
+			if species.Count == 0 {
+				continue
+			}
+
+			// SUPERCONTINENT EFFECTS (low fragmentation)
+			if frag < 0.3 {
+				// Uniform climate reduces trait variance (genetic homogenization)
+				if ps.rng.Float64() < 0.1 {
+					species.TraitVariance *= 0.999
+					if species.TraitVariance < 0.01 {
+						species.TraitVariance = 0.01
+					}
+				}
+				// Easier competition - slight population pressure
+				if ps.rng.Float64() < 0.05 {
+					species.Count = int64(float64(species.Count) * 0.999)
+				}
+				affectedSpecies++
+			}
+
+			// FRAGMENTED CONTINENT EFFECTS (high fragmentation)
+			if frag > 0.7 {
+				// Isolation increases trait variance (allopatric speciation driver)
+				if ps.rng.Float64() < 0.1 {
+					species.TraitVariance = math.Min(1.0, species.TraitVariance*1.002)
+				}
+				// Endemic adaptation to specific biomes
+				if ps.rng.Float64() < 0.05 {
+					// Boost traits that match biome
+					applyBiomeSelection(species, biome.BiomeType)
+				}
+				affectedSpecies++
+			}
+
+			// MODERATE FRAGMENTATION (0.3-0.7): Balanced effects
+			// This is the "Goldilocks zone" for biodiversity
+		}
+	}
+
+	return affectedSpecies
 }
 
 // UpdateOxygenLevel slowly varies atmospheric oxygen over geological time
