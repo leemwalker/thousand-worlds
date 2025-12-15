@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 	"tw-backend/cmd/game-server/websocket"
 	"tw-backend/internal/ecosystem"
+	"tw-backend/internal/ecosystem/population"
 	"tw-backend/internal/ecosystem/state"
 	"tw-backend/internal/worldgen/weather"
 
@@ -93,140 +93,120 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		}
 	}
 
-	// Conversion: 365 ticks = 1 year (daily ticks for realistic simulation)
-	ticksPerYear := int64(365)
-	totalTicks := years * ticksPerYear
+	// Use population-based simulation for efficiency
+	client.SendGameMessage("system", fmt.Sprintf("Starting population simulation of %d years...", years), nil)
 
-	// Cap at 10M ticks to keep simulation reasonable (100k years max for now)
-	maxTicks := int64(10_000_000)
-	if totalTicks > maxTicks {
-		totalTicks = maxTicks
-		client.SendGameMessage("system", fmt.Sprintf("Capping simulation to %d years (limit).", maxTicks/ticksPerYear), nil)
+	// Create seed from world ID
+	seed := int64(char.WorldID[0])<<56 | int64(char.WorldID[1])<<48 |
+		int64(char.WorldID[2])<<40 | int64(char.WorldID[3])<<32 |
+		int64(char.WorldID[4])<<24 | int64(char.WorldID[5])<<16 |
+		int64(char.WorldID[6])<<8 | int64(char.WorldID[7])
+
+	// Initialize population simulator
+	popSim := population.NewPopulationSimulator(char.WorldID, seed)
+
+	// Create biome populations from geology biomes
+	for i, biome := range geology.Biomes {
+		if i >= 10 {
+			break // Limit to 10 biomes for simulation
+		}
+		bp := population.NewBiomePopulation(uuid.New(), biome.Type)
+
+		// Seed initial species based on biome type
+		// Flora
+		floraSpecies := &population.SpeciesPopulation{
+			SpeciesID:     uuid.New(),
+			Name:          fmt.Sprintf("%s Flora", biome.Type),
+			Count:         500,
+			Traits:        population.DefaultTraitsForDiet(population.DietPhotosynthetic),
+			TraitVariance: 0.3,
+			Diet:          population.DietPhotosynthetic,
+			Generation:    0,
+			CreatedYear:   0,
+		}
+		bp.AddSpecies(floraSpecies)
+
+		// Herbivore
+		herbSpecies := &population.SpeciesPopulation{
+			SpeciesID:     uuid.New(),
+			Name:          fmt.Sprintf("%s Grazer", biome.Type),
+			Count:         200,
+			Traits:        population.DefaultTraitsForDiet(population.DietHerbivore),
+			TraitVariance: 0.3,
+			Diet:          population.DietHerbivore,
+			Generation:    0,
+			CreatedYear:   0,
+		}
+		bp.AddSpecies(herbSpecies)
+
+		// Carnivore
+		carnSpecies := &population.SpeciesPopulation{
+			SpeciesID:     uuid.New(),
+			Name:          fmt.Sprintf("%s Predator", biome.Type),
+			Count:         50,
+			Traits:        population.DefaultTraitsForDiet(population.DietCarnivore),
+			TraitVariance: 0.3,
+			Diet:          population.DietCarnivore,
+			Generation:    0,
+			CreatedYear:   0,
+		}
+		bp.AddSpecies(carnSpecies)
+
+		popSim.Biomes[bp.BiomeID] = bp
 	}
-
-	client.SendGameMessage("system", fmt.Sprintf("Starting simulation of %d years (%d ticks)...", years, totalTicks), nil)
 
 	// Track statistics
-	startEntities := len(p.ecosystemService.Entities)
-	extinctions := 0
-	generations := 0
 	geologicalEvents := 0
-
-	// Create geological event manager for this simulation
 	geoManager := ecosystem.NewGeologicalEventManager()
+	progressInterval := years / 10
+	lastProgress := int64(0)
 
-	// Simulation loop
-	batchSize := int64(10000)
-	weatherUpdateInterval := int64(100)     // Every 100 ticks (1 year)
-	geologyUpdateInterval := int64(1000000) // Every 1M ticks (10,000 years)
-	progressInterval := totalTicks / 10     // Report every 10%
-	lastWeatherUpdate := int64(0)
-	lastGeologyUpdate := int64(0)
-	lastProgressReport := int64(0)
-
-	for tick := int64(0); tick < totalTicks; tick += batchSize {
+	// Run simulation year by year (fast!)
+	for year := int64(0); year < years; year++ {
 		// Progress reporting
-		if tick-lastProgressReport >= progressInterval && progressInterval > 0 {
-			percent := (tick * 100) / totalTicks
-			yearsCompleted := tick / ticksPerYear
-			client.SendGameMessage("system", fmt.Sprintf("⏳ Progress: %d%% (%d years, %d entities)", percent, yearsCompleted, len(p.ecosystemService.Entities)), nil)
-			lastProgressReport = tick
+		if year-lastProgress >= progressInterval && progressInterval > 0 {
+			percent := (year * 100) / years
+			totalPop, totalSpecies, totalExtinct := popSim.GetStats()
+			client.SendGameMessage("system", fmt.Sprintf("⏳ Progress: %d%% (Year %d, Pop: %d, Species: %d, Extinct: %d)",
+				percent, year, totalPop, totalSpecies, totalExtinct), nil)
+			lastProgress = year
 		}
 
-		remaining := totalTicks - tick
-		currentBatch := batchSize
-		if remaining < currentBatch {
-			currentBatch = remaining
-		}
+		// Simulate population dynamics
+		popSim.SimulateYear()
 
-		// Check for geological events at batch level
-		previousEventCount := len(geoManager.ActiveEvents)
-		geoManager.CheckForNewEvents(tick, currentBatch)
-		newEvents := len(geoManager.ActiveEvents) - previousEventCount
-		geologicalEvents += newEvents
+		// Check for geological events (every 10000 years)
+		if year%10000 == 0 {
+			tick := year * 365 // Convert to ticks for geo manager
+			previousEventCount := len(geoManager.ActiveEvents)
+			geoManager.CheckForNewEvents(tick, 365*10000)
+			newEvents := len(geoManager.ActiveEvents) - previousEventCount
+			geologicalEvents += newEvents
 
-		// Report and apply terrain effects from new events
-		if newEvents > 0 {
-			for i := len(geoManager.ActiveEvents) - newEvents; i < len(geoManager.ActiveEvents); i++ {
-				e := geoManager.ActiveEvents[i]
-				client.SendGameMessage("system", fmt.Sprintf("⚠️ GEOLOGICAL EVENT: %s (severity: %.0f%%)", e.Type, e.Severity*100), nil)
-
-				// Apply terrain effects from event
-				geology.ApplyEvent(e)
-			}
-		}
-
-		// Get environment modifiers from active events
-		tempMod, sunlightMod, _ := geoManager.GetEnvironmentModifiers()
-
-		// Run ecosystem ticks with environmental pressure
-		for i := int64(0); i < currentBatch; i++ {
-			// TODO: Apply tempMod and sunlightMod to ecosystem tick
-			// For now, just track temperature affecting death rates
-			_ = tempMod
-			_ = sunlightMod
-
-			p.ecosystemService.Tick()
-
-			// Track extinctions
-			currentCount := len(p.ecosystemService.Entities)
-			if currentCount < startEntities {
-				extinctions += startEntities - currentCount
-				startEntities = currentCount
-			}
-
-			// Update weather periodically (every simulated year)
-			if tick+i-lastWeatherUpdate >= weatherUpdateInterval {
-				if p.weatherService != nil {
-					// Calculate simulated season based on tick
-					simulatedYear := (tick + i) / 100
-					season := p.getSeasonFromYear(simulatedYear)
-					_, _ = p.weatherService.UpdateWorldWeather(ctx, char.WorldID, time.Now(), season)
+			if newEvents > 0 {
+				for i := len(geoManager.ActiveEvents) - newEvents; i < len(geoManager.ActiveEvents); i++ {
+					e := geoManager.ActiveEvents[i]
+					client.SendGameMessage("system", fmt.Sprintf("⚠️ GEOLOGICAL EVENT: %s (severity: %.0f%%)", e.Type, e.Severity*100), nil)
+					geology.ApplyEvent(e)
 				}
-				lastWeatherUpdate = tick + i
 			}
+
+			// Update geology
+			geology.SimulateGeology(10000)
 		}
-
-		// Simulate geology periodically (every 10,000 simulated years)
-		if tick+currentBatch-lastGeologyUpdate >= geologyUpdateInterval {
-			yearsElapsed := (tick + currentBatch - lastGeologyUpdate) / ticksPerYear
-			geology.SimulateGeology(yearsElapsed)
-			lastGeologyUpdate = tick + currentBatch
-		}
-
-		// Reproduction pass: entities with high reproduction urge can mate
-		// Process at batch level for performance
-		p.processReproduction()
-
-		// Update max generation
-		for _, e := range p.ecosystemService.Entities {
-			if e.Generation > generations {
-				generations = e.Generation
-			}
-		}
-
-		// Update active events (expire old ones)
-		geoManager.UpdateActiveEvents(tick + currentBatch)
 	}
 
-	// Get geology stats for summary
+	// Get final statistics
 	geoStats := geology.GetStats()
+	totalPop, totalSpecies, totalExtinct := popSim.GetStats()
 
-	// Count species populations
-	speciesCounts := make(map[state.Species]int)
-	for _, e := range p.ecosystemService.Entities {
-		speciesCounts[e.Species]++
-	}
-
-	// Summary
-	finalCount := len(p.ecosystemService.Entities)
+	// Build summary
 	var sb strings.Builder
 	sb.WriteString("=== Simulation Complete ===\n")
 	sb.WriteString(fmt.Sprintf("Years Simulated: %d\n", years))
-	sb.WriteString(fmt.Sprintf("Ticks Processed: %d\n", totalTicks))
-	sb.WriteString(fmt.Sprintf("Remaining Entities: %d\n", finalCount))
-	sb.WriteString(fmt.Sprintf("Extinctions: %d\n", extinctions))
-	sb.WriteString(fmt.Sprintf("Max Generation: %d\n", generations))
+	sb.WriteString(fmt.Sprintf("Total Population: %d\n", totalPop))
+	sb.WriteString(fmt.Sprintf("Living Species: %d\n", totalSpecies))
+	sb.WriteString(fmt.Sprintf("Extinct Species: %d\n", totalExtinct))
 	sb.WriteString(fmt.Sprintf("Geological Events: %d\n", geologicalEvents))
 	sb.WriteString("--- Terrain Stats ---\n")
 	sb.WriteString(fmt.Sprintf("Tectonic Plates: %d\n", geoStats.PlateCount))
@@ -235,35 +215,40 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	sb.WriteString(fmt.Sprintf("Sea Level: %.0fm\n", geoStats.SeaLevel))
 	sb.WriteString(fmt.Sprintf("Land Coverage: %.1f%%\n", geoStats.LandPercent))
 
-	// Species breakdown (top 5)
-	sb.WriteString("--- Species Population ---\n")
-	type speciesCount struct {
-		species state.Species
-		count   int
-	}
-	var speciesList []speciesCount
-	for s, c := range speciesCounts {
-		speciesList = append(speciesList, speciesCount{s, c})
-	}
-	// Sort by count descending
-	for i := 0; i < len(speciesList); i++ {
-		for j := i + 1; j < len(speciesList); j++ {
-			if speciesList[j].count > speciesList[i].count {
-				speciesList[i], speciesList[j] = speciesList[j], speciesList[i]
-			}
-		}
-	}
-	// Show top 5
-	shown := 0
-	for _, sc := range speciesList {
-		if shown >= 5 {
+	// Species breakdown by biome
+	sb.WriteString("--- Species by Biome ---\n")
+	biomeCount := 0
+	for _, biome := range popSim.Biomes {
+		if biomeCount >= 3 {
+			sb.WriteString(fmt.Sprintf("...and %d more biomes\n", len(popSim.Biomes)-3))
 			break
 		}
-		sb.WriteString(fmt.Sprintf("%s: %d\n", sc.species, sc.count))
-		shown++
+		sb.WriteString(fmt.Sprintf("%s (Pop: %d):\n", biome.BiomeType, biome.TotalPopulation()))
+		speciesCount := 0
+		for _, sp := range biome.Species {
+			if speciesCount >= 3 {
+				sb.WriteString(fmt.Sprintf("  ...and %d more species\n", len(biome.Species)-3))
+				break
+			}
+			sb.WriteString(fmt.Sprintf("  %s: %d (Gen %d)\n", sp.Name, sp.Count, sp.Generation))
+			speciesCount++
+		}
+		biomeCount++
 	}
-	if len(speciesList) > 5 {
-		sb.WriteString(fmt.Sprintf("...and %d more species\n", len(speciesList)-5))
+
+	// Fossil record
+	if len(popSim.FossilRecord.Extinct) > 0 {
+		sb.WriteString("--- Fossil Record ---\n")
+		shown := 0
+		for _, ext := range popSim.FossilRecord.Extinct {
+			if shown >= 5 {
+				sb.WriteString(fmt.Sprintf("...and %d more extinct species\n", len(popSim.FossilRecord.Extinct)-5))
+				break
+			}
+			duration := ext.ExistedUntil - ext.ExistedFrom
+			sb.WriteString(fmt.Sprintf("† %s (existed %d years, cause: %s)\n", ext.Name, duration, ext.ExtinctionCause))
+			shown++
+		}
 	}
 
 	client.SendGameMessage("system", sb.String(), nil)
