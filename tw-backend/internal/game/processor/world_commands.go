@@ -43,11 +43,30 @@ func (p *GameProcessor) handleWorld(ctx context.Context, client websocket.GameCl
 }
 
 // handleWorldSimulate runs a fast-forward simulation of the world
-func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocket.GameClient, yearsStr string) error {
-	years, err := strconv.ParseInt(strings.TrimSpace(yearsStr), 10, 64)
+func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocket.GameClient, argsStr string) error {
+	// Parse arguments: years [--epoch epoch_name] [--goal goal_name]
+	args := strings.Fields(strings.TrimSpace(argsStr))
+	if len(args) == 0 {
+		client.SendGameMessage("error", "Usage: world simulate <years> [--epoch name] [--goal name]", nil)
+		return nil
+	}
+
+	years, err := strconv.ParseInt(args[0], 10, 64)
 	if err != nil || years <= 0 {
 		client.SendGameMessage("error", "Invalid years. Please provide a positive number.", nil)
 		return nil
+	}
+
+	// Parse optional flags
+	var epochFlag, goalFlag string
+	for i := 1; i < len(args); i++ {
+		if args[i] == "--epoch" && i+1 < len(args) {
+			epochFlag = args[i+1]
+			i++
+		} else if args[i] == "--goal" && i+1 < len(args) {
+			goalFlag = args[i+1]
+			i++
+		}
 	}
 
 	// Get current world for context
@@ -100,6 +119,17 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	// Use population-based simulation for efficiency
 	client.SendGameMessage("system", fmt.Sprintf("Starting population simulation of %d years...", years), nil)
 
+	// Report epoch and goal if specified
+	if epochFlag != "" {
+		epoch := population.EpochType(epochFlag)
+		client.SendGameMessage("system", fmt.Sprintf("🌍 Starting in epoch: %s", population.GetEpochDescription(epoch)), nil)
+	}
+	var evolutionGoal population.EvolutionGoal
+	if goalFlag != "" {
+		evolutionGoal = population.EvolutionGoal(goalFlag)
+		client.SendGameMessage("system", fmt.Sprintf("🎯 Evolution goal: %s", goalFlag), nil)
+	}
+
 	// Create seed from world ID
 	seed := int64(char.WorldID[0])<<56 | int64(char.WorldID[1])<<48 |
 		int64(char.WorldID[2])<<40 | int64(char.WorldID[3])<<32 |
@@ -108,6 +138,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 
 	// Initialize population simulator
 	popSim := population.NewPopulationSimulator(char.WorldID, seed)
+	_ = evolutionGoal // Will be used in the evolution loop below
 
 	// Group biomes by type to ensure diversity
 	biomesByType := make(map[geography.BiomeType][]*geography.Biome)

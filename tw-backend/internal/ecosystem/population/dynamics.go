@@ -75,18 +75,23 @@ func (ps *PopulationSimulator) simulateBiomeYear(biome *BiomePopulation) {
 			// Herbivores: prey dynamics
 			// dH/dt = (birth_rate * H) - (predation_rate * H * C)
 			fitness := CalculateBiomeFitness(species.Traits, biome.BiomeType)
-			birthRate := 0.2 * species.Traits.Fertility * fitness
-			deathRate := (0.1 / species.Traits.Lifespan * 10) / fitness // Better fitness = lower death
-			predationRate := 0.0002 * (1 - species.Traits.Speed*0.05) * (1 - species.Traits.Camouflage*0.3)
+			birthRate := 0.25 * species.Traits.Fertility * fitness       // Slightly higher birth rate
+			deathRate := (0.05 / species.Traits.Lifespan * 10) / fitness // Lower base death rate
+
+			// Predation scales with predator count but herbivores get defensive bonuses
+			predationRate := 0.0001 * (1 - species.Traits.Speed*0.05) * (1 - species.Traits.Camouflage*0.3)
 
 			p := float64(oldCount)
-			// Need flora to survive
-			foodAvailability := math.Min(1.0, float64(floraCount)/float64(oldCount+1)*0.1)
+			// More forgiving food availability - herbivores are efficient grazers
+			foodAvailability := math.Min(1.0, float64(floraCount)/float64(oldCount+1)*0.3)
+			if floraCount > 100 {
+				foodAvailability = math.Max(0.5, foodAvailability) // Minimum 50% if flora exists
+			}
 			effectiveBirth := birthRate * foodAvailability
 
 			predationLoss := predationRate * p * float64(carnivoreCount)
 			growth := effectiveBirth*p - deathRate*p - predationLoss
-			newCount = int64(math.Max(0, p+growth))
+			newCount = int64(math.Max(1, p+growth)) // Don't drop below 1 from dynamics alone
 
 		case DietCarnivore, DietOmnivore:
 			// Carnivores: predator dynamics with improved survival
