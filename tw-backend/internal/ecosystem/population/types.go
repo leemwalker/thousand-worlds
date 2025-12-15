@@ -62,6 +62,104 @@ const (
 	TrophicApexPredator      TrophicLevel = 4 // Top predators - no natural predators
 )
 
+// Season represents the time of year affecting ecology
+type Season int
+
+const (
+	SeasonSpring Season = 0 // Breeding season, food increasing
+	SeasonSummer Season = 1 // Peak food availability, growth
+	SeasonFall   Season = 2 // Food decreasing, migration trigger
+	SeasonWinter Season = 3 // Low food, harsh conditions
+)
+
+// GetSeason returns the current season based on day of year (0-364)
+func GetSeason(dayOfYear int) Season {
+	day := dayOfYear % 365
+	switch {
+	case day < 91:
+		return SeasonSpring
+	case day < 182:
+		return SeasonSummer
+	case day < 273:
+		return SeasonFall
+	default:
+		return SeasonWinter
+	}
+}
+
+// GetSeasonFromYear extracts season from simulation year (each year has 4 seasons)
+func GetSeasonFromYear(year int64) Season {
+	return Season(year % 4)
+}
+
+// SeasonalFoodModifier returns food availability multiplier based on season and biome
+func SeasonalFoodModifier(season Season, biomeType geography.BiomeType) float64 {
+	// Base seasonal effects (temperate baseline)
+	baseModifiers := map[Season]float64{
+		SeasonSpring: 0.8, // Growing, but not peak
+		SeasonSummer: 1.2, // Peak food
+		SeasonFall:   1.0, // Harvest/abundance
+		SeasonWinter: 0.5, // Scarcity
+	}
+
+	modifier := baseModifiers[season]
+
+	// Adjust by biome type
+	switch biomeType {
+	case geography.BiomeTundra, geography.BiomeTaiga:
+		// Extreme seasonal variation in polar regions
+		if season == SeasonWinter {
+			modifier *= 0.3 // Very harsh winters
+		} else if season == SeasonSummer {
+			modifier *= 1.3 // Intense but short growing season
+		}
+	case geography.BiomeDesert:
+		// Desert has less seasonal variation, more about wet/dry
+		modifier = 0.7 + (modifier-0.5)*0.3 // Compress range
+	case geography.BiomeRainforest:
+		// Tropical: minimal seasonal variation
+		modifier = 0.9 + (modifier-0.5)*0.2 // Nearly constant
+	case geography.BiomeOcean:
+		// Ocean: moderate seasonal variation
+		modifier = 0.8 + (modifier-0.5)*0.4
+	case geography.BiomeAlpine:
+		// Alpine: extreme, similar to tundra
+		if season == SeasonWinter {
+			modifier *= 0.4
+		}
+	}
+
+	return modifier
+}
+
+// SeasonalBreedingModifier returns reproduction rate modifier based on season
+func SeasonalBreedingModifier(season Season, biomeType geography.BiomeType) float64 {
+	// Most species breed in spring/summer
+	baseModifiers := map[Season]float64{
+		SeasonSpring: 1.5, // Peak breeding
+		SeasonSummer: 1.2, // Secondary breeding
+		SeasonFall:   0.6, // Reduced
+		SeasonWinter: 0.3, // Minimal
+	}
+
+	modifier := baseModifiers[season]
+
+	// Tropical biomes have year-round breeding
+	if biomeType == geography.BiomeRainforest {
+		modifier = 0.9 + (modifier-0.5)*0.2 // Compress to near-constant
+	}
+
+	// Ocean species may have different timing
+	if biomeType == geography.BiomeOcean {
+		// Many marine species spawn in fall
+		if season == SeasonFall {
+			modifier = 1.3
+		}
+	}
+
+	return modifier
+}
+
 // GetTrophicLevel returns the trophic level for a diet type
 func GetTrophicLevel(diet DietType) TrophicLevel {
 	switch diet {

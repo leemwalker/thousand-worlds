@@ -284,6 +284,11 @@ func (ps *PopulationSimulator) SimulateYear() {
 
 // simulateBiomeYear runs population dynamics for a single biome
 func (ps *PopulationSimulator) simulateBiomeYear(biome *BiomePopulation) {
+	// Calculate current season and modifiers
+	season := GetSeasonFromYear(ps.CurrentYear)
+	foodModifier := SeasonalFoodModifier(season, biome.BiomeType)
+	breedingModifier := SeasonalBreedingModifier(season, biome.BiomeType)
+
 	// Count populations by diet type
 	var floraCount, herbivoreCount, carnivoreCount int64
 	for _, sp := range biome.Species {
@@ -309,8 +314,9 @@ func (ps *PopulationSimulator) simulateBiomeYear(biome *BiomePopulation) {
 			// Flora: logistic growth limited by carrying capacity
 			// dP/dt = r * P * (1 - P/K)
 			fitness := CalculateBiomeFitness(species.Traits, biome.BiomeType)
-			growthRate := 0.5 * species.Traits.Fertility * fitness // Increased from 0.3 for faster recovery
-			k := float64(biome.CarryingCapacity) * 0.4             // Flora takes 40% of capacity
+			// Apply seasonal growth modifier - plants grow more in summer, less in winter
+			growthRate := 0.5 * species.Traits.Fertility * fitness * foodModifier
+			k := float64(biome.CarryingCapacity) * 0.4 // Flora takes 40% of capacity
 			p := float64(oldCount)
 			growth := growthRate * p * (1 - p/k)
 			// Reduction from herbivore grazing
@@ -327,7 +333,8 @@ func (ps *PopulationSimulator) simulateBiomeYear(biome *BiomePopulation) {
 			reproModifier := CalculateReproductionModifier(species.Traits.Size)
 			metabolicRate := CalculateMetabolicRate(species.Traits.Size)
 
-			birthRate := 0.25 * species.Traits.Fertility * fitness * reproModifier
+			// Apply seasonal breeding modifier - animals breed more in spring/summer
+			birthRate := 0.25 * species.Traits.Fertility * fitness * reproModifier * breedingModifier
 			deathRate := (0.05 / species.Traits.Lifespan * 10) / fitness
 
 			// Predation scales with predator count but herbivores get defensive bonuses
@@ -336,10 +343,10 @@ func (ps *PopulationSimulator) simulateBiomeYear(biome *BiomePopulation) {
 			predationRate := 0.0001 * (1 - species.Traits.Speed*0.05) * (1 - species.Traits.Camouflage*0.3) * sizeDefense
 
 			p := float64(oldCount)
-			// Food availability scaled by metabolic rate - larger animals need more
-			foodAvailability := math.Min(1.0, float64(floraCount)/float64(oldCount+1)*0.3/metabolicRate)
+			// Food availability scaled by metabolic rate and season - larger animals need more
+			foodAvailability := math.Min(1.0, float64(floraCount)/float64(oldCount+1)*0.3/metabolicRate*foodModifier)
 			if floraCount > 100 {
-				foodAvailability = math.Max(0.5, foodAvailability) // Minimum 50% if flora exists
+				foodAvailability = math.Max(0.3, foodAvailability) // Minimum 30% if flora exists
 			}
 			effectiveBirth := birthRate * foodAvailability
 
@@ -370,7 +377,8 @@ func (ps *PopulationSimulator) simulateBiomeYear(biome *BiomePopulation) {
 
 			// Prey ratio scaled by metabolic rate - larger predators need more prey
 			preyRatio := math.Min(1.0, float64(preyCount)/float64(oldCount+1)*0.2/metabolicRate)
-			growth := efficiency * predationRate * float64(preyCount) * p * preyRatio * reproModifier
+			// Apply seasonal breeding modifier to growth
+			growth := efficiency * predationRate * float64(preyCount) * p * preyRatio * reproModifier * breedingModifier
 			death := deathRate * p * (1 - preyRatio*0.5)  // Less death when prey available
 			newCount = int64(math.Max(1, p+growth-death)) // Don't go below 1 unless truly extinct
 		}
