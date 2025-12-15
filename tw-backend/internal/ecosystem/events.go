@@ -30,14 +30,16 @@ type GeologicalEvent struct {
 
 // GeologicalEventManager handles long-term geological events
 type GeologicalEventManager struct {
-	ActiveEvents []GeologicalEvent
-	rng          *rand.Rand
+	ActiveEvents     []GeologicalEvent
+	TectonicActivity float64 // 0.0-1.0: represents geological instability (volcanism, earthquakes)
+	rng              *rand.Rand
 }
 
 func NewGeologicalEventManager() *GeologicalEventManager {
 	return &GeologicalEventManager{
-		ActiveEvents: make([]GeologicalEvent, 0),
-		rng:          rand.New(rand.NewSource(time.Now().UnixNano())),
+		ActiveEvents:     make([]GeologicalEvent, 0),
+		TectonicActivity: 0.1, // Start with low baseline activity
+		rng:              rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
@@ -45,11 +47,13 @@ func NewGeologicalEventManager() *GeologicalEventManager {
 // ticksElapsed is the number of ticks since last check
 // At 100 ticks = 1 year, major events happen roughly every 100k-1M years
 func (g *GeologicalEventManager) CheckForNewEvents(currentTick, ticksElapsed int64) {
-	// Geological events are rare:
-	// Volcanic winter: ~1 per 10,000 years = 1 per 1,000,000 ticks
-	// Asteroid impact: ~1 per 100,000 years = 1 per 10,000,000 ticks
-	// Ice age: ~1 per 200,000 years = 1 per 20,000,000 ticks
-	// Ocean anoxia: ~1 per 500,000 years = 1 per 50,000,000 ticks
+	// Tectonic activity decays slowly over time (half-life ~50k years)
+	g.TectonicActivity *= 0.9999
+
+	// Minimum baseline activity
+	if g.TectonicActivity < 0.05 {
+		g.TectonicActivity = 0.05
+	}
 
 	// Scale probability by ticks elapsed
 	for i := int64(0); i < ticksElapsed; i += 10000 {
@@ -58,8 +62,10 @@ func (g *GeologicalEventManager) CheckForNewEvents(currentTick, ticksElapsed int
 			chunkSize = ticksElapsed - i
 		}
 
-		// Volcanic winter: 1% per 10k ticks
-		if g.rng.Float64() < 0.01*(float64(chunkSize)/10000.0) {
+		// Volcanic winter: now tied to tectonic activity
+		// Low base chance (0.2%) but scales up to 3% with high tectonic activity
+		volcanicChance := (0.002 + g.TectonicActivity*0.028) * (float64(chunkSize) / 10000.0)
+		if g.rng.Float64() < volcanicChance {
 			g.ActiveEvents = append(g.ActiveEvents, GeologicalEvent{
 				Type:           EventVolcanicWinter,
 				StartTick:      currentTick,
@@ -111,29 +117,43 @@ func (g *GeologicalEventManager) CheckForNewEvents(currentTick, ticksElapsed int
 		}
 
 		// Continental drift: 0.03% per 10k ticks (happens over long timescales)
+		// Drift events increase tectonic activity as plates move and create volcanic zones
 		if g.rng.Float64() < 0.0003*(float64(chunkSize)/10000.0) {
+			severity := 0.3 + g.rng.Float64()*0.5
 			g.ActiveEvents = append(g.ActiveEvents, GeologicalEvent{
 				Type:           EventContinentalDrift,
 				StartTick:      currentTick,
 				DurationTicks:  500000 + g.rng.Int63n(500000), // 5-10M years
-				Severity:       0.3 + g.rng.Float64()*0.5,
+				Severity:       severity,
 				TemperatureMod: 0, // No direct temperature effect
 				SunlightMod:    1.0,
 				OxygenMod:      1.0,
 			})
+			// Continental drift creates subduction zones and volcanic arcs
+			g.TectonicActivity += severity * 0.2
+			if g.TectonicActivity > 1.0 {
+				g.TectonicActivity = 1.0
+			}
 		}
 
 		// Flood basalt: 0.01% per 10k ticks (rare but impactful)
+		// Major volcanic event that significantly increases tectonic activity
 		if g.rng.Float64() < 0.0001*(float64(chunkSize)/10000.0) {
+			severity := 0.6 + g.rng.Float64()*0.4
 			g.ActiveEvents = append(g.ActiveEvents, GeologicalEvent{
 				Type:           EventFloodBasalt,
 				StartTick:      currentTick,
 				DurationTicks:  10000 + g.rng.Int63n(20000), // 100-300k years
-				Severity:       0.6 + g.rng.Float64()*0.4,
+				Severity:       severity,
 				TemperatureMod: -3 - g.rng.Float64()*7, // -3 to -10 degrees (volcanic gases)
 				SunlightMod:    0.7 + g.rng.Float64()*0.2,
 				OxygenMod:      0.9,
 			})
+			// Flood basalts are massive volcanic events - major activity spike
+			g.TectonicActivity += severity * 0.5
+			if g.TectonicActivity > 1.0 {
+				g.TectonicActivity = 1.0
+			}
 		}
 	}
 }
