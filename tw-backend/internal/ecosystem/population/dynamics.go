@@ -13,6 +13,7 @@ type PopulationSimulator struct {
 	Biomes       map[uuid.UUID]*BiomePopulation
 	FossilRecord *FossilRecord
 	CurrentYear  int64
+	OxygenLevel  float64 // Atmospheric O2 as fraction (0.21 = 21%, modern baseline)
 	rng          *rand.Rand
 }
 
@@ -46,8 +47,83 @@ func NewPopulationSimulator(worldID uuid.UUID, seed int64) *PopulationSimulator 
 		Biomes:       make(map[uuid.UUID]*BiomePopulation),
 		FossilRecord: &FossilRecord{WorldID: worldID, Extinct: []*ExtinctSpecies{}},
 		CurrentYear:  0,
+		OxygenLevel:  0.21, // Modern Earth baseline (21%)
 		rng:          rand.New(rand.NewSource(seed)),
 	}
+}
+
+// UpdateOxygenLevel slowly varies atmospheric oxygen over geological time
+// Based on historical Earth data: O2 varied from 15% to 35% over billions of years
+// Returns the new oxygen level
+func (ps *PopulationSimulator) UpdateOxygenLevel() float64 {
+	// Slow random walk with mean reversion to 0.21
+	meanReversion := (0.21 - ps.OxygenLevel) * 0.0001
+	randomChange := ps.rng.NormFloat64() * 0.0005 // Very slow change
+
+	ps.OxygenLevel += meanReversion + randomChange
+
+	// Clamp to historical extremes (15% - 35%)
+	if ps.OxygenLevel < 0.15 {
+		ps.OxygenLevel = 0.15
+	}
+	if ps.OxygenLevel > 0.35 {
+		ps.OxygenLevel = 0.35
+	}
+
+	return ps.OxygenLevel
+}
+
+// CalculateOxygenSizeModifier returns how oxygen affects maximum viable size
+// High O2 (>25%): Allows giant insects and larger organisms
+// Low O2 (<18%): Limits maximum size, stresses large organisms
+func CalculateOxygenSizeModifier(oxygenLevel float64) float64 {
+	// Normalize around 21% baseline
+	// At 35% O2: 1.67x size bonus (Carboniferous-like giant insects)
+	// At 21% O2: 1.0x (baseline)
+	// At 15% O2: 0.71x (size penalty)
+	return oxygenLevel / 0.21
+}
+
+// ApplyOxygenEffects applies oxygen-based selection pressure to all species
+// High O2 benefits large organisms, low O2 penalizes them
+func (ps *PopulationSimulator) ApplyOxygenEffects() int {
+	affectedSpecies := 0
+	oxygenModifier := CalculateOxygenSizeModifier(ps.OxygenLevel)
+
+	for _, biome := range ps.Biomes {
+		for _, species := range biome.Species {
+			if species.Count == 0 || species.Diet == DietPhotosynthetic {
+				continue // Plants don't breathe O2
+			}
+
+			// Calculate size stress based on oxygen levels
+			sizeRatio := species.Traits.Size / 5.0 // Normalize to medium size
+
+			// Large organisms (size > 5) are stressed by low oxygen
+			// Small organisms are less affected
+			if sizeRatio > 1.0 && oxygenModifier < 1.0 {
+				// Stress proportional to how oversized for current O2
+				stress := (sizeRatio - 1.0) * (1.0 - oxygenModifier)
+				// Slight population penalty and evolutionary pressure toward smaller size
+				if stress > 0.1 && ps.rng.Float64() < stress {
+					species.Traits.Size -= 0.01 * stress // Evolve smaller
+					species.Count = int64(float64(species.Count) * (1.0 - stress*0.01))
+					affectedSpecies++
+				}
+			}
+
+			// High oxygen allows larger sizes - reduce size pressure
+			if oxygenModifier > 1.0 && ps.rng.Float64() < 0.1 {
+				// Slight pressure toward larger sizes when O2 is high
+				species.Traits.Size += 0.005 * (oxygenModifier - 1.0)
+				if species.Traits.Size > 10 {
+					species.Traits.Size = 10
+				}
+			}
+		}
+	}
+
+	return affectedSpecies
 }
 
 // SimulateYear advances the simulation by one year using Lotka-Volterra dynamics

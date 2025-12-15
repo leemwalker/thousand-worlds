@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"tw-backend/cmd/game-server/websocket"
@@ -284,6 +285,21 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 
 		// Check for speciation every 10000 years
 		if popSim.CurrentYear%10000 == 0 {
+			// Update atmospheric oxygen levels
+			oldO2 := popSim.OxygenLevel
+			newO2 := popSim.UpdateOxygenLevel()
+			popSim.ApplyOxygenEffects()
+
+			// Report significant O2 changes (>2% shift)
+			o2Change := (newO2 - oldO2) * 100
+			if math.Abs(o2Change) > 0.5 {
+				direction := "rising"
+				if o2Change < 0 {
+					direction = "falling"
+				}
+				client.SendGameMessage("system", fmt.Sprintf("🌬️ Atmospheric oxygen %s: %.1f%%", direction, newO2*100), nil)
+			}
+
 			newSpecies := popSim.CheckSpeciation()
 			if newSpecies > 0 {
 				client.SendGameMessage("system", fmt.Sprintf("🧬 %d new species evolved through speciation", newSpecies), nil)
