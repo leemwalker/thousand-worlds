@@ -63,13 +63,14 @@ func (ps *PopulationSimulator) simulateBiomeYear(biome *BiomePopulation) {
 			// Flora: logistic growth limited by carrying capacity
 			// dP/dt = r * P * (1 - P/K)
 			fitness := CalculateBiomeFitness(species.Traits, biome.BiomeType)
-			growthRate := 0.3 * species.Traits.Fertility * fitness
-			k := float64(biome.CarryingCapacity) * 0.4 // Flora takes 40% of capacity
+			growthRate := 0.5 * species.Traits.Fertility * fitness // Increased from 0.3 for faster recovery
+			k := float64(biome.CarryingCapacity) * 0.4             // Flora takes 40% of capacity
 			p := float64(oldCount)
 			growth := growthRate * p * (1 - p/k)
 			// Reduction from herbivore grazing
 			grazingRate := 0.001 * float64(herbivoreCount) * (1 - species.Traits.Camouflage*0.3)
-			newCount = int64(math.Max(0, p+growth-grazingRate*p))
+			// Seeds always survive - minimum population of 10
+			newCount = int64(math.Max(10, p+growth-grazingRate*p))
 
 		case DietHerbivore:
 			// Herbivores: prey dynamics
@@ -381,9 +382,9 @@ func (ps *PopulationSimulator) ApplyExtinctionEvent(eventType ExtinctionEventTyp
 			var mortalityRate float64
 			switch eventType {
 			case EventVolcanicWinter:
-				// Blocks sunlight - kills flora first, cascades up
+				// Blocks sunlight - flora affected but seeds/roots survive
 				if species.Diet == DietPhotosynthetic {
-					mortalityRate = 0.3 * severity
+					mortalityRate = 0.10 * severity // Reduced from 0.3 - plants can regrow from seeds
 				} else {
 					mortalityRate = 0.15 * severity
 				}
