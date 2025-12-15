@@ -254,6 +254,70 @@ func TestCalculateBiomeFitness(t *testing.T) {
 	}
 }
 
+func TestGetCoveringForDiet(t *testing.T) {
+	tests := []struct {
+		diet     DietType
+		biome    geography.BiomeType
+		expected CoveringType
+	}{
+		{DietPhotosynthetic, geography.BiomeOcean, CoveringNone},
+		{DietPhotosynthetic, geography.BiomeGrassland, CoveringBark},
+		{DietHerbivore, geography.BiomeTundra, CoveringFur},
+		{DietHerbivore, geography.BiomeDesert, CoveringScales},
+		{DietCarnivore, geography.BiomeOcean, CoveringScales},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.diet)+"_"+string(tt.biome), func(t *testing.T) {
+			result := GetCoveringForDiet(tt.diet, tt.biome)
+			if result != tt.expected {
+				t.Errorf("GetCoveringForDiet(%s, %s) = %s, expected %s",
+					tt.diet, tt.biome, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetFloraGrowthForBiome(t *testing.T) {
+	tests := []struct {
+		biome    geography.BiomeType
+		expected FloraGrowthType
+	}{
+		{geography.BiomeTaiga, FloraEvergreen},
+		{geography.BiomeAlpine, FloraEvergreen},
+		{geography.BiomeDeciduousForest, FloraDeciduous},
+		{geography.BiomeDesert, FloraSucculent},
+		{geography.BiomeOcean, FloraAquatic},
+		{geography.BiomeGrassland, FloraPerennial},
+		{geography.BiomeRainforest, FloraEvergreen},
+		{geography.BiomeTundra, FloraPerennial},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.biome), func(t *testing.T) {
+			result := GetFloraGrowthForBiome(tt.biome)
+			if result != tt.expected {
+				t.Errorf("GetFloraGrowthForBiome(%s) = %s, expected %s",
+					tt.biome, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetAllEpochs(t *testing.T) {
+	epochs := GetAllEpochs()
+	if len(epochs) != 10 {
+		t.Errorf("Expected 10 epochs, got %d", len(epochs))
+	}
+}
+
+func TestGetAllGoals(t *testing.T) {
+	goals := GetAllGoals()
+	if len(goals) != 12 {
+		t.Errorf("Expected 12 goals, got %d", len(goals))
+	}
+}
+
 // Helper function to check if a string contains a word
 func containsWord(s, word string) bool {
 	return len(s) > 0 && len(word) > 0 &&
