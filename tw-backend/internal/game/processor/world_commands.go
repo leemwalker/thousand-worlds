@@ -277,6 +277,9 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 
 			// Apply co-evolution (predator-prey arms race) every 1000 years
 			popSim.ApplyCoEvolution()
+
+			// Apply genetic drift (stronger effect on small populations)
+			popSim.ApplyGeneticDrift()
 		}
 
 		// Check for speciation every 10000 years

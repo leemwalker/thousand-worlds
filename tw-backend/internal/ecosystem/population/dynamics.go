@@ -289,6 +289,77 @@ func (ps *PopulationSimulator) ApplyEvolution() {
 	}
 }
 
+// ApplyGeneticDrift applies random allele frequency changes based on population size
+// Smaller populations experience stronger drift (founder effect / bottleneck)
+// Returns the number of species affected by significant drift
+func (ps *PopulationSimulator) ApplyGeneticDrift() int {
+	driftEvents := 0
+
+	for _, biome := range ps.Biomes {
+		for _, species := range biome.Species {
+			if species.Count == 0 {
+				continue
+			}
+
+			// Drift strength inversely proportional to population size
+			// Formula: drift = 1 / sqrt(2 * N) (Wright-Fisher model approximation)
+			// At N=10: drift=0.22, At N=100: drift=0.07, At N=1000: drift=0.02
+			driftStrength := 1.0 / math.Sqrt(2.0*float64(species.Count))
+
+			// Only apply significant drift to small populations (< 500)
+			if species.Count > 500 {
+				driftStrength *= 0.1 // Much weaker for large populations
+			}
+
+			// Very small populations (< 50) experience founder effect
+			founderBonus := 0.0
+			if species.Count < 50 {
+				founderBonus = 0.5 * (1.0 - float64(species.Count)/50.0)
+			}
+
+			totalDrift := (driftStrength + founderBonus) * 0.1
+
+			// Apply random drift to traits
+			if ps.rng.Float64() < totalDrift*5 { // 5x chance for drift check
+				// Pick a random trait to drift
+				traitIndex := ps.rng.Intn(8)
+				driftAmount := ps.rng.NormFloat64() * totalDrift
+
+				switch traitIndex {
+				case 0:
+					species.Traits.Size += driftAmount * 2
+				case 1:
+					species.Traits.Speed += driftAmount * 2
+				case 2:
+					species.Traits.Strength += driftAmount * 2
+				case 3:
+					species.Traits.ColdResistance += driftAmount
+				case 4:
+					species.Traits.HeatResistance += driftAmount
+				case 5:
+					species.Traits.Camouflage += driftAmount
+				case 6:
+					species.Traits.Intelligence += driftAmount
+				case 7:
+					// Variance can drift too - diversity can be lost or gained
+					species.TraitVariance += driftAmount * 0.5
+				}
+
+				species.Traits = clampTraits(species.Traits)
+				if species.TraitVariance < 0.01 {
+					species.TraitVariance = 0.01 // Minimum variance
+				}
+				if species.TraitVariance > 1.0 {
+					species.TraitVariance = 1.0
+				}
+				driftEvents++
+			}
+		}
+	}
+
+	return driftEvents
+}
+
 // ApplyCoEvolution applies the Red Queen effect - predator-prey arms race
 // Predators drive prey to evolve escape traits, prey drive predators to evolve hunting traits
 func (ps *PopulationSimulator) ApplyCoEvolution() int {
