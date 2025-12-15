@@ -35,6 +35,10 @@ type EvolvableTraits struct {
 	CarnivoreTendency float64 `json:"carnivore_tendency"` // 0.0 (pure herbivore) to 1.0 (pure carnivore)
 	VenomPotency      float64 `json:"venom_potency"`      // 0.0 to 1.0
 	PoisonResistance  float64 `json:"poison_resistance"`  // 0.0 to 1.0
+
+	// Appearance traits
+	Covering    CoveringType    `json:"covering"`     // Body covering (fur, scales, feathers, etc.)
+	FloraGrowth FloraGrowthType `json:"flora_growth"` // Growth type for plants (evergreen, deciduous, etc.)
 }
 
 // DietType determines what a species primarily consumes
@@ -144,6 +148,7 @@ func DefaultTraitsForDiet(diet DietType) EvolvableTraits {
 			ColdResistance: 0.5, HeatResistance: 0.5, NightVision: 0.3, Camouflage: 0.4,
 			Fertility: 1.2, Lifespan: 10, Maturity: 1.0, LitterSize: 2.0,
 			CarnivoreTendency: 0.0, VenomPotency: 0.0, PoisonResistance: 0.2,
+			Covering: CoveringFur,
 		}
 	case DietCarnivore:
 		return EvolvableTraits{
@@ -152,6 +157,7 @@ func DefaultTraitsForDiet(diet DietType) EvolvableTraits {
 			ColdResistance: 0.5, HeatResistance: 0.5, NightVision: 0.6, Camouflage: 0.5,
 			Fertility: 0.8, Lifespan: 15, Maturity: 2.0, LitterSize: 3.0,
 			CarnivoreTendency: 1.0, VenomPotency: 0.1, PoisonResistance: 0.3,
+			Covering: CoveringFur,
 		}
 	case DietOmnivore:
 		return EvolvableTraits{
@@ -160,14 +166,16 @@ func DefaultTraitsForDiet(diet DietType) EvolvableTraits {
 			ColdResistance: 0.5, HeatResistance: 0.5, NightVision: 0.4, Camouflage: 0.3,
 			Fertility: 1.0, Lifespan: 12, Maturity: 1.5, LitterSize: 2.0,
 			CarnivoreTendency: 0.5, VenomPotency: 0.0, PoisonResistance: 0.3,
+			Covering: CoveringFur,
 		}
 	case DietPhotosynthetic:
 		return EvolvableTraits{
 			Size: 1.0, Speed: 0.0, Strength: 0.5,
 			Aggression: 0.0, Social: 0.0, Intelligence: 0.0,
 			ColdResistance: 0.3, HeatResistance: 0.5, NightVision: 0.0, Camouflage: 0.6,
-			Fertility: 2.0, Lifespan: 50, Maturity: 0.5, LitterSize: 10.0, // Flora: early maturity, high seed count
+			Fertility: 2.0, Lifespan: 50, Maturity: 0.5, LitterSize: 10.0,
 			CarnivoreTendency: 0.0, VenomPotency: 0.0, PoisonResistance: 0.0,
+			Covering: CoveringBark, FloraGrowth: FloraPerennial,
 		}
 	default:
 		return EvolvableTraits{}

@@ -127,13 +127,15 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		for i := 0; i < count; i++ {
 			bp := population.NewBiomePopulation(uuid.New(), biomeType)
 
-			// Seed initial species based on biome type
-			// Flora
+			// Flora with biome-specific growth type
+			floraTraits := population.DefaultTraitsForDiet(population.DietPhotosynthetic)
+			floraTraits.FloraGrowth = population.GetFloraGrowthForBiome(biomeType)
+			floraTraits.Covering = population.GetCoveringForDiet(population.DietPhotosynthetic, biomeType)
 			floraSpecies := &population.SpeciesPopulation{
 				SpeciesID:     uuid.New(),
-				Name:          fmt.Sprintf("%s Flora", biomeType),
+				Name:          population.GenerateSpeciesName(floraTraits, population.DietPhotosynthetic, biomeType),
 				Count:         500,
-				Traits:        population.DefaultTraitsForDiet(population.DietPhotosynthetic),
+				Traits:        floraTraits,
 				TraitVariance: 0.3,
 				Diet:          population.DietPhotosynthetic,
 				Generation:    0,
@@ -141,12 +143,14 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			}
 			bp.AddSpecies(floraSpecies)
 
-			// Herbivore
+			// Herbivore with biome-specific covering
+			herbTraits := population.DefaultTraitsForDiet(population.DietHerbivore)
+			herbTraits.Covering = population.GetCoveringForDiet(population.DietHerbivore, biomeType)
 			herbSpecies := &population.SpeciesPopulation{
 				SpeciesID:     uuid.New(),
-				Name:          fmt.Sprintf("%s Grazer", biomeType),
+				Name:          population.GenerateSpeciesName(herbTraits, population.DietHerbivore, biomeType),
 				Count:         200,
-				Traits:        population.DefaultTraitsForDiet(population.DietHerbivore),
+				Traits:        herbTraits,
 				TraitVariance: 0.3,
 				Diet:          population.DietHerbivore,
 				Generation:    0,
@@ -154,12 +158,14 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			}
 			bp.AddSpecies(herbSpecies)
 
-			// Carnivore
+			// Carnivore with biome-specific covering
+			carnTraits := population.DefaultTraitsForDiet(population.DietCarnivore)
+			carnTraits.Covering = population.GetCoveringForDiet(population.DietCarnivore, biomeType)
 			carnSpecies := &population.SpeciesPopulation{
 				SpeciesID:     uuid.New(),
-				Name:          fmt.Sprintf("%s Predator", biomeType),
+				Name:          population.GenerateSpeciesName(carnTraits, population.DietCarnivore, biomeType),
 				Count:         50,
-				Traits:        population.DefaultTraitsForDiet(population.DietCarnivore),
+				Traits:        carnTraits,
 				TraitVariance: 0.3,
 				Diet:          population.DietCarnivore,
 				Generation:    0,
