@@ -278,7 +278,10 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 
 		// Check for speciation every 10000 years
 		if popSim.CurrentYear%10000 == 0 {
-			popSim.CheckSpeciation()
+			newSpecies := popSim.CheckSpeciation()
+			if newSpecies > 0 {
+				client.SendGameMessage("system", fmt.Sprintf("🧬 %d new species evolved through speciation", newSpecies), nil)
+			}
 
 			// Allow species to migrate between biomes
 			migrants := popSim.ApplyMigrationCycle()

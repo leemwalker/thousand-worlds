@@ -236,20 +236,51 @@ func (ps *PopulationSimulator) ApplyEvolution() {
 }
 
 // CheckSpeciation checks if any species should split based on trait divergence
-func (ps *PopulationSimulator) CheckSpeciation() {
+// Returns the number of new species created
+func (ps *PopulationSimulator) CheckSpeciation() int {
+	newSpeciesCount := 0
+
+	// Calculate adaptive radiation bonus (more speciation after extinctions)
+	adaptiveRadiationBonus := 0.0
+	if ps.FossilRecord != nil && len(ps.FossilRecord.Extinct) > 0 {
+		// Check for recent extinctions (within last 50000 years)
+		recentExtinctions := 0
+		for _, fossil := range ps.FossilRecord.Extinct {
+			if ps.CurrentYear-fossil.ExistedUntil < 50000 {
+				recentExtinctions++
+			}
+		}
+		// Each recent extinction increases speciation chance (adaptive radiation)
+		adaptiveRadiationBonus = float64(recentExtinctions) * 0.02
+		if adaptiveRadiationBonus > 0.3 {
+			adaptiveRadiationBonus = 0.3 // Cap at 30% bonus
+		}
+	}
+
 	for _, biome := range ps.Biomes {
 		var newSpecies []*SpeciesPopulation
 
 		for _, species := range biome.Species {
+			// Base speciation chance: 10%
+			speciationChance := 0.1 + adaptiveRadiationBonus
+
 			// Large populations with high variance may speciate
-			if species.Count > 500 && species.TraitVariance > 0.3 && ps.rng.Float64() < 0.1 {
+			if species.Count > 500 && species.TraitVariance > 0.3 && ps.rng.Float64() < speciationChance {
+				// Create mutated traits for the new species
+				newTraits := mutateTraits(species.Traits, 0.15, ps.rng)
+
+				// Generate a proper name based on the new traits
+				newName := GenerateSpeciesName(newTraits, species.Diet, biome.BiomeType)
+				// Prefix with biome type for clarity
+				newName = string(biome.BiomeType) + " " + newName
+
 				// Split into two species
 				child := &SpeciesPopulation{
 					SpeciesID:     uuid.New(),
-					Name:          species.Name + " (variant)",
+					Name:          newName,
 					AncestorID:    &species.SpeciesID,
 					Count:         species.Count / 3, // 1/3 goes to new species
-					Traits:        mutateTraits(species.Traits, 0.15, ps.rng),
+					Traits:        newTraits,
 					TraitVariance: species.TraitVariance * 0.8,
 					Diet:          species.Diet,
 					Generation:    species.Generation + 1,
@@ -260,6 +291,7 @@ func (ps *PopulationSimulator) CheckSpeciation() {
 				species.TraitVariance *= 0.8 // Reduce variance after split
 
 				newSpecies = append(newSpecies, child)
+				newSpeciesCount++
 			}
 		}
 
@@ -268,6 +300,8 @@ func (ps *PopulationSimulator) CheckSpeciation() {
 			biome.AddSpecies(sp)
 		}
 	}
+
+	return newSpeciesCount
 }
 
 // clampTraits ensures all trait values are within valid ranges
