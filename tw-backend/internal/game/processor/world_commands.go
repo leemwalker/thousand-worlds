@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"tw-backend/cmd/game-server/websocket"
+	"tw-backend/internal/ai/behaviortree"
 	"tw-backend/internal/ecosystem"
 	"tw-backend/internal/ecosystem/population"
 	"tw-backend/internal/ecosystem/state"
@@ -32,8 +33,10 @@ func (p *GameProcessor) handleWorld(ctx context.Context, client websocket.GameCl
 		return p.handleWorldSimulate(ctx, client, *cmd.Message)
 	case "info":
 		return p.handleWorldInfo(ctx, client)
+	case "reset":
+		return p.handleWorldReset(ctx, client)
 	default:
-		client.SendGameMessage("error", "Unknown world command. Try: 'simulate', 'info'", nil)
+		client.SendGameMessage("error", "Unknown world command. Try: 'simulate', 'info', 'reset'", nil)
 		return nil
 	}
 }
@@ -172,8 +175,18 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			lastProgress = year
 		}
 
-		// Simulate population dynamics
+		// Simulate population dynamics + evolution + speciation
 		popSim.SimulateYear()
+
+		// Apply evolution every 1000 years
+		if popSim.CurrentYear%1000 == 0 {
+			popSim.ApplyEvolution()
+		}
+
+		// Check for speciation every 10000 years
+		if popSim.CurrentYear%10000 == 0 {
+			popSim.CheckSpeciation()
+		}
 
 		// Check for geological events (every 10000 years)
 		if year%10000 == 0 {
@@ -296,6 +309,25 @@ func (p *GameProcessor) handleWorldInfo(ctx context.Context, client websocket.Ga
 	}
 
 	client.SendGameMessage("system", sb.String(), nil)
+	return nil
+}
+
+// handleWorldReset resets the world simulation to default state
+func (p *GameProcessor) handleWorldReset(ctx context.Context, client websocket.GameClient) error {
+	char, err := p.authRepo.GetCharacter(ctx, client.GetCharacterID())
+	if err != nil {
+		client.SendGameMessage("error", "Could not get character info", nil)
+		return nil
+	}
+
+	// Clear geology for this world
+	delete(p.worldGeology, char.WorldID)
+
+	// Clear all entities
+	p.ecosystemService.Entities = make(map[uuid.UUID]*state.LivingEntityState)
+	p.ecosystemService.Behaviors = make(map[uuid.UUID]behaviortree.Node)
+
+	client.SendGameMessage("system", "🔄 World reset complete. Geology and entities cleared.\nUse 'world simulate <years>' to start fresh.", nil)
 	return nil
 }
 

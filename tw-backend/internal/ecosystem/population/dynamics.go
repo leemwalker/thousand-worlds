@@ -87,21 +87,24 @@ func (ps *PopulationSimulator) simulateBiomeYear(biome *BiomePopulation) {
 			newCount = int64(math.Max(0, p+growth))
 
 		case DietCarnivore, DietOmnivore:
-			// Carnivores: predator dynamics
+			// Carnivores: predator dynamics with improved survival
 			// dC/dt = (efficiency * predation * H * C) - (death_rate * C)
-			efficiency := 0.1 * (1 + species.Traits.Intelligence*0.2)
-			predationRate := 0.0003 * species.Traits.Speed * 0.3 * species.Traits.Strength * 0.2
-			deathRate := 0.15 / species.Traits.Lifespan * 10
+			// Higher efficiency and lower death rate for better survival
+			efficiency := 0.3 * (1 + species.Traits.Intelligence*0.3)
+			predationRate := 0.002 * (0.5 + species.Traits.Speed*0.1) * (0.5 + species.Traits.Strength*0.1)
+			deathRate := 0.05 / species.Traits.Lifespan * 10 // Lower death rate
 
 			p := float64(oldCount)
 			preyCount := herbivoreCount
 			if species.Diet == DietOmnivore {
-				preyCount += floraCount / 10 // Omnivores also eat flora
+				preyCount += floraCount / 5 // Omnivores get more calories from flora
 			}
 
-			growth := efficiency * predationRate * float64(preyCount) * p
-			death := deathRate * p
-			newCount = int64(math.Max(0, p+growth-death))
+			// Ensure minimum prey availability for survival
+			preyRatio := math.Min(1.0, float64(preyCount)/float64(oldCount+1)*0.2)
+			growth := efficiency * predationRate * float64(preyCount) * p * preyRatio
+			death := deathRate * p * (1 - preyRatio*0.5)  // Less death when prey available
+			newCount = int64(math.Max(1, p+growth-death)) // Don't go below 1 unless truly extinct
 		}
 
 		// Apply carrying capacity limit
@@ -161,18 +164,18 @@ func (ps *PopulationSimulator) SimulateYears(years int64) {
 
 		// Every 1000 years, apply evolution
 		if ps.CurrentYear%1000 == 0 {
-			ps.applyEvolution()
+			ps.ApplyEvolution()
 		}
 
 		// Every 10000 years, check for speciation
 		if ps.CurrentYear%10000 == 0 {
-			ps.checkSpeciation()
+			ps.CheckSpeciation()
 		}
 	}
 }
 
-// applyEvolution applies trait drift and selection pressure
-func (ps *PopulationSimulator) applyEvolution() {
+// ApplyEvolution applies trait drift and selection pressure
+func (ps *PopulationSimulator) ApplyEvolution() {
 	for _, biome := range ps.Biomes {
 		for _, species := range biome.Species {
 			if species.Count == 0 {
@@ -203,8 +206,8 @@ func (ps *PopulationSimulator) applyEvolution() {
 	}
 }
 
-// checkSpeciation checks if any species should split based on trait divergence
-func (ps *PopulationSimulator) checkSpeciation() {
+// CheckSpeciation checks if any species should split based on trait divergence
+func (ps *PopulationSimulator) CheckSpeciation() {
 	for _, biome := range ps.Biomes {
 		var newSpecies []*SpeciesPopulation
 
