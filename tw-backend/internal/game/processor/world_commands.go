@@ -10,6 +10,7 @@ import (
 	"tw-backend/internal/ecosystem"
 	"tw-backend/internal/ecosystem/population"
 	"tw-backend/internal/ecosystem/state"
+	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/weather"
 
 	"github.com/google/uuid"
@@ -108,55 +109,69 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	// Initialize population simulator
 	popSim := population.NewPopulationSimulator(char.WorldID, seed)
 
-	// Create biome populations from geology biomes
-	for i, biome := range geology.Biomes {
-		if i >= 10 {
-			break // Limit to 10 biomes for simulation
-		}
-		bp := population.NewBiomePopulation(uuid.New(), biome.Type)
-
-		// Seed initial species based on biome type
-		// Flora
-		floraSpecies := &population.SpeciesPopulation{
-			SpeciesID:     uuid.New(),
-			Name:          fmt.Sprintf("%s Flora", biome.Type),
-			Count:         500,
-			Traits:        population.DefaultTraitsForDiet(population.DietPhotosynthetic),
-			TraitVariance: 0.3,
-			Diet:          population.DietPhotosynthetic,
-			Generation:    0,
-			CreatedYear:   0,
-		}
-		bp.AddSpecies(floraSpecies)
-
-		// Herbivore
-		herbSpecies := &population.SpeciesPopulation{
-			SpeciesID:     uuid.New(),
-			Name:          fmt.Sprintf("%s Grazer", biome.Type),
-			Count:         200,
-			Traits:        population.DefaultTraitsForDiet(population.DietHerbivore),
-			TraitVariance: 0.3,
-			Diet:          population.DietHerbivore,
-			Generation:    0,
-			CreatedYear:   0,
-		}
-		bp.AddSpecies(herbSpecies)
-
-		// Carnivore
-		carnSpecies := &population.SpeciesPopulation{
-			SpeciesID:     uuid.New(),
-			Name:          fmt.Sprintf("%s Predator", biome.Type),
-			Count:         50,
-			Traits:        population.DefaultTraitsForDiet(population.DietCarnivore),
-			TraitVariance: 0.3,
-			Diet:          population.DietCarnivore,
-			Generation:    0,
-			CreatedYear:   0,
-		}
-		bp.AddSpecies(carnSpecies)
-
-		popSim.Biomes[bp.BiomeID] = bp
+	// Group biomes by type to ensure diversity
+	biomesByType := make(map[geography.BiomeType][]*geography.Biome)
+	for i := range geology.Biomes {
+		biome := &geology.Biomes[i]
+		biomesByType[biome.Type] = append(biomesByType[biome.Type], biome)
 	}
+
+	// Create populations for each biome type (sample up to 2 per type)
+	for biomeType, biomes := range biomesByType {
+		// Take up to 2 biomes of each type
+		count := 2
+		if len(biomes) < count {
+			count = len(biomes)
+		}
+
+		for i := 0; i < count; i++ {
+			bp := population.NewBiomePopulation(uuid.New(), biomeType)
+
+			// Seed initial species based on biome type
+			// Flora
+			floraSpecies := &population.SpeciesPopulation{
+				SpeciesID:     uuid.New(),
+				Name:          fmt.Sprintf("%s Flora", biomeType),
+				Count:         500,
+				Traits:        population.DefaultTraitsForDiet(population.DietPhotosynthetic),
+				TraitVariance: 0.3,
+				Diet:          population.DietPhotosynthetic,
+				Generation:    0,
+				CreatedYear:   0,
+			}
+			bp.AddSpecies(floraSpecies)
+
+			// Herbivore
+			herbSpecies := &population.SpeciesPopulation{
+				SpeciesID:     uuid.New(),
+				Name:          fmt.Sprintf("%s Grazer", biomeType),
+				Count:         200,
+				Traits:        population.DefaultTraitsForDiet(population.DietHerbivore),
+				TraitVariance: 0.3,
+				Diet:          population.DietHerbivore,
+				Generation:    0,
+				CreatedYear:   0,
+			}
+			bp.AddSpecies(herbSpecies)
+
+			// Carnivore
+			carnSpecies := &population.SpeciesPopulation{
+				SpeciesID:     uuid.New(),
+				Name:          fmt.Sprintf("%s Predator", biomeType),
+				Count:         50,
+				Traits:        population.DefaultTraitsForDiet(population.DietCarnivore),
+				TraitVariance: 0.3,
+				Diet:          population.DietCarnivore,
+				Generation:    0,
+				CreatedYear:   0,
+			}
+			bp.AddSpecies(carnSpecies)
+
+			popSim.Biomes[bp.BiomeID] = bp
+		}
+	}
+
+	client.SendGameMessage("system", fmt.Sprintf("Simulating %d biome types with %d total biome instances...", len(biomesByType), len(popSim.Biomes)), nil)
 
 	// Track statistics
 	geologicalEvents := 0
