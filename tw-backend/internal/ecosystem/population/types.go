@@ -173,3 +173,77 @@ func DefaultTraitsForDiet(diet DietType) EvolvableTraits {
 		return EvolvableTraits{}
 	}
 }
+
+// CalculateBiomeFitness returns a multiplier (0.5-1.5) based on how well traits match the biome
+// Values > 1.0 mean the species is well-adapted, < 1.0 means poorly adapted
+func CalculateBiomeFitness(traits EvolvableTraits, biomeType geography.BiomeType) float64 {
+	fitness := 1.0
+
+	switch biomeType {
+	case geography.BiomeTundra, geography.BiomeAlpine:
+		// Cold environments: ColdResistance helps, HeatResistance hurts
+		fitness += (traits.ColdResistance - 0.5) * 0.4
+		fitness -= (traits.HeatResistance - 0.5) * 0.2
+		// Smaller size conserves heat
+		if traits.Size < 3.0 {
+			fitness += 0.1
+		}
+
+	case geography.BiomeDesert:
+		// Hot dry environments: HeatResistance helps, ColdResistance hurts
+		fitness += (traits.HeatResistance - 0.5) * 0.4
+		fitness -= (traits.ColdResistance - 0.5) * 0.2
+		// NightVision helps (nocturnal activity)
+		fitness += traits.NightVision * 0.15
+		// Large size is a disadvantage (water needs)
+		if traits.Size > 5.0 {
+			fitness -= 0.15
+		}
+
+	case geography.BiomeOcean:
+		// Ocean: Size and speed help (swimming)
+		fitness += traits.Speed * 0.03
+		fitness += traits.Size * 0.02
+		// Temperature resistance matters less in stable ocean temps
+		// But camouflage helps avoid predators
+		fitness += traits.Camouflage * 0.1
+
+	case geography.BiomeRainforest:
+		// Dense vegetation: Camouflage and intelligence help
+		fitness += traits.Camouflage * 0.2
+		fitness += traits.Intelligence * 0.15
+		// Speed less useful in dense foliage
+		if traits.Speed > 7.0 {
+			fitness -= 0.1
+		}
+		// Heat resistance helps
+		fitness += (traits.HeatResistance - 0.5) * 0.2
+
+	case geography.BiomeGrassland:
+		// Open terrain: Speed and social behavior help
+		fitness += traits.Speed * 0.03
+		fitness += traits.Social * 0.15
+		// Camouflage less effective on open plains
+		fitness -= (traits.Camouflage - 0.3) * 0.1
+
+	case geography.BiomeTaiga:
+		// Cold forests: Cold resistance, moderate size
+		fitness += (traits.ColdResistance - 0.5) * 0.3
+		fitness += traits.Camouflage * 0.1
+
+	case geography.BiomeDeciduousForest:
+		// Seasonal forest: Adaptability matters
+		fitness += traits.Intelligence * 0.1
+		fitness += traits.Camouflage * 0.1
+	}
+
+	// Clamp fitness to reasonable range
+	if fitness < 0.5 {
+		fitness = 0.5
+	}
+	if fitness > 1.5 {
+		fitness = 1.5
+	}
+
+	return fitness
+}

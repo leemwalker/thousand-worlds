@@ -216,6 +216,13 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 					e := geoManager.ActiveEvents[i]
 					client.SendGameMessage("system", fmt.Sprintf("⚠️ GEOLOGICAL EVENT: %s (severity: %.0f%%)", e.Type, e.Severity*100), nil)
 					geology.ApplyEvent(e)
+
+					// Apply extinction event to populations based on event type
+					eventType := population.ExtinctionEventType(e.Type)
+					deaths := popSim.ApplyExtinctionEvent(eventType, e.Severity)
+					if deaths > 100 {
+						client.SendGameMessage("system", fmt.Sprintf("   💀 %d organisms perished", deaths), nil)
+					}
 				}
 			}
 

@@ -62,7 +62,8 @@ func (ps *PopulationSimulator) simulateBiomeYear(biome *BiomePopulation) {
 		case DietPhotosynthetic:
 			// Flora: logistic growth limited by carrying capacity
 			// dP/dt = r * P * (1 - P/K)
-			growthRate := 0.3 * species.Traits.Fertility
+			fitness := CalculateBiomeFitness(species.Traits, biome.BiomeType)
+			growthRate := 0.3 * species.Traits.Fertility * fitness
 			k := float64(biome.CarryingCapacity) * 0.4 // Flora takes 40% of capacity
 			p := float64(oldCount)
 			growth := growthRate * p * (1 - p/k)
@@ -73,8 +74,9 @@ func (ps *PopulationSimulator) simulateBiomeYear(biome *BiomePopulation) {
 		case DietHerbivore:
 			// Herbivores: prey dynamics
 			// dH/dt = (birth_rate * H) - (predation_rate * H * C)
-			birthRate := 0.2 * species.Traits.Fertility
-			deathRate := 0.1 / species.Traits.Lifespan * 10 // Normalized death rate
+			fitness := CalculateBiomeFitness(species.Traits, biome.BiomeType)
+			birthRate := 0.2 * species.Traits.Fertility * fitness
+			deathRate := (0.1 / species.Traits.Lifespan * 10) / fitness // Better fitness = lower death
 			predationRate := 0.0002 * (1 - species.Traits.Speed*0.05) * (1 - species.Traits.Camouflage*0.3)
 
 			p := float64(oldCount)
@@ -89,10 +91,10 @@ func (ps *PopulationSimulator) simulateBiomeYear(biome *BiomePopulation) {
 		case DietCarnivore, DietOmnivore:
 			// Carnivores: predator dynamics with improved survival
 			// dC/dt = (efficiency * predation * H * C) - (death_rate * C)
-			// Higher efficiency and lower death rate for better survival
-			efficiency := 0.3 * (1 + species.Traits.Intelligence*0.3)
+			fitness := CalculateBiomeFitness(species.Traits, biome.BiomeType)
+			efficiency := 0.3 * (1 + species.Traits.Intelligence*0.3) * fitness
 			predationRate := 0.002 * (0.5 + species.Traits.Speed*0.1) * (0.5 + species.Traits.Strength*0.1)
-			deathRate := 0.05 / species.Traits.Lifespan * 10 // Lower death rate
+			deathRate := (0.05 / species.Traits.Lifespan * 10) / fitness
 
 			p := float64(oldCount)
 			preyCount := herbivoreCount
@@ -343,4 +345,104 @@ func (ps *PopulationSimulator) GetStats() (totalPop, totalSpecies, totalExtinct 
 	}
 	totalExtinct = int64(len(ps.FossilRecord.Extinct))
 	return
+}
+
+// ExtinctionEventType represents types of mass extinction events
+type ExtinctionEventType string
+
+const (
+	EventVolcanicWinter   ExtinctionEventType = "volcanic_winter"
+	EventAsteroidImpact   ExtinctionEventType = "asteroid_impact"
+	EventIceAge           ExtinctionEventType = "ice_age"
+	EventOceanAnoxia      ExtinctionEventType = "ocean_anoxia"
+	EventFloodBasalt      ExtinctionEventType = "flood_basalt"
+	EventContinentalDrift ExtinctionEventType = "continental_drift"
+)
+
+// ApplyExtinctionEvent reduces populations based on event type and severity
+// severity is 0.0-1.0, where 1.0 is catastrophic
+func (ps *PopulationSimulator) ApplyExtinctionEvent(eventType ExtinctionEventType, severity float64) int64 {
+	var totalDeaths int64
+
+	for _, biome := range ps.Biomes {
+		var toExtinct []uuid.UUID
+
+		for speciesID, species := range biome.Species {
+			if species.Count == 0 {
+				continue
+			}
+
+			// Base mortality from event type
+			var mortalityRate float64
+			switch eventType {
+			case EventVolcanicWinter:
+				// Blocks sunlight - kills flora first, cascades up
+				if species.Diet == DietPhotosynthetic {
+					mortalityRate = 0.3 * severity
+				} else {
+					mortalityRate = 0.15 * severity
+				}
+				// Cold resistance helps survive
+				mortalityRate *= (1.0 - species.Traits.ColdResistance*0.3)
+
+			case EventAsteroidImpact:
+				// Catastrophic - affects everything
+				mortalityRate = 0.7 * severity
+				// Small species survive better (less food needs)
+				if species.Traits.Size < 2.0 {
+					mortalityRate *= 0.6
+				}
+				// Intelligence helps find shelter
+				mortalityRate *= (1.0 - species.Traits.Intelligence*0.2)
+
+			case EventIceAge:
+				// Cold kills tropical species, helps cold-adapted
+				if biome.BiomeType == geography.BiomeRainforest || biome.BiomeType == geography.BiomeDesert {
+					mortalityRate = 0.4 * severity
+				} else {
+					mortalityRate = 0.1 * severity
+				}
+				// Cold resistance dramatically reduces mortality
+				mortalityRate *= (1.0 - species.Traits.ColdResistance*0.5)
+
+			case EventOceanAnoxia:
+				// Only affects ocean biomes
+				if biome.BiomeType == geography.BiomeOcean {
+					mortalityRate = 0.5 * severity
+					// Larger species need more oxygen
+					mortalityRate += species.Traits.Size * 0.02
+				}
+
+			case EventFloodBasalt:
+				// Toxic gases kill land species
+				if biome.BiomeType != geography.BiomeOcean {
+					mortalityRate = 0.25 * severity
+					// Poison resistance helps
+					mortalityRate *= (1.0 - species.Traits.PoisonResistance*0.4)
+				}
+
+			case EventContinentalDrift:
+				// Minor direct impact but increases speciation
+				mortalityRate = 0.05 * severity
+			}
+
+			// Apply mortality
+			deaths := int64(float64(species.Count) * mortalityRate)
+			species.Count -= deaths
+			totalDeaths += deaths
+
+			// Check for extinction
+			if species.Count <= 0 {
+				species.Count = 0
+				toExtinct = append(toExtinct, speciesID)
+			}
+		}
+
+		// Process extinctions
+		for _, speciesID := range toExtinct {
+			ps.recordExtinction(biome, speciesID, string(eventType))
+		}
+	}
+
+	return totalDeaths
 }
