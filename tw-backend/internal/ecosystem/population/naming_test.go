@@ -69,7 +69,7 @@ func TestGenerateSpeciesName_Fauna(t *testing.T) {
 			},
 			diet:     DietHerbivore,
 			biome:    geography.BiomeGrassland,
-			contains: []string{"Giant", "Woolly", "Grazer"},
+			contains: []string{"Giant", "Woolly", "Behemoth"},
 		},
 		{
 			name: "Small fast scaled carnivore",
@@ -79,7 +79,7 @@ func TestGenerateSpeciesName_Fauna(t *testing.T) {
 			},
 			diet:     DietCarnivore,
 			biome:    geography.BiomeDesert,
-			contains: []string{"Small", "Swift", "Hunter"},
+			contains: []string{"Small", "Swift", "Stalker"},
 		},
 		{
 			name: "Feathered predator",
@@ -89,7 +89,7 @@ func TestGenerateSpeciesName_Fauna(t *testing.T) {
 			},
 			diet:     DietCarnivore,
 			biome:    geography.BiomeTaiga,
-			contains: []string{"Feathered", "Hunter"},
+			contains: []string{"Feathered", "Stalker"},
 		},
 		{
 			name: "Pack hunter with intelligence",
@@ -100,7 +100,7 @@ func TestGenerateSpeciesName_Fauna(t *testing.T) {
 			},
 			diet:     DietCarnivore,
 			biome:    geography.BiomeGrassland,
-			contains: []string{"Pack"},
+			contains: []string{"Large", "Woolly", "Packwolf"},
 		},
 	}
 

@@ -130,65 +130,150 @@ func generateFloraName(traits EvolvableTraits, biome geography.BiomeType) []stri
 func generateFaunaName(traits EvolvableTraits, diet DietType, biome geography.BiomeType) []string {
 	var parts []string
 
-	// Size descriptor
+	// Size descriptor - more variety
 	switch {
 	case traits.Size < 0.3:
-		parts = append(parts, "Tiny")
+		parts = append(parts, pickFrom([]string{"Tiny", "Miniature", "Pygmy"}))
 	case traits.Size < 1.0:
-		parts = append(parts, "Small")
+		parts = append(parts, pickFrom([]string{"Small", "Lesser", "Dwarf"}))
 	case traits.Size < 2.0:
-		// No size descriptor for medium
+		// No size descriptor for medium - use other descriptors
 	case traits.Size < 4.0:
-		parts = append(parts, "Large")
+		parts = append(parts, pickFrom([]string{"Large", "Greater", "Robust"}))
 	case traits.Size < 7.0:
-		parts = append(parts, "Massive")
+		parts = append(parts, pickFrom([]string{"Massive", "Grand", "Imperial"}))
 	default:
-		parts = append(parts, "Giant")
+		parts = append(parts, pickFrom([]string{"Giant", "Colossal", "Titanic"}))
 	}
 
-	// Speed descriptor
-	if traits.Speed > 7.0 {
-		parts = append(parts, "Swift")
-	} else if traits.Speed > 5.0 && len(parts) < 2 {
-		parts = append(parts, "Quick")
+	// Behavior/trait descriptor (only one)
+	descriptorAdded := false
+	if traits.Speed > 7.0 && !descriptorAdded {
+		parts = append(parts, pickFrom([]string{"Swift", "Dashing", "Fleet"}))
+		descriptorAdded = true
+	} else if traits.Intelligence > 0.7 && !descriptorAdded {
+		parts = append(parts, pickFrom([]string{"Cunning", "Clever", "Sly"}))
+		descriptorAdded = true
+	} else if traits.Strength > 7.0 && !descriptorAdded {
+		parts = append(parts, pickFrom([]string{"Mighty", "Powerful", "Stalwart"}))
+		descriptorAdded = true
+	} else if traits.Aggression > 0.7 && !descriptorAdded {
+		parts = append(parts, pickFrom([]string{"Fierce", "Savage", "Brutal"}))
+		descriptorAdded = true
+	} else if traits.Camouflage > 0.7 && !descriptorAdded {
+		parts = append(parts, pickFrom([]string{"Shadow", "Phantom", "Ghost"}))
+		descriptorAdded = true
 	}
 
-	// Covering descriptor
-	switch traits.Covering {
-	case CoveringFur:
-		parts = append(parts, "Woolly")
-	case CoveringScales:
-		parts = append(parts, "Scaled")
-	case CoveringFeathers:
-		parts = append(parts, "Feathered")
-	case CoveringShell:
-		parts = append(parts, "Armored")
-	case CoveringSkin:
-		parts = append(parts, "Smooth")
+	// Covering descriptor (only if no behavior descriptor)
+	if !descriptorAdded || len(parts) < 2 {
+		switch traits.Covering {
+		case CoveringFur:
+			parts = append(parts, pickFrom([]string{"Woolly", "Furred", "Shaggy"}))
+		case CoveringScales:
+			parts = append(parts, pickFrom([]string{"Scaled", "Plated", "Armored"}))
+		case CoveringFeathers:
+			parts = append(parts, pickFrom([]string{"Feathered", "Plumed", "Crested"}))
+		case CoveringShell:
+			parts = append(parts, pickFrom([]string{"Armored", "Carapaced", "Shelled"}))
+		case CoveringSkin:
+			parts = append(parts, pickFrom([]string{"Smooth", "Sleek", "Bare"}))
+		}
 	}
 
-	// Social behavior
-	if traits.Social > 0.7 && diet == DietCarnivore {
-		parts = append(parts, "Pack")
-	} else if traits.Social > 0.8 && diet == DietHerbivore {
-		parts = append(parts, "Herd")
-	}
-
-	// Diet-based final name
+	// Creature type based on diet and traits
 	switch diet {
 	case DietHerbivore:
-		parts = append(parts, "Grazer")
+		parts = append(parts, getHerbivoreType(traits, biome))
 	case DietCarnivore:
-		if traits.VenomPotency > 0.5 {
-			parts = append(parts, "Venomous Hunter")
-		} else {
-			parts = append(parts, "Hunter")
-		}
+		parts = append(parts, getCarnivoreType(traits, biome))
 	case DietOmnivore:
-		parts = append(parts, "Forager")
+		parts = append(parts, getOmnivoreType(traits, biome))
 	}
 
 	return parts
+}
+
+// getHerbivoreType returns a creature type name based on traits
+func getHerbivoreType(traits EvolvableTraits, biome geography.BiomeType) string {
+	// Size and speed determine creature type
+	if biome == geography.BiomeOcean {
+		return pickFrom([]string{"Grazer", "Browser", "Drifter"})
+	}
+
+	if traits.Size > 5.0 {
+		return pickFrom([]string{"Behemoth", "Titan", "Mammoth", "Auroch"})
+	}
+	if traits.Size > 3.0 {
+		return pickFrom([]string{"Elk", "Stag", "Bison", "Ox"})
+	}
+	if traits.Speed > 6.0 {
+		return pickFrom([]string{"Antelope", "Gazelle", "Sprinter", "Dasher"})
+	}
+	if traits.Social > 0.7 {
+		return pickFrom([]string{"Grazer", "Browser", "Forager"})
+	}
+
+	return pickFrom([]string{"Browser", "Grazer", "Muncher", "Nibbler"})
+}
+
+// getCarnivoreType returns a predator type name based on traits
+func getCarnivoreType(traits EvolvableTraits, biome geography.BiomeType) string {
+	if biome == geography.BiomeOcean {
+		if traits.Size > 5.0 {
+			return pickFrom([]string{"Leviathan", "Kraken", "Behemoth"})
+		}
+		return pickFrom([]string{"Hunter", "Stalker", "Predator"})
+	}
+
+	if traits.VenomPotency > 0.5 {
+		return pickFrom([]string{"Viper", "Fang", "Venomjaw"})
+	}
+	if traits.Size > 5.0 {
+		if traits.Social > 0.5 {
+			return pickFrom([]string{"Tyrant", "Apex", "Dominator"})
+		}
+		return pickFrom([]string{"Rex", "Terror", "Ravager"})
+	}
+	if traits.Speed > 6.0 {
+		return pickFrom([]string{"Stalker", "Chaser", "Pursuer"})
+	}
+	if traits.Social > 0.7 {
+		return pickFrom([]string{"Packwolf", "Reaver", "Raider"})
+	}
+	if traits.Intelligence > 0.7 {
+		return pickFrom([]string{"Hunter", "Ambusher", "Lurker"})
+	}
+
+	return pickFrom([]string{"Predator", "Hunter", "Prowler", "Slayer"})
+}
+
+// getOmnivoreType returns a creature type for omnivores
+func getOmnivoreType(traits EvolvableTraits, biome geography.BiomeType) string {
+	if biome == geography.BiomeOcean {
+		return pickFrom([]string{"Scavenger", "Opportunist", "Forager"})
+	}
+
+	if traits.Size > 4.0 {
+		return pickFrom([]string{"Ursoid", "Brute", "Marauder"})
+	}
+	if traits.Social > 0.7 {
+		return pickFrom([]string{"Troop", "Band", "Clan"})
+	}
+	if traits.Intelligence > 0.6 {
+		return pickFrom([]string{"Trickster", "Scrounger", "Seeker"})
+	}
+
+	return pickFrom([]string{"Forager", "Roamer", "Wanderer", "Scavenger"})
+}
+
+// pickFrom returns a deterministic selection based on the first character's hash
+func pickFrom(options []string) string {
+	if len(options) == 0 {
+		return ""
+	}
+	// Use a simple deterministic selection for consistency
+	return options[0]
 }
 
 // DescribePopulation creates a natural language description of a population count
