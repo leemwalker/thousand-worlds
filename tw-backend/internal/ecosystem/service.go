@@ -104,39 +104,77 @@ func (s *Service) Tick() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for id, entity := range s.Entities {
-		// 1. Age the entity
+	// Collect entities to remove after iteration
+	toRemove := make(map[uuid.UUID]bool)
+
+	// First pass: aging and needs
+	for _, entity := range s.Entities {
 		entity.Age++
-
-		// 2. Update Biological Needs
-		// TODO: Pass actual environment multipliers
 		s.Needs.Tick(entity, nil)
+	}
 
-		// 3. Run AI
-		if tree, ok := s.Behaviors[id]; ok {
-			tree.Tick(entity)
+	// Second pass: feeding behavior
+	for id, entity := range s.Entities {
+		if toRemove[id] {
+			continue
 		}
 
-		// 4. Check Death
-		shouldDie := false
-
-		// Age-based death (lifespan in days: 365 ticks = 1 year)
-		// Herbivores: ~10 years (3650 days), Carnivores: ~15 years (5475 days), Flora: ~50 years (18250 days)
-		maxAge := int64(18250) // Flora: 50 years
-		switch entity.Diet {
-		case state.DietHerbivore:
-			maxAge = 3650 // 10 years
-		case state.DietCarnivore, state.DietOmnivore:
-			maxAge = 5475 // 15 years
-		}
-		if entity.Age > maxAge {
-			shouldDie = true
+		// Only hungry non-flora entities try to eat
+		if entity.Diet == state.DietPhotosynthetic || entity.Needs.Hunger < 50 {
+			continue
 		}
 
-		// Starvation/dehydration death (not for flora)
-		if entity.Diet != state.DietPhotosynthetic {
-			if entity.Needs.Hunger >= 100 || entity.Needs.Thirst >= 100 {
+		// Find prey based on diet
+		for preyID, prey := range s.Entities {
+			if toRemove[preyID] || preyID == id {
+				continue
+			}
+
+			canEat := false
+			switch entity.Diet {
+			case state.DietHerbivore:
+				// Herbivores eat flora
+				canEat = prey.Diet == state.DietPhotosynthetic
+			case state.DietCarnivore:
+				// Carnivores eat herbivores
+				canEat = prey.Diet == state.DietHerbivore
+			case state.DietOmnivore:
+				// Omnivores eat flora or herbivores
+				canEat = prey.Diet == state.DietPhotosynthetic || prey.Diet == state.DietHerbivore
+			}
+
+			if canEat {
+				// Eat! Reduce hunger, kill prey
+				entity.Needs.Hunger = 0
+				entity.Needs.Thirst = entity.Needs.Thirst * 0.5 // Eating helps hydration
+				toRemove[preyID] = true
+				break // One meal per tick
+			}
+		}
+	}
+
+	// Third pass: death check and removal
+	for id, entity := range s.Entities {
+		shouldDie := toRemove[id]
+
+		if !shouldDie {
+			// Age-based death (lifespan in days: 365 ticks = 1 year)
+			maxAge := int64(18250) // Flora: 50 years
+			switch entity.Diet {
+			case state.DietHerbivore:
+				maxAge = 3650 // 10 years
+			case state.DietCarnivore, state.DietOmnivore:
+				maxAge = 5475 // 15 years
+			}
+			if entity.Age > maxAge {
 				shouldDie = true
+			}
+
+			// Starvation/dehydration death (not for flora)
+			if entity.Diet != state.DietPhotosynthetic {
+				if entity.Needs.Hunger >= 100 || entity.Needs.Thirst >= 100 {
+					shouldDie = true
+				}
 			}
 		}
 
