@@ -336,3 +336,4 @@ docker exec mud_ollama ollama pull llama3.1:8b
 - [../features.md](../features.md) - Detailed feature specifications
 - [../roadmap.md](../roadmap.md) - Development roadmap
 - [../SECURITY.md](../SECURITY.md) - Security documentation
+- [Ecosystem Simulation Guide](docs/ECOSYSTEM_SIMULATION.md) - Detailed mechanics of geology, biology, and evolution
