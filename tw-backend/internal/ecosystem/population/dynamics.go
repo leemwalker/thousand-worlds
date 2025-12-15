@@ -153,11 +153,27 @@ func (ps *PopulationSimulator) simulateBiomeYear(biome *BiomePopulation) {
 			newCount = int64(math.Max(1, p+growth-death)) // Don't go below 1 unless truly extinct
 		}
 
-		// Apply carrying capacity limit
+		// Apply carrying capacity limit (biome-level)
 		if biome.TotalPopulation() > biome.CarryingCapacity {
 			excess := float64(biome.TotalPopulation() - biome.CarryingCapacity)
 			reduction := excess * float64(oldCount) / float64(biome.TotalPopulation())
 			newCount = int64(math.Max(0, float64(newCount)-reduction))
+		}
+
+		// Apply trophic pyramid limits (ecological carrying capacity)
+		trophicLevel := GetTrophicLevel(species.Diet)
+		var trophicCapacity int64
+		switch trophicLevel {
+		case TrophicProducer:
+			trophicCapacity = biome.CarryingCapacity // Limited by biome
+		case TrophicPrimaryConsumer:
+			trophicCapacity = CalculateTrophicCapacity(trophicLevel, floraCount)
+		case TrophicSecondaryConsumer, TrophicApexPredator:
+			trophicCapacity = CalculateTrophicCapacity(trophicLevel, herbivoreCount)
+		}
+		// If this species exceeds its share of trophic capacity, reduce it
+		if trophicCapacity > 0 && newCount > trophicCapacity {
+			newCount = trophicCapacity
 		}
 
 		// Add some randomness

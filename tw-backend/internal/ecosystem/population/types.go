@@ -51,6 +51,60 @@ const (
 	DietPhotosynthetic DietType = "photosynthetic"
 )
 
+// TrophicLevel represents position in the food chain
+type TrophicLevel int
+
+const (
+	TrophicProducer          TrophicLevel = 1 // Flora - converts sunlight to biomass
+	TrophicPrimaryConsumer   TrophicLevel = 2 // Herbivores - eat plants
+	TrophicSecondaryConsumer TrophicLevel = 3 // Carnivores - eat herbivores
+	TrophicApexPredator      TrophicLevel = 4 // Top predators - no natural predators
+)
+
+// GetTrophicLevel returns the trophic level for a diet type
+func GetTrophicLevel(diet DietType) TrophicLevel {
+	switch diet {
+	case DietPhotosynthetic:
+		return TrophicProducer
+	case DietHerbivore:
+		return TrophicPrimaryConsumer
+	case DietOmnivore:
+		return TrophicSecondaryConsumer // Eats both plants and animals
+	case DietCarnivore:
+		return TrophicSecondaryConsumer
+	default:
+		return TrophicPrimaryConsumer
+	}
+}
+
+// EnergyTransferEfficiency returns how much energy transfers up the food chain
+// Based on the 10% rule - only ~10% of energy transfers to the next level
+func EnergyTransferEfficiency(from, to TrophicLevel) float64 {
+	if to <= from {
+		return 0 // Can't transfer down or same level
+	}
+	// Each level up loses ~90% of energy
+	levelDiff := int(to - from)
+	efficiency := 1.0
+	for i := 0; i < levelDiff; i++ {
+		efficiency *= 0.10
+	}
+	return efficiency
+}
+
+// CalculateTrophicCapacity returns the maximum sustainable population at a trophic level
+// Based on the ecological pyramid - each level can only support ~10% of the biomass below
+// foodSupply is the total population/biomass of the level below
+func CalculateTrophicCapacity(level TrophicLevel, foodSupply int64) int64 {
+	if level == TrophicProducer {
+		// Producers are limited by sunlight/nutrients, not lower levels
+		return foodSupply // Passed as carrying capacity
+	}
+	// Each level up in the pyramid supports ~15% of the level below
+	// (slightly higher than 10% to account for efficient predators)
+	return int64(float64(foodSupply) * 0.15)
+}
+
 // SpeciesPopulation represents a species population within a biome
 type SpeciesPopulation struct {
 	SpeciesID     uuid.UUID       `json:"species_id"`
