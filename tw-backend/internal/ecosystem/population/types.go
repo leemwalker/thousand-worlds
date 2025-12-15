@@ -206,17 +206,18 @@ func CalculateTrophicCapacity(level TrophicLevel, foodSupply int64) int64 {
 
 // SpeciesPopulation represents a species population within a biome
 type SpeciesPopulation struct {
-	SpeciesID     uuid.UUID       `json:"species_id"`
-	Name          string          `json:"name"`           // e.g., "Plains Deer", "Mountain Wolf"
-	AncestorID    *uuid.UUID      `json:"ancestor_id"`    // Parent species (for lineage tracking)
-	Count         int64           `json:"count"`          // Current total population
-	JuvenileCount int64           `json:"juvenile_count"` // Pre-reproductive individuals
-	AdultCount    int64           `json:"adult_count"`    // Reproductive adults
-	Traits        EvolvableTraits `json:"traits"`         // Average traits for population
-	TraitVariance float64         `json:"trait_variance"` // Genetic diversity (0.0 to 1.0)
-	Diet          DietType        `json:"diet"`
-	Generation    int64           `json:"generation"`   // Evolutionary generation
-	CreatedYear   int64           `json:"created_year"` // Year this species evolved
+	SpeciesID          uuid.UUID       `json:"species_id"`
+	Name               string          `json:"name"`                 // e.g., "Plains Deer", "Mountain Wolf"
+	AncestorID         *uuid.UUID      `json:"ancestor_id"`          // Parent species (for lineage tracking)
+	SymbiosisPartnerID *uuid.UUID      `json:"symbiosis_partner_id"` // Partner species for mutualism
+	Count              int64           `json:"count"`                // Current total population
+	JuvenileCount      int64           `json:"juvenile_count"`       // Pre-reproductive individuals
+	AdultCount         int64           `json:"adult_count"`          // Reproductive adults
+	Traits             EvolvableTraits `json:"traits"`               // Average traits for population
+	TraitVariance      float64         `json:"trait_variance"`       // Genetic diversity (0.0 to 1.0)
+	Diet               DietType        `json:"diet"`
+	Generation         int64           `json:"generation"`   // Evolutionary generation
+	CreatedYear        int64           `json:"created_year"` // Year this species evolved
 }
 
 // BiomePopulation tracks all species populations within a biome

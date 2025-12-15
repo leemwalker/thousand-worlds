@@ -368,6 +368,84 @@ func (ps *PopulationSimulator) ApplyNichePartitioning() {
 	}
 }
 
+// ApplySymbiosis handles mutualistic relationships between species
+// - Pollination/Seed Dispersal: Flora + Herbivores/Omnivores
+// - Partners get population boosts
+// - Relationships are established dynamically
+func (ps *PopulationSimulator) ApplySymbiosis() {
+	for _, biome := range ps.Biomes {
+		// Identify potential partners
+		var flora []*SpeciesPopulation
+		var fauna []*SpeciesPopulation
+
+		for _, s := range biome.Species {
+			if s.Count == 0 {
+				continue
+			}
+			if s.Diet == DietPhotosynthetic {
+				flora = append(flora, s)
+			} else if s.Diet == DietHerbivore || s.Diet == DietOmnivore {
+				fauna = append(fauna, s)
+			}
+		}
+
+		// Establish new relationships
+		if ps.rng.Float64() < 0.1 { // 10% chance to form new links each year
+			for _, f := range flora {
+				if f.SymbiosisPartnerID != nil {
+					continue // Already has partner
+				}
+
+				// Look for suitable partner
+				for _, a := range fauna {
+					if a.SymbiosisPartnerID != nil {
+						continue
+					}
+
+					// Compatibility check:
+					// - Small fauna (pollinators) or Medium fauna (seed dispersers)
+					// - Not too large (would just eat the plant)
+					if a.Traits.Size < 3.0 {
+						// Link them
+						partnerID := a.SpeciesID
+						f.SymbiosisPartnerID = &partnerID
+
+						partnerFloraID := f.SpeciesID
+						a.SymbiosisPartnerID = &partnerFloraID
+						break
+					}
+				}
+			}
+		}
+
+		// Apply benefits and check for broken links
+		for _, s := range biome.Species {
+			if s.SymbiosisPartnerID == nil {
+				continue
+			}
+
+			// Validate partner exists and is alive
+			partner, exists := biome.Species[*s.SymbiosisPartnerID]
+			if !exists || partner.Count == 0 {
+				s.SymbiosisPartnerID = nil // Break link
+				continue
+			}
+
+			// Apply Mutualism Benefit
+			// Both partners get population boost (better reproduction/survival)
+			// +15% benefit max, scaled by partner density?
+			// Simple flat boost for now
+			boost := 0.15
+			if ps.rng.Float64() < boost {
+				s.Count = int64(float64(s.Count) * 1.05) // 5% growth bonus per year
+			}
+
+			// Co-evolution: partners traits drift together?
+			// For now just population benefit.
+		}
+	}
+}
+
 // UpdateBiomeFragmentation changes fragmentation based on population and events
 func (ps *PopulationSimulator) UpdateBiomeFragmentation() {
 	for _, biome := range ps.Biomes {
@@ -611,6 +689,9 @@ func (ps *PopulationSimulator) SimulateYear() {
 
 	// Apply age structure transitions (juveniles mature, mortality by age)
 	ps.ApplyAgeStructure()
+
+	// Apple symbiosis/mutualism (pollination, seed dispersal)
+	ps.ApplySymbiosis()
 
 	// Apply niche partitioning (competition for resources)
 	ps.ApplyNichePartitioning()
