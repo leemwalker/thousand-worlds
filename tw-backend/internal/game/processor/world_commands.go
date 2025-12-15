@@ -274,6 +274,9 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		// Apply evolution every 1000 years
 		if popSim.CurrentYear%1000 == 0 {
 			popSim.ApplyEvolution()
+
+			// Apply co-evolution (predator-prey arms race) every 1000 years
+			popSim.ApplyCoEvolution()
 		}
 
 		// Check for speciation every 10000 years

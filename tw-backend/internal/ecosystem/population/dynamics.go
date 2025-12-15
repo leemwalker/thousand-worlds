@@ -289,6 +289,80 @@ func (ps *PopulationSimulator) ApplyEvolution() {
 	}
 }
 
+// ApplyCoEvolution applies the Red Queen effect - predator-prey arms race
+// Predators drive prey to evolve escape traits, prey drive predators to evolve hunting traits
+func (ps *PopulationSimulator) ApplyCoEvolution() int {
+	coevolutionEvents := 0
+
+	for _, biome := range ps.Biomes {
+		// Count populations by trophic level
+		var preyPop, predatorPop int64
+		var preySpecies, predatorSpecies []*SpeciesPopulation
+
+		for _, species := range biome.Species {
+			switch species.Diet {
+			case DietHerbivore:
+				preyPop += species.Count
+				preySpecies = append(preySpecies, species)
+			case DietCarnivore, DietOmnivore:
+				predatorPop += species.Count
+				predatorSpecies = append(predatorSpecies, species)
+			}
+		}
+
+		if preyPop == 0 || predatorPop == 0 {
+			continue // No arms race without both sides
+		}
+
+		// Calculate predation pressure (how much predators threaten prey)
+		predationPressure := float64(predatorPop) / float64(preyPop+predatorPop)
+
+		// Calculate escape pressure (how hard prey are to catch)
+		escapePressure := float64(preyPop) / float64(preyPop+predatorPop)
+
+		// Prey evolve escape traits when predator pressure is high
+		if predationPressure > 0.2 && ps.rng.Float64() < predationPressure {
+			for _, prey := range preySpecies {
+				if prey.Count < 10 {
+					continue
+				}
+				// Prey evolve toward speed, camouflage, or size (harder to catch)
+				traitBoost := predationPressure * 0.01
+				if ps.rng.Float64() < 0.5 {
+					prey.Traits.Speed = math.Min(10, prey.Traits.Speed+traitBoost)
+				} else {
+					prey.Traits.Camouflage = math.Min(1.0, prey.Traits.Camouflage+traitBoost*0.5)
+				}
+				prey.TraitVariance = math.Min(1.0, prey.TraitVariance+0.01)
+				coevolutionEvents++
+			}
+		}
+
+		// Predators evolve hunting traits when escape pressure is high
+		if escapePressure > 0.6 && ps.rng.Float64() < escapePressure*0.5 {
+			for _, predator := range predatorSpecies {
+				if predator.Count < 5 {
+					continue
+				}
+				// Predators evolve toward speed, strength, or intelligence
+				traitBoost := escapePressure * 0.01
+				roll := ps.rng.Float64()
+				if roll < 0.33 {
+					predator.Traits.Speed = math.Min(10, predator.Traits.Speed+traitBoost)
+				} else if roll < 0.66 {
+					predator.Traits.Strength = math.Min(10, predator.Traits.Strength+traitBoost)
+				} else {
+					predator.Traits.Intelligence = math.Min(10, predator.Traits.Intelligence+traitBoost*0.5)
+				}
+				predator.TraitVariance = math.Min(1.0, predator.TraitVariance+0.01)
+				coevolutionEvents++
+			}
+		}
+	}
+
+	return coevolutionEvents
+}
+
 // CheckSpeciation checks if any species should split based on trait divergence
 // Returns the number of new species created
 func (ps *PopulationSimulator) CheckSpeciation() int {
