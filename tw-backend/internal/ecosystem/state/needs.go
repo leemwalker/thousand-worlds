@@ -15,12 +15,15 @@ const (
 	ThresholdEnergyCritical = 10.0 // When energy is low, it's critical (assuming 100=Rested, 0=Exhausted)
 	ThresholdMateReady      = 80.0
 
-	// Base Decay Rates (per tick) - Slow for long simulations
-	// At these rates: hunger reaches 100 in 20,000 ticks (200 years)
-	BaseHungerRate       = 0.005
-	BaseThirstRate       = 0.005
-	BaseEnergyRate       = 0.003
-	BaseReproductionRate = 0.02
+	// Base Decay Rates (per tick = per day with 365 ticks/year)
+	// For simulation: entities starve over ~5 years (slow decay since AI can't actually eat)
+	// Hunger: reaches 100 in ~1825 days (5 years) = 0.055/day
+	// Thirst: reaches 100 in ~1825 days (5 years) = 0.055/day
+	// Reproduction: ready to mate (~80) in ~6 months (~180 days) = 0.44/day
+	BaseHungerRate       = 0.055
+	BaseThirstRate       = 0.055
+	BaseEnergyRate       = 0.01
+	BaseReproductionRate = 0.44
 )
 
 // NeedSystem manages the calculation of needs

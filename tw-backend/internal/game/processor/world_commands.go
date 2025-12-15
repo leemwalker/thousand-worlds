@@ -93,8 +93,8 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		}
 	}
 
-	// Conversion: 100 ticks = 1 year
-	ticksPerYear := int64(100)
+	// Conversion: 365 ticks = 1 year (daily ticks for realistic simulation)
+	ticksPerYear := int64(365)
 	totalTicks := years * ticksPerYear
 
 	// Cap at 10M ticks to keep simulation reasonable (100k years max for now)

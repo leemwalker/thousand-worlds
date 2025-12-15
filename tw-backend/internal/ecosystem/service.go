@@ -120,14 +120,14 @@ func (s *Service) Tick() {
 		// 4. Check Death
 		shouldDie := false
 
-		// Age-based death (lifespan varies by diet type)
-		// Flora: ~100,000 ticks (1000 years), Herbivores: ~50,000 (500 years), Carnivores: ~70,000 (700 years)
-		maxAge := int64(100000)
+		// Age-based death (lifespan in days: 365 ticks = 1 year)
+		// Herbivores: ~10 years (3650 days), Carnivores: ~15 years (5475 days), Flora: ~50 years (18250 days)
+		maxAge := int64(18250) // Flora: 50 years
 		switch entity.Diet {
 		case state.DietHerbivore:
-			maxAge = 50000
+			maxAge = 3650 // 10 years
 		case state.DietCarnivore, state.DietOmnivore:
-			maxAge = 70000
+			maxAge = 5475 // 15 years
 		}
 		if entity.Age > maxAge {
 			shouldDie = true
