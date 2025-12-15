@@ -174,7 +174,8 @@ func (ps *PopulationSimulator) SimulateYears(years int64) {
 	}
 }
 
-// ApplyEvolution applies trait drift and selection pressure
+// ApplyEvolution applies trait drift and selection pressure based on species-specific rates
+// Species with earlier maturity and larger litter sizes evolve faster
 func (ps *PopulationSimulator) ApplyEvolution() {
 	for _, biome := range ps.Biomes {
 		for _, species := range biome.Species {
@@ -182,20 +183,40 @@ func (ps *PopulationSimulator) ApplyEvolution() {
 				continue
 			}
 
-			species.Generation++
+			// Calculate evolution rate based on breeding traits
+			// Lower maturity = faster generations, higher litter size = more genetic variation
+			maturity := species.Traits.Maturity
+			if maturity < 0.5 {
+				maturity = 0.5 // Minimum breeding age
+			}
+			litterSize := species.Traits.LitterSize
+			if litterSize < 1 {
+				litterSize = 1
+			}
 
-			// Trait mutation (small random drift)
-			mutationRate := 0.02 * species.TraitVariance
-			species.Traits.Size += ps.rng.NormFloat64() * mutationRate * 0.5
-			species.Traits.Speed += ps.rng.NormFloat64() * mutationRate * 0.5
-			species.Traits.Strength += ps.rng.NormFloat64() * mutationRate * 0.5
-			species.Traits.Aggression += ps.rng.NormFloat64() * mutationRate * 0.1
-			species.Traits.ColdResistance += ps.rng.NormFloat64() * mutationRate * 0.1
-			species.Traits.HeatResistance += ps.rng.NormFloat64() * mutationRate * 0.1
-			species.Traits.NightVision += ps.rng.NormFloat64() * mutationRate * 0.1
-			species.Traits.Camouflage += ps.rng.NormFloat64() * mutationRate * 0.1
-			species.Traits.Fertility += ps.rng.NormFloat64() * mutationRate * 0.1
-			species.Traits.Intelligence += ps.rng.NormFloat64() * mutationRate * 0.1
+			// Evolution rate: higher litter size and lower maturity = faster evolution
+			// Formula: (litter_size / maturity) gives "generations per year" effectively
+			evolutionRate := litterSize / maturity
+
+			// Apply multiple generations of evolution based on rate
+			// In 1000 years with maturity=1 and litter=2, that's 2000 generations worth of selection
+			generationsToApply := int64(evolutionRate * 1000) // Scale for 1000-year evolution cycles
+			species.Generation += generationsToApply
+
+			// Trait mutation (scaled by number of generations and variance)
+			mutationStrength := 0.002 * species.TraitVariance * float64(generationsToApply)
+			species.Traits.Size += ps.rng.NormFloat64() * mutationStrength * 0.5
+			species.Traits.Speed += ps.rng.NormFloat64() * mutationStrength * 0.5
+			species.Traits.Strength += ps.rng.NormFloat64() * mutationStrength * 0.5
+			species.Traits.Aggression += ps.rng.NormFloat64() * mutationStrength * 0.1
+			species.Traits.ColdResistance += ps.rng.NormFloat64() * mutationStrength * 0.1
+			species.Traits.HeatResistance += ps.rng.NormFloat64() * mutationStrength * 0.1
+			species.Traits.NightVision += ps.rng.NormFloat64() * mutationStrength * 0.1
+			species.Traits.Camouflage += ps.rng.NormFloat64() * mutationStrength * 0.1
+			species.Traits.Fertility += ps.rng.NormFloat64() * mutationStrength * 0.05
+			species.Traits.Intelligence += ps.rng.NormFloat64() * mutationStrength * 0.05
+			species.Traits.Maturity += ps.rng.NormFloat64() * mutationStrength * 0.02
+			species.Traits.LitterSize += ps.rng.NormFloat64() * mutationStrength * 0.1
 
 			// Clamp values
 			species.Traits = clampTraits(species.Traits)
@@ -264,6 +285,8 @@ func clampTraits(t EvolvableTraits) EvolvableTraits {
 	t.Camouflage = clamp(t.Camouflage, 0.0, 1.0)
 	t.Fertility = clamp(t.Fertility, 0.1, 3.0)
 	t.Lifespan = clamp(t.Lifespan, 1.0, 200.0)
+	t.Maturity = clamp(t.Maturity, 0.25, 20.0)    // Breeding age: 3 months to 20 years
+	t.LitterSize = clamp(t.LitterSize, 1.0, 50.0) // 1 to 50 offspring
 	t.CarnivoreTendency = clamp(t.CarnivoreTendency, 0.0, 1.0)
 	t.VenomPotency = clamp(t.VenomPotency, 0.0, 1.0)
 	t.PoisonResistance = clamp(t.PoisonResistance, 0.0, 1.0)

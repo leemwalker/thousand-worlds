@@ -26,8 +26,10 @@ type EvolvableTraits struct {
 	Camouflage     float64 `json:"camouflage"`      // 0.0 to 1.0
 
 	// Reproduction traits
-	Fertility float64 `json:"fertility"` // Reproduction rate multiplier (0.5 to 2.0)
-	Lifespan  float64 `json:"lifespan"`  // Base lifespan in years
+	Fertility  float64 `json:"fertility"`   // Reproduction rate multiplier (0.5 to 2.0)
+	Lifespan   float64 `json:"lifespan"`    // Base lifespan in years
+	Maturity   float64 `json:"maturity"`    // Age at sexual maturity in years (0.5 to 20)
+	LitterSize float64 `json:"litter_size"` // Average offspring per reproduction (1 to 20)
 
 	// Dietary traits
 	CarnivoreTendency float64 `json:"carnivore_tendency"` // 0.0 (pure herbivore) to 1.0 (pure carnivore)
@@ -140,7 +142,7 @@ func DefaultTraitsForDiet(diet DietType) EvolvableTraits {
 			Size: 2.0, Speed: 5.0, Strength: 2.0,
 			Aggression: 0.1, Social: 0.7, Intelligence: 0.3,
 			ColdResistance: 0.5, HeatResistance: 0.5, NightVision: 0.3, Camouflage: 0.4,
-			Fertility: 1.2, Lifespan: 10,
+			Fertility: 1.2, Lifespan: 10, Maturity: 1.0, LitterSize: 2.0,
 			CarnivoreTendency: 0.0, VenomPotency: 0.0, PoisonResistance: 0.2,
 		}
 	case DietCarnivore:
@@ -148,7 +150,7 @@ func DefaultTraitsForDiet(diet DietType) EvolvableTraits {
 			Size: 3.0, Speed: 6.0, Strength: 5.0,
 			Aggression: 0.8, Social: 0.5, Intelligence: 0.6,
 			ColdResistance: 0.5, HeatResistance: 0.5, NightVision: 0.6, Camouflage: 0.5,
-			Fertility: 0.8, Lifespan: 15,
+			Fertility: 0.8, Lifespan: 15, Maturity: 2.0, LitterSize: 3.0,
 			CarnivoreTendency: 1.0, VenomPotency: 0.1, PoisonResistance: 0.3,
 		}
 	case DietOmnivore:
@@ -156,7 +158,7 @@ func DefaultTraitsForDiet(diet DietType) EvolvableTraits {
 			Size: 2.5, Speed: 4.0, Strength: 3.0,
 			Aggression: 0.4, Social: 0.6, Intelligence: 0.7,
 			ColdResistance: 0.5, HeatResistance: 0.5, NightVision: 0.4, Camouflage: 0.3,
-			Fertility: 1.0, Lifespan: 12,
+			Fertility: 1.0, Lifespan: 12, Maturity: 1.5, LitterSize: 2.0,
 			CarnivoreTendency: 0.5, VenomPotency: 0.0, PoisonResistance: 0.3,
 		}
 	case DietPhotosynthetic:
@@ -164,7 +166,7 @@ func DefaultTraitsForDiet(diet DietType) EvolvableTraits {
 			Size: 1.0, Speed: 0.0, Strength: 0.5,
 			Aggression: 0.0, Social: 0.0, Intelligence: 0.0,
 			ColdResistance: 0.3, HeatResistance: 0.5, NightVision: 0.0, Camouflage: 0.6,
-			Fertility: 2.0, Lifespan: 50,
+			Fertility: 2.0, Lifespan: 50, Maturity: 0.5, LitterSize: 10.0, // Flora: early maturity, high seed count
 			CarnivoreTendency: 0.0, VenomPotency: 0.0, PoisonResistance: 0.0,
 		}
 	default:
