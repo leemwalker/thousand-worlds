@@ -69,7 +69,7 @@ func TestGenerateSpeciesName_Fauna(t *testing.T) {
 			},
 			diet:     DietHerbivore,
 			biome:    geography.BiomeGrassland,
-			contains: []string{"Giant", "Woolly", "Behemoth"},
+			contains: []string{"Giant", "Woolly", "Auroch"},
 		},
 		{
 			name: "Small fast scaled carnivore",

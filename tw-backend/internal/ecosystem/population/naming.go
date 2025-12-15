@@ -198,20 +198,24 @@ func generateFaunaName(traits EvolvableTraits, diet DietType, biome geography.Bi
 func getHerbivoreType(traits EvolvableTraits, biome geography.BiomeType) string {
 	// Size and speed determine creature type
 	if biome == geography.BiomeOcean {
-		return pickFrom([]string{"Grazer", "Browser", "Drifter"})
+		return pickFrom([]string{"Drifter", "Browser", "Swimmer"})
 	}
 
+	// Large herbivores - use form words not size words
 	if traits.Size > 5.0 {
-		return pickFrom([]string{"Behemoth", "Titan", "Mammoth", "Auroch"})
+		return pickFrom([]string{"Auroch", "Strider", "Thunderfoot", "Grazer"})
 	}
+	// Medium-large herbivores
 	if traits.Size > 3.0 {
 		return pickFrom([]string{"Elk", "Stag", "Bison", "Ox"})
 	}
+	// Fast herbivores
 	if traits.Speed > 6.0 {
-		return pickFrom([]string{"Antelope", "Gazelle", "Sprinter", "Dasher"})
+		return pickFrom([]string{"Antelope", "Gazelle", "Runner", "Dasher"})
 	}
+	// Social herbivores
 	if traits.Social > 0.7 {
-		return pickFrom([]string{"Grazer", "Browser", "Forager"})
+		return pickFrom([]string{"Grazer", "Browser", "Herder"})
 	}
 
 	return pickFrom([]string{"Browser", "Grazer", "Muncher", "Nibbler"})
@@ -221,28 +225,33 @@ func getHerbivoreType(traits EvolvableTraits, biome geography.BiomeType) string 
 func getCarnivoreType(traits EvolvableTraits, biome geography.BiomeType) string {
 	if biome == geography.BiomeOcean {
 		if traits.Size > 5.0 {
-			return pickFrom([]string{"Leviathan", "Kraken", "Behemoth"})
+			return pickFrom([]string{"Deepjaw", "Abyssal", "Seawolf"})
 		}
 		return pickFrom([]string{"Hunter", "Stalker", "Predator"})
 	}
 
+	// Venomous predators
 	if traits.VenomPotency > 0.5 {
 		return pickFrom([]string{"Viper", "Fang", "Venomjaw"})
 	}
+	// Large predators - use form/behavior words
 	if traits.Size > 5.0 {
 		if traits.Social > 0.5 {
-			return pickFrom([]string{"Tyrant", "Apex", "Dominator"})
+			return pickFrom([]string{"Apex", "Dominator", "Alpha"})
 		}
-		return pickFrom([]string{"Rex", "Terror", "Ravager"})
+		return pickFrom([]string{"Mauler", "Crusher", "Ravager"})
 	}
+	// Fast predators
 	if traits.Speed > 6.0 {
 		return pickFrom([]string{"Stalker", "Chaser", "Pursuer"})
 	}
+	// Pack hunters
 	if traits.Social > 0.7 {
 		return pickFrom([]string{"Packwolf", "Reaver", "Raider"})
 	}
+	// Intelligent hunters
 	if traits.Intelligence > 0.7 {
-		return pickFrom([]string{"Hunter", "Ambusher", "Lurker"})
+		return pickFrom([]string{"Ambusher", "Lurker", "Trapper"})
 	}
 
 	return pickFrom([]string{"Predator", "Hunter", "Prowler", "Slayer"})
