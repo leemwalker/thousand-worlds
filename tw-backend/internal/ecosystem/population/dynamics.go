@@ -446,6 +446,55 @@ func (ps *PopulationSimulator) ApplySymbiosis() {
 	}
 }
 
+// ApplyDisease implements density-dependent disease outbreaks
+// Diseases are more likely in large, dense populations
+// Survivability depends on DiseaseResistance
+func (ps *PopulationSimulator) ApplyDisease() int {
+	outbreaks := 0
+	for _, biome := range ps.Biomes {
+		for _, species := range biome.Species {
+			if species.Count < 100 {
+				continue // Too sparse for epidemics
+			}
+
+			// Density check: How much of the biome's capacity does this single species occupy?
+			// If a species is dominant (>10% of capacity), disease risk rises
+			density := float64(species.Count) / float64(biome.CarryingCapacity)
+
+			// Base outbreak chance: 1%
+			// Increases with density^2 (highly non-linear)
+			outbreakChance := 0.01 + (density * density * 5.0)
+
+			// Cap chance at 20%
+			if outbreakChance > 0.2 {
+				outbreakChance = 0.2
+			}
+
+			if ps.rng.Float64() < outbreakChance {
+				// Disease Outbreak!
+				outbreaks++
+
+				// Severity: Random but mitigated by resistance
+				// Base mortality 10-50%
+				virulence := 0.1 + ps.rng.Float64()*0.4
+
+				// Resistance check
+				mortality := virulence * (1.0 - species.Traits.DiseaseResistance)
+
+				deaths := int64(float64(species.Count) * mortality)
+				species.Count -= deaths
+
+				// Survivors evolve resistance proportional to severity
+				if species.Count > 0 {
+					selectionPressure := virulence * 0.1
+					species.Traits.DiseaseResistance = math.Min(1.0, species.Traits.DiseaseResistance+selectionPressure)
+				}
+			}
+		}
+	}
+	return outbreaks
+}
+
 // UpdateBiomeFragmentation changes fragmentation based on population and events
 func (ps *PopulationSimulator) UpdateBiomeFragmentation() {
 	for _, biome := range ps.Biomes {
@@ -692,6 +741,9 @@ func (ps *PopulationSimulator) SimulateYear() {
 
 	// Apple symbiosis/mutualism (pollination, seed dispersal)
 	ps.ApplySymbiosis()
+
+	// Apply density-dependent disease
+	ps.ApplyDisease()
 
 	// Apply niche partitioning (competition for resources)
 	ps.ApplyNichePartitioning()
@@ -1246,6 +1298,7 @@ func clampTraits(t EvolvableTraits) EvolvableTraits {
 	t.CarnivoreTendency = clamp(t.CarnivoreTendency, 0.0, 1.0)
 	t.VenomPotency = clamp(t.VenomPotency, 0.0, 1.0)
 	t.PoisonResistance = clamp(t.PoisonResistance, 0.0, 1.0)
+	t.DiseaseResistance = clamp(t.DiseaseResistance, 0.0, 1.0)
 	return t
 }
 

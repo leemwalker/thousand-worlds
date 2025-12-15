@@ -35,6 +35,7 @@ type EvolvableTraits struct {
 	CarnivoreTendency float64 `json:"carnivore_tendency"` // 0.0 (pure herbivore) to 1.0 (pure carnivore)
 	VenomPotency      float64 `json:"venom_potency"`      // 0.0 to 1.0
 	PoisonResistance  float64 `json:"poison_resistance"`  // 0.0 to 1.0
+	DiseaseResistance float64 `json:"disease_resistance"` // 0.0 to 1.0 (immunity)
 
 	// Appearance traits
 	Covering    CoveringType    `json:"covering"`     // Body covering (fur, scales, feathers, etc.)
