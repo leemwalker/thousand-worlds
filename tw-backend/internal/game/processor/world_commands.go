@@ -228,25 +228,57 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	sb.WriteString(fmt.Sprintf("Sea Level: %.0fm\n", geoStats.SeaLevel))
 	sb.WriteString(fmt.Sprintf("Land Coverage: %.1f%%\n", geoStats.LandPercent))
 
-	// Species breakdown by biome
-	sb.WriteString("--- Species by Biome ---\n")
-	biomeCount := 0
-	for _, biome := range popSim.Biomes {
-		if biomeCount >= 3 {
-			sb.WriteString(fmt.Sprintf("...and %d more biomes\n", len(popSim.Biomes)-3))
-			break
+	// Species breakdown grouped by biome type
+	sb.WriteString("--- Species by Biome Type ---\n")
+
+	// Aggregate by biome type
+	type biomeTypeStats struct {
+		count      int
+		population int64
+		species    map[string]struct {
+			count      int64
+			generation int64
 		}
-		sb.WriteString(fmt.Sprintf("%s (Pop: %d):\n", biome.BiomeType, biome.TotalPopulation()))
-		speciesCount := 0
+	}
+	biomeTypeMap := make(map[string]*biomeTypeStats)
+
+	for _, biome := range popSim.Biomes {
+		biomeTypeName := string(biome.BiomeType)
+		if _, exists := biomeTypeMap[biomeTypeName]; !exists {
+			biomeTypeMap[biomeTypeName] = &biomeTypeStats{
+				species: make(map[string]struct {
+					count      int64
+					generation int64
+				}),
+			}
+		}
+		stats := biomeTypeMap[biomeTypeName]
+		stats.count++
+		stats.population += biome.TotalPopulation()
+
 		for _, sp := range biome.Species {
-			if speciesCount >= 3 {
-				sb.WriteString(fmt.Sprintf("  ...and %d more species\n", len(biome.Species)-3))
+			// Use base species name (without biome prefix for cleaner display)
+			existing := stats.species[sp.Name]
+			existing.count += sp.Count
+			if sp.Generation > existing.generation {
+				existing.generation = sp.Generation
+			}
+			stats.species[sp.Name] = existing
+		}
+	}
+
+	// Output grouped stats
+	for biomeType, stats := range biomeTypeMap {
+		sb.WriteString(fmt.Sprintf("%s (%d biomes, Pop: %d):\n", biomeType, stats.count, stats.population))
+		speciesShown := 0
+		for name, sp := range stats.species {
+			if speciesShown >= 5 {
+				sb.WriteString(fmt.Sprintf("  ...and %d more species\n", len(stats.species)-5))
 				break
 			}
-			sb.WriteString(fmt.Sprintf("  %s: %d (Gen %d)\n", sp.Name, sp.Count, sp.Generation))
-			speciesCount++
+			sb.WriteString(fmt.Sprintf("  %s: %d (Gen %d)\n", name, sp.count, sp.generation))
+			speciesShown++
 		}
-		biomeCount++
 	}
 
 	// Fossil record
