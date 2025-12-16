@@ -590,6 +590,83 @@ func calculatePopulationCapacity(resourceUnits float64, size float64) float64 {
 // Elephant (size 8.0): capacity = 10,000 / 4.76 = 2,101
 ```
 
+#### Biome Base Carrying Capacity
+
+**✅ IMPLEMENTED** (In `types.go:NewBiomePopulation`):
+
+Each biome type has a base carrying capacity representing ecological productivity:
+
+| Biome Type | Carrying Capacity | Notes |
+|------------|------------------|-------|
+| **Ocean** | 10,000 | Highest - vast 3D habitat |
+| **Rainforest** | 5,000 | High - year-round growth |
+| **Grassland** | 3,000 | Moderate - seasonal variation |
+| **Default** | 1,000 | Deciduous, Alpine, Taiga |
+| **Desert** | 500 | Sparse - harsh environment |
+| **Tundra** | 500 | Sparse - cold, barren |
+
+```go
+// From types.go:NewBiomePopulation
+capacity := int64(1000)
+switch biomeType {
+case geography.BiomeRainforest: capacity = 5000
+case geography.BiomeGrassland:  capacity = 3000
+case geography.BiomeDesert:     capacity = 500  // Sparse, harsh
+case geography.BiomeTundra:     capacity = 500  // Cold, barren
+case geography.BiomeOcean:      capacity = 10000
+}
+```
+
+---
+
+### 4.1.1 EvolvableTraits Reference
+
+**✅ IMPLEMENTED** (In `types.go:EvolvableTraits`):
+
+The complete set of evolvable traits used in the simulation:
+
+| Category | Trait | Range | Description |
+|----------|-------|-------|-------------|
+| **Physical** | Size | 0.1-10.0 | 0.1=mouse, 10.0=elephant |
+| | Speed | 0.1-10.0 | Movement speed |
+| | Strength | 0.1-10.0 | Physical power |
+| **Behavioral** | Aggression | 0.0-1.0 | 0=docile, 1=aggressive |
+| | Social | 0.0-1.0 | 0=solitary, 1=pack animal |
+| | Intelligence | 0.0-1.0 | Problem-solving ability |
+| **Survival** | ColdResistance | 0.0-1.0 | Survival in cold biomes |
+| | HeatResistance | 0.0-1.0 | Survival in hot biomes |
+| | NightVision | 0.0-1.0 | Nocturnal hunting ability |
+| | Camouflage | 0.0-1.0 | Predator avoidance |
+| | DiseaseResistance | 0.0-1.0 | Pathogen immunity |
+| **Reproduction** | Fertility | 0.5-2.0 | Reproduction rate multiplier |
+| | Lifespan | Years | Maximum age |
+| | Maturity | 0.5-20.0 | Age at sexual maturity |
+| | LitterSize | 1-20 | Offspring per reproduction |
+| **Dietary** | CarnivoreTendency | 0.0-1.0 | 0=pure herbivore, 1=pure carnivore |
+| | VenomPotency | 0.0-1.0 | Venom attack strength |
+| | PoisonResistance | 0.0-1.0 | Toxin immunity |
+| **Appearance** | Covering | Enum | Fur, Scales, Feathers, Shell, etc. |
+| | FloraGrowth | Enum | Evergreen, Deciduous, Succulent |
+| | Display | 0.0-1.0 | Sexual display intensity |
+
+```go
+// From types.go (EvolvableTraits struct)
+type EvolvableTraits struct {
+    // Physical
+    Size, Speed, Strength float64
+    // Behavioral  
+    Aggression, Social, Intelligence float64
+    // Survival
+    ColdResistance, HeatResistance, NightVision, Camouflage float64
+    // Reproduction
+    Fertility, Lifespan, Maturity, LitterSize float64
+    // Dietary
+    CarnivoreTendency, VenomPotency, PoisonResistance, DiseaseResistance float64
+    // Appearance
+    Covering CoveringType, FloraGrowth FloraGrowthType, Display float64
+}
+```
+
 #### Starvation Risk
 
 ```go
