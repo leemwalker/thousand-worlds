@@ -474,3 +474,77 @@ func (g *WorldGeology) IsInitialized() bool {
 	defer g.mu.RUnlock()
 	return g.Heightmap != nil
 }
+
+// TriggerTectonicCollision player-triggered plate collision forming mountain range
+// magnitude 0.0-1.0 controls mountain height (2000-6000m)
+func (g *WorldGeology) TriggerTectonicCollision(x, y float64, magnitude float32) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	if g.Heightmap == nil {
+		return
+	}
+
+	// Mountain range height based on magnitude
+	height := 2000 + float64(magnitude)*4000 // 2000-6000m
+	length := 5.0 + float64(magnitude)*10.0  // 5-15 cells long
+
+	// Create mountain range at specified location
+	angle := g.rng.Float64() * math.Pi // Random orientation
+
+	for i := 0.0; i < length; i++ {
+		// Calculate position along range
+		px := x + math.Cos(angle)*i*2
+		py := y + math.Sin(angle)*i*2
+
+		// Wrap coordinates
+		if int(px) < 0 || int(px) >= g.Heightmap.Width ||
+			int(py) < 0 || int(py) >= g.Heightmap.Height {
+			continue
+		}
+
+		// Apply mountain with some variation
+		peakHeight := height * (1.0 + (g.rng.Float64()-0.5)*0.4)
+		radius := 2.0 + g.rng.Float64()*1.5
+
+		geography.ApplyMountain(g.Heightmap, px, py, radius, peakHeight)
+	}
+
+	g.updateHeightmapStats()
+}
+
+// TriggerCatastrophe triggers a player-initiated catastrophic event
+// eventType: "volcano", "asteroid", "flood_basalt", "ice_age"
+// magnitude 0.0-1.0 controls severity
+func (g *WorldGeology) TriggerCatastrophe(eventType string, magnitude float32) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	severity := float64(magnitude)
+
+	switch eventType {
+	case "volcano":
+		g.applyVolcanicMountains(severity)
+	case "asteroid":
+		g.applyImpactCrater(severity)
+	case "flood_basalt":
+		g.applyFloodBasalt(severity)
+	case "ice_age":
+		g.applyIceAgeEffects(severity)
+	case "continental_drift":
+		g.applyContinentalDrift(severity)
+	}
+
+	g.updateHeightmapStats()
+}
+
+// ShiftTemperature applies a global temperature change to all biomes
+// shift is in degrees Celsius (positive = warming, negative = cooling)
+func (g *WorldGeology) ShiftTemperature(shift float64) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	for i := range g.Biomes {
+		g.Biomes[i].Temperature += shift
+	}
+}
