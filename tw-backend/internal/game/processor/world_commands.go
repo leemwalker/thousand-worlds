@@ -320,12 +320,21 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			tick := year * 365 // Convert to ticks for geo manager
 			previousEventCount := len(geoManager.ActiveEvents)
 			geoManager.CheckForNewEvents(tick, 365*10000)
+			geoManager.UpdateActiveEvents(tick) // Clean up expired events
 			newEvents := len(geoManager.ActiveEvents) - previousEventCount
-			geologicalEvents += newEvents
 
 			if newEvents > 0 {
-				for i := len(geoManager.ActiveEvents) - newEvents; i < len(geoManager.ActiveEvents); i++ {
-					e := geoManager.ActiveEvents[i]
+				geologicalEvents += newEvents
+			}
+
+			// Process ALL active events for biome transitions and effects
+			// This ensures warming events (climate recovery) are properly handled
+			for _, e := range geoManager.ActiveEvents {
+				// Check if this event started recently (within this check period)
+				eventAge := tick - e.StartTick
+				isNewEvent := eventAge < 365*10000 // Within the last 10k years
+
+				if isNewEvent {
 					client.SendGameMessage("system", fmt.Sprintf("⚠️ GEOLOGICAL EVENT: %s (severity: %.0f%%)", e.Type, e.Severity*100), nil)
 					geology.ApplyEvent(e)
 
@@ -335,32 +344,38 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 					if deaths > 100 {
 						client.SendGameMessage("system", fmt.Sprintf("   💀 %d organisms perished", deaths), nil)
 					}
+				}
 
-					// Apply biome transitions from climate change
-					transitioned := popSim.ApplyBiomeTransitions(eventType, e.Severity)
-					if transitioned > 0 {
+				// Apply biome transitions for ALL active events (cooling AND warming)
+				// This is what allows climate recovery to work!
+				eventType := population.ExtinctionEventType(e.Type)
+				transitioned := popSim.ApplyBiomeTransitions(eventType, e.Severity)
+				if transitioned > 0 {
+					if e.Type == ecosystem.EventWarming || e.Type == ecosystem.EventGreenhouseSpike {
+						client.SendGameMessage("system", fmt.Sprintf("   🌡️ %d biomes warming! Climate recovery in progress", transitioned), nil)
+					} else {
 						client.SendGameMessage("system", fmt.Sprintf("   🌍 %d biomes shifted due to climate change", transitioned), nil)
 					}
+				}
 
-					// Update continental configuration for drift events
-					if eventType == population.EventContinentalDrift {
-						oldFrag := popSim.ContinentalFragmentation
-						newFrag := popSim.UpdateContinentalConfiguration(true, e.Severity)
-						popSim.ApplyContinentalEffects()
+				// Update continental configuration for drift events
+				if eventType == population.EventContinentalDrift && isNewEvent {
+					oldFrag := popSim.ContinentalFragmentation
+					newFrag := popSim.UpdateContinentalConfiguration(true, e.Severity)
+					popSim.ApplyContinentalEffects()
 
-						// Report significant configuration changes
-						fragChange := math.Abs(newFrag - oldFrag)
-						if fragChange > 0.05 {
-							var status string
-							if newFrag > 0.7 {
-								status = "fragmented (high endemism)"
-							} else if newFrag < 0.3 {
-								status = "unified (supercontinent forming)"
-							} else {
-								status = "moderate"
-							}
-							client.SendGameMessage("system", fmt.Sprintf("   🗺️ Continental configuration: %s (%.0f%%)", status, newFrag*100), nil)
+					// Report significant configuration changes
+					fragChange := math.Abs(newFrag - oldFrag)
+					if fragChange > 0.05 {
+						var status string
+						if newFrag > 0.7 {
+							status = "fragmented (high endemism)"
+						} else if newFrag < 0.3 {
+							status = "unified (supercontinent forming)"
+						} else {
+							status = "moderate"
 						}
+						client.SendGameMessage("system", fmt.Sprintf("   🗺️ Continental configuration: %s (%.0f%%)", status, newFrag*100), nil)
 					}
 				}
 			}
