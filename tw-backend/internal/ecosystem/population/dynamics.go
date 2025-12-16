@@ -37,13 +37,15 @@ func CalculateMetabolicRate(size float64) float64 {
 // CalculateReproductionModifier returns reproduction rate modifier based on size
 // Smaller animals reproduce faster (r-strategy), larger slower (K-strategy)
 // Returns a multiplier for reproduction rate (1.0 = baseline at size 5)
+// Uses quarter-power scaling (M^-0.25) to avoid premature megafauna extinction
+// See ECOSYSTEM_SIMULATION_V2.md Technical Refinements for rationale
 func CalculateReproductionModifier(size float64) float64 {
 	if size <= 0 {
 		size = 1
 	}
-	// Inverse square root relationship - smaller = faster reproduction
+	// Quarter-power relationship - prevents megafauna extinction that inverse sqrt caused
 	// Normalize to size 5 as baseline
-	return math.Sqrt(5.0 / size)
+	return math.Pow(5.0/size, 0.25)
 }
 
 // CalculateJuvenileSurvival returns the probability of a juvenile surviving to adulthood
@@ -574,7 +576,7 @@ func (ps *PopulationSimulator) UpdateOxygenLevel() float64 {
 		}
 		ps.Events = append(ps.Events, fmt.Sprintf("Oxygen %s Rapidly: %.1f%% -> %.1f%%", changeType, oldLevel*100, ps.OxygenLevel*100))
 	}
-	
+
 	// Check for major thresholds (Independent of rapid shifts)
 	if oldLevel < 0.20 && ps.OxygenLevel >= 0.20 {
 		ps.Events = append(ps.Events, fmt.Sprintf("Oxygen Crossed 20%% Threshold (Life Thriving): %.1f%%", ps.OxygenLevel*100))

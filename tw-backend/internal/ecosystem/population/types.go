@@ -214,11 +214,15 @@ type SpeciesPopulation struct {
 	Count              int64           `json:"count"`                // Current total population
 	JuvenileCount      int64           `json:"juvenile_count"`       // Pre-reproductive individuals
 	AdultCount         int64           `json:"adult_count"`          // Reproductive adults
-	Traits             EvolvableTraits `json:"traits"`               // Average traits for population
+	Traits             EvolvableTraits `json:"traits"`               // Average traits for population (legacy)
 	TraitVariance      float64         `json:"trait_variance"`       // Genetic diversity (0.0 to 1.0)
 	Diet               DietType        `json:"diet"`
 	Generation         int64           `json:"generation"`   // Evolutionary generation
 	CreatedYear        int64           `json:"created_year"` // Year this species evolved
+
+	// V2 Genetic System (optional - populated for new species)
+	GeneticCode    *GeneticCode    `json:"genetic_code,omitempty"`    // 200-gene genetic code
+	OrganismTraits *OrganismTraits `json:"organism_traits,omitempty"` // Derived phenotypic traits
 }
 
 // BiomePopulation tracks all species populations within a biome
@@ -233,15 +237,20 @@ type BiomePopulation struct {
 
 // ExtinctSpecies records a species that has died out
 type ExtinctSpecies struct {
-	SpeciesID       uuid.UUID       `json:"species_id"`
-	Name            string          `json:"name"`
-	Traits          EvolvableTraits `json:"traits"`
-	Diet            DietType        `json:"diet"`
-	PeakPopulation  int64           `json:"peak_population"`
-	ExistedFrom     int64           `json:"existed_from"`     // Year species emerged
-	ExistedUntil    int64           `json:"existed_until"`    // Year species went extinct
-	ExtinctionCause string          `json:"extinction_cause"` // e.g., "predation", "climate", "competition"
-	FossilBiomes    []uuid.UUID     `json:"fossil_biomes"`    // Biomes where fossils can be found
+	SpeciesID         uuid.UUID       `json:"species_id"`
+	Name              string          `json:"name"`
+	Traits            EvolvableTraits `json:"traits"`
+	Diet              DietType        `json:"diet"`
+	PeakPopulation    int64           `json:"peak_population"`
+	ExistedFrom       int64           `json:"existed_from"`       // Year species emerged
+	ExistedUntil      int64           `json:"existed_until"`      // Year species went extinct
+	ExtinctionCause   string          `json:"extinction_cause"`   // e.g., "predation", "climate", "competition"
+	ExtinctionDetails string          `json:"extinction_details"` // Rich lore, e.g., "Great Ash Winter of era 4B"
+	FossilBiomes      []uuid.UUID     `json:"fossil_biomes"`      // Biomes where fossils can be found
+
+	// V2 Genetic System (optional - populated for V2 species)
+	GeneticCode    *GeneticCode    `json:"genetic_code,omitempty"`
+	OrganismTraits *OrganismTraits `json:"organism_traits,omitempty"`
 }
 
 // FossilRecord stores all extinct species for a world

@@ -1,6 +1,11 @@
 # Ecosystem Simulation Mechanics - Complete Reference
 
-**Version 2.0** | Last Updated: December 2025
+**Version 2.1** | Last Updated: December 15, 2025 | **Verified Against Codebase**
+
+> **Accuracy Note**: This document was verified against the actual codebase on Dec 15, 2025.
+> - ✅ = Implemented in code
+> - ⚠️ = Partially implemented
+> - 🔧 = Proposed design (not yet implemented)
 
 The Thousand Worlds simulation engine drives the geological, ecological, and evolutionary history of generated worlds. It simulates millions to billions of years of history to generate rich, believable backstories, fossil records, and species distributions.
 
@@ -76,12 +81,20 @@ Plates move at 2-10 cm/year, causing:
   - Speciation rate -60%
 
 ```go
-// Fragmentation affects speciation rate
-speciationRate := baseRate * (1.0 + fragmentation * 2.0)
+// From dynamics.go: ApplyContinentalEffects
+// SUPERCONTINENT EFFECTS (low fragmentation < 0.3)
+// - Uniform climate reduces trait variance (genetic homogenization)
+// - Easier competition - slight population pressure
 
-// Large animals penalized on small landmasses
-if fragmentation > 0.7 && traits.Size > 3.0 {
-    fitness -= 0.2
+// FRAGMENTED CONTINENT EFFECTS (high fragmentation > 0.7)
+// - Isolation increases trait variance (allopatric speciation driver)
+// - Endemic adaptation to specific biomes via applyBiomeSelection()
+
+// From ApplyHabitatFragmentation:
+// Large species stressed by fragmentation (need large ranges)
+if frag > 0.6 && species.Traits.Size > 4.0 {
+    stress := (frag - 0.6) * (species.Traits.Size / 10.0)
+    // Population penalty proportional to size
 }
 ```
 
@@ -362,9 +375,12 @@ const (
 
 ### 3.2 Genetic Code Representation
 
-**🔧 IMPLEMENTATION NEEDED** (Priority 5 - Part of Speciation):
+**🔧 NOT YET IMPLEMENTED** (Priority 5 - Part of Speciation):
 
-Species carry a simplified genetic code as a 50-dimensional vector.
+> **Note**: The current implementation uses `EvolvableTraits` (phenotypes) directly.
+> Species do NOT yet have a `GeneticCode` field. This section describes the **proposed design**.
+
+Species should carry a simplified genetic code as a 50-100 dimensional vector.
 
 ```go
 // internal/ecosystem/population/genetics.go
@@ -516,7 +532,7 @@ func generateSpeciesName(traits *Traits, biome geography.BiomeType) string {
 - `"Giant Woolly Grazer"` (large furred herbivore)
 - `"Armored Desert Forager"` (shelled omnivore in desert)
 
-**🔧 IMPLEMENTATION STATUS**: ✅ Basic naming exists, needs expansion
+**✅ IMPLEMENTED** (In `naming.go:GenerateSpeciesName`)
 
 ---
 
@@ -524,7 +540,7 @@ func generateSpeciesName(traits *Traits, biome geography.BiomeType) string {
 
 ### 4.1 Size-Dependent Metabolism (Kleiber's Law)
 
-**🔧 IMPLEMENTATION NEEDED** (Priority 2 - CRITICAL):
+**✅ IMPLEMENTED** (Priority 2 - In `dynamics.go`):
 
 Metabolic rate doesn't scale linearly with mass—it follows a 3/4 power law.
 
@@ -660,9 +676,11 @@ func TestRvsKSelection(t *testing.T) {
 
 ### 4.2 Trophic Level Interactions
 
-**🔧 IMPLEMENTATION NEEDED** (Priority 7):
+**✅ PARTIALLY IMPLEMENTED** (Priority 7 - In `types.go`):
 
 Energy flows through trophic levels with 10% efficiency (ecological pyramid).
+`TrophicLevel` constants and `CalculateTrophicCapacity` are implemented.
+Lotka-Volterra predator-prey dynamics exist in basic form in `simulateBiomeYear`.
 
 ```go
 // internal/ecosystem/population/trophic.go
@@ -779,7 +797,7 @@ func TestBiomassePyramid(t *testing.T) {
 
 ### 4.3 Covering Effects on Survival
 
-**🔧 IMPLEMENTATION NEEDED** (Priority 1 - HIGHEST PRIORITY):
+**✅ IMPLEMENTED** (Priority 1 - In `types.go:CalculateBiomeFitness`):
 
 Covering type dramatically affects fitness in different biomes.
 
@@ -1068,7 +1086,7 @@ func applyCoevolutionaryPressure(prey, predator *Population) {
 
 ### 5.3 Genetic Drift (Neutral Evolution)
 
-**🔧 IMPLEMENTATION NEEDED** (Priority 10):
+**✅ IMPLEMENTED** (Priority 10 - In `dynamics.go:ApplyGeneticDrift`):
 
 Random allele frequency changes, especially in small populations.
 
@@ -1156,7 +1174,19 @@ func TestDriftVsSelection(t *testing.T) {
 
 ### 5.4 Speciation (CRITICAL - Most Important Feature)
 
-**🔧 IMPLEMENTATION NEEDED** (Priority 5 - HIGHEST PRIORITY after Covering):
+**⚠️ PARTIALLY IMPLEMENTED** (Priority 5):
+
+**Current State** (`dynamics.go:CheckSpeciation`):
+- Basic speciation exists: Large populations with high trait variance can split
+- New species created with mutated traits and new name
+- Ancestor tracking via `AncestorID` field
+
+**Still Needs Implementation**:
+- Genetic Code Vector (50-100D genotype-to-phenotype mapping)
+- Genetic distance calculations for reproductive isolation
+- Allopatric speciation with "last contact year" tracking
+- Sympatric speciation for generalists in high-diversity biomes
+- Phylogenetic tree construction
 
 New species branch off when populations diverge genetically and reproductively isolate.
 
@@ -1572,7 +1602,7 @@ func (ps *PopulationSimulator) isInRecoveryPeriod() bool {
 
 ### 6.1 Symbiosis & Mutualism
 
-**🔧 IMPLEMENTATION NEEDED** (Priority 6):
+**✅ IMPLEMENTED** (Priority 6 - In `dynamics.go:ApplySymbiosis`):
 
 Symbiotic relationships create interdependencies and co-extinction risks.
 
@@ -1706,7 +1736,7 @@ func TestSymbiosisEvolution(t *testing.T) {
 ---
 ### 6.2 Niche Partitioning & Competition
 
-**🔧 IMPLEMENTATION NEEDED** (Priority 6):
+**✅ IMPLEMENTED** (Priority 6 - In `dynamics.go:ApplyNichePartitioning`):
 
 ```go
 // internal/ecosystem/population/competition.go
@@ -1810,7 +1840,7 @@ func TestCharacterDisplacement(t *testing.T) {
 
 ### 6.3 Disease Dynamics
 
-**🔧 IMPLEMENTATION NEEDED** (Priority 6):
+**✅ IMPLEMENTED** (Priority 6 - In `dynamics.go:ApplyDisease`):
 
 ```go
 // internal/ecosystem/population/disease.go
@@ -1980,9 +2010,10 @@ func getSeasonalModifiers(season Season, biome geography.BiomeType, latitude flo
 
 ### 7.1 Fitness-Gradient Migration
 
-**🔧 IMPLEMENTATION NEEDED** (Priority 4):
+**✅ IMPLEMENTED** (Priority 4 - In `migration.go`):
 
-Populations migrate toward higher-fitness biomes.
+Populations migrate toward compatible biomes based on population pressure.
+`ApplyMigrationCycle`, `MigrateSpecies`, `CalculateMigrationChance` exist.
 
 ```go
 // internal/ecosystem/population/migration.go
@@ -2822,44 +2853,37 @@ fi
 
 ## Implementation Roadmap Summary
 
-### Phase 1: Core Survival Mechanics (Weeks 1-3)
-- **Priority 1**: ✅ Covering → Survivability (HIGHEST)
-  - Tests: >80% coverage
-  - Expected: 10M years → tundra dominated by fur, desert by scales
-- **Priority 2**: ✅ Size-Dependent Metabolism (Kleiber's Law)
-  - Tests: >80% coverage
-  - Expected: Large animals starve first, small animals reproduce faster
+### Phase 1: Core Survival Mechanics ✅ COMPLETE
+- **Priority 1**: ✅ Covering → Survivability - IMPLEMENTED in `types.go:CalculateBiomeFitness`
+- **Priority 2**: ✅ Size-Dependent Metabolism (Kleiber's Law) - IMPLEMENTED in `dynamics.go`
 
-### Phase 2: Population Dynamics (Weeks 4-6)
-- **Priority 3**: ✅ Dynamic Biome Shifts with Speed
-  - Tests: >80% coverage
-  - Expected: Ice ages advance slowly, asteroids rapid
-- **Priority 4**: ✅ Migration with Fitness Gradients
-  - Tests: >80% coverage
-  - Expected: Populations migrate toward better biomes
+### Phase 2: Population Dynamics ✅ MOSTLY COMPLETE
+- **Priority 3**: ⚠️ Dynamic Biome Shifts - Basic implementation exists, needs speed/refugia refinement
+- **Priority 4**: ✅ Migration - IMPLEMENTED in `migration.go`
 
-### Phase 3: Speciation & Genetics (Weeks 7-10)
-- **Priority 5**: ✅ Speciation Events (CRITICAL)
-  - Tests: >80% coverage
-  - Expected: 100k years isolation → new species
-- **Priority 6**: ✅ Symbiosis & Disease
-  - Tests: >80% coverage
-  - Expected: Mutualism, co-extinction, disease regulation
-- **Priority 7**: ✅ Trophic Levels & Predation
-  - Tests: >80% coverage
-  - Expected: Lotka-Volterra cycles, cascades
+### Phase 3: Ecological Interactions ✅ COMPLETE
+- **Priority 6**: ✅ Symbiosis & Disease - IMPLEMENTED in `dynamics.go`
+- **Priority 7**: ✅ Trophic Levels & Predation - PARTIALLY IMPLEMENTED (basic Lotka-Volterra)
+- **Priority 10**: ✅ Genetic Drift - IMPLEMENTED in `dynamics.go`
 
-### Phase 4: Advanced Features (Weeks 11-14)
-- **Priority 8**: ⭕ Continental Configuration
-- **Priority 9**: ⭕ Oxygen Cycle Effects
-- **Priority 10**: ⭕ Genetic Drift
-- **Priority 11**: ⭕ Solar Evolution (billion-year scale)
+### Phase 4: Speciation & Genetics 🔧 NEEDS WORK
+- **Priority 5**: ⚠️ Speciation Events - Basic implementation exists, but lacks:
+  - [ ] Genetic Code Vector (50-100D genotype)
+  - [ ] Genetic distance thresholds for reproductive isolation
+  - [ ] Allopatric speciation with population isolation tracking
+  - [ ] Sympatric speciation for generalist splitting
+  - [ ] Phylogenetic tree construction
 
-### Phase 5: Optimization (Weeks 15-16)
-- Adaptive timesteps
-- Memory management
-- Benchmark to targets
-- Final integration testing
+### Phase 5: Advanced Features (Weeks 11-14)
+- **Priority 8**: ⭕ Continental Configuration - Only `ContinentalFragmentation` float exists
+- **Priority 9**: ⚠️ Oxygen Cycle Effects - Implementation exists, needs tests
+- **Priority 11**: ⭕ Solar Evolution (billion-year scale) - NOT IMPLEMENTED
+
+### Phase 6: Optimization 🔧 PENDING
+- ⭕ Adaptive timesteps - NOT IMPLEMENTED (causes freezes at 1M+ years)
+- ⭕ Memory management for long simulations
+- ⭕ Benchmark tests
+- ⭕ Final integration testing
 
 ---
 
@@ -2867,28 +2891,38 @@ fi
 
 Use this checklist to track implementation:
 
-### HIGHEST PRIORITY (Must implement first):
-- [ ] **Priority 1**: Covering → Survivability (with size interaction)
-- [ ] **Priority 2**: Size-Dependent Metabolism (Kleiber's Law)
-- [ ] **Priority 5**: Speciation Mechanics (genetic distance, thresholds)
+### ✅ ALREADY IMPLEMENTED:
+- [x] **Priority 1**: Covering → Survivability (in `types.go:CalculateBiomeFitness`)
+- [x] **Priority 2**: Size-Dependent Metabolism (Kleiber's Law in `dynamics.go`)
+- [x] **Priority 4**: Migration (`migration.go:ApplyMigrationCycle`)
+- [x] **Priority 6**: Symbiosis & Disease (`dynamics.go:ApplySymbiosis`, `ApplyDisease`)
+- [x] **Priority 7**: Trophic Levels - partial (`types.go:CalculateTrophicCapacity`)
+- [x] **Priority 10**: Genetic Drift (`dynamics.go:ApplyGeneticDrift`)
 
-### HIGH PRIORITY (Core gameplay):
-- [ ] **Priority 3**: Dynamic Biome Transitions (with speeds)
-- [ ] **Priority 4**: Migration (fitness gradients)
-- [ ] **Priority 7**: Trophic Levels (Lotka-Volterra)
+### 🔧 STILL NEEDS IMPLEMENTATION:
 
-### MEDIUM PRIORITY (Depth):
-- [ ] **Priority 6**: Symbiosis & Disease
-- [ ] **Priority 10**: Genetic Drift
+#### HIGHEST PRIORITY:
+- [ ] **Genetic Code Vector** (50-100D): Species lack `GeneticCode []float64` field for genotype-to-phenotype mapping
+- [ ] **Speciation with Genetic Distance**: Current `CheckSpeciation` uses trait variance, not genetic distance thresholds
+- [ ] **Allopatric Speciation**: Need to track population isolation and "last contact year"
 
-### LOW PRIORITY (Long-term):
-- [ ] **Priority 8**: Continental Configuration
-- [ ] **Priority 9**: Oxygen Cycle
-- [ ] **Priority 11**: Solar Evolution
+#### HIGH PRIORITY:
+- [ ] **Sympatric Speciation**: Generalists splitting into specialists in high-diversity biomes
+- [ ] **Phylogenetic Tree Construction**: Species track `AncestorID` but no tree-building function exists
+- [ ] **Detailed Biome Transition Speeds**: Refugia effects, latitude-based progression
+
+#### MEDIUM PRIORITY:
+- [ ] **Continental Configuration Struct**: Only `ContinentalFragmentation` float exists, not detailed struct
+- [ ] **Enhanced Flora Trait System**: Plants need richer traits beyond `FloraGrowth`
+- [ ] **Disease Persistence**: Current diseases are transient outbreaks, not endemic
+
+#### LOW PRIORITY (Long-term):
+- [ ] **Priority 9**: Oxygen Cycle Tests (implementation exists, needs test coverage)
+- [ ] **Priority 11**: Solar Evolution (billion-year scale luminosity changes)
 
 ### PERFORMANCE:
-- [ ] Adaptive timesteps
-- [ ] Memory management
+- [ ] Adaptive timesteps (currently year-by-year causes freezes at 1M+ years)
+- [ ] Memory management for long simulations
 - [ ] Benchmark tests
 - [ ] Coverage >80% all modules
 
@@ -2937,27 +2971,639 @@ Only toward positive gradients
 
 ---
 
-## Questions for Clarification
+## Design Decisions (Finalized Dec 15, 2025)
 
-Before implementing, please clarify:
+The following design decisions were finalized through Q&A discussion:
 
-1. **Genetic Code Dimensionality**: Is 50D sufficient, or should we use 100D+ for more trait complexity?
-1. **Answer**: Let's use 100D+ - Is it possible to have 100 defined genetic traits and have 100 blank that can be added to as mutations arise?
+---
 
-2. **Timestep Granularity**: Are the proposed adaptive timesteps (1k → 10k → 100k years) acceptable for gameplay, or too coarse?
-2. **Answer**: Currently the game freezes if we try to simulate more than a million years, I would like to see enhancements to the performance that allow us to simulate a billion years at our current granularity before we move to adaptive timesteps.
+### 1. Genetic System
 
-3. **Speciation Rate**: Should sympatric speciation be rarer (currently 0.1% per check)?
-3. **Answer**: Sympatric speciation should be rarer (0.001% per check) unless speciation has just occured in which case it is 0.01% for the next 100,000 years. Allopatric speciation should be much more common.
+#### 1.1 Gene Structure
+- **100 Defined Genes**: Map to ~25 phenotypic traits via polygenic relationships, plus additional diversity traits
+- **100 Blank Genes**: Can be unlocked by:
+  - Random chance during high mutation periods / stress events
+  - Player choices during world creation interview
+  - Player choices at turning points (every 1M years, after major events, or player-requested)
 
-4. **Disease Mechanics**: Should diseases persist across generations, or are outbreaks transient?
-4. **Answer**: Diseases should persist, we want them to be realistic and have them be dormant in some population and spread into others so technically both states are true. Diseases persist across generation once they become endimec but when they first show up they are transient if the mutation doesn't allow for them to persist without killing off their hosts before spreading.
+#### 1.2 Exotic Trait Pool
+- **Combination of universal and world-specific traits**
+- Universal traits: Magic, flight, telepathy, bioluminescence, etc.
+- World-specific traits: Generated from world seed (e.g., "crystalline carapace" on mineral-rich worlds)
+- **Goal**: System capable of reproducing any Earth lifeform AND creating any from player imagination
 
-5. **Performance Targets**: Are 30 minutes for 1 billion years acceptable, or should we target faster?
-5. **Answer**: 30 minutes for 1 billion years is acceptable as long as it is happening asynchronously and a player can fly about the world, watching it change beneath them.
+#### 1.3 Magic System
+- Worlds have explicit magic setting during creation:
+  - **Mundane**: No magic at all
+  - **Magical**: Magic is present from the start
+  - **Open to Magic**: Magic may evolve naturally (rare)
+- Non-magical worlds can still have magical creatures if player allows during interview
+- Fantastical traits (teleportation, shields, telekinesis) require appropriate world setting
 
-6. **Flora Simulation**: Should plants have their own trait system, or remain abstract "resources"?
-6. **Answer**: Plants should have their own trait system, we want them to be just as rich as the animals. We also want to keep the separation between flora and fauna fuzzy to account for lifeforms like fungi and other organisms that don't fall comfortable into the flora and fauna categories.
+---
 
-7. **Player Interaction**: At what timescale can players intervene (introduce species, trigger events)?
-7. **Answer**: That's a great question, should we introduce turning points every 100k years where players are given three options for the direction the world goes?
+### 2. Organism Abstraction
+
+#### 2.1 Unified Organism Type
+- **Replace Flora/Fauna** with abstract `Organism` type
+- All life uses the same trait system with continuous values:
+  - `Autotrophy`: 0.0 (heterotroph) to 1.0 (full autotroph)
+  - `Complexity`: 0.0 (prokaryote) to 1.0 (complex multicellular)
+  - `Motility`: 0.0 (sessile) to 1.0 (highly mobile)
+  - `EnergySource`: Chemical, light, thermal, magical, etc.
+
+#### 2.2 Non-Carbon Life
+- **World-creation option**: Player can choose silicon-based, energy-based, or crystalline life
+- **Random worlds**: 1% chance at world beginning
+- **Spontaneous evolution**: 0.0001% chance on carbon-based worlds (near zero)
+- Options: Silicon-based, energy-based (plasma beings), crystalline/mineral life
+
+#### 2.3 Flora Trait System
+- 100 defined traits (inspired by Earth plant biology):
+  - Photosynthetic efficiency, root depth, seed dispersal, toxicity, fire resistance, nitrogen fixation, etc.
+- 100 blank traits that can be unlocked (exotic/fantastical)
+- Each organism type should feel as realistic as possible
+
+---
+
+### 3. Pathogen System
+
+#### 3.1 Complexity Level: Moderate
+- **Categories**: Virus, Bacteria, Fungi, Prion
+- **Simplified organism traits** (not full trait system)
+
+#### 3.2 Pathogen Traits
+- Virulence (lethality): 0.0 to 1.0
+- Transmissibility: 0.0 to 1.0
+- Incubation period: Days to years
+- Host specificity: How narrow the host range is
+- Mutation rate: How quickly it evolves
+
+#### 3.3 Disease Lifecycle
+- **Transient**: New diseases that may burn out
+- **Endemic**: Established diseases that persist, mutate to become less fatal over time
+- **Dormant**: Can persist in populations without active symptoms
+
+#### 3.4 Zoonotic Transfer
+- **Rare** for unrelated species (requires specific mutation)
+- **Common** for closely related species (shared ancestor within 1M years)
+- Can spread via incompatible hosts (carriers that don't get sick)
+
+---
+
+### 4. Geographic Isolation
+
+#### 4.1 Hybrid Approach
+- **Coordinate-based**: Used at world creation and when player is present
+- **Region sub-zones**: Used during background simulation
+- **Geography re-evaluation**: Every 10,000 years, update region boundaries based on terrain changes
+
+#### 4.2 Region Sub-zones
+- Each biome has 4-9 regions based on geography
+- Regions can be connected or isolated by terrain features (mountains, rivers, oceans)
+- Isolation criteria: Distance OR obstacle species cannot cross
+
+#### 4.3 Migration Range
+- **Combination of traits + terrain modifiers**:
+  - Base range from Size + Speed + Intelligence
+  - Terrain multipliers (plains: 2x, forest: 0.7x, mountains: 0.3x)
+  - Herd behavior bonus for social species
+- Great seasonal migrations modeled for appropriate species/biomes
+
+---
+
+### 5. Sapience & Civilization
+
+#### 5.1 Proto-Sapience Threshold
+Species flagged as proto-sapient when:
+- Intelligence > 0.7
+- Social > 0.6
+- Tool Use trait present
+- Communication trait present
+
+#### 5.2 Civilization Emergence
+- Sapience emerges from: Tool use + Social behavior + Environmental pressure
+- When species is selected (by player or emergence):
+  - Simulation continues normally
+  - That species gets priority tracking
+  - **Civilization simulation layer** starts running in conjunction with world simulation
+- NPCs created from sapient species (future feature)
+
+---
+
+### 6. Player Interaction
+
+#### 6.1 Turning Points
+Occur at:
+- Every 1,000,000 years (fixed interval)
+- After major events (mass extinctions, speciation bursts)
+- Player-requested (pause and intervene)
+
+#### 6.2 Intervention Options
+- **Mutations**: Add abilities to organisms (teleport, shields, flight, telekinesis, etc.)
+- **Events**: Trigger extinctions, climate change, volcanic activity
+- **Environmental**: Adjust climate, oxygen, continental drift
+- **Species Introduction**: Add new species to the world
+- **Sapience Boost**: Select a species to become sapient
+
+#### 6.3 Rewind/Timeline
+- Player can rewind to previous turning points
+- All parallel simulations on that world also rewind
+- Other players can change time flow or leave the world
+- Foundation for future "time control" features (speed up, slow down, reverse)
+
+---
+
+### 7. Performance & Logging
+
+#### 7.1 Simulation Performance
+- **Target**: 1 hour for 1 billion years (acceptable)
+- **Background thread**: Simulation runs asynchronously
+- **Player visibility**: Smooth transitions as world changes (snapshot every ~10 years)
+- Database updates from simulation thread; player reads from same DB
+
+#### 7.2 Logging System
+- **Dual logging**: File (debugging) + Database (player-facing history/rewinding)
+- **Log verbosity levels**:
+  - TRACE: Every year's calculations (development only)
+  - DEBUG: Speciation, extinction, disease outbreaks (development only)
+  - INFO: Major events (mass extinctions, turning points) - **production**
+  - WARN: Simulation anomalies - **production**
+  - ERROR: Failures - **production**
+- Dedicated log file: `/logs/world_simulation.log`
+
+#### 7.3 Checkpoint System (Hybrid)
+- **Full snapshot**: Every 1,000,000 years
+- **Deltas**: Stored between snapshots
+- Used for rewinding and debugging
+
+---
+
+### 8. Extinction Cascades
+
+When a species goes extinct:
+- Check all symbiotic partners (co-extinction risk)
+- Check predators that relied on this species (food source loss)
+- Check prey populations (predator release → population explosion)
+- Keystone species removal triggers major ecosystem shifts
+
+---
+
+### 9. Fossil Record & Discovery
+
+- **Rich world history**: Fossils can be discovered by players/NPCs
+- **Epic moments**: Landslides revealing dragon skeletons, etc.
+- **Resources**: Magical creatures may leave valuable materials
+- **Necromancy integration**: If magic is present, fossils may have mystical properties
+- Database stores fossil locations and discovery state
+
+---
+
+### 10. Future: NPC & Civilization
+
+- **Goal**: Sapient species become NPCs populating the world
+- **Individual NPCs**: Created from species template with variation
+- **Civilization simulation**: Culture, technology, society emerge
+- **Scope**: Future feature, foundations laid now with trait system
+
+---
+
+## Quick Reference: Key Formulae
+
+### Metabolism (Kleiber's Law)
+```
+Metabolic Rate = Size^0.75
+Reproduction Rate = 1 / √Size
+Carrying Capacity = Resources / Metabolic Rate
+```
+
+### Fitness Modifiers
+```
+Fur in Tundra: +20%
+Fur in Desert: -15% (worse for large animals)
+Scales in Desert: +15%
+Shell everywhere: -5% (but -40% predation)
+Blubber in Ocean: +25%
+Blubber in Desert: -30%
+```
+
+### Speciation Thresholds
+```
+Genetic Distance: >0.3 (30% divergence) - weighted by gene importance
+Time Separation: >10,000 generations
+Sympatric Rate: 0.001% (0.01% post-speciation for 100k years)
+Allopatric Rate: Much higher (primary speciation mode)
+
+Key Gene Weighting:
+- Genes 0-5 (body plan/Hox-like): 10x distance weight
+- Genes 6-20 (major morphology): 5x distance weight
+- Genes 21-50 (behavior/metabolism): 2x distance weight
+- Genes 51-100 (minor traits): 1x distance weight
+```
+
+### Biome Transition Speeds
+```
+Ice Age: 0.001 * severity (1k-10k years)
+Asteroid: 0.1 (years-decades)
+Flood Basalt: 0.0001 (1-2M years)
+Continental Drift: 0.00001 (10-100M years)
+```
+
+### Migration
+```
+Base Range = Size * 0.5 + Speed * 0.3 + Intelligence * 0.2
+Terrain Modifier: Plains 2x, Forest 0.7x, Mountains 0.3x
+Herd Bonus: Social > 0.7 = +50% range
+```
+
+### Sapience Threshold
+```
+Intelligence > 0.7
+Social > 0.6
+ToolUse trait present
+Communication trait present
+
+OR with Magic Uplift:
+Intelligence > 0.4
+Social > 0.4
+MagicAffinity > 0.5 (magical world only)
+```
+
+---
+
+## Technical Refinements (Added Dec 15, 2025)
+
+Based on technical review, the following refinements are required:
+
+---
+
+### 1. Memory Management
+
+#### 1.1 Use float32 for Genetic Vectors
+- **Rationale**: Biological dominance/recessiveness rarely requires double-precision
+- **Savings**: 50% memory bandwidth reduction
+- **Impact**: 50,000 active gene vectors (1000 biomes × 50 populations) = ~20MB → ~10MB
+
+```go
+type GeneticCode struct {
+    DefinedGenes  [100]float32  // NOT float64
+    BlankGenes    [100]float32
+    ActiveBlanks  []int
+}
+```
+
+#### 1.2 Memory Estimates
+| Scenario | Species Count | Memory |
+|----------|--------------|--------|
+| Historical (extinct + living) | 10,000 × 100 genes × 4 bytes | ~4 MB |
+| Active populations | 50,000 vectors × 200 genes × 4 bytes | ~40 MB |
+| Total simulation state | | < 100 MB |
+
+---
+
+### 2. Scientific Corrections
+
+#### 2.1 Reproduction Rate Scaling
+
+**Current (Incorrect)**:
+```go
+// M^-0.5 is too aggressive - megafauna go extinct too easily
+reproductionRate := 1.0 / math.Sqrt(size)
+```
+
+**Corrected (r/K Selection Theory)**:
+```go
+// Generation time scales with M^0.25 (quarter-power scaling)
+// Therefore reproduction rate scales with M^-0.25
+reproductionRate := math.Pow(size, -0.25)
+```
+
+**Why**: Real-world generation time follows M^0.25 (Lindstedt & Calder 1981). 
+The current M^-0.5 creates excessive reproductive penalty for large animals.
+
+#### 2.2 Speciation Distance with Key Gene Weighting
+
+**Issue**: Real speciation often occurs with <2% genomic variance if in regulatory genes (Hox genes).
+
+**Solution**: Weighted Euclidean distance:
+
+```go
+func CalculateGeneticDistance(g1, g2 GeneticCode) float32 {
+    var weightedSumSq float32 = 0.0
+    weights := []float32{
+        10.0, 10.0, 10.0, 10.0, 10.0, 10.0,  // Genes 0-5: body plan
+        5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0,  // 6-15: major morphology
+        5.0, 5.0, 5.0, 5.0, 5.0,  // 16-20: major morphology
+        // ... 2.0 for genes 21-50, 1.0 for genes 51-100
+    }
+    
+    for i := 0; i < 100; i++ {
+        diff := g1.DefinedGenes[i] - g2.DefinedGenes[i]
+        weightedSumSq += weights[i] * diff * diff
+    }
+    
+    totalWeight := sumWeights(weights)
+    return float32(math.Sqrt(float64(weightedSumSq / totalWeight)))
+}
+```
+
+#### 2.3 Inbreeding Depression
+
+**Issue**: For N < 50, drift rate is high but genetic code holds. For N < 20, biological reality breaks down (inbreeding depression).
+
+```go
+func CalculateInbreedingPenalty(populationSize int64) float64 {
+    if populationSize >= 50 {
+        return 1.0  // No penalty
+    }
+    if populationSize < 2 {
+        return 0.1  // Near extinction
+    }
+    // Severe fitness malus for small populations
+    // At N=20: 0.6 fitness
+    // At N=10: 0.4 fitness
+    // At N=2: 0.1 fitness
+    return 0.1 + 0.9*(float64(populationSize-2)/48.0)
+}
+
+// Apply to growth rate
+growthRate *= CalculateInbreedingPenalty(population.Count)
+```
+
+---
+
+### 3. Continental Configuration via Spatial Grid
+
+#### 3.1 Replace Float with Tectonic Plate System
+
+**Current (Insufficient)**:
+```go
+ContinentalFragmentation float64  // Can't determine WHERE continents are
+```
+
+**Corrected (Spatial Awareness)**:
+```go
+type TectonicSystem struct {
+    Plates       []TectonicPlate
+    CellToPlate  map[HexCoord]uuid.UUID  // Each hex cell belongs to a plate
+    SubductionZones []SubductionZone
+    RiftZones    []RiftZone
+}
+
+type TectonicPlate struct {
+    ID           uuid.UUID
+    Name         string
+    Type         PlateType  // Continental, Oceanic
+    Velocity     Vector2D   // Direction and speed of movement
+    LandmassPct  float32    // Percentage of plate that's land
+    Cells        []HexCoord // All cells belonging to this plate
+}
+
+// Fragmentation is now a DERIVED statistic
+func (ts *TectonicSystem) CalculateFragmentation() float32 {
+    continentalPlates := 0
+    for _, plate := range ts.Plates {
+        if plate.Type == Continental && plate.LandmassPct > 0.2 {
+            continentalPlates++
+        }
+    }
+    // 1 plate = 0.0, 7+ plates = 1.0
+    return float32(math.Min(float64(continentalPlates-1)/6.0, 1.0))
+}
+```
+
+#### 3.2 Hex Grid for World Map
+
+```go
+type HexCoord struct {
+    Q, R int  // Axial coordinates
+}
+
+type HexCell struct {
+    Coord       HexCoord
+    PlateID     uuid.UUID
+    BiomeID     uuid.UUID
+    RegionID    uuid.UUID
+    Elevation   float32
+    Temperature float32
+    Moisture    float32
+}
+
+type WorldGrid struct {
+    Cells       map[HexCoord]*HexCell
+    Size        int  // Radius of hex grid
+}
+```
+
+**Why**: This allows actual map rendering for players AND enables spatial queries like "which species are within 10 hexes of this mountain range?"
+
+---
+
+### 4. Genotype-Phenotype Mapping (Punctuated Equilibrium)
+
+#### 4.1 Matrix Transformation
+
+**Design**: Phenotype = Genotype × Expression Matrix
+
+```go
+// P = G × E
+type ExpressionMatrix struct {
+    Weights [100][25]float32  // 100 genes → 25 phenotypic traits
+}
+
+func (g *GeneticCode) ToPhenotype(env *ExpressionMatrix) OrganismTraits {
+    traits := OrganismTraits{}
+    traitValues := make([]float32, 25)
+    
+    for t := 0; t < 25; t++ {
+        for g := 0; g < 100; g++ {
+            traitValues[t] += g.DefinedGenes[g] * env.Weights[g][t]
+        }
+    }
+    
+    // Map to trait struct
+    traits.Size = float64(traitValues[0])
+    traits.Speed = float64(traitValues[1])
+    // ... etc
+    
+    return traits
+}
+```
+
+**Why**: 
+- Allows "silent mutations" (genetic drift) that don't immediately change phenotype
+- Enables sudden "evolutionary jumps" when threshold is crossed (Punctuated Equilibrium)
+- Better gameplay: "For 2 million years, nothing changed... then suddenly, DRAGONS"
+
+#### 4.2 Expression Thresholds
+
+```go
+// Gene expression can be non-linear
+func ApplyExpressionCurve(geneValue float32, threshold float32) float32 {
+    if geneValue < threshold {
+        return 0.0  // Gene not expressed
+    }
+    // Sigmoid activation above threshold
+    return 1.0 / (1.0 + float32(math.Exp(-float64(10*(geneValue-threshold)))))
+}
+```
+
+---
+
+### 5. Energy Cost System (Prevent Power Creep)
+
+#### 5.1 Trait Energy Budget
+
+**Problem**: Increasing Speed++ creates "Super Predators" with no downside.
+
+**Solution**: All positive traits cost metabolic energy.
+
+```go
+type TraitCosts struct {
+    Speed          float32  // +10% speed = +8% metabolic rate
+    Strength       float32  // +10% strength = +10% metabolic rate
+    Size           float32  // Handled by Kleiber's Law
+    Armor          float32  // +10% armor = +5% metabolic rate (weight)
+    Intelligence   float32  // +10% intelligence = +15% metabolic rate (brain cost)
+    MagicAffinity  float32  // +10% magic = +20% metabolic rate (high cost!)
+}
+
+func CalculateTotalMetabolicRate(traits OrganismTraits) float64 {
+    baseRate := math.Pow(traits.Size, 0.75)  // Kleiber's Law
+    
+    // Add costs for enhanced traits
+    speedCost := (traits.Speed - 5.0) * 0.08  // Baseline is 5.0
+    strengthCost := (traits.Strength - 5.0) * 0.10
+    armorCost := traits.Armor * 0.05
+    intelligenceCost := traits.Intelligence * 0.15
+    magicCost := traits.MagicAffinity * 0.20
+    
+    return baseRate * (1.0 + speedCost + strengthCost + armorCost + 
+                       intelligenceCost + magicCost)
+}
+```
+
+#### 5.2 Proportional Trait Changes
+
+**Current (Broken)**:
+```go
+predator.Species.Traits.Speed++  // Breaks 0-10 scale!
+```
+
+**Corrected**:
+```go
+// Proportional increase with diminishing returns
+func IncreaseTrait(current float64, pressure float64) float64 {
+    // pressure is 0.01-0.10 typically
+    maxTrait := 10.0
+    headroom := maxTrait - current
+    increase := headroom * pressure * 0.1  // 10% of remaining headroom
+    return math.Min(current + increase, maxTrait)
+}
+
+// Apply evolutionary pressure
+predator.Speed = IncreaseTrait(predator.Speed, 0.05)
+```
+
+---
+
+### 6. Gameplay Integration
+
+#### 6.1 Fossil Extinction Causes
+
+**Requirement**: `pruneExtinctSpecies` must retain extinction cause for loot flavor.
+
+```go
+type ExtinctSpecies struct {
+    // Existing fields...
+    
+    ExtinctionCause   ExtinctionCause
+    ExtinctionDetails string  // "Great Ash Winter of era 4B"
+}
+
+type ExtinctionCause string
+const (
+    CauseStarvation      ExtinctionCause = "starvation"
+    CauseDisease         ExtinctionCause = "disease"
+    CausePredation       ExtinctionCause = "predation"
+    CauseClimateChange   ExtinctionCause = "climate_change"
+    CauseAsteroid        ExtinctionCause = "asteroid_impact"
+    CauseVolcanic        ExtinctionCause = "volcanic_winter"
+    CauseCompetition     ExtinctionCause = "competitive_exclusion"
+    CauseMagicalCatastrophe ExtinctionCause = "magical_catastrophe"
+)
+```
+
+**Player Experience**:
+> "You dig up a Titanis Walleri. Examine: 'Bones show signs of extreme malnutrition, likely from the Great Ash Winter of era 4B.'"
+
+#### 6.2 Regional Historical Traits
+
+**Island Gigantism / Dwarfism**: If a region was historically isolated (high fragmentation), current species should reflect this.
+
+```go
+type RegionHistory struct {
+    RegionID         uuid.UUID
+    IsolationYears   int64    // How long isolated
+    HistoricalBiome  BiomeType
+    GigantismFactor  float32  // >1 = island gigantism, <1 = dwarfism
+}
+
+func (r *RegionHistory) CalculateGigantismFactor() float32 {
+    // Island rule: small mammals get bigger, large mammals get smaller
+    if r.IsolationYears > 100000 {
+        return 1.0 + (float32(r.IsolationYears) / 1000000.0) * 0.2
+    }
+    return 1.0
+}
+```
+
+**Loot/Mob Spawns**: Historical island regions spawn "Giant Dodo" or "Miniature Elephants".
+
+#### 6.3 Magic Uplift Events
+
+**Issue**: Biology-only sapience threshold (Intelligence > 0.7) is too restrictive for fantasy.
+
+**Solution**: Magic can lower biological threshold.
+
+```go
+func (ps *PopulationSimulator) CheckSapienceWithMagic(species *Organism) bool {
+    // Standard biological threshold
+    if species.Traits.Intelligence > 0.7 &&
+       species.Traits.Social > 0.6 &&
+       species.Traits.ToolUse > 0.3 &&
+       species.Traits.Communication > 0.3 {
+        return true
+    }
+    
+    // Magic uplift threshold (magical worlds only)
+    if ps.WorldSettings.MagicSetting != MagicMundane &&
+       species.Traits.MagicAffinity > 0.5 &&
+       species.Traits.Intelligence > 0.4 &&
+       species.Traits.Social > 0.4 {
+        // Explains talking spiders, sentient trees, etc.
+        return true
+    }
+    
+    return false
+}
+```
+
+---
+
+## Summary of Technical Refinements
+
+| Category | Change | Priority |
+|----------|--------|----------|
+| Memory | Use `float32` for genetic vectors | HIGH |
+| Science | Reproduction rate: M^-0.25 not M^-0.5 | HIGH |
+| Science | Key gene weighting for speciation distance | MEDIUM |
+| Science | Inbreeding depression for N < 50 | MEDIUM |
+| Architecture | Replace continental float with hex grid + plates | HIGH |
+| Architecture | Genotype × Expression → Phenotype matrix | MEDIUM |
+| Balance | Energy cost for positive traits | HIGH |
+| Balance | Proportional trait changes, not ++ | HIGH |
+| Gameplay | Fossils retain extinction cause | MEDIUM |
+| Gameplay | Regional historical traits (gigantism/dwarfism) | LOW |
+| Gameplay | Magic uplift for sapience | LOW |
+
