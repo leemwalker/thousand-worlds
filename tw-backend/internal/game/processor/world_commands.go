@@ -9,7 +9,9 @@ import (
 	"tw-backend/cmd/game-server/websocket"
 	"tw-backend/internal/ai/behaviortree"
 	"tw-backend/internal/ecosystem"
+	"tw-backend/internal/ecosystem/pathogen"
 	"tw-backend/internal/ecosystem/population"
+	"tw-backend/internal/ecosystem/sapience"
 	"tw-backend/internal/ecosystem/state"
 	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/weather"
@@ -258,6 +260,26 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	progressInterval := years / 10
 	lastProgress := int64(0)
 
+	// V2 Systems: Initialize pathogen, cascade, sapience, and phylogeny systems
+	diseaseSystem := pathogen.NewDiseaseSystem(char.WorldID, seed)
+	cascadeSim := population.NewCascadeSimulator()
+	sapienceDetector := sapience.NewSapienceDetector(char.WorldID, true) // Magic-enabled
+	phyloTree := population.NewPhylogeneticTree(char.WorldID)
+
+	// Add initial species to phylogenetic tree
+	for _, biome := range popSim.Biomes {
+		for _, sp := range biome.Species {
+			phyloTree.AddRoot(sp, 0)
+		}
+	}
+
+	// Track V2 statistics
+	totalOutbreaks := 0
+	totalCascades := 0
+	sapienceAchieved := false
+
+	client.SendGameMessage("system", "🧪 V2 Systems initialized: Pathogens, Cascades, Sapience, Phylogeny", nil)
+
 	// Run simulation year by year (fast!)
 	for year := int64(0); year < years; year++ {
 		// Progress reporting
@@ -306,12 +328,151 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			newSpecies := popSim.CheckSpeciation()
 			if newSpecies > 0 {
 				client.SendGameMessage("system", fmt.Sprintf("🧬 %d new species evolved through speciation", newSpecies), nil)
+				// TODO: Add speciation events to phylogenetic tree when CheckSpeciation returns parent/child info
 			}
 
 			// Allow species to migrate between biomes
 			migrants := popSim.ApplyMigrationCycle()
 			if migrants > 100 {
 				client.SendGameMessage("system", fmt.Sprintf("🦋 %d individuals migrated to new biomes", migrants), nil)
+			}
+
+			// V2: Pathogen simulation - check for outbreaks every 10k years
+			speciesData := make(map[uuid.UUID]pathogen.SpeciesInfo)
+			for _, biome := range popSim.Biomes {
+				for _, sp := range biome.Species {
+					if sp.Count > 0 {
+						speciesData[sp.SpeciesID] = pathogen.SpeciesInfo{
+							Population:        sp.Count,
+							DiseaseResistance: float32(sp.Traits.DiseaseResistance),
+							DietType:          string(sp.Diet),
+							Density:           float64(sp.Count) / float64(biome.CarryingCapacity+1),
+						}
+						// Check for spontaneous outbreaks
+						newPathogen, outbreak := diseaseSystem.CheckSpontaneousOutbreak(
+							sp.SpeciesID, sp.Name, sp.Count,
+							float64(sp.Count)/float64(biome.CarryingCapacity+1),
+						)
+						if outbreak != nil {
+							totalOutbreaks++
+							// CalculateR0 needs density and resistance params
+							density := float32(sp.Count) / float32(biome.CarryingCapacity+1)
+							r0 := newPathogen.CalculateR0(density, float32(sp.Traits.DiseaseResistance))
+							client.SendGameMessage("system", fmt.Sprintf("🦠 OUTBREAK: %s (%s) in %s! R₀: %.1f",
+								newPathogen.Name, newPathogen.Type, sp.Name, r0), nil)
+						}
+					}
+				}
+			}
+			// Update all active outbreaks
+			diseaseSystem.Update(popSim.CurrentYear, speciesData)
+			// Report pandemic events
+			for _, pandemic := range diseaseSystem.GetPandemics() {
+				// Report if this is a large pandemic
+				if pandemic.TotalDeaths > 1000 && pandemic.EndYear == popSim.CurrentYear {
+					client.SendGameMessage("system", fmt.Sprintf("☠️ PANDEMIC: %s killed %d across multiple populations",
+						pandemic.PathogenID, pandemic.TotalDeaths), nil)
+				}
+			}
+
+			// V2: Sapience detection - check species for proto-sapience and sapience
+			if !sapienceAchieved {
+				for _, biome := range popSim.Biomes {
+					for _, sp := range biome.Species {
+						if sp.Count > 1000 && sp.Traits.Intelligence > 0.5 { // Only check intelligent species
+							// Map available traits, use fallbacks for missing ones
+							traits := sapience.SpeciesTraits{
+								Intelligence:  sp.Traits.Intelligence,
+								Social:        sp.Traits.Social,
+								ToolUse:       sp.Traits.Intelligence * 0.8, // Infer tool use from intelligence
+								Communication: sp.Traits.Social * 0.7,       // Infer from social
+								MagicAffinity: 0.0,                          // Default, no magic affinity trait
+								Population:    sp.Count,
+								Generation:    sp.Generation,
+							}
+							candidate := sapienceDetector.Evaluate(sp.SpeciesID, sp.Name, traits, popSim.CurrentYear)
+							if candidate != nil {
+								if candidate.Level == sapience.SapienceSapient {
+									sapienceAchieved = true
+									client.SendGameMessage("system", fmt.Sprintf("🧠 SAPIENCE ACHIEVED! %s has become sapient! (Score: %.2f)",
+										sp.Name, candidate.Score), nil)
+								} else if candidate.Level == sapience.SapienceProtoSapient {
+									client.SendGameMessage("system", fmt.Sprintf("🔮 Proto-sapience detected: %s shows early signs (Score: %.2f)",
+										sp.Name, candidate.Score), nil)
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// V2: Extinction cascade - check for cascades when species go extinct
+			// Build ecological relationships from population data (simplified)
+			for _, biome := range popSim.Biomes {
+				for _, sp := range biome.Species {
+					if sp.Count == 0 {
+						continue
+					}
+					// Infer relationships from diet
+					switch sp.Diet {
+					case population.DietCarnivore:
+						// Carnivores depend on herbivores
+						for _, prey := range biome.Species {
+							if prey.Diet == population.DietHerbivore && prey.Count > 0 {
+								cascadeSim.AddRelationship(population.EcologicalRelationship{
+									SourceSpeciesID: sp.SpeciesID,
+									TargetSpeciesID: prey.SpeciesID,
+									Type:            population.RelationshipPredation,
+									Strength:        0.5,
+									IsObligate:      false,
+								})
+							}
+						}
+					case population.DietHerbivore:
+						// Herbivores depend on flora
+						for _, flora := range biome.Species {
+							if flora.Diet == population.DietPhotosynthetic && flora.Count > 0 {
+								cascadeSim.AddRelationship(population.EcologicalRelationship{
+									SourceSpeciesID: sp.SpeciesID,
+									TargetSpeciesID: flora.SpeciesID,
+									Type:            population.RelationshipPredation,
+									Strength:        0.3,
+									IsObligate:      false,
+								})
+							}
+						}
+					}
+				}
+			}
+
+			// Check for new extinctions and calculate cascades
+			for _, biome := range popSim.Biomes {
+				for _, sp := range biome.Species {
+					if sp.Count == 0 && sp.Generation > 0 { // Newly extinct
+						result := cascadeSim.CalculateCascade(sp.SpeciesID, sp.Name, popSim.CurrentYear, 3)
+						if result != nil && result.TotalAffected > 0 {
+							totalCascades++
+							client.SendGameMessage("system", fmt.Sprintf("💀 EXTINCTION CASCADE: %s extinction affects %d other species",
+								sp.Name, result.TotalAffected), nil)
+
+							// Apply cascade effects to populations
+							for affectedID, impact := range result.PopulationChanges {
+								for _, b := range popSim.Biomes {
+									if affected, ok := b.Species[affectedID]; ok {
+										deaths := int64(float32(affected.Count) * impact)
+										affected.Count -= deaths
+										if affected.Count < 0 {
+											affected.Count = 0
+										}
+									}
+								}
+							}
+
+							// Update phylogenetic tree
+							phyloTree.MarkExtinct(sp.SpeciesID, popSim.CurrentYear)
+						}
+					}
+				}
 			}
 		}
 
@@ -397,6 +558,19 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	sb.WriteString(fmt.Sprintf("Living Species: %d\n", totalSpecies))
 	sb.WriteString(fmt.Sprintf("Extinct Species: %d\n", totalExtinct))
 	sb.WriteString(fmt.Sprintf("Geological Events: %d\n", geologicalEvents))
+
+	// V2 Statistics
+	sb.WriteString("--- V2 Features ---\n")
+	sb.WriteString(fmt.Sprintf("Disease Outbreaks: %d\n", totalOutbreaks))
+	sb.WriteString(fmt.Sprintf("Extinction Cascades: %d\n", totalCascades))
+	if sapienceAchieved {
+		sb.WriteString("Sapience: ACHIEVED! 🧠\n")
+	} else {
+		progress := sapienceDetector.CalculateSapienceProgress()
+		sb.WriteString(fmt.Sprintf("Sapience Progress: %.0f%%\n", progress*100))
+	}
+	sb.WriteString(fmt.Sprintf("Species in Tree of Life: %d\n", len(phyloTree.Nodes)))
+
 	sb.WriteString("--- Terrain Stats ---\n")
 	sb.WriteString(fmt.Sprintf("Tectonic Plates: %d\n", geoStats.PlateCount))
 	sb.WriteString(fmt.Sprintf("Avg Elevation: %.0fm\n", geoStats.AverageElevation))
