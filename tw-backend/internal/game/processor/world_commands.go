@@ -281,7 +281,20 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	totalCascades := 0
 	sapienceAchieved := false
 
-	client.SendGameMessage("system", "🧪 V2 Systems initialized: Pathogens, Cascades, Sapience, Phylogeny", nil)
+	// Initialize simulation logger (file-based, no DB required)
+	simLogger, err := ecosystem.NewSimulationLogger(ecosystem.SimulationLoggerConfig{
+		WorldID:    char.WorldID,
+		Verbosity:  ecosystem.LogLevelInfo, // Log major events only
+		FileOutput: true,
+	})
+	if err != nil {
+		client.SendGameMessage("system", fmt.Sprintf("⚠️ Logger init failed: %v (continuing without logging)", err), nil)
+		simLogger = nil
+	} else {
+		defer simLogger.Close()
+	}
+
+	client.SendGameMessage("system", "🧪 V2 Systems initialized: Pathogens, Cascades, Sapience, Phylogeny, Logging", nil)
 
 	// Run simulation year by year (fast!)
 	for year := int64(0); year < years; year++ {
@@ -363,6 +376,10 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 							r0 := newPathogen.CalculateR0(density, float32(sp.Traits.DiseaseResistance))
 							client.SendGameMessage("system", fmt.Sprintf("🦠 OUTBREAK: %s (%s) in %s! R₀: %.1f",
 								newPathogen.Name, newPathogen.Type, sp.Name, r0), nil)
+							// Log to simulation logger
+							if simLogger != nil {
+								simLogger.LogPathogenOutbreakV2(ctx, popSim.CurrentYear, newPathogen.Name, string(newPathogen.Type), string(newPathogen.Transmission), sp.Name, r0, newPathogen.Virulence, outbreak.PeakInfected)
+							}
 						}
 					}
 				}
