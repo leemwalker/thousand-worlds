@@ -269,9 +269,9 @@ func NewBiomePopulation(biomeID uuid.UUID, biomeType geography.BiomeType) *Biome
 	case geography.BiomeGrassland:
 		capacity = 3000
 	case geography.BiomeDesert:
-		capacity = 2000 // Increased from 500 to support initial flora (desert is sparse but large)
+		capacity = 500 // Sparse, harsh environment
 	case geography.BiomeTundra:
-		capacity = 800
+		capacity = 500 // Cold, barren
 	case geography.BiomeOcean:
 		capacity = 10000
 	}
