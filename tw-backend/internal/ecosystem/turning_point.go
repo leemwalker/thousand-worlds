@@ -123,6 +123,11 @@ type TurningPointManager struct {
 	TurningPoints       map[uuid.UUID]*TurningPoint `json:"turning_points"`
 	PendingTurningPoint *uuid.UUID                  `json:"pending_turning_point,omitempty"`
 
+	// Divine Energy - resource for interventions
+	DivineEnergy      int   `json:"divine_energy"`       // Current energy pool
+	EnergyPerInterval int64 `json:"energy_per_interval"` // Years per 1 energy (default 10000)
+	LastEnergyYear    int64 `json:"last_energy_year"`    // Year of last energy accumulation
+
 	// Configuration
 	IntervalYears       int64   `json:"interval_years"` // Years between interval triggers
 	LastIntervalYear    int64   `json:"last_interval_year"`
@@ -140,11 +145,41 @@ func NewTurningPointManager(worldID uuid.UUID) *TurningPointManager {
 	return &TurningPointManager{
 		WorldID:               worldID,
 		TurningPoints:         make(map[uuid.UUID]*TurningPoint),
+		DivineEnergy:          10,      // Start with some energy
+		EnergyPerInterval:     10000,   // 1 energy per 10k years
 		IntervalYears:         1000000, // 1 million years default
 		ExtinctionThreshold:   0.25,    // 25% species loss triggers event
 		Cooldowns:             make(map[string]int64),
 		InterventionTemplates: defaultInterventionTemplates(),
 	}
+}
+
+// AccumulateEnergy adds Divine Energy based on years elapsed
+// Called periodically during simulation
+func (tpm *TurningPointManager) AccumulateEnergy(currentYear int64) {
+	if tpm.EnergyPerInterval <= 0 {
+		return
+	}
+	yearsElapsed := currentYear - tpm.LastEnergyYear
+	energy := int(yearsElapsed / tpm.EnergyPerInterval)
+	if energy > 0 {
+		tpm.DivineEnergy += energy
+		tpm.LastEnergyYear = currentYear - (yearsElapsed % tpm.EnergyPerInterval)
+	}
+}
+
+// CanAfford returns true if there's enough Divine Energy for the intervention
+func (tpm *TurningPointManager) CanAfford(cost int) bool {
+	return tpm.DivineEnergy >= cost
+}
+
+// SpendEnergy deducts Divine Energy for an intervention
+func (tpm *TurningPointManager) SpendEnergy(cost int) bool {
+	if !tpm.CanAfford(cost) {
+		return false
+	}
+	tpm.DivineEnergy -= cost
+	return true
 }
 
 // defaultInterventionTemplates returns the standard interventions

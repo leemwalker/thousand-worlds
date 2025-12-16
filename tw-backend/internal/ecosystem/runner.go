@@ -322,6 +322,11 @@ func (sr *SimulationRunner) tick(yearsToAdvance int64) error {
 		sr.createSnapshot()
 	}
 
+	// Accumulate Divine Energy over time
+	if sr.turningPointManager != nil {
+		sr.turningPointManager.AccumulateEnergy(sr.currentYear)
+	}
+
 	// Check for turning points every 100,000 years
 	if sr.turningPointManager != nil && sr.currentYear%100000 == 0 && sr.currentYear > 0 {
 		// Get relevant stats for turning point check (simplified for now)
