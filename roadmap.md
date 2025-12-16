@@ -6,6 +6,14 @@
 > - Refactor with confidence
 > - Target: 80%+ code coverage for all services
 
+## Status Legend
+
+| Status | Meaning |
+|--------|---------|
+| ✅ Completed | Code complete AND integrated into game-server |
+| 🔧 Code Complete (Awaiting Integration) | Code and tests exist but not wired into game-server |
+| ⏳ Not Started | Phase not yet begun |
+
 ---
 
 # Phase 0: Foundation & Infrastructure (4-6 weeks)
@@ -899,7 +907,7 @@ Files to Create:
 # Phase 3: NPC Memory & Relationships (5-7 weeks)
 
 ## Phase 3.1: Memory Storage & Retrieval (2 weeks)
-### Status: ✅ Completed
+### Status: 🔧 Code Complete (Awaiting Integration)
 ### Prompt:
 Following TDD principles, implement Phase 3.1 NPC Memory Storage & Retrieval:
 
@@ -1064,7 +1072,7 @@ Files to Create:
 ---
 
 ## Phase 3.2: Memory Decay & Rehearsal (1 week)
-### Status: ✅ Completed
+### Status: 🔧 Code Complete (Awaiting Integration)
 ### Prompt:
 Following TDD principles, implement Phase 3.2 Memory Decay & Rehearsal:
 
@@ -1147,7 +1155,7 @@ Files to Create:
 ---
 
 ## Phase 3.3: Relationship System (1-2 weeks)
-### Status: ✅ Completed
+### Status: 🔧 Code Complete (Awaiting Integration)
 ### Prompt:
 Following TDD principles, implement Phase 3.3 Relationship System with Behavioral Drift Detection:
 
@@ -1283,7 +1291,7 @@ Files to Create:
 ---
 
 ## Phase 3.4: Emotional Memory Weighting (1-2 weeks)
-### Status: ✅ Completed
+### Status: 🔧 Code Complete (Awaiting Integration)
 ### Prompt:
 Following TDD principles, implement Phase 3.4 Emotional Memory Weighting:
 
@@ -1405,7 +1413,7 @@ Files to Create:
 # Phase 4: NPC Genetics & Appearance (2-3 weeks)
 
 ## Phase 4.1: Genetic System (1-2 weeks)
-### Status: ✅ Completed
+### Status: 🔧 Code Complete (Awaiting Integration)
 ### Prompt:
 Following TDD principles, implement Phase 4.1 Genetic System with Mendelian Inheritance:
 
@@ -1542,7 +1550,7 @@ Files to Create:
 ---
 
 ## Phase 4.2: Appearance Generation (1 week)
-### Status: ✅ Completed
+### Status: 🔧 Code Complete (Awaiting Integration)
 ### Prompt:
 Following TDD principles, implement Phase 4.2 Appearance Generation:
 
@@ -1677,7 +1685,7 @@ Files to Create:
 # Phase 5: NPC AI & Desire Engine (3-4 weeks)
 
 ## Phase 5.1: Desire Engine (2 weeks)
-### Status: ✅ Complete (87.8% test coverage)
+### Status: 🔧 Code Complete (87.8% test coverage, Awaiting Integration)
 ### Prompt:
 Following TDD principles, implement Phase 5.1 Desire Engine with Need Hierarchy:
 
@@ -1859,7 +1867,7 @@ Files to Create:
 ---
 
 ## Phase 5.2: Personality System (1 week)
-### Status: ✅ Complete (91.6% test coverage)
+### Status: 🔧 Code Complete (91.6% test coverage, Awaiting Integration)
 ### Prompt:
 Following TDD principles, implement Phase 5.2 Personality System with Big Five Model:
 
@@ -2000,7 +2008,7 @@ Files to Create:
 ---
 
 ## Phase 5.3: NPC-to-NPC Interaction (1-2 weeks)
-### Status: ✅ Complete (86.1% test coverage)
+### Status: 🔧 Code Complete (86.1% test coverage, Awaiting Integration)
 ### Prompt:
 Following TDD principles, implement Phase 5.3 NPC-to-NPC Autonomous Interaction:
 
@@ -2175,7 +2183,7 @@ Files to Create:
 # Phase 6: LLM Integration for Dialogue (2-3 weeks)
 
 ## Phase 6.1: Ollama Prompt Engineering (1 week)
-### Status: ✅ Completed
+### Status: 🔧 Code Complete (Awaiting Integration)
 ### Prompt:
 Following TDD principles, implement Phase 6.1 Ollama Prompt Engineering with Drift-Aware Dialogue:
 
@@ -2399,7 +2407,7 @@ Files to Create:
 ---
 
 ## Phase 6.2: Dialogue Request Flow (1 week)
-### Status: ✅ Completed
+### Status: 🔧 Code Complete (Awaiting Integration)
 ### Prompt:
 Following TDD principles, implement Phase 6.2 Dialogue Request Flow with Drift Integration:
 
@@ -2613,7 +2621,7 @@ Files to Create:
 ---
 
 ## Phase 6.3: Performance Optimization (1 week)
-### Status: ✅ Completed
+### Status: 🔧 Code Complete (Awaiting Integration)
 ### Prompt:
 Following TDD principles, implement Phase 6.3 Performance Optimization for AI System:
 
@@ -2811,7 +2819,7 @@ Files to Create:
 # Phase 7: Combat System (2-3 weeks)
 
 ## Phase 7.1: Action Queue System (1 week)
-### Status: ✅ Completed
+### Status: 🔧 Code Complete (Awaiting Integration)
 ### Prompt:
 Following TDD principles, implement Phase 7.1 Action Queue System with Reaction Times:
 
@@ -3003,7 +3011,7 @@ Files to Create:
 ---
 
 ## Phase 7.2: Damage & Weapons (1 week)
-### Status: ✅ Completed
+### Status: 🔧 Code Complete (Awaiting Integration)
 ### Prompt:
 Following TDD principles, implement Phase 7.2 Damage Calculation and Weapon System:
 
@@ -3196,7 +3204,7 @@ Files to Create:
 ---
 
 ## Phase 7.3: Status Effects (1 week)
-### Status: ✅ Completed
+### Status: 🔧 Code Complete (Awaiting Integration)
 ### Prompt:
 Following TDD principles, implement Phase 7.3 Status Effects System:
 
@@ -4478,7 +4486,7 @@ Files to Create:
 ---
 
 ## Phase 8.4: Flora/Fauna Evolution (1-2 weeks)
-### Status: ✅ Completed
+### Status: 🔧 Code Complete (Awaiting Integration)
 ### Prompt:
 Following TDD principles, implement Phase 8.4 Flora/Fauna Evolution Simulation:
 
@@ -4745,7 +4753,7 @@ Files to Create:
 # Phase 9: Crafting & Economy (3-4 weeks)
 
 ## Phase 9.1: Resource Distribution (1 week)
-### Status: Completed
+### Status: 🔧 Code Complete (Awaiting Integration)
 ### Prompt:
 Following TDD principles, implement Phase 9.1 Resource Distribution with Biome-Based Placement:
 
@@ -5033,7 +5041,7 @@ Files to Create:
 ---
 
 ## Phase 9.2: Tech Trees & Recipes (2 weeks)
-### Status: Completed
+### Status: 🔧 Code Complete (Awaiting Integration)
 ### Prompt:
 Following TDD principles, implement Phase 9.2 Tech Trees and Crafting Recipes:
 
@@ -5605,7 +5613,7 @@ Files to Create:
 ---
 
 ## Phase 9.3: NPC Economy (1-2 weeks)
-### Status: ✅ Completed
+### Status: 🔧 Code Complete (Awaiting Integration)
 ### Prompt:
 Following TDD principles, implement Phase 9.3 NPC-Driven Economy:
 

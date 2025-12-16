@@ -36,19 +36,7 @@ type BroadcastEvent struct {
 	Data     map[string]interface{} `json:"data,omitempty"`
 }
 
-// MinimapCell represents a single cell update for the minimap
-type MinimapCell struct {
-	Q       int       `json:"q"`
-	R       int       `json:"r"`
-	Emoji   string    `json:"emoji"`
-	BiomeID uuid.UUID `json:"biome_id,omitempty"`
-}
-
-// MinimapUpdate contains a batch of cell updates
-type MinimapUpdate struct {
-	Cells []MinimapCell `json:"cells"`
-	Year  int64         `json:"year"`
-}
+// NOTE: MinimapCell and MinimapBatch are defined in minimap.go
 
 // SimulationBroadcaster handles real-time event broadcasting to connected clients
 type SimulationBroadcaster struct {
@@ -95,7 +83,7 @@ func (sb *SimulationBroadcaster) BroadcastEvent(event BroadcastEvent) {
 }
 
 // BroadcastMinimapUpdate sends minimap cell updates to all clients
-func (sb *SimulationBroadcaster) BroadcastMinimapUpdate(update MinimapUpdate) {
+func (sb *SimulationBroadcaster) BroadcastMinimapUpdate(update MinimapBatch) {
 	sb.mu.RLock()
 	defer sb.mu.RUnlock()
 

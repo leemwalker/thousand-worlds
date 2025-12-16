@@ -4,7 +4,7 @@ A next-generation text-based multiplayer game combining modern infrastructure wi
 
 ## 🎮 What is Thousand Worlds?
 
-Thousand Worlds is an ambitious MUD (Multi-User Dungeon) platform featuring:
+Thousand Worlds is an ambitious text-based multiplayer game featuring:
 
 - **🤖 AI-Driven World Creation**: LLM-guided interviews create unique, procedurally-generated worlds
 - **🧬 Advanced NPC System**: NPCs with genetic inheritance, memory, relationships, and emergent behavior
@@ -15,6 +15,44 @@ Thousand Worlds is an ambitious MUD (Multi-User Dungeon) platform featuring:
 - **🔄 Event Sourcing**: Complete audit trail with time-travel debugging capabilities
 
 For a detailed feature list, see [`features.md`](features.md).
+
+---
+
+## 🎯 Feature Status
+
+### ✅ Integrated & Playable
+
+These systems are wired into the game-server and actively functioning:
+
+- **Authentication**: JWT tokens, Argon2id passwords, Redis sessions, rate limiting
+- **LLM World Interview**: Conversational AI (Ollama) designs custom worlds with player
+- **Character Creation**: Point-buy attributes, skill assignment, species selection
+- **Skills System**: 27 skills across Combat, Crafting, Gathering, Utility, Social categories
+- **Weather Simulation**: Real-time weather affecting gameplay
+- **Spatial Movement**: PostGIS-backed coordinate system with collision detection
+- **Basic Ecosystem**: Entity spawning, behavior trees, needs-based AI, predator/prey dynamics
+- **WebSocket Game Loop**: Real-time command processing and world updates
+
+### 🔧 Developed (Awaiting Integration)
+
+These systems have complete code and tests but aren't yet wired into the game-server:
+
+- **Combat System** (`internal/combat/`): Action queue, damage calculation, status effects, weapons/armor
+- **Economy System** (`internal/economy/`): Crafting, trading, dynamic pricing, NPC merchants
+- **NPC Subsystems** (`internal/npc/`): Mendelian genetics, memory/decay, relationships, desire engine, LLM dialogue
+- **Advanced Ecosystem** (`internal/ecosystem/population/`): Speciation, continental drift, oxygen cycles, mass extinctions
+
+### 🧬 Ecosystem Simulation V2
+
+Comprehensive world evolution simulation running millions of years of geological and biological history:
+
+- **Population Dynamics**: Size-dependent metabolism (Kleiber's Law), K/r reproductive strategies
+- **Speciation & Extinction**: Allopatric/sympatric speciation, extinction cascades, fossil records
+- **Geological Events**: Volcanic winters, asteroid impacts, ice ages, continental drift
+- **Turning Points**: Player-influenced evolutionary decision points every 1M years
+- **Logging & Checkpoints**: Full simulation history with rewind capability
+
+See [`tw-backend/docs/ECOSYSTEM_SIMULATION_V2.md`](tw-backend/docs/ECOSYSTEM_SIMULATION_V2.md) for comprehensive mechanics.
 
 ---
 
@@ -496,16 +534,31 @@ Structured JSON logs with correlation IDs:
 
 See [`roadmap.md`](roadmap.md) for the complete development roadmap with phases 0-12.
 
-**Current Progress:**
-- ✅ Phase 0: Foundation & Infrastructure (Completed)
-- ✅ Phase 1: World Ticker & Time System (Completed)
-- ✅ Phase 2: Player Core Systems (Completed)
-- 🚧 Phase 3: NPC Memory & Relationships (In Progress)
+**Integrated (Code Complete + Wired to Game Server):**
+- ✅ Phase 0: Foundation & Infrastructure (Event Sourcing, Auth, Monitoring, Spatial)
+- ✅ Phase 1: World Ticker & Time System
+- ✅ Phase 2: Player Core Systems (Character, Stamina, Movement, Inventory, Skills)
+- ✅ Phase 8.1-8.3: World Generation (LLM Interview, Geography, Weather)
 
-**Next Steps:**
-- Phase 4: NPC Genetics & Appearance
-- Phase 5: NPC AI & Desire Engine
-- Phase 6: LLM Integration for Dialogue
+**Code Complete (Awaiting Integration):**
+- 🔧 Phase 3: NPC Memory & Relationships
+- 🔧 Phase 4: NPC Genetics & Appearance
+- 🔧 Phase 5: NPC AI & Desire Engine
+- 🔧 Phase 6: LLM Integration for Dialogue
+- 🔧 Phase 7: Combat System
+- 🔧 Phase 8.4: Flora/Fauna Evolution
+- 🔧 Phase 9: Crafting & Economy
+
+**Additional Development (Not in Roadmap):**
+- 🧬 Ecosystem Simulation V2 - See [`ECOSYSTEM_SIMULATION_V2.md`](tw-backend/docs/ECOSYSTEM_SIMULATION_V2.md)
+
+**Up Next:**
+- ⏳ Phase 10: Frontend UI (Core Components, Backend Formatting, E2E Testing)
+- ⏳ System Integration (Wire completed phases into game-server)
+
+**Future Planning:**
+- Phase 11: Multiplayer & Scaling
+- Phase 12: Testing & Launch Prep
 
 ---
 
@@ -532,6 +585,7 @@ This is a personal project, but contributions are welcome! Please:
 - **Issues**: Use GitHub Issues for bug reports
 - **Documentation**: See [`features.md`](features.md) for detailed feature list
 - **Roadmap**: See [`roadmap.md`](roadmap.md) for development plan
+- **Ecosystem Simulation**: See [`tw-backend/docs/ECOSYSTEM_SIMULATION_V2.md`](tw-backend/docs/ECOSYSTEM_SIMULATION_V2.md) for simulation mechanics
 - **Optimization**: See [`optimizeandfix.md`](optimizeandfix.md) for improvement recommendations
 - **Backend**: See [`tw-backend/README.md`](tw-backend/README.md) for backend documentation
 - **Frontend**: See [`tw-frontend/README.md`](tw-frontend/README.md) for frontend documentation

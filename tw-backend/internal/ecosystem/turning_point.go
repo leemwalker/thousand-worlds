@@ -59,6 +59,7 @@ type Intervention struct {
 // InterventionEffect describes a single effect of an intervention
 type InterventionEffect struct {
 	EffectType  string  `json:"effect_type"` // e.g., "population_modifier", "trait_boost"
+	TargetType  string  `json:"target_type"` // "species", "world", "region", "biome"
 	TargetTrait string  `json:"target_trait,omitempty"`
 	Magnitude   float32 `json:"magnitude"` // Effect strength
 	Duration    int64   `json:"duration"`  // Years the effect lasts (0 = permanent)
