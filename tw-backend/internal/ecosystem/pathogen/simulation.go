@@ -30,8 +30,8 @@ func NewDiseaseSystem(worldID uuid.UUID, seed int64) *DiseaseSystem {
 		Outbreaks:          make(map[uuid.UUID]*Outbreak),
 		PastOutbreaks:      make([]*Outbreak, 0),
 		rng:                rand.New(rand.NewSource(seed)),
-		OutbreakBaseChance: 0.0001, // 0.01% chance per species per year
-		ZoonoticChance:     0.001,  // 0.1% chance for cross-species transmission
+		OutbreakBaseChance: 0.01,  // 1% chance per species per year (per 10k year check)
+		ZoonoticChance:     0.001, // 0.1% chance for cross-species transmission
 		MaxActiveOutbreaks: 10,
 	}
 }
