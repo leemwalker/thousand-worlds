@@ -37,16 +37,17 @@ type WorldGeology struct {
 
 // GeologyStats contains summary statistics for world info display
 type GeologyStats struct {
-	AverageElevation float64
-	MaxElevation     float64
-	MinElevation     float64
-	SeaLevel         float64
-	LandPercent      float64
-	PlateCount       int
-	HotspotCount     int
-	RiverCount       int
-	BiomeCount       int
-	YearsSimulated   int64
+	AverageElevation   float64
+	AverageTemperature float64
+	MaxElevation       float64
+	MinElevation       float64
+	SeaLevel           float64
+	LandPercent        float64
+	PlateCount         int
+	HotspotCount       int
+	RiverCount         int
+	BiomeCount         int
+	YearsSimulated     int64
 }
 
 // NewWorldGeology creates a new geology manager for a world
@@ -442,17 +443,28 @@ func (g *WorldGeology) GetStats() GeologyStats {
 	avgElev := sum / totalPixels
 	landPercent := float64(landCount) / totalPixels * 100
 
+	// Calculate average temperature
+	avgTemp := 0.0
+	if len(g.Biomes) > 0 {
+		totalTemp := 0.0
+		for _, b := range g.Biomes {
+			totalTemp += b.Temperature
+		}
+		avgTemp = totalTemp / float64(len(g.Biomes))
+	}
+
 	return GeologyStats{
-		AverageElevation: avgElev,
-		MaxElevation:     g.Heightmap.MaxElev,
-		MinElevation:     g.Heightmap.MinElev,
-		SeaLevel:         g.SeaLevel,
-		LandPercent:      landPercent,
-		PlateCount:       len(g.Plates),
-		HotspotCount:     len(g.Hotspots),
-		RiverCount:       len(g.Rivers),
-		BiomeCount:       len(g.Biomes),
-		YearsSimulated:   g.TotalYearsSimulated,
+		AverageElevation:   avgElev,
+		AverageTemperature: avgTemp,
+		MaxElevation:       g.Heightmap.MaxElev,
+		MinElevation:       g.Heightmap.MinElev,
+		SeaLevel:           g.SeaLevel,
+		LandPercent:        landPercent,
+		PlateCount:         len(g.Plates),
+		HotspotCount:       len(g.Hotspots),
+		RiverCount:         len(g.Rivers),
+		BiomeCount:         len(g.Biomes),
+		YearsSimulated:     g.TotalYearsSimulated,
 	}
 }
 

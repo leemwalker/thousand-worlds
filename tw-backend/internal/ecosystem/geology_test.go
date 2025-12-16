@@ -34,7 +34,7 @@ func TestWorldGeology_Lifecycle(t *testing.T) {
 
 	// 3. Simulation
 	// Simulate 100,000 years (enough for tectonic shift and hotspot activity)
-	geo.SimulateGeology(100_000)
+	geo.SimulateGeology(100000, 0.0)
 
 	simStats := geo.GetStats()
 	assert.Equal(t, int64(100_000), simStats.YearsSimulated)

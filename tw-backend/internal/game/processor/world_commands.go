@@ -588,6 +588,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 
 	sb.WriteString("--- Terrain Stats ---\n")
 	sb.WriteString(fmt.Sprintf("Tectonic Plates: %d\n", geoStats.PlateCount))
+	sb.WriteString(fmt.Sprintf("Avg Temperature: %.1f°C\n", geoStats.AverageTemperature))
 	sb.WriteString(fmt.Sprintf("Avg Elevation: %.0fm\n", geoStats.AverageElevation))
 	sb.WriteString(fmt.Sprintf("Max Elevation: %.0fm\n", geoStats.MaxElevation))
 	sb.WriteString(fmt.Sprintf("Sea Level: %.0fm\n", geoStats.SeaLevel))
