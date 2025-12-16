@@ -49,6 +49,9 @@ type GameProcessor struct {
 
 	// WorldGeology stores geological state per world (worldID -> geology)
 	worldGeology map[uuid.UUID]*ecosystem.WorldGeology
+
+	// worldRunners stores async simulation runners per world
+	worldRunners map[uuid.UUID]*ecosystem.SimulationRunner
 }
 
 // NewGameProcessor creates a new game processor

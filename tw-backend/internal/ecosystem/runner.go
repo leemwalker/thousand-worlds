@@ -322,6 +322,27 @@ func (sr *SimulationRunner) tick(yearsToAdvance int64) error {
 		sr.createSnapshot()
 	}
 
+	// Check for turning points every 100,000 years
+	if sr.turningPointManager != nil && sr.currentYear%100000 == 0 && sr.currentYear > 0 {
+		// Get relevant stats for turning point check (simplified for now)
+		tp := sr.turningPointManager.CheckForTurningPoint(
+			sr.currentYear,
+			0,   // totalSpecies - would need to be passed in via tick handler
+			0,   // recentExtinctions
+			nil, // newSapientSpecies
+			"",  // significantEvent
+		)
+		if tp != nil && sr.config.PauseOnTurning {
+			sr.state = RunnerPaused
+			// Call turning point handler (unlocked to allow resolution)
+			if sr.turningPointHandler != nil {
+				sr.mu.Unlock()
+				_ = sr.turningPointHandler(tp)
+				sr.mu.Lock()
+			}
+		}
+	}
+
 	// Check for max year
 	if sr.config.MaxYearTarget > 0 && sr.currentYear >= sr.config.MaxYearTarget {
 		sr.state = RunnerPaused

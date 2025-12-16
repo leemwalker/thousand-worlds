@@ -39,8 +39,18 @@ func (p *GameProcessor) handleWorld(ctx context.Context, client websocket.GameCl
 		return p.handleWorldInfo(ctx, client)
 	case "reset":
 		return p.handleWorldReset(ctx, client)
+	case "run":
+		return p.handleWorldRun(ctx, client)
+	case "pause":
+		return p.handleWorldPause(ctx, client)
+	case "speed":
+		if cmd.Message == nil {
+			client.SendGameMessage("error", "Usage: world speed <1|10|100|1000|normal|quick|fast|turbo>", nil)
+			return nil
+		}
+		return p.handleWorldSpeed(ctx, client, *cmd.Message)
 	default:
-		client.SendGameMessage("error", "Unknown world command. Try: 'simulate', 'info', 'reset'", nil)
+		client.SendGameMessage("error", "Unknown world command. Try: 'simulate', 'info', 'reset', 'run', 'pause', 'speed'", nil)
 		return nil
 	}
 }
@@ -811,6 +821,114 @@ func (p *GameProcessor) handleWorldReset(ctx context.Context, client websocket.G
 
 	client.SendGameMessage("system", "🔄 World reset complete. Geology and entities cleared.\nUse 'world simulate <years>' to start fresh.", nil)
 	return nil
+}
+
+// handleWorldRun starts or resumes the async simulation runner
+func (p *GameProcessor) handleWorldRun(ctx context.Context, client websocket.GameClient) error {
+	char, _ := p.authRepo.GetCharacter(ctx, client.GetCharacterID())
+	if char == nil {
+		client.SendGameMessage("error", "Could not get character", nil)
+		return nil
+	}
+
+	// Get or create runner for this world
+	runner := p.getOrCreateRunner(char.WorldID)
+	if runner == nil {
+		client.SendGameMessage("error", "Failed to create simulation runner", nil)
+		return nil
+	}
+
+	switch runner.GetState() {
+	case ecosystem.RunnerRunning:
+		client.SendGameMessage("system", "⏯️ Simulation already running. Use 'world pause' to stop.", nil)
+	case ecosystem.RunnerPaused:
+		runner.Resume()
+		client.SendGameMessage("system", "▶️ Simulation resumed.", nil)
+	default:
+		if err := runner.Start(0); err != nil {
+			client.SendGameMessage("error", fmt.Sprintf("Failed to start runner: %v", err), nil)
+			return nil
+		}
+		client.SendGameMessage("system", "▶️ Simulation started.", nil)
+	}
+	return nil
+}
+
+// handleWorldPause pauses the async simulation runner
+func (p *GameProcessor) handleWorldPause(ctx context.Context, client websocket.GameClient) error {
+	char, _ := p.authRepo.GetCharacter(ctx, client.GetCharacterID())
+	if char == nil {
+		client.SendGameMessage("error", "Could not get character", nil)
+		return nil
+	}
+
+	runner := p.getRunner(char.WorldID)
+	if runner == nil {
+		client.SendGameMessage("system", "⏸️ No simulation running.", nil)
+		return nil
+	}
+
+	runner.Pause()
+	client.SendGameMessage("system", "⏸️ Simulation paused. Use 'world run' to resume.", nil)
+	return nil
+}
+
+// handleWorldSpeed changes the simulation speed
+func (p *GameProcessor) handleWorldSpeed(ctx context.Context, client websocket.GameClient, speedStr string) error {
+	char, _ := p.authRepo.GetCharacter(ctx, client.GetCharacterID())
+	if char == nil {
+		client.SendGameMessage("error", "Could not get character", nil)
+		return nil
+	}
+
+	// Parse speed from string or alias
+	var speed ecosystem.SimulationSpeed
+	speedLower := strings.ToLower(speedStr)
+	switch speedLower {
+	case "normal", "1":
+		speed = ecosystem.SpeedSlow // 1 year/sec
+	case "quick", "10":
+		speed = ecosystem.SpeedNormal // 10 years/sec
+	case "fast", "100":
+		speed = ecosystem.SpeedFast // 100 years/sec
+	case "turbo", "1000":
+		speed = ecosystem.SpeedTurbo // 1000 years/sec
+	default:
+		client.SendGameMessage("error", "Invalid speed. Use: normal, quick, fast, turbo (or 1, 10, 100, 1000)", nil)
+		return nil
+	}
+
+	runner := p.getRunner(char.WorldID)
+	if runner == nil {
+		client.SendGameMessage("system", fmt.Sprintf("🏃 Speed set to %s. Start simulation with 'world run'.", speedLower), nil)
+		return nil
+	}
+
+	runner.SetSpeed(speed)
+	client.SendGameMessage("system", fmt.Sprintf("🏃 Simulation speed set to %s (%d years/sec).", speedLower, speed), nil)
+	return nil
+}
+
+// getOrCreateRunner gets an existing runner or creates a new one for the world
+func (p *GameProcessor) getOrCreateRunner(worldID uuid.UUID) *ecosystem.SimulationRunner {
+	if p.worldRunners == nil {
+		p.worldRunners = make(map[uuid.UUID]*ecosystem.SimulationRunner)
+	}
+	if runner, ok := p.worldRunners[worldID]; ok {
+		return runner
+	}
+	config := ecosystem.DefaultConfig(worldID)
+	runner := ecosystem.NewSimulationRunner(config)
+	p.worldRunners[worldID] = runner
+	return runner
+}
+
+// getRunner retrieves an existing runner for the world (nil if not exists)
+func (p *GameProcessor) getRunner(worldID uuid.UUID) *ecosystem.SimulationRunner {
+	if p.worldRunners == nil {
+		return nil
+	}
+	return p.worldRunners[worldID]
 }
 
 // getSeasonFromYear calculates season from simulated year for weather simulation
