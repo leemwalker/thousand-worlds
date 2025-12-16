@@ -260,6 +260,9 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	progressInterval := years / 10
 	lastProgress := int64(0)
 
+	// Track event frequencies
+	eventCounts := make(map[ecosystem.GeologicalEventType]int)
+
 	// V2 Systems: Initialize pathogen, cascade, sapience, and phylogeny systems
 	diseaseSystem := pathogen.NewDiseaseSystem(char.WorldID, seed)
 	cascadeSim := population.NewCascadeSimulator()
@@ -496,6 +499,9 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 				isNewEvent := eventAge < 365*10000 // Within the last 10k years
 
 				if isNewEvent {
+					geologicalEvents++
+					eventCounts[e.Type]++
+					// Log the event
 					client.SendGameMessage("system", fmt.Sprintf("⚠️ GEOLOGICAL EVENT: %s (severity: %.0f%%)", e.Type, e.Severity*100), nil)
 					geology.ApplyEvent(e)
 
@@ -558,6 +564,12 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	sb.WriteString(fmt.Sprintf("Living Species: %d\n", totalSpecies))
 	sb.WriteString(fmt.Sprintf("Extinct Species: %d\n", totalExtinct))
 	sb.WriteString(fmt.Sprintf("Geological Events: %d\n", geologicalEvents))
+
+	// Event Breakdown
+	sb.WriteString("--- Event Frequency ---\n")
+	for eventType, count := range eventCounts {
+		sb.WriteString(fmt.Sprintf("%s: %d\n", string(eventType), count))
+	}
 
 	// V2 Statistics
 	sb.WriteString("--- V2 Features ---\n")
