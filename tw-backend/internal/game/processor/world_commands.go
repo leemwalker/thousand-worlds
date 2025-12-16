@@ -547,8 +547,11 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 				}
 			}
 
-			// Update geology
-			geology.SimulateGeology(10000)
+			// Calculate current global temperature modifier
+			tempMod, _, _ := geoManager.GetEnvironmentModifiers()
+
+			// Update geology with climate awareness
+			geology.SimulateGeology(10000, tempMod)
 		}
 	}
 

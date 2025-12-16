@@ -7,7 +7,7 @@ import (
 )
 
 // AssignBiomes determines the biome for each cell
-func AssignBiomes(hm *Heightmap, seaLevel float64, seed int64) []Biome {
+func AssignBiomes(hm *Heightmap, seaLevel float64, seed int64, globalTempMod float64) []Biome {
 	biomes := make([]Biome, hm.Width*hm.Height)
 	noise := NewPerlinGenerator(seed)
 
@@ -30,9 +30,6 @@ func AssignBiomes(hm *Heightmap, seaLevel float64, seed int64) []Biome {
 			}
 
 			// 2. Latitude factor (0 at equator, 1 at poles)
-			// Assume map covers full hemisphere or world?
-			// Let's assume y=0 is North Pole, y=Height is South Pole?
-			// Or y=Height/2 is Equator. Let's assume Equator at center.
 			normalizedY := float64(y) / float64(hm.Height)
 			latitude := math.Abs(normalizedY-0.5) * 2.0 // 0.0 (center) to 1.0 (edges)
 
@@ -42,14 +39,17 @@ func AssignBiomes(hm *Heightmap, seaLevel float64, seed int64) []Biome {
 			n := noise.Noise2D(float64(x)*0.05, float64(y)*0.05)
 			moisture := (n + 1.0) / 2.0 // Normalize to 0-1
 
-			// 4. Combine
-			finalBiome := resolveBiome(bType, latitude, moisture)
+			// 4. Temperature
+			temp := calculateTemperature(latitude, elev, seaLevel, globalTempMod)
+
+			// 5. Combine
+			finalBiome := resolveBiome(bType, temp, moisture)
 
 			biomes[y*hm.Width+x] = Biome{
 				BiomeID:       uuid.New(),
 				Name:          string(finalBiome),
 				Type:          finalBiome,
-				Temperature:   calculateTemperature(latitude, elev, seaLevel),
+				Temperature:   temp,
 				Precipitation: moisture * 2000, // mm/year
 			}
 		}
@@ -58,55 +58,60 @@ func AssignBiomes(hm *Heightmap, seaLevel float64, seed int64) []Biome {
 	return biomes
 }
 
-func resolveBiome(elevType BiomeType, lat float64, moisture float64) BiomeType {
+func resolveBiome(elevType BiomeType, temp float64, moisture float64) BiomeType {
 	if elevType == BiomeOcean {
 		return BiomeOcean
 	}
 	if elevType == BiomeHighMountain {
 		return BiomeAlpine
 	}
-	if elevType == BiomeMountain {
+	// Mountains can be various biomes depending on temp, but Alpine at top
+	if elevType == BiomeMountain && temp < 0 {
 		return BiomeAlpine
 	}
 
-	// Polar
-	if lat > 0.8 {
-		return BiomeTundra
+	// Determine biome based on Temperature and Moisture (Whitaker classification approximation)
+
+	// Cold climates
+	if temp < -5 {
+		if moisture > 0.5 {
+			return BiomeTaiga // Cold but wet enough for trees
+		}
+		return BiomeTundra // Frozen wasteland
 	}
 
-	// Subarctic
-	if lat > 0.6 {
-		if moisture > 0.3 {
-			return BiomeTaiga
+	// Cool climates (-5 to 10 C)
+	if temp < 10 {
+		if moisture > 0.6 {
+			return BiomeTaiga // Boreal forest
+		} else if moisture > 0.3 {
+			return BiomeGrassland // Steppe/Tundra transition
 		}
-		return BiomeTundra
+		return BiomeTundra // Cold desert
 	}
 
-	// Temperate
-	if lat > 0.3 {
-		if moisture < 0.3 {
-			return BiomeGrassland // Or Desert if very dry
-		}
-		if elevType == BiomeHighland {
-			return BiomeDeciduousForest
-		}
+	// Temperate climates (10 to 20 C)
+	if temp < 20 {
 		if moisture > 0.6 {
 			return BiomeDeciduousForest
+		} else if moisture > 0.3 {
+			return BiomeGrassland
 		}
-		return BiomeGrassland
+		return BiomeDesert // Cold desert
 	}
 
-	// Tropical/Subtropical
-	if moisture > 0.6 {
+	// Warm/Tropical climates (> 20 C)
+	if moisture > 0.7 {
 		return BiomeRainforest
+	} else if moisture > 0.4 {
+		return BiomeDeciduousForest // Seasonal tropical forest / Savanna with trees
+	} else if moisture > 0.2 {
+		return BiomeGrassland // Savanna
 	}
-	if moisture < 0.3 {
-		return BiomeDesert
-	}
-	return BiomeGrassland // Savanna
+	return BiomeDesert
 }
 
-func calculateTemperature(lat float64, elev float64, seaLevel float64) float64 {
+func calculateTemperature(lat float64, elev float64, seaLevel float64, mood float64) float64 {
 	// Base temp at equator: 30C
 	// Base temp at poles: -20C
 	baseTemp := 30.0 - (lat * 50.0)
@@ -117,6 +122,9 @@ func calculateTemperature(lat float64, elev float64, seaLevel float64) float64 {
 		altitude = 0
 	}
 	temp := baseTemp - (altitude/1000.0)*6.5
+
+	// Apply global modifier
+	temp += mood
 
 	return temp
 }

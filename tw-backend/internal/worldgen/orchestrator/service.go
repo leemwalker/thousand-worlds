@@ -101,7 +101,7 @@ func (s *GeneratorService) generateGeography(params *GenerationParams) (*geograp
 	rivers := geography.GenerateRivers(heightmap, seaLevel, params.Seed)
 
 	// Assign biomes
-	biomes := geography.AssignBiomes(heightmap, seaLevel, params.Seed)
+	biomes := geography.AssignBiomes(heightmap, seaLevel, params.Seed, 0.0)
 
 	worldMap := &geography.WorldMap{
 		Heightmap: heightmap,

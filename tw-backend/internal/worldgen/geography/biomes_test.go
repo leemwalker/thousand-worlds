@@ -17,7 +17,7 @@ func TestAssignBiomes(t *testing.T) {
 	// 5,5 is center (Equator, Lat 0)
 	// 9,9 is edge (Pole, Lat 1)
 
-	biomes := AssignBiomes(hm, 0, seed)
+	biomes := AssignBiomes(hm, 0, seed, 0.0)
 
 	if biomes[0].Type != BiomeOcean {
 		t.Errorf("Expected Ocean at 0,0, got %s", biomes[0].Type)

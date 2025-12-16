@@ -121,13 +121,14 @@ func (g *WorldGeology) InitializeGeology() {
 	// Generate initial rivers
 	g.Rivers = geography.GenerateRivers(g.Heightmap, g.SeaLevel, g.Seed)
 
-	// Assign initial biomes
-	g.Biomes = geography.AssignBiomes(g.Heightmap, g.SeaLevel, g.Seed)
+	// Initialize biomes with default temp (0 offset)
+	g.Biomes = geography.AssignBiomes(g.Heightmap, g.SeaLevel, g.Seed, 0.0)
 }
 
 // SimulateGeology advances geological processes over time
 // yearsElapsed is the number of years to simulate
-func (g *WorldGeology) SimulateGeology(yearsElapsed int64) {
+// globalTempMod is the current global temperature offset (e.g. from volcanic winter)
+func (g *WorldGeology) SimulateGeology(yearsElapsed int64, globalTempMod float64) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -170,7 +171,8 @@ func (g *WorldGeology) SimulateGeology(yearsElapsed int64) {
 	// Regenerate dynamic features
 	// Rivers and biomes change as terrain evolves
 	g.Rivers = geography.GenerateRivers(g.Heightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
-	g.Biomes = geography.AssignBiomes(g.Heightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
+	// Pass global temperature modifier to biome assignment
+	g.Biomes = geography.AssignBiomes(g.Heightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated, globalTempMod)
 
 	// Update heightmap min/max
 	g.updateHeightmapStats()

@@ -41,7 +41,7 @@ func TestGeographicRealism(t *testing.T) {
 	}
 
 	// 5. Biomes
-	biomes := AssignBiomes(hm, seaLevel, seed)
+	biomes := AssignBiomes(hm, seaLevel, seed, 0.0)
 	assert.Equal(t, width*height, len(biomes))
 
 	// Check biome diversity
