@@ -507,7 +507,7 @@ func (g *WorldGeology) TriggerTectonicCollision(x, y float64, magnitude float32)
 		peakHeight := height * (1.0 + (g.rng.Float64()-0.5)*0.4)
 		radius := 2.0 + g.rng.Float64()*1.5
 
-		geography.ApplyMountain(g.Heightmap, px, py, radius, peakHeight)
+		geography.ApplyVolcano(g.Heightmap, px, py, radius, peakHeight)
 	}
 
 	g.updateHeightmapStats()
