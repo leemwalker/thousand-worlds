@@ -268,6 +268,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	cascadeSim := population.NewCascadeSimulator()
 	sapienceDetector := sapience.NewSapienceDetector(char.WorldID, true) // Magic-enabled
 	phyloTree := population.NewPhylogeneticTree(char.WorldID)
+	turningPointMgr := ecosystem.NewTurningPointManager(char.WorldID)
 
 	// Add initial species to phylogenetic tree
 	for _, biome := range popSim.Biomes {
@@ -280,6 +281,8 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	totalOutbreaks := 0
 	totalCascades := 0
 	sapienceAchieved := false
+	recentExtinctions := 0             // Track extinctions for turning points
+	newSapientSpecies := []uuid.UUID{} // Track new sapient species
 
 	// Initialize simulation logger (file-based, no DB required)
 	simLogger, err := ecosystem.NewSimulationLogger(ecosystem.SimulationLoggerConfig{
@@ -414,6 +417,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 							if candidate != nil {
 								if candidate.Level == sapience.SapienceSapient {
 									sapienceAchieved = true
+									newSapientSpecies = append(newSapientSpecies, sp.SpeciesID) // Track for turning points
 									client.SendGameMessage("system", fmt.Sprintf("🧠 SAPIENCE ACHIEVED! %s has become sapient! (Score: %.2f)",
 										sp.Name, candidate.Score), nil)
 								} else if candidate.Level == sapience.SapienceProtoSapient {
@@ -469,6 +473,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			for _, biome := range popSim.Biomes {
 				for _, sp := range biome.Species {
 					if sp.Count == 0 && sp.Generation > 0 { // Newly extinct
+						recentExtinctions++ // Track for turning points
 						result := cascadeSim.CalculateCascade(sp.SpeciesID, sp.Name, popSim.CurrentYear, 3)
 						if result != nil && result.TotalAffected > 0 {
 							totalCascades++
@@ -569,6 +574,47 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 
 			// Update geology with climate awareness
 			geology.SimulateGeology(10000, tempMod)
+		}
+
+		// Check for turning points every 100,000 years
+		if year%100000 == 0 && year > 0 {
+			totalPop, totalSpecies, _ := popSim.GetStats()
+
+			// Determine significant event string based on recent activity
+			significantEvent := ""
+			if len(geoManager.ActiveEvents) > 0 {
+				for _, e := range geoManager.ActiveEvents {
+					if e.Severity > 0.5 {
+						significantEvent = string(e.Type)
+						break
+					}
+				}
+			}
+
+			// Check for turning point
+			tp := turningPointMgr.CheckForTurningPoint(
+				popSim.CurrentYear,
+				int(totalSpecies),
+				recentExtinctions,
+				newSapientSpecies,
+				significantEvent,
+			)
+
+			if tp != nil {
+				client.SendGameMessage("system", fmt.Sprintf("🔮 TURNING POINT: %s - %s", tp.Title, tp.Description), nil)
+				if simLogger != nil {
+					simLogger.LogTurningPoint(ctx, popSim.CurrentYear, string(tp.Trigger), "auto_resolved")
+				}
+				// For sync simulation, auto-resolve with first option (observe only)
+				if len(tp.Interventions) > 0 {
+					turningPointMgr.ResolveTurningPoint(tp.ID, tp.Interventions[0].ID)
+				}
+			}
+
+			// Reset periodic counters
+			recentExtinctions = 0
+			newSapientSpecies = []uuid.UUID{}
+			_ = totalPop // Silence unused variable warning
 		}
 	}
 
