@@ -254,6 +254,10 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 
 	client.SendGameMessage("system", fmt.Sprintf("Simulating %d biome types with %d total biome instances...", len(biomesByType), len(popSim.Biomes)), nil)
 
+	// Initialize geographic systems for regional isolation tracking
+	popSim.InitializeGeographicSystems(char.WorldID, seed)
+	client.SendGameMessage("system", "🗺️ Geographic systems initialized: Hex grid, Regions, Tectonics", nil)
+
 	// Track statistics
 	geologicalEvents := 0
 	geoManager := ecosystem.NewGeologicalEventManager()
@@ -574,6 +578,23 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 
 			// Update geology with climate awareness
 			geology.SimulateGeology(10000, tempMod)
+
+			// Update geographic systems (hex grid, regions, tectonics)
+			popSim.UpdateGeographicSystems(10000)
+
+			// Apply isolation effects (gigantism/dwarfism) to isolated regions
+			isolationAffected := popSim.ApplyIsolationEffects()
+			if isolationAffected > 0 && year%100000 == 0 {
+				client.SendGameMessage("system", fmt.Sprintf("🏝️ Island effects: %d species affected by isolation", isolationAffected), nil)
+			}
+		}
+
+		// Regional migration every 100,000 years
+		if year%100000 == 0 && year > 0 {
+			migrations := popSim.ApplyRegionalMigration()
+			if migrations > 0 {
+				client.SendGameMessage("system", fmt.Sprintf("🌍 Regional migration: %d species expanded to new regions", migrations), nil)
+			}
 		}
 
 		// Check for turning points every 100,000 years

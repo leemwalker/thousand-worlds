@@ -6,6 +6,8 @@ import (
 	"math/rand"
 	"tw-backend/internal/worldgen/geography"
 
+	ecogeography "tw-backend/internal/ecosystem/geography"
+
 	"github.com/google/uuid"
 )
 
@@ -20,6 +22,11 @@ type PopulationSimulator struct {
 	RecoveryCounter          int64    // Years remaining in recovery phase
 	Events                   []string // Log of significant events this year
 	rng                      *rand.Rand
+
+	// Geographic systems for isolation tracking (Phase 2)
+	HexGrid      *ecogeography.HexGrid        `json:"-"` // Hex grid for spatial distribution
+	RegionSystem *ecogeography.RegionSystem   `json:"-"` // Region tracking for isolation
+	Tectonics    *ecogeography.TectonicSystem `json:"-"` // Tectonic plate system
 }
 
 // CalculateMetabolicRate returns the metabolic rate based on size using Kleiber's Law
