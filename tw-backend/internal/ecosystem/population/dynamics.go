@@ -1410,6 +1410,8 @@ const (
 	EventOceanAnoxia      ExtinctionEventType = "ocean_anoxia"
 	EventFloodBasalt      ExtinctionEventType = "flood_basalt"
 	EventContinentalDrift ExtinctionEventType = "continental_drift"
+	EventWarming          ExtinctionEventType = "warming"          // Post-glacial warming
+	EventGreenhouseSpike  ExtinctionEventType = "greenhouse_spike" // CO2-driven warming
 )
 
 // ApplyExtinctionEvent reduces populations based on event type and severity

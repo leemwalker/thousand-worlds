@@ -15,6 +15,8 @@ const (
 	EventOceanAnoxia      GeologicalEventType = "ocean_anoxia"
 	EventContinentalDrift GeologicalEventType = "continental_drift"
 	EventFloodBasalt      GeologicalEventType = "flood_basalt"
+	EventWarming          GeologicalEventType = "warming"          // Post-glacial warming
+	EventGreenhouseSpike  GeologicalEventType = "greenhouse_spike" // CO2-driven warming
 )
 
 // GeologicalEvent represents an active environmental event
@@ -30,16 +32,20 @@ type GeologicalEvent struct {
 
 // GeologicalEventManager handles long-term geological events
 type GeologicalEventManager struct {
-	ActiveEvents     []GeologicalEvent
-	TectonicActivity float64 // 0.0-1.0: represents geological instability (volcanism, earthquakes)
-	rng              *rand.Rand
+	ActiveEvents            []GeologicalEvent
+	TectonicActivity        float64 // 0.0-1.0: represents geological instability (volcanism, earthquakes)
+	GlobalTemperatureOffset float64 // Cumulative temperature offset from baseline
+	RecentCoolingYears      int64   // Track how long world has been cooled
+	rng                     *rand.Rand
 }
 
 func NewGeologicalEventManager() *GeologicalEventManager {
 	return &GeologicalEventManager{
-		ActiveEvents:     make([]GeologicalEvent, 0),
-		TectonicActivity: 0.1, // Start with low baseline activity
-		rng:              rand.New(rand.NewSource(time.Now().UnixNano())),
+		ActiveEvents:            make([]GeologicalEvent, 0),
+		TectonicActivity:        0.1, // Start with low baseline activity
+		GlobalTemperatureOffset: 0,
+		RecentCoolingYears:      0,
+		rng:                     rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
@@ -137,23 +143,83 @@ func (g *GeologicalEventManager) CheckForNewEvents(currentTick, ticksElapsed int
 		}
 
 		// Flood basalt: 0.01% per 10k ticks (rare but impactful)
-		// Major volcanic event that significantly increases tectonic activity
+		// Initially causes cooling from SO2, but long-term warming from CO2
 		if g.rng.Float64() < 0.0001*(float64(chunkSize)/10000.0) {
 			severity := 0.6 + g.rng.Float64()*0.4
+			// Short-term cooling from ash/SO2
 			g.ActiveEvents = append(g.ActiveEvents, GeologicalEvent{
 				Type:           EventFloodBasalt,
 				StartTick:      currentTick,
-				DurationTicks:  10000 + g.rng.Int63n(20000), // 100-300k years
+				DurationTicks:  5000 + g.rng.Int63n(10000), // 50-150k years initial cooling
 				Severity:       severity,
-				TemperatureMod: -3 - g.rng.Float64()*7, // -3 to -10 degrees (volcanic gases)
+				TemperatureMod: -3 - g.rng.Float64()*5, // -3 to -8 degrees (short-term)
 				SunlightMod:    0.7 + g.rng.Float64()*0.2,
 				OxygenMod:      0.9,
 			})
-			// Flood basalts are massive volcanic events - major activity spike
+			// Queue a greenhouse spike to follow (CO2 warming)
+			g.ActiveEvents = append(g.ActiveEvents, GeologicalEvent{
+				Type:           EventGreenhouseSpike,
+				StartTick:      currentTick + 5000 + g.rng.Int63n(10000), // After cooling phase
+				DurationTicks:  50000 + g.rng.Int63n(100000),             // 500k-1.5M years warming
+				Severity:       severity * 0.8,
+				TemperatureMod: 5 + g.rng.Float64()*10, // +5 to +15 degrees (long-term)
+				SunlightMod:    1.0,
+				OxygenMod:      0.95,
+			})
 			g.TectonicActivity += severity * 0.5
 			if g.TectonicActivity > 1.0 {
 				g.TectonicActivity = 1.0
 			}
+		}
+
+		// Climate recovery: If world has been cold for too long, add natural warming
+		// This represents end of ice ages and natural climate cycles
+		g.updateClimateRecovery(currentTick, chunkSize)
+	}
+}
+
+// updateClimateRecovery adds warming events to prevent permanent ice worlds
+func (g *GeologicalEventManager) updateClimateRecovery(currentTick, chunkSize int64) {
+	// Calculate current temperature offset from active events
+	currentCooling := 0.0
+	for _, e := range g.ActiveEvents {
+		if currentTick >= e.StartTick && currentTick < e.StartTick+e.DurationTicks {
+			currentCooling += e.TemperatureMod
+		}
+	}
+
+	// Track cumulative cooling
+	if currentCooling < -5 {
+		g.RecentCoolingYears += chunkSize / 100 // Convert ticks to years
+	} else if currentCooling > 0 {
+		g.RecentCoolingYears = 0 // Reset if warming
+	} else {
+		// Gradual decay of cooling memory
+		g.RecentCoolingYears -= chunkSize / 200
+		if g.RecentCoolingYears < 0 {
+			g.RecentCoolingYears = 0
+		}
+	}
+
+	// If world has been cooling for >50k years, increase chance of warming event
+	if g.RecentCoolingYears > 50000 {
+		// Warming chance scales with how long they've been cold
+		warmingChance := float64(g.RecentCoolingYears-50000) / 500000.0 // Up to ~10% after 500k years
+		if warmingChance > 0.1 {
+			warmingChance = 0.1
+		}
+
+		if g.rng.Float64() < warmingChance*(float64(chunkSize)/10000.0) {
+			g.ActiveEvents = append(g.ActiveEvents, GeologicalEvent{
+				Type:           EventWarming,
+				StartTick:      currentTick,
+				DurationTicks:  50000 + g.rng.Int63n(100000), // 500k-1.5M year warming period
+				Severity:       0.4 + g.rng.Float64()*0.4,
+				TemperatureMod: 8 + g.rng.Float64()*12, // +8 to +20 degrees
+				SunlightMod:    1.0,
+				OxygenMod:      1.0,
+			})
+			g.RecentCoolingYears = 0 // Reset counter
 		}
 	}
 }

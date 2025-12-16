@@ -209,33 +209,46 @@ func (ps *PopulationSimulator) ApplyMigrationCycle() int64 {
 // Returns the number of biomes that transitioned
 func (ps *PopulationSimulator) ApplyBiomeTransitions(eventType ExtinctionEventType, severity float64) int {
 	var event string
-	minSeverity := 0.5 // Default severity threshold
+	minSeverity := 0.3 // Lowered to trigger more transitions
 
 	switch eventType {
 	case EventIceAge:
 		event = "ice_age"
-		minSeverity = 0.5
+		minSeverity = 0.4
 	case EventAsteroidImpact:
-		if severity > 0.8 {
+		if severity > 0.6 {
 			event = "ice_age" // Nuclear winter from impact debris
-			minSeverity = 0.8
+			minSeverity = 0.6
 		} else {
 			return 0
 		}
 	case EventFloodBasalt:
-		event = "warming" // Volcanic CO2 causes global warming
-		minSeverity = 0.7
+		// Short-term cooling effect - biomes don't transition much
+		// The warming comes later from EventGreenhouseSpike
+		return 0
 	case EventVolcanicWinter:
-		if severity > 0.7 {
-			event = "ice_age" // Extreme volcanic winter
-			minSeverity = 0.7
+		if severity > 0.5 {
+			event = "ice_age" // Volcanic winter
+			minSeverity = 0.5
 		} else {
 			return 0
 		}
 	case EventContinentalDrift:
-		// Continental drift can cause drought in interior regions
 		event = "drought"
-		minSeverity = 0.6
+		minSeverity = 0.5
+
+	// V2: Warming events that restore biome diversity
+	case EventWarming:
+		event = "warming"
+		minSeverity = 0.3
+	case EventGreenhouseSpike:
+		event = "warming"
+		minSeverity = 0.4
+	case EventOceanAnoxia:
+		// Ocean anoxia causes warming (CO2 from dead marine life)
+		event = "warming"
+		minSeverity = 0.5
+
 	default:
 		return 0
 	}
