@@ -91,10 +91,24 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 		}
 	}
 
-	// Use expanded view radius when flying (15x15 instead of 9x9)
+	// Use expanded view radius when flying
 	gridRadius := MapGridRadius
+	scale := 1
+
 	if char.IsFlying {
 		gridRadius = MapGridRadius * 2 // 8 tiles = 17x17 grid
+
+		// Calculate scale based on altitude
+		// Scale 1 = ground level (1 tile = 1 coordinate)
+		// Scale increases by 1 for every 20m of altitude
+		if char.PositionZ > 0 {
+			scale = 1 + int(char.PositionZ/20.0)
+		}
+
+		// Cap scale to prevent ridiculous values
+		if scale > 50 {
+			scale = 50
+		}
 	}
 	gridSize := gridRadius*2 + 1
 
@@ -103,8 +117,12 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 	// Generate grid centered on player
 	for dy := -gridRadius; dy <= gridRadius; dy++ {
 		for dx := -gridRadius; dx <= gridRadius; dx++ {
-			tileX := int(math.Round(char.PositionX)) + dx
-			tileY := int(math.Round(char.PositionY)) + dy
+			// Apply scale to offsets
+			offsetX := dx * scale
+			offsetY := dy * scale
+
+			tileX := int(math.Round(char.PositionX)) + offsetX
+			tileY := int(math.Round(char.PositionY)) + offsetY
 
 			// Check if tile is out of bounds
 			outOfBounds := float64(tileX) < minX || float64(tileX) > maxX ||
