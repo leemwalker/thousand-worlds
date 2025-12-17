@@ -21,6 +21,7 @@
     }
 
     onMount(() => {
+        console.log("[MiniMap] v2.1 Loaded - 0.5px overlap + no grid lines");
         if (canvas) {
             renderer = new MapRenderer(canvas);
             renderer.setTileSize(tileSize);
