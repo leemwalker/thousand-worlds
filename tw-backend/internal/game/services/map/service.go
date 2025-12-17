@@ -119,29 +119,42 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 	// Base: radius 4 = 9x9 grid at ground level
 	// Grows by 1 to radius for every 5m of altitude
 	// Max radius 25 = 51x51 grid (2601 tiles) for performance
-	// Higher altitudes will need aggregation (TODO)
 	gridRadius := 4 // Base 9x9 grid
 
+	// Calculate stride (downsampling factor) for high altitudes
+	// Stride increases with altitude to show larger area with same number of tiles
+	stride := 1
 	if char.IsFlying && char.PositionZ > 0 {
 		// Add 1 to radius for every 5m of altitude
 		additionalRadius := int(char.PositionZ / 5.0)
 		gridRadius = 4 + additionalRadius
 
-		// Cap at 25 (51x51 grid = 2601 tiles max for performance)
-		// TODO: implement aggregation for higher altitudes
+		// Cap radius at 25 (51x51 grid = 2601 tiles max)
 		if gridRadius > 25 {
 			gridRadius = 25
+		}
+
+		// Calculate stride: 1 for <100m, increases by 1 for every 100m
+		// e.g. 100m -> stride 1, 200m -> stride 2, 500m -> stride 5
+		if char.PositionZ >= 100 {
+			stride = int(char.PositionZ / 100.0)
+			if stride < 1 {
+				stride = 1
+			}
 		}
 	}
 	gridSize := gridRadius*2 + 1 // Odd number for perfect centering
 
 	tiles := make([]MapTile, 0, gridSize*gridSize)
 
-	// Generate grid centered on player (-radius to +radius inclusive)
+	// Generate grid centered on player (-radius to +radius * stride)
+	// We iterate clearly using grid indices (-radius to +radius) and multiply by stride for world coordinates
 	for dy := -gridRadius; dy <= gridRadius; dy++ {
 		for dx := -gridRadius; dx <= gridRadius; dx++ {
-			tileX := int(math.Round(char.PositionX)) + dx
-			tileY := int(math.Round(char.PositionY)) + dy
+			// Calculate world position with stride
+			// tileX = playerX + (dx * stride)
+			tileX := int(math.Round(char.PositionX)) + (dx * stride)
+			tileY := int(math.Round(char.PositionY)) + (dy * stride)
 
 			// Check if tile is out of bounds
 			outOfBounds := float64(tileX) < minX || float64(tileX) > maxX ||
@@ -219,6 +232,9 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 
 			// Get entities at this tile if entity service is available (in-memory entities)
 			if s.entityService != nil {
+				// Use stride as search radius? No, just look at the specific tile point.
+				// For high altitude, we might miss entities if they aren't exactly on the sampled tile.
+				// But aggregating entities is complex. For now, just show ents at sample points.
 				entities, err := s.entityService.GetEntitiesAt(ctx, char.WorldID, float64(tileX), float64(tileY), 1.0)
 				if err == nil && len(entities) > 0 {
 					for _, e := range entities {
@@ -289,7 +305,7 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 		PlayerY:       char.PositionY,
 		RenderQuality: quality,
 		GridSize:      gridSize,
-		Scale:         1, // Force 1:1 scale
+		Scale:         stride, // Send stride as Scale
 		WorldID:       char.WorldID,
 	}, nil
 }

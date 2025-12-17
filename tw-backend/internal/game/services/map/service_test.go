@@ -134,14 +134,14 @@ func TestServiceGetMapData_FlyingScale(t *testing.T) {
 		// Ground level: radius 4 = 9x9 grid (odd for centering)
 		{"On ground", 0, false, 1, 9},
 		// Flying: radius = 4 + floor(altitude/5), grid = radius*2 + 1
-		{"Flying at 1m", 1, true, 1, 9},      // 4 + 0 = 4, grid = 9
-		{"Flying at 5m", 5, true, 1, 11},     // 4 + 1 = 5, grid = 11
-		{"Flying at 25m", 25, true, 1, 19},   // 4 + 5 = 9, grid = 19
-		{"Flying at 50m", 50, true, 1, 29},   // 4 + 10 = 14, grid = 29
-		{"Flying at 100m", 100, true, 1, 49}, // 4 + 20 = 24, grid = 49
-		{"Flying at 105m", 105, true, 1, 51}, // 4 + 21 = 25, grid = 51 (max)
-		{"Flying at 200m", 200, true, 1, 51}, // capped at 51
-		{"Flying at 500m", 500, true, 1, 51}, // capped at 51
+		{"Flying at 1m", 1, true, 1.0, 9},      // 4 + 0 = 4, grid = 9
+		{"Flying at 5m", 5, true, 1.0, 11},     // 4 + 1 = 5, grid = 11
+		{"Flying at 25m", 25, true, 1.0, 19},   // 4 + 5 = 9, grid = 19
+		{"Flying at 50m", 50, true, 1.0, 29},   // 4 + 10 = 14, grid = 29
+		{"Flying at 100m", 100, true, 1.0, 49}, // 4 + 20 = 24, grid = 49. Stride = 100/100 = 1
+		{"Flying at 105m", 105, true, 1.0, 51}, // 4 + 21 = 25, grid = 51 (max). Stride = 105/100 = 1
+		{"Flying at 200m", 200, true, 2.0, 51}, // capped at 51. Stride = 200/100 = 2
+		{"Flying at 500m", 500, true, 5.0, 51}, // capped at 51. Stride = 500/100 = 5
 	}
 
 	for _, tt := range tests {
@@ -159,8 +159,64 @@ func TestServiceGetMapData_FlyingScale(t *testing.T) {
 			mapData, err := svc.GetMapData(ctx, char)
 
 			assert.NoError(t, err)
-			assert.Equal(t, tt.expectedScale, mapData.Scale, "Scale should always be 1")
+			assert.Equal(t, tt.expectedScale, mapData.Scale, "Scale should match stride")
 			assert.Equal(t, tt.expectedGrid, mapData.GridSize, "Grid size should match expected")
 		})
 	}
+}
+
+func TestServiceGetMapData_Aggregation(t *testing.T) {
+	svc := &Service{}
+	char := &auth.Character{
+		CharacterID: uuid.New(),
+		WorldID:     uuid.New(),
+		PositionX:   1000.0,
+		PositionY:   1000.0,
+		PositionZ:   500.0, // Should result in Stride 5
+		IsFlying:    true,
+	}
+
+	ctx := context.Background()
+	mapData, err := svc.GetMapData(ctx, char)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 5, mapData.Scale)
+	assert.Equal(t, 51, mapData.GridSize)
+
+	// Check bounds
+	// Center 1000. Radius 25 (tiles). Stride 5.
+	// Extent = 25 * 5 = 125m.
+	// MinX = 1000 - 125 = 875.
+	// MaxX = 1000 + 125 = 1125.
+
+	minX, maxX := 2000, 0
+	for _, tile := range mapData.Tiles {
+		if tile.X < minX {
+			minX = tile.X
+		}
+		if tile.X > maxX {
+			maxX = tile.X
+		}
+	}
+
+	assert.Equal(t, 875, minX)
+	assert.Equal(t, 1125, maxX)
+
+	// Check spacing between adjacent tiles in list
+	// This is approximate as list order isn't strictly guaranteed coordinate-wise but usually row-major
+	// Let's just find two tiles in the same row
+	var t1, t2 *MapTile
+	for i := range mapData.Tiles {
+		if mapData.Tiles[i].Y == 1000 {
+			if mapData.Tiles[i].X == 1000 {
+				t1 = &mapData.Tiles[i]
+			}
+			if mapData.Tiles[i].X == 1005 {
+				t2 = &mapData.Tiles[i]
+			}
+		}
+	}
+	assert.NotNil(t, t1, "Should have center tile")
+	assert.NotNil(t, t2, "Should have tile at center + 5")
+	// If t2 exists, it implies stride works (since normal step is 1)
 }
