@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"tw-backend/cmd/game-server/websocket"
-	"tw-backend/internal/ai/behaviortree"
 	"tw-backend/internal/ecosystem"
 	"tw-backend/internal/ecosystem/pathogen"
 	"tw-backend/internal/ecosystem/population"
@@ -127,6 +126,11 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			p.ecosystemService.SpawnBiomes(geology.Biomes)
 			client.SendGameMessage("system", fmt.Sprintf("Spawned %d entities across %d biomes.", len(p.ecosystemService.Entities), len(geology.Biomes)), nil)
 		}
+	}
+
+	// Register geology with map service for minimap biome rendering
+	if p.mapService != nil {
+		p.mapService.SetWorldGeology(char.WorldID, geology)
 	}
 
 	// Use population-based simulation for efficiency
@@ -803,6 +807,7 @@ func (p *GameProcessor) handleWorldInfo(ctx context.Context, client websocket.Ga
 	// Show async runner status if one exists
 	if runner := p.getRunner(char.WorldID); runner != nil {
 		stats := runner.GetStats()
+		speed := runner.GetSpeed()
 		sb.WriteString("--- Async Simulation ---\n")
 		var stateIcon string
 		switch stats.State {
@@ -818,8 +823,9 @@ func (p *GameProcessor) handleWorldInfo(ctx context.Context, client websocket.Ga
 		sb.WriteString(fmt.Sprintf("State: %s %s\n", stateIcon, stats.State))
 		sb.WriteString(fmt.Sprintf("Current Year: %d\n", stats.CurrentYear))
 		sb.WriteString(fmt.Sprintf("Years Simulated: %d\n", stats.YearsSimulated))
-		sb.WriteString(fmt.Sprintf("Rate: %.1f years/sec\n", stats.YearsPerSecond))
-		sb.WriteString(fmt.Sprintf("Snapshots: %d\n", stats.SnapshotCount))
+		sb.WriteString(fmt.Sprintf("Speed: %d years/tick\n", speed))
+		sb.WriteString(fmt.Sprintf("Avg Rate: %.1f years/sec\n", stats.YearsPerSecond))
+		sb.WriteString(fmt.Sprintf("Ticks: %d | Snapshots: %d\n", stats.TickCount, stats.SnapshotCount))
 	}
 
 	client.SendGameMessage("system", sb.String(), nil)
@@ -834,14 +840,32 @@ func (p *GameProcessor) handleWorldReset(ctx context.Context, client websocket.G
 		return nil
 	}
 
+	worldID := char.WorldID
+
+	// Stop and remove async runner if it exists
+	if runner := p.getRunner(worldID); runner != nil {
+		runner.Stop()
+		delete(p.worldRunners, worldID)
+		client.SendGameMessage("system", "⏹️ Async simulation stopped.", nil)
+	}
+
 	// Clear geology for this world
-	delete(p.worldGeology, char.WorldID)
+	delete(p.worldGeology, worldID)
 
-	// Clear all entities
-	p.ecosystemService.Entities = make(map[uuid.UUID]*state.LivingEntityState)
-	p.ecosystemService.Behaviors = make(map[uuid.UUID]behaviortree.Node)
+	// Clear map service geology cache
+	if p.mapService != nil {
+		p.mapService.SetWorldGeology(worldID, nil)
+	}
 
-	client.SendGameMessage("system", "🔄 World reset complete. Geology and entities cleared.\nUse 'world simulate <years>' to start fresh.", nil)
+	// Clear all entities for this world
+	for id, entity := range p.ecosystemService.Entities {
+		if entity.WorldID == worldID {
+			delete(p.ecosystemService.Entities, id)
+			delete(p.ecosystemService.Behaviors, id)
+		}
+	}
+
+	client.SendGameMessage("system", "🔄 World reset complete. Geology, entities, and simulation state cleared.\nUse 'world simulate <years>' or 'world run' to start fresh.", nil)
 	return nil
 }
 
@@ -967,8 +991,22 @@ func (p *GameProcessor) getOrCreateRunner(worldID uuid.UUID) *ecosystem.Simulati
 		}
 	}
 
+	// Register geology with map service for minimap biome rendering
+	if p.mapService != nil {
+		p.mapService.SetWorldGeology(worldID, geology)
+	}
+
 	config := ecosystem.DefaultConfig(worldID)
 	runner := ecosystem.NewSimulationRunner(config)
+
+	// Set up tick handler to run actual simulation logic
+	// This is critical - without this, the runner just advances time without simulating life
+	runner.SetTickHandler(func(currentYear int64, yearsElapsed int64) error {
+		// Run ecosystem tick for each elapsed year (simplified - runs breeding check)
+		p.runEcosystemTick(worldID, currentYear, yearsElapsed)
+		return nil
+	})
+
 	p.worldRunners[worldID] = runner
 	return runner
 }
@@ -994,6 +1032,61 @@ func (p *GameProcessor) getSeasonFromYear(simulatedYear int64) weather.Season {
 		return weather.SeasonFall
 	default:
 		return weather.SeasonWinter
+	}
+}
+
+// runEcosystemTick runs one tick of ecosystem simulation for the async runner
+// This handles entity needs and reproduction to make life forms actually breed
+func (p *GameProcessor) runEcosystemTick(worldID uuid.UUID, currentYear int64, yearsElapsed int64) {
+	// Update entity needs (hunger, reproduction urge, etc.)
+	for _, entity := range p.ecosystemService.Entities {
+		if entity.WorldID != worldID {
+			continue
+		}
+		// Age entity
+		entity.Age += yearsElapsed
+
+		// Increase hunger over time (simplified aging/needs)
+		entity.Needs.Hunger += float64(yearsElapsed) * 0.01
+		if entity.Needs.Hunger > 100 {
+			entity.Needs.Hunger = 100
+		}
+
+		// Increase reproduction urge over time
+		entity.Needs.ReproductionUrge += float64(yearsElapsed) * 0.1
+
+		// Clamp urge to 100
+		if entity.Needs.ReproductionUrge > 100 {
+			entity.Needs.ReproductionUrge = 100
+		}
+	}
+
+	// Run reproduction (entities with high urge will breed)
+	p.processReproduction()
+
+	// Every 1000 simulation years, handle entity death to maintain population
+	if currentYear%1000 == 0 {
+		p.processEntityTurnover(worldID)
+	}
+}
+
+// processEntityTurnover manages entity death to maintain ecosystem balance
+func (p *GameProcessor) processEntityTurnover(worldID uuid.UUID) {
+	// Remove entities that are starving (natural death)
+	var toRemove []uuid.UUID
+	for id, entity := range p.ecosystemService.Entities {
+		if entity.WorldID != worldID {
+			continue
+		}
+		// Die from starvation if hunger is maxed
+		if entity.Needs.Hunger >= 100 {
+			toRemove = append(toRemove, id)
+		}
+	}
+
+	for _, id := range toRemove {
+		delete(p.ecosystemService.Entities, id)
+		delete(p.ecosystemService.Behaviors, id)
 	}
 }
 

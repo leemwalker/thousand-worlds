@@ -3,6 +3,7 @@ package gamemap
 import (
 	"context"
 	"math"
+	"sync"
 
 	"tw-backend/internal/auth"
 	"tw-backend/internal/ecosystem"
@@ -12,6 +13,8 @@ import (
 	"tw-backend/internal/skills"
 	"tw-backend/internal/worldentity"
 	"tw-backend/internal/worldgen/orchestrator"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -29,6 +32,10 @@ type Service struct {
 	lookService        *look.LookService
 	worldEntityService *worldentity.Service
 	ecosystemService   *ecosystem.Service
+
+	// Fallback geology data for biome rendering
+	worldGeologyMu sync.RWMutex
+	worldGeology   map[uuid.UUID]*ecosystem.WorldGeology
 }
 
 // NewService creates a new map service
@@ -47,7 +54,22 @@ func NewService(
 		lookService:        lookService,
 		worldEntityService: worldEntityService,
 		ecosystemService:   ecosystemService,
+		worldGeology:       make(map[uuid.UUID]*ecosystem.WorldGeology),
 	}
+}
+
+// SetWorldGeology registers geology data for a world to enable biome rendering
+func (s *Service) SetWorldGeology(worldID uuid.UUID, geo *ecosystem.WorldGeology) {
+	s.worldGeologyMu.Lock()
+	defer s.worldGeologyMu.Unlock()
+	s.worldGeology[worldID] = geo
+}
+
+// getWorldGeology retrieves cached geology data
+func (s *Service) getWorldGeology(worldID uuid.UUID) *ecosystem.WorldGeology {
+	s.worldGeologyMu.RLock()
+	defer s.worldGeologyMu.RUnlock()
+	return s.worldGeology[worldID]
 }
 
 // GetMapData returns visible tiles in a 9x9 grid centered on the player (15x15 when flying)
@@ -167,6 +189,34 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 				idx := gridY*hm.Width + gridX
 				if idx >= 0 && idx < len(worldData.Geography.Biomes) {
 					tile.Biome = string(worldData.Geography.Biomes[idx].Type)
+				}
+			} else if geo := s.getWorldGeology(char.WorldID); geo != nil && geo.IsInitialized() {
+				// Fallback: use worldGeology data from async runner or world simulate
+				hm := geo.Heightmap
+				if hm != nil {
+					// Clamp to heightmap bounds
+					gridX := tileX
+					gridY := tileY
+					if gridX < 0 {
+						gridX = 0
+					}
+					if gridX >= hm.Width {
+						gridX = hm.Width - 1
+					}
+					if gridY < 0 {
+						gridY = 0
+					}
+					if gridY >= hm.Height {
+						gridY = hm.Height - 1
+					}
+
+					tile.Elevation = hm.Get(gridX, gridY)
+
+					// Get biome from geology
+					idx := gridY*hm.Width + gridX
+					if idx >= 0 && idx < len(geo.Biomes) {
+						tile.Biome = string(geo.Biomes[idx].Type)
+					}
 				}
 			}
 

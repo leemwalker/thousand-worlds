@@ -216,6 +216,13 @@ func (sr *SimulationRunner) SetSpeed(speed SimulationSpeed) {
 	sr.config.Speed = speed
 }
 
+// GetSpeed returns the current simulation speed
+func (sr *SimulationRunner) GetSpeed() SimulationSpeed {
+	sr.mu.RLock()
+	defer sr.mu.RUnlock()
+	return sr.config.Speed
+}
+
 // GetState returns the current simulation state
 func (sr *SimulationRunner) GetState() RunnerState {
 	sr.mu.RLock()
