@@ -329,9 +329,15 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 	}, nil
 }
 
+const (
+	// EyeHeight is the height of the player's eyes above their position (feet)
+	EyeHeight = 1.7
+)
+
 // computeOcclusion implements Horizon Culling for Line of Sight
 func (s *Service) computeOcclusion(grid [][]*MapTile, radius int, playerAlt float64, stride int) {
-	// Center coordinate in relative grid space
+	// Adjust player altitude to eye level
+	startAlt := playerAlt + EyeHeight
 	cx, cy := 0, 0
 
 	// Helper to cast ray
@@ -385,8 +391,8 @@ func (s *Service) computeOcclusion(grid [][]*MapTile, radius int, playerAlt floa
 						tile.Occluded = false
 						maxSlope = -1000.0 // Allow looking down at adjacent tiles
 					} else {
-						// Slope = (TileElev - PlayerElev) / Dist
-						slope := (tile.Elevation - playerAlt) / distMeters
+						// Slope = (TileElev - EyeLevel) / Dist
+						slope := (tile.Elevation - startAlt) / distMeters
 
 						if slope >= maxSlope {
 							// Visible (above horizon)
