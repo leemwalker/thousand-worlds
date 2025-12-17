@@ -2,6 +2,7 @@ package gamemap
 
 import (
 	"context"
+	"log"
 	"math"
 	"sync"
 
@@ -120,7 +121,6 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 	// Max radius 25 = 51x51 grid (2601 tiles) for performance
 	// Higher altitudes will need aggregation (TODO)
 	gridRadius := 4 // Base 9x9 grid
-	scale := 1      // Always 1:1 tile to coordinate mapping
 
 	if char.IsFlying && char.PositionZ > 0 {
 		// Add 1 to radius for every 5m of altitude
@@ -277,13 +277,19 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 		}
 	}
 
+	// Verify tile count
+	expectedCount := gridSize * gridSize
+	if len(tiles) != expectedCount {
+		log.Printf("[MAP] WARNING: Generated %d tiles, expected %d (gridSize %d)", len(tiles), expectedCount, gridSize)
+	}
+
 	return &MapData{
 		Tiles:         tiles,
 		PlayerX:       char.PositionX,
 		PlayerY:       char.PositionY,
 		RenderQuality: quality,
 		GridSize:      gridSize,
-		Scale:         scale,
+		Scale:         1, // Force 1:1 scale
 		WorldID:       char.WorldID,
 	}, nil
 }
