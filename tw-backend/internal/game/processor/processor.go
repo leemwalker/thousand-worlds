@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -119,27 +120,27 @@ func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.Gam
 	case "help":
 		return p.handleHelp(ctx, client)
 
-	// Cardinal directions
+	// Cardinal directions (pass cmd for watcher distance movement)
 	case "north", "n":
-		return p.handleDirection(ctx, client, "north")
+		return p.handleDirection(ctx, client, cmd, "north")
 	case "northeast", "ne":
-		return p.handleDirection(ctx, client, "northeast")
+		return p.handleDirection(ctx, client, cmd, "northeast")
 	case "east", "e":
-		return p.handleDirection(ctx, client, "east")
+		return p.handleDirection(ctx, client, cmd, "east")
 	case "southeast", "se":
-		return p.handleDirection(ctx, client, "southeast")
+		return p.handleDirection(ctx, client, cmd, "southeast")
 	case "south", "s":
-		return p.handleDirection(ctx, client, "south")
+		return p.handleDirection(ctx, client, cmd, "south")
 	case "southwest", "sw":
-		return p.handleDirection(ctx, client, "southwest")
+		return p.handleDirection(ctx, client, cmd, "southwest")
 	case "west", "w":
-		return p.handleDirection(ctx, client, "west")
+		return p.handleDirection(ctx, client, cmd, "west")
 	case "northwest", "nw":
-		return p.handleDirection(ctx, client, "northwest")
+		return p.handleDirection(ctx, client, cmd, "northwest")
 	case "up", "u":
-		return p.handleDirection(ctx, client, "up")
+		return p.handleDirection(ctx, client, cmd, "up")
 	case "down", "d":
-		return p.handleDirection(ctx, client, "down")
+		return p.handleDirection(ctx, client, cmd, "down")
 
 	// Orientation
 	case "face":
@@ -265,19 +266,91 @@ Available Commands:
 }
 
 // handleDirection handles all cardinal direction movements
-func (p *GameProcessor) handleDirection(ctx context.Context, client websocket.GameClient, direction string) error {
-	msg, err := p.spatialService.HandleMovementCommand(ctx, client.GetCharacterID(), direction)
-	if err != nil {
-		client.SendGameMessage("error", err.Error(), nil) // Send error to client, e.g. "blocked by wall"
-		return nil
+// Watchers can move long distances using format: "<direction> <distance>" (e.g., "w 500")
+func (p *GameProcessor) handleDirection(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData, direction string) error {
+	charID := client.GetCharacterID()
+
+	// Check if watcher with distance specified
+	distance := 1 // Default movement distance
+	if cmd != nil && cmd.Target != nil {
+		// Check if character is a watcher
+		char, err := p.authRepo.GetCharacter(ctx, charID)
+		if err == nil && char != nil && char.Role == "watcher" {
+			// Parse distance from target
+			if parsedDist, parseErr := strconv.Atoi(*cmd.Target); parseErr == nil && parsedDist > 0 {
+				distance = parsedDist
+				// Cap distance at reasonable maximum
+				if distance > 10000 {
+					distance = 10000
+				}
+			}
+		} else if cmd.Target != nil {
+			// Non-watcher tried to specify distance
+			client.SendGameMessage("info", "Only watchers can travel great distances instantly.", nil)
+		}
 	}
 
-	client.SendGameMessage("movement", msg, nil)
+	// Move the specified distance
+	if distance > 1 {
+		// Watcher long-distance movement - directly update position
+		char, err := p.authRepo.GetCharacter(ctx, charID)
+		if err != nil {
+			client.SendGameMessage("error", "Could not get character info", nil)
+			return nil
+		}
+
+		// Calculate new position based on direction
+		dx, dy := p.getDirectionVector(direction)
+		newX := char.PositionX + float64(dx*distance)
+		newY := char.PositionY + float64(dy*distance)
+
+		// Update position
+		char.PositionX = newX
+		char.PositionY = newY
+		if err := p.authRepo.UpdateCharacter(ctx, char); err != nil {
+			client.SendGameMessage("error", "Failed to move", nil)
+			return nil
+		}
+
+		client.SendGameMessage("movement", fmt.Sprintf("You travel %d units %s to (%.0f, %.0f).", distance, direction, newX, newY), nil)
+	} else {
+		// Normal single-step movement
+		msg, err := p.spatialService.HandleMovementCommand(ctx, charID, direction)
+		if err != nil {
+			client.SendGameMessage("error", err.Error(), nil)
+			return nil
+		}
+		client.SendGameMessage("movement", msg, nil)
+	}
 
 	// Send map update after movement
 	p.sendMapUpdate(ctx, client)
 
 	return nil
+}
+
+// getDirectionVector returns the x,y offset for a direction
+func (p *GameProcessor) getDirectionVector(direction string) (int, int) {
+	switch direction {
+	case "north":
+		return 0, 1
+	case "south":
+		return 0, -1
+	case "east":
+		return 1, 0
+	case "west":
+		return -1, 0
+	case "northeast":
+		return 1, 1
+	case "northwest":
+		return -1, 1
+	case "southeast":
+		return 1, -1
+	case "southwest":
+		return -1, -1
+	default:
+		return 0, 0
+	}
 }
 
 // handleOpen opens doors or containers
