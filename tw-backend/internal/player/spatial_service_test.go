@@ -232,8 +232,7 @@ func TestHandleMovementCommand_Spherical(t *testing.T) {
 	worldID := uuid.New()
 
 	circumference := 10000.0
-	// 1 degree = 10000 / 360 = 27.777... meters
-	degPerMeter := 360.0 / circumference
+	// 1 meter = 1 meter. No conversion needed for expectation.
 
 	// Spherical World (No Bounds defined, defaults to Sphere logic)
 	world := &repository.World{
@@ -245,74 +244,75 @@ func TestHandleMovementCommand_Spherical(t *testing.T) {
 	tests := []struct {
 		name         string
 		direction    string
-		startX       float64 // Longitude
-		startY       float64 // Latitude
-		expectedX    float64 // Expected Longitude
-		expectedY    float64 // Expected Latitude
+		startX       float64 // Longitude (Meters)
+		startY       float64 // Latitude (Meters)
+		expectedX    float64 // Expected Longitude (Meters)
+		expectedY    float64 // Expected Latitude (Meters)
 		checkMessage string
 	}{
 		{
 			name:         "Normal North",
 			direction:    "n",
-			startX:       0,
-			startY:       0,
-			expectedX:    0,
-			expectedY:    degPerMeter, // 0 + 1m worth of degrees
+			startX:       1000,
+			startY:       1000,
+			expectedX:    1000,
+			expectedY:    1001, // +1 meter
 			checkMessage: "You move north",
 		},
 		{
 			name:         "Normal East",
 			direction:    "e",
-			startX:       0,
-			startY:       0,
-			expectedX:    degPerMeter, // 0 + 1m worth of degrees
-			expectedY:    0,
+			startX:       1000,
+			startY:       1000,
+			expectedX:    1001, // +1 meter
+			expectedY:    1000,
 			checkMessage: "You move east",
 		},
 		{
 			name:      "Cross North Pole",
 			direction: "n",
-			startX:    0,
-			startY:    89.99, // Very close to pole
-			// Move 1m north (approx 0.036 degrees). 89.99 + 0.036 = 90.026
-			// Crosses pole.
-			// New Lat = 180 - 90.026 = 89.974
-			// New Lon = 0 + 180 = 180
-			expectedX:    180,
-			expectedY:    89.974, // Approximate
-			checkMessage: "cross the pole",
+			startX:    1000,
+			startY:    2499.5, // 0.5m from pole (2500)
+			// Move 1m north. 2499.5 + 1 = 2500.5
+			// Overshoot 0.5.
+			// New Y = 2500 - 0.5 = 2499.5
+			// New X = 1000 + 5000 (Half Circ) = 6000
+			expectedX:    6000,
+			expectedY:    2499.5,
+			checkMessage: "cross the North Pole",
 		},
 		{
 			name:      "Cross South Pole",
 			direction: "s",
-			startX:    45,
-			startY:    -89.99,
-			// Move 1m south (-0.036 deg). -89.99 - 0.036 = -90.026
-			// New Lat = -180 - (-90.026) = -89.974
-			// New Lon = 45 + 180 = 225 -> Normalize -> -135
-			expectedX:    -135,
-			expectedY:    -89.974,
-			checkMessage: "cross the pole",
+			startX:    5000,
+			startY:    -2499.5, // 0.5m from pole (-2500)
+			// Move 1m south. -2499.5 - 1 = -2500.5
+			// Overshoot 0.5.
+			// New Y = -2500 + 0.5 = -2499.5
+			// New X = 5000 + 5000 = 10000 -> Wrap -> 0
+			expectedX:    0,
+			expectedY:    -2499.5,
+			checkMessage: "cross the South Pole",
 		},
 		{
 			name:      "Wrap Date Line East",
 			direction: "e",
-			startX:    179.99,
+			startX:    9999.5, // 0.5m from edge (10000)
 			startY:    0,
-			// Move 1m east (+0.036 deg). 179.99 + 0.036 = 180.026
-			// Normalize -> -179.974
-			expectedX:    -179.974,
+			// Move 1m East. 9999.5 + 1 = 10000.5
+			// Wrap -> 0.5
+			expectedX:    0.5,
 			expectedY:    0,
 			checkMessage: "circled back",
 		},
 		{
 			name:      "Wrap Date Line West",
 			direction: "w",
-			startX:    -179.99,
+			startX:    0.5, // 0.5m from edge (0)
 			startY:    0,
-			// Move 1m west (-0.036 deg). -179.99 - 0.036 = -180.026
-			// Normalize -> 179.974
-			expectedX:    179.974,
+			// Move 1m West. 0.5 - 1 = -0.5
+			// Wrap -> 9999.5
+			expectedX:    9999.5,
 			expectedY:    0,
 			checkMessage: "circled back",
 		},
@@ -328,18 +328,13 @@ func TestHandleMovementCommand_Spherical(t *testing.T) {
 				PositionY:   tt.startY,
 			}
 
-			// Reset mock calls for each iteration to avoid aggregation issues
-			// Actually we create new args but mocks are reused.
-			// Best to use .Maybe() or clean call management.
-			// Or just set expectations for this specific call.
-
-			// Let's clear expectations
+			// Clear expectations
 			mockAuth.ExpectedCalls = nil
 			mockWorld.ExpectedCalls = nil
 
 			mockAuth.On("GetCharacter", ctx, charID).Return(char, nil).Once()
 			mockWorld.On("GetWorld", ctx, worldID).Return(world, nil).Once()
-			// Capture the updated character
+
 			var updatedChar *auth.Character
 			mockAuth.On("UpdateCharacter", ctx, mock.MatchedBy(func(c *auth.Character) bool {
 				updatedChar = c
@@ -350,15 +345,6 @@ func TestHandleMovementCommand_Spherical(t *testing.T) {
 			assert.NoError(t, err)
 
 			// Floating point comparison
-			// Note: Precision might need tuning based on degPerMeter
-			// degPerMeter is ~0.036
-
-			// For pole crossing, calculation is: 180 - (start + delta)
-			// expectedY in struct is rough approximation logic wise
-			// Let's rely on checking if it flipped hemisphere or wrapped significantly if that's easier,
-			// but InDelta is better.
-
-			// Re-calculate expected for verification precise matching or use loose delta
 			assert.InDelta(t, tt.expectedY, updatedChar.PositionY, 0.1, "Latitude mismatch")
 			assert.InDelta(t, tt.expectedX, updatedChar.PositionX, 0.1, "Longitude mismatch")
 

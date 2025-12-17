@@ -44,7 +44,7 @@ func (s *Service) GetEvolutionManager() *EvolutionManager {
 
 // SpawnBiomes populates the world based on biomes
 // This would be called by WorldGen or a periodic spawner
-func (s *Service) SpawnBiomes(biomes []geography.Biome) {
+func (s *Service) SpawnBiomes(worldID uuid.UUID, biomes []geography.Biome) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -85,6 +85,7 @@ func (s *Service) SpawnBiomes(biomes []geography.Biome) {
 
 		newEntities := s.Spawner.SpawnEntitiesForBiome(b.Type, count)
 		for _, e := range newEntities {
+			e.WorldID = worldID
 			s.Entities[e.EntityID] = e
 
 			// Assign AI based on diet

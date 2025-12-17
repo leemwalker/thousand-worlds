@@ -129,7 +129,10 @@ func (p *CommandParser) ParseText(text string) *websocket.CommandData {
 
 	// Direction commands don't need additional processing
 	case "north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest", "up", "down":
-		// No additional fields needed
+		if len(args) > 0 {
+			target := strings.Join(args, " ")
+			cmd.Target = &target
+		}
 
 	// Commands without arguments
 	case "help", "who", "inventory", "lobby":

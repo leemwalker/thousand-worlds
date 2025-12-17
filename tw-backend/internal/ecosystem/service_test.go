@@ -28,7 +28,7 @@ func TestService_SpawnBiomes(t *testing.T) {
 	biomes := []geography.Biome{
 		{Type: geography.BiomeGrassland},
 	}
-	sim.SpawnBiomes(biomes)
+	sim.SpawnBiomes(uuid.New(), biomes)
 
 	// Grassland should spawn 5 entities (default count)
 	assert.Equal(t, 5, len(sim.Entities), "Should spawn 5 entities for grassland")
@@ -41,7 +41,7 @@ func TestService_SpawnBiomes_DesertSparse(t *testing.T) {
 	biomes := []geography.Biome{
 		{Type: geography.BiomeDesert},
 	}
-	sim.SpawnBiomes(biomes)
+	sim.SpawnBiomes(uuid.New(), biomes)
 
 	// Desert should spawn only 2 entities (sparse)
 	assert.Equal(t, 2, len(sim.Entities), "Should spawn 2 entities for desert")
@@ -53,7 +53,7 @@ func TestService_SpawnBiomes_RainforestDense(t *testing.T) {
 	biomes := []geography.Biome{
 		{Type: geography.BiomeRainforest},
 	}
-	sim.SpawnBiomes(biomes)
+	sim.SpawnBiomes(uuid.New(), biomes)
 
 	// Rainforest should spawn 10 entities (dense)
 	assert.Equal(t, 10, len(sim.Entities), "Should spawn 10 entities for rainforest")

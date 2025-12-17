@@ -123,7 +123,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		// Spawn initial creatures based on generated biomes
 		if len(geology.Biomes) > 0 {
 			client.SendGameMessage("system", "Spawning initial life forms...", nil)
-			p.ecosystemService.SpawnBiomes(geology.Biomes)
+			p.ecosystemService.SpawnBiomes(char.WorldID, geology.Biomes)
 			client.SendGameMessage("system", fmt.Sprintf("Spawned %d entities across %d biomes.", len(p.ecosystemService.Entities), len(geology.Biomes)), nil)
 		}
 	}
@@ -987,7 +987,7 @@ func (p *GameProcessor) getOrCreateRunner(worldID uuid.UUID) *ecosystem.Simulati
 
 		// Spawn initial creatures based on generated biomes
 		if len(geology.Biomes) > 0 {
-			p.ecosystemService.SpawnBiomes(geology.Biomes)
+			p.ecosystemService.SpawnBiomes(worldID, geology.Biomes)
 		}
 	}
 

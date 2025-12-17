@@ -438,53 +438,48 @@ func getDirectionName(dx, dy float64) string {
 func calculateSphericalPosition(lon, lat, dx, dy float64, dirName string, dims worldspatial.WorldDimensions) (float64, float64, string) {
 	message := ""
 
-	// Convert 1 meter to degrees
-	// dx, dy are in meters (1 unit = 1 meter per command)
+	// --- Meter-Based Movement Logic ---
+	// We treat the world as a rectangle in meters where:
+	// X: [0, Circumference] (Longitude)
+	// Y: [-QuarterCircumference, QuarterCircumference] (Latitude -90 to 90 degrees converted to meters)
+	// QuarterCircumference = Circumference / 4
 
-	// Latitude change (y)
-	// 1 degree lat = Circumference / 360
-	deltaLat := dy / dims.MetersPerDegreeY
-	rawLat := lat + deltaLat
+	circumference := dims.CircumferenceM
+	quarterCircumference := circumference / 4.0
 
-	// Longitude change (x) depends on latitude
-	// radius at lat = radius_equator * cos(lat)
-	// circumference at lat = circumference_equator * cos(lat)
-	// meters per degree lon = circumference_at_lat / 360
+	// 1. Apply movement in meters
+	newX := lon + dx
+	newY := lat + dy
 
-	// Use destination latitude for conservation of angular momentum-ish behavior,
-	// or start latitude. Let's use start latitude to avoid infinite recursion if we were to solve it perfectly.
-	// However, if we cross the pole, longitude flips.
-	// Let's calculate raw New Lon first based on current lat.
-
-	cosLat := math.Cos(lat * math.Pi / 180.0)
-	if math.Abs(cosLat) < 0.0001 {
-		// At pole, can't move east/west effectively.
-		// Allow movement but effectively 0 change or very small.
-		cosLat = 0.0001
+	// 2. Handle Pole Crossing (Y axis)
+	// If Y goes beyond the poles (quarterCircumference), we flip longitude and adjust Y
+	if newY > quarterCircumference {
+		// Crossed North Pole
+		overshoot := newY - quarterCircumference
+		newY = quarterCircumference - overshoot
+		newX += circumference / 2.0 // Flip to opposite side of globe
+		message += " You cross the North Pole and the world spins beneath you."
+	} else if newY < -quarterCircumference {
+		// Crossed South Pole
+		overshoot := -quarterCircumference - newY
+		newY = -quarterCircumference + overshoot
+		newX += circumference / 2.0 // Flip to opposite side of globe
+		message += " You cross the South Pole and the world spins beneath you."
 	}
 
-	metersPerDegreeLon := dims.MetersPerDegreeX * cosLat
-	deltaLon := dx / metersPerDegreeLon
-	rawLon := lon + deltaLon
-
-	// Normalize coordinates using shared logic
-	newLat, newLon := spatial.NormalizeCoordinates(rawLat, rawLon)
-
-	// Detect events
-	// 1. Pole Crossing: Latitude passed 90/-90 (rawLat vs newLat check is tricky because of the flip)
-	// Easier check: if we were not at pole, and now longitude shifted by ~180 without us moving East/West?
-	// Or check rawLat.
-	if rawLat > 90 || rawLat < -90 {
-		message += " You cross the pole and the world spins beneath you."
+	// 3. Handle Circumnavigation (X axis)
+	// Wrap X within [0, Circumference)
+	// We use a loop for robustness against large jumps, or modulo
+	if newX < 0 {
+		newX = math.Mod(newX, circumference)
+		if newX < 0 {
+			newX += circumference
+		}
+		message += " You've circled back around the world."
+	} else if newX >= circumference {
+		newX = math.Mod(newX, circumference)
+		message += " You've circled back around the world."
 	}
 
-	// 2. Circumnavigation (Date Line)
-	// If longitude wrapped.
-	// Check difference between newLon and rawLon (normalized to same phase)
-	// Or just check if rawLon was outside -180, 180
-	if rawLon > 180 || rawLon <= -180 {
-		message += " The landscape seems familiar - you've circled back around the world."
-	}
-
-	return newLon, newLat, message
+	return newX, newY, message
 }
