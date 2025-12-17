@@ -7,6 +7,7 @@ export interface MapData {
     player_y: number;
     render_quality: RenderQuality;
     grid_size: number;
+    scale: number;
     world_id: string;
 }
 

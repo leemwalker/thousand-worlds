@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"tw-backend/cmd/game-server/websocket"
 )
@@ -17,6 +18,23 @@ func (p *GameProcessor) handleFly(ctx context.Context, client websocket.GameClie
 		return nil
 	}
 
+	// Get world bounds to calculate max altitude
+	maxAltitude := 1000.0 // Default fallback
+	if p.worldRepo != nil {
+		world, err := p.worldRepo.GetWorld(ctx, char.WorldID)
+		if err == nil && world != nil && world.BoundsMin != nil && world.BoundsMax != nil {
+			// Calculate world diameter (use larger dimension)
+			widthX := world.BoundsMax.X - world.BoundsMin.X
+			widthY := world.BoundsMax.Y - world.BoundsMin.Y
+			diameter := math.Max(widthX, widthY)
+			// Max altitude = 0.4% of diameter (Earth stratosphere ratio)
+			maxAltitude = diameter * 0.004
+			if maxAltitude < 100 {
+				maxAltitude = 100 // Minimum useful altitude
+			}
+		}
+	}
+
 	arg := ""
 	if cmd.Target != nil {
 		arg = strings.ToLower(strings.TrimSpace(*cmd.Target))
@@ -29,7 +47,7 @@ func (p *GameProcessor) handleFly(ctx context.Context, client websocket.GameClie
 			if char.PositionZ < 1 {
 				char.PositionZ = 10 // Default takeoff altitude
 			}
-			client.SendGameMessage("system", fmt.Sprintf("🦅 You take to the skies! (Altitude: %.0fm)", char.PositionZ), nil)
+			client.SendGameMessage("system", fmt.Sprintf("🦅 You take to the skies! (Altitude: %.0fm, Max: %.0fm)", char.PositionZ, maxAltitude), nil)
 		} else {
 			char.PositionZ = 0
 			client.SendGameMessage("system", "🚶 You descend and land gently on the ground.", nil)
@@ -47,7 +65,11 @@ func (p *GameProcessor) handleFly(ctx context.Context, client websocket.GameClie
 			// Try to parse number
 			var alt float64
 			if _, err := fmt.Sscanf(arg, "%f", &alt); err == nil {
-				// Absolute altitude
+				// Absolute altitude - clamp to max
+				if alt > maxAltitude {
+					alt = maxAltitude
+					client.SendGameMessage("system", fmt.Sprintf("⚠️ Maximum altitude for this world is %.0fm.", maxAltitude), nil)
+				}
 				char.PositionZ = alt
 				if char.PositionZ > 0 {
 					char.IsFlying = true
@@ -72,7 +94,11 @@ func (p *GameProcessor) handleFly(ctx context.Context, client websocket.GameClie
 			char.IsFlying = false
 			client.SendGameMessage("system", "🚶 You touch down on the ground.", nil)
 		} else {
-			if !char.IsFlying {
+			// Clamp to max altitude
+			if char.PositionZ > maxAltitude {
+				char.PositionZ = maxAltitude
+				client.SendGameMessage("system", fmt.Sprintf("⚠️ You've reached the maximum altitude of %.0fm for this world.", maxAltitude), nil)
+			} else if !char.IsFlying {
 				char.IsFlying = true // Auto-takeoff
 				client.SendGameMessage("system", "🦅 You lift off from the ground!", nil)
 			} else if change > 0 {

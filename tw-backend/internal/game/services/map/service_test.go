@@ -52,9 +52,9 @@ func TestServiceGetMapData_NoWorldData(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, mapData)
 
-	// Should have 81 tiles (9x9 grid)
-	assert.Equal(t, 81, len(mapData.Tiles))
-	assert.Equal(t, 9, mapData.GridSize)
+	// Should have 100 tiles (10x10 grid)
+	assert.Equal(t, 100, len(mapData.Tiles))
+	assert.Equal(t, 10, mapData.GridSize)
 
 	// Default quality is high (perception defaults to 100 for lobby users)
 	assert.Equal(t, QualityHigh, mapData.RenderQuality)
@@ -92,7 +92,7 @@ func TestServiceGetMapData_GridCentering(t *testing.T) {
 	assert.Equal(t, 100, playerTile.X)
 	assert.Equal(t, 200, playerTile.Y)
 
-	// Check bounds - should span from 96 to 104 (100-4 to 100+4)
+	// Check bounds - should span from 95 to 104 (100-5 to 100+4 with radius 5)
 	minX, maxX := 1000, -1000
 	minY, maxY := 1000, -1000
 	for _, tile := range mapData.Tiles {
@@ -110,9 +110,9 @@ func TestServiceGetMapData_GridCentering(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, 96, minX)
+	assert.Equal(t, 95, minX)
 	assert.Equal(t, 104, maxX)
-	assert.Equal(t, 196, minY)
+	assert.Equal(t, 195, minY)
 	assert.Equal(t, 204, maxY)
 }
 
@@ -131,13 +131,16 @@ func TestServiceGetMapData_FlyingScale(t *testing.T) {
 		expectedScale int
 		expectedGrid  int
 	}{
-		{"On ground", 0, false, 1, 9},
-		{"Flying at 1m", 1, true, 1, 17},
-		{"Flying at 20m", 20, true, 2, 17},
-		{"Flying at 40m", 40, true, 3, 17},
-		{"Flying at 60m", 60, true, 4, 17},
-		{"Flying at 100m", 100, true, 6, 17},
-		{"Flying at 200m", 200, true, 11, 17},
+		// Ground level: radius 5 = 10x10 grid
+		{"On ground", 0, false, 1, 10},
+		// Flying: radius = 5 + floor(altitude/5), grid = radius * 2
+		{"Flying at 1m", 1, true, 1, 10},      // 5 + 0 = 5, grid = 10
+		{"Flying at 5m", 5, true, 1, 12},      // 5 + 1 = 6, grid = 12
+		{"Flying at 25m", 25, true, 1, 20},    // 5 + 5 = 10, grid = 20
+		{"Flying at 50m", 50, true, 1, 30},    // 5 + 10 = 15, grid = 30
+		{"Flying at 100m", 100, true, 1, 50},  // 5 + 20 = 25, grid = 50
+		{"Flying at 355m", 355, true, 1, 152}, // 5 + 71 = 76, grid = 152 (max)
+		{"Flying at 500m", 500, true, 1, 152}, // capped at 152
 	}
 
 	for _, tt := range tests {
@@ -155,7 +158,7 @@ func TestServiceGetMapData_FlyingScale(t *testing.T) {
 			mapData, err := svc.GetMapData(ctx, char)
 
 			assert.NoError(t, err)
-			assert.Equal(t, tt.expectedScale, mapData.Scale, "Scale should match expected")
+			assert.Equal(t, tt.expectedScale, mapData.Scale, "Scale should always be 1")
 			assert.Equal(t, tt.expectedGrid, mapData.GridSize, "Grid size should match expected")
 		})
 	}

@@ -6,10 +6,10 @@
 
     // Fixed size matching D-Pad (3x3 grid of 48px buttons + gaps)
     const MAP_SIZE = 152;
-    
-    // Tile size adjusts based on grid size (smaller tiles when flying for 17x17 grid)
-    $: gridSize = $mapStore.data?.grid_size || 9;
-    $: tileSize = Math.floor(MAP_SIZE / gridSize);
+
+    // Tile size adjusts based on grid size (fractional for sub-pixel rendering at high altitude)
+    $: gridSize = $mapStore.data?.grid_size || 10;
+    $: tileSize = MAP_SIZE / gridSize;
 
     let canvas: HTMLCanvasElement;
     let renderer: MapRenderer | null = null;
