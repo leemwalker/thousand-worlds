@@ -8,7 +8,7 @@
     const MAP_SIZE = 152;
 
     // Tile size adjusts based on grid size (fractional for sub-pixel rendering at high altitude)
-    $: gridSize = $mapStore.data?.grid_size || 10;
+    $: gridSize = $mapStore.data?.grid_size || 9;
     $: tileSize = MAP_SIZE / gridSize;
 
     let canvas: HTMLCanvasElement;

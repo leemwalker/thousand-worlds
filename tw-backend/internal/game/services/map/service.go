@@ -114,28 +114,29 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 	}
 
 	// Dynamic grid sizing based on altitude
-	// Base: radius 5 = 10x10 grid at ground level
-	// Grows by 1 tile per 5m of altitude, max 76 (152x152 grid)
-	gridRadius := 5 // Base 10x10 grid
+	// Use ODD grid sizes (2*radius + 1) for perfect centering on player
+	// Base: radius 4 = 9x9 grid at ground level
+	// Grows by 1 tile per 5m of altitude, max 75 (151x151 grid)
+	gridRadius := 4 // Base 9x9 grid
 	scale := 1      // Always 1:1 tile to coordinate mapping
 
 	if char.IsFlying && char.PositionZ > 0 {
 		// Add 1 to radius for every 5m of altitude
 		additionalRadius := int(char.PositionZ / 5.0)
-		gridRadius = 5 + additionalRadius
+		gridRadius = 4 + additionalRadius
 
-		// Cap at 76 (152x152 grid = 1px per tile on 152px canvas)
-		if gridRadius > 76 {
-			gridRadius = 76
+		// Cap at 75 (151x151 grid for odd size)
+		if gridRadius > 75 {
+			gridRadius = 75
 		}
 	}
-	gridSize := gridRadius * 2
+	gridSize := gridRadius*2 + 1 // Odd number for perfect centering
 
 	tiles := make([]MapTile, 0, gridSize*gridSize)
 
-	// Generate grid centered on player
-	for dy := -gridRadius; dy < gridRadius; dy++ {
-		for dx := -gridRadius; dx < gridRadius; dx++ {
+	// Generate grid centered on player (-radius to +radius inclusive)
+	for dy := -gridRadius; dy <= gridRadius; dy++ {
+		for dx := -gridRadius; dx <= gridRadius; dx++ {
 			tileX := int(math.Round(char.PositionX)) + dx
 			tileY := int(math.Round(char.PositionY)) + dy
 
