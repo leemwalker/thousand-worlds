@@ -83,9 +83,6 @@
     <div class="quality-indicator" title="Perception Quality">
         {getQualityLabel($mapStore.data?.render_quality)}
     </div>
-
-    <!-- Version Watermark (Temporary Debug) -->
-    <div class="debug-watermark">v2.1</div>
 </div>
 
 <style>
@@ -98,16 +95,6 @@
         border-radius: 12px;
         padding: 4px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-    }
-
-    .debug-watermark {
-        position: absolute;
-        top: 2px;
-        right: 4px;
-        font-size: 8px;
-        color: lime;
-        opacity: 0.5;
-        pointer-events: none;
     }
 
     .map-canvas {

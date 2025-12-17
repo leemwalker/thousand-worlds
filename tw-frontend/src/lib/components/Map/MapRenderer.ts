@@ -371,7 +371,7 @@ export class MapRenderer {
         // Hypsometric (above sea level)
         if (elevation < 200) {
             const t = elevation / 200;
-            return this.lerpColor('#4fc3f7', '#66bb6a', t);
+            return this.lerpColor('#2e7d32', '#66bb6a', t); // Dark Green -> Green
         }
         if (elevation < 500) {
             const t = (elevation - 200) / 300;
