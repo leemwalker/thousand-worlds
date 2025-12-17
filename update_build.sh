@@ -10,19 +10,19 @@ echo "Pulling latest code..."
 cd /home/walker/git/thousand-worlds
 git pull
 
-# Rebuild game server
-echo "Rebuilding game-server..."
+# Rebuild game server and frontend
+echo "Rebuilding game-server and frontend..."
 cd tw-backend
-docker compose -f docker-compose.prod.yml build --no-cache game-server
+docker compose -f docker-compose.prod.yml build --no-cache game-server frontend
 
-# Restart game server
-echo "Restarting game-server..."
-docker compose -f docker-compose.prod.yml up -d game-server
+# Restart services
+echo "Restarting services..."
+docker compose -f docker-compose.prod.yml up -d game-server frontend
 
 # Show status
 echo ""
 echo "=== Build Complete ==="
-docker compose -f docker-compose.prod.yml ps game-server
+docker compose -f docker-compose.prod.yml ps game-server frontend
 
 echo ""
 echo "Verify at: http://10.0.0.17:3000"
