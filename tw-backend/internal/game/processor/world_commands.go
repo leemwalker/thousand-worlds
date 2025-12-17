@@ -800,6 +800,28 @@ func (p *GameProcessor) handleWorldInfo(ctx context.Context, client websocket.Ga
 		sb.WriteString("Not yet simulated. Use 'world simulate <years>' to generate terrain.\n")
 	}
 
+	// Show async runner status if one exists
+	if runner := p.getRunner(char.WorldID); runner != nil {
+		stats := runner.GetStats()
+		sb.WriteString("--- Async Simulation ---\n")
+		var stateIcon string
+		switch stats.State {
+		case ecosystem.RunnerRunning:
+			stateIcon = "▶️"
+		case ecosystem.RunnerPaused:
+			stateIcon = "⏸️"
+		case ecosystem.RunnerIdle:
+			stateIcon = "⏹️"
+		default:
+			stateIcon = "❓"
+		}
+		sb.WriteString(fmt.Sprintf("State: %s %s\n", stateIcon, stats.State))
+		sb.WriteString(fmt.Sprintf("Current Year: %d\n", stats.CurrentYear))
+		sb.WriteString(fmt.Sprintf("Years Simulated: %d\n", stats.YearsSimulated))
+		sb.WriteString(fmt.Sprintf("Rate: %.1f years/sec\n", stats.YearsPerSecond))
+		sb.WriteString(fmt.Sprintf("Snapshots: %d\n", stats.SnapshotCount))
+	}
+
 	client.SendGameMessage("system", sb.String(), nil)
 	return nil
 }
@@ -910,6 +932,7 @@ func (p *GameProcessor) handleWorldSpeed(ctx context.Context, client websocket.G
 }
 
 // getOrCreateRunner gets an existing runner or creates a new one for the world
+// If creating a new runner, this also initializes geology and life if not already done
 func (p *GameProcessor) getOrCreateRunner(worldID uuid.UUID) *ecosystem.SimulationRunner {
 	if p.worldRunners == nil {
 		p.worldRunners = make(map[uuid.UUID]*ecosystem.SimulationRunner)
@@ -917,6 +940,33 @@ func (p *GameProcessor) getOrCreateRunner(worldID uuid.UUID) *ecosystem.Simulati
 	if runner, ok := p.worldRunners[worldID]; ok {
 		return runner
 	}
+
+	// Initialize geology if not exists (ensures world has terrain)
+	geology, exists := p.worldGeology[worldID]
+	if !exists {
+		// Default circumference (Earth-like: 40,000 km = 40,000,000 m)
+		circumference := 40_000_000.0
+
+		// Use world ID bytes as seed for determinism
+		seed := int64(worldID[0])<<56 | int64(worldID[1])<<48 |
+			int64(worldID[2])<<40 | int64(worldID[3])<<32 |
+			int64(worldID[4])<<24 | int64(worldID[5])<<16 |
+			int64(worldID[6])<<8 | int64(worldID[7])
+
+		geology = ecosystem.NewWorldGeology(worldID, seed, circumference)
+		p.worldGeology[worldID] = geology
+	}
+
+	// Initialize terrain and life if first run
+	if !geology.IsInitialized() {
+		geology.InitializeGeology()
+
+		// Spawn initial creatures based on generated biomes
+		if len(geology.Biomes) > 0 {
+			p.ecosystemService.SpawnBiomes(geology.Biomes)
+		}
+	}
+
 	config := ecosystem.DefaultConfig(worldID)
 	runner := ecosystem.NewSimulationRunner(config)
 	p.worldRunners[worldID] = runner
