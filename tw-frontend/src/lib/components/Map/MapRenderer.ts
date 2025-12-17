@@ -227,8 +227,14 @@ export class MapRenderer {
     private renderEmojiTile(tile: VisibleTile, x: number, y: number) {
         const halfTile = this.tileSize / 2;
 
-        // Layer 1: Hypsometric elevation color (solid base)
-        this.ctx.fillStyle = this.getHypsometricColor(tile.elevation);
+        // Layer 1: Base color
+        // If map has flat elevation (0) or no simulation, use Biome Color.
+        // If map has varied elevation (!= 0), use Hypsometric Color.
+        const baseColor = (tile.elevation !== 0)
+            ? this.getHypsometricColor(tile.elevation)
+            : this.getBiomeColor(tile.biome);
+
+        this.ctx.fillStyle = baseColor;
         // Add minimal overlap (0.5px) to prevent subpixel rendering gaps (seams)
         this.ctx.fillRect(
             x - halfTile,
