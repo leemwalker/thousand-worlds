@@ -237,9 +237,11 @@ export class MapRenderer {
             this.tileSize + 0.5
         );
 
-        // Subtle grid lines
-        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-        this.ctx.strokeRect(x - halfTile, y - halfTile, this.tileSize, this.tileSize);
+        // Subtle grid lines (only if tiles are large enough)
+        if (this.tileSize >= 8) {
+            this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            this.ctx.strokeRect(x - halfTile, y - halfTile, this.tileSize, this.tileSize);
+        }
 
         // Skip emoji rendering if tiles are too small (<3px)
         if (this.tileSize < 3) return;
