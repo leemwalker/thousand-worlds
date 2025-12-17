@@ -34,22 +34,9 @@
     function renderMap() {
         if (!renderer || !$mapStore.data) return;
 
-        // DEBUG: Check for shrinking map cause
-        const data = $mapStore.data;
-        const expectedTiles = data.grid_size * data.grid_size;
-        console.log(
-            `[MiniMap] Frame update: Grid ${data.grid_size}x${data.grid_size} (${tileSize.toFixed(2)}px), Tiles: ${data.tiles.length} (Expected: ${expectedTiles})`,
-        );
-
-        if (data.tiles.length < expectedTiles) {
-            console.warn(
-                `[MiniMap] MISMATCH! Received fewer tiles than grid size requires. Result: Map will shrink visuals.`,
-            );
-        }
-
         const playerPos = {
-            x: Math.round(data.player_x),
-            y: Math.round(data.player_y),
+            x: Math.round($mapStore.data.player_x),
+            y: Math.round($mapStore.data.player_y),
         };
 
         // Convert tiles to VisibleTile format

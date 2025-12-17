@@ -229,7 +229,13 @@ export class MapRenderer {
 
         // Layer 1: Hypsometric elevation color (solid base)
         this.ctx.fillStyle = this.getHypsometricColor(tile.elevation);
-        this.ctx.fillRect(x - halfTile, y - halfTile, this.tileSize, this.tileSize);
+        // Add minimal overlap (0.5px) to prevent subpixel rendering gaps (seams)
+        this.ctx.fillRect(
+            x - halfTile,
+            y - halfTile,
+            this.tileSize + 0.5,
+            this.tileSize + 0.5
+        );
 
         // Subtle grid lines
         this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
