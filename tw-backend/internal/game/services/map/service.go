@@ -385,11 +385,8 @@ func (s *Service) computeOcclusion(grid [][]*MapTile, radius int, playerAlt floa
 
 					if distMeters < 0.1 {
 						// At player position (dist ~0)
-						// Always visible, doesn't block (it's under feet)
-						// Set maxSlope to look straight down?
-						// Actually, player tile is always visible.
+						// Always visible. Do not update maxSlope (let horizons form naturally)
 						tile.Occluded = false
-						maxSlope = -1000.0 // Allow looking down at adjacent tiles
 					} else {
 						// Slope = (TileElev - EyeLevel) / Dist
 						slope := (tile.Elevation - startAlt) / distMeters
