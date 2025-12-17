@@ -50,6 +50,7 @@
                 entities: tile.entities || [],
                 is_player: tile.is_player,
                 portal: tile.portal,
+                occluded: tile.occluded,
             }),
         );
 

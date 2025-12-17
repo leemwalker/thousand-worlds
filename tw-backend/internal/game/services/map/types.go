@@ -34,6 +34,7 @@ type MapTile struct {
 	Portal      *PortalInfo `json:"portal,omitempty"`
 	IsPlayer    bool        `json:"is_player,omitempty"`
 	OutOfBounds bool        `json:"out_of_bounds,omitempty"` // True if tile is outside world bounds
+	Occluded    bool        `json:"occluded,omitempty"`      // True if tile is hidden by terrain (LOS)
 }
 
 // MapEntity represents an entity visible on the map

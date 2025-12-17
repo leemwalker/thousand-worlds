@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"tw-backend/internal/auth"
+	"tw-backend/internal/ecosystem"
+	"tw-backend/internal/worldgen/geography"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -134,14 +136,14 @@ func TestServiceGetMapData_FlyingScale(t *testing.T) {
 		// Ground level: radius 4 = 9x9 grid (odd for centering)
 		{"On ground", 0, false, 1, 9},
 		// Flying: radius = 4 + floor(altitude/5), grid = radius*2 + 1
-		{"Flying at 1m", 1, true, 1.0, 9},      // 4 + 0 = 4, grid = 9
-		{"Flying at 5m", 5, true, 1.0, 11},     // 4 + 1 = 5, grid = 11
-		{"Flying at 25m", 25, true, 1.0, 19},   // 4 + 5 = 9, grid = 19
-		{"Flying at 50m", 50, true, 1.0, 29},   // 4 + 10 = 14, grid = 29
-		{"Flying at 100m", 100, true, 1.0, 49}, // 4 + 20 = 24, grid = 49. Stride = 100/100 = 1
-		{"Flying at 105m", 105, true, 1.0, 51}, // 4 + 21 = 25, grid = 51 (max). Stride = 105/100 = 1
-		{"Flying at 200m", 200, true, 2.0, 51}, // capped at 51. Stride = 200/100 = 2
-		{"Flying at 500m", 500, true, 5.0, 51}, // capped at 51. Stride = 500/100 = 5
+		{"Flying at 1m", 1, true, 1, 9},      // 4 + 0 = 4, grid = 9
+		{"Flying at 5m", 5, true, 1, 11},     // 4 + 1 = 5, grid = 11
+		{"Flying at 25m", 25, true, 1, 19},   // 4 + 5 = 9, grid = 19
+		{"Flying at 50m", 50, true, 1, 29},   // 4 + 10 = 14, grid = 29
+		{"Flying at 100m", 100, true, 1, 49}, // 4 + 20 = 24, grid = 49. Stride = 100/100 = 1
+		{"Flying at 105m", 105, true, 1, 51}, // 4 + 21 = 25, grid = 51 (max). Stride = 105/100 = 1
+		{"Flying at 200m", 200, true, 2, 51}, // capped at 51. Stride = 200/100 = 2
+		{"Flying at 500m", 500, true, 5, 51}, // capped at 51. Stride = 500/100 = 5
 	}
 
 	for _, tt := range tests {
@@ -218,5 +220,71 @@ func TestServiceGetMapData_Aggregation(t *testing.T) {
 	}
 	assert.NotNil(t, t1, "Should have center tile")
 	assert.NotNil(t, t2, "Should have tile at center + 5")
+	assert.NotNil(t, t1, "Should have center tile")
+	assert.NotNil(t, t2, "Should have tile at center + 5")
 	// If t2 exists, it implies stride works (since normal step is 1)
+}
+
+func TestServiceGetMapData_Occlusion(t *testing.T) {
+	svc := &Service{
+		worldGeology: make(map[uuid.UUID]*ecosystem.WorldGeology),
+	}
+	worldID := uuid.New()
+
+	// Create a simple heightmap
+	// 20x20
+	// Player at 10,10.
+	// Hill at 12,10 (Elev 50).
+	// Target at 14,10 (Elev 0).
+	// Player Elev 0.
+	// Slope to Hill: (50-0)/2 = 25.
+	// Slope to Target: (0-0)/4 = 0.
+	// 0 < 25 -> Hidden.
+
+	hm := &geography.Heightmap{
+		Width:      20,
+		Height:     20,
+		Elevations: make([]float64, 400),
+	}
+	// Default 0
+	hm.Set(12, 10, 50.0) // The Hill
+
+	geo := &ecosystem.WorldGeology{
+		Heightmap: hm,
+		Biomes:    make([]geography.Biome, 400),
+	}
+	// Init biomes to avoid panic
+	for i := range geo.Biomes {
+		geo.Biomes[i] = geography.Biome{Type: "plains"}
+	}
+	svc.SetWorldGeology(worldID, geo)
+
+	char := &auth.Character{
+		CharacterID: uuid.New(),
+		WorldID:     worldID,
+		PositionX:   10.0,
+		PositionY:   10.0,
+		PositionZ:   0.0,
+	}
+
+	ctx := context.Background()
+	mapData, err := svc.GetMapData(ctx, char)
+	assert.NoError(t, err)
+
+	var hillTile, targetTile *MapTile
+	for i := range mapData.Tiles {
+		tile := &mapData.Tiles[i]
+		if tile.X == 12 && tile.Y == 10 {
+			hillTile = tile
+		}
+		if tile.X == 14 && tile.Y == 10 {
+			targetTile = tile
+		}
+	}
+
+	assert.NotNil(t, hillTile, "Hill tile should be in grid")
+	assert.NotNil(t, targetTile, "Target tile should be in grid")
+
+	assert.False(t, hillTile.Occluded, "Hill should see player (slope 25 > -inf)")
+	assert.True(t, targetTile.Occluded, "Target behind hill should be occluded (slope 0 < 25)")
 }

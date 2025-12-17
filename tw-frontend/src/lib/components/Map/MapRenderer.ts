@@ -11,6 +11,7 @@ export interface VisibleTile {
     entities: MapEntity[];
     is_player?: boolean;
     portal?: PortalInfo;
+    occluded?: boolean;
 }
 
 export interface MapEntity {
@@ -149,6 +150,18 @@ export class MapRenderer {
             this.tileSize
         );
 
+        // If occluded, dim and skip details
+        if (tile.occluded) {
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            this.ctx.fillRect(
+                x - this.tileSize / 2,
+                y - this.tileSize / 2,
+                this.tileSize,
+                this.tileSize
+            );
+            return; // Skip symbols for occluded tiles
+        }
+
         // Determine what symbol to show
         let symbol = ASCII_SYMBOLS[tile.biome] || ASCII_SYMBOLS.default;
         let color = '#888888';
@@ -203,6 +216,18 @@ export class MapRenderer {
             this.tileSize
         );
 
+        // If occluded, apply shadow and skip details
+        if (tile.occluded) {
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            this.ctx.fillRect(
+                x - this.tileSize / 2,
+                y - this.tileSize / 2,
+                this.tileSize,
+                this.tileSize
+            );
+            return;
+        }
+
         // Portal indicator
         if (tile.portal?.active) {
             this.ctx.fillStyle = '#FF00FF';
@@ -242,6 +267,13 @@ export class MapRenderer {
             this.tileSize + 0.5,
             this.tileSize + 0.5
         );
+
+        // If occluded, apply shadow and skip details (emojis/entities)
+        if (tile.occluded) {
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            this.ctx.fillRect(x - halfTile, y - halfTile, this.tileSize + 0.5, this.tileSize + 0.5);
+            return;
+        }
 
         // Subtle grid lines (only if tiles are large enough)
         if (this.tileSize >= 8) {

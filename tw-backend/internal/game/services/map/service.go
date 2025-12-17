@@ -145,7 +145,12 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 	}
 	gridSize := gridRadius*2 + 1 // Odd number for perfect centering
 
-	tiles := make([]MapTile, 0, gridSize*gridSize)
+	// Create 2D grid for visibility calculations
+	// Access: grid[dy + gridRadius][dx + gridRadius]
+	grid := make([][]*MapTile, gridSize)
+	for i := range grid {
+		grid[i] = make([]*MapTile, gridSize)
+	}
 
 	// Generate grid centered on player (-radius to +radius * stride)
 	// We iterate clearly using grid indices (-radius to +radius) and multiply by stride for world coordinates
@@ -160,7 +165,7 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 			outOfBounds := float64(tileX) < minX || float64(tileX) > maxX ||
 				float64(tileY) < minY || float64(tileY) > maxY
 
-			tile := MapTile{
+			tile := &MapTile{
 				X:           tileX,
 				Y:           tileY,
 				IsPlayer:    dx == 0 && dy == 0,
@@ -289,7 +294,21 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 				}
 			}
 
-			tiles = append(tiles, tile)
+			// Store in grid
+			grid[dy+gridRadius][dx+gridRadius] = tile
+		}
+	}
+
+	// Calculate Visibility (Horizon Culling)
+	s.computeOcclusion(grid, gridRadius, char.PositionZ, stride)
+
+	// Flatten grid to tiles slice
+	tiles := make([]MapTile, 0, gridSize*gridSize)
+	for _, row := range grid {
+		for _, tile := range row {
+			if tile != nil {
+				tiles = append(tiles, *tile)
+			}
 		}
 	}
 
@@ -308,4 +327,104 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 		Scale:         stride, // Send stride as Scale
 		WorldID:       char.WorldID,
 	}, nil
+}
+
+// computeOcclusion implements Horizon Culling for Line of Sight
+func (s *Service) computeOcclusion(grid [][]*MapTile, radius int, playerAlt float64, stride int) {
+	// Center coordinate in relative grid space
+	cx, cy := 0, 0
+
+	// Helper to cast ray
+	castRay := func(tx, ty int) {
+		// Bresenham's Line Algorithm
+		x0, y0 := cx, cy
+		x1, y1 := tx, ty
+
+		dx := x1 - x0
+		if dx < 0 {
+			dx = -dx
+		}
+		dy := y1 - y0
+		if dy < 0 {
+			dy = -dy
+		}
+
+		sx := -1
+		if x0 < x1 {
+			sx = 1
+		}
+		sy := -1
+		if y0 < y1 {
+			sy = 1
+		}
+
+		errVal := dx - dy
+
+		maxSlope := -math.MaxFloat64 // Start with no horizon (everything visible)
+
+		for {
+			// Process tile at (x0, y0)
+			// Convert to grid index: grid[y0 + radius][x0 + radius]
+			row := y0 + radius
+			col := x0 + radius
+
+			if row >= 0 && row < len(grid) && col >= 0 && col < len(grid[0]) {
+				tile := grid[row][col]
+				if tile != nil {
+					// Calculate distance and slope
+					// Distance in WORLD UNITS (meters)
+					// dx, dy are in tiles. World dist = sqrt(dx*dx + dy*dy) * stride
+					distTiles := math.Sqrt(float64(x0*x0 + y0*y0))
+					distMeters := distTiles * float64(stride)
+
+					if distMeters < 0.1 {
+						// At player position (dist ~0)
+						// Always visible, doesn't block (it's under feet)
+						// Set maxSlope to look straight down?
+						// Actually, player tile is always visible.
+						tile.Occluded = false
+						maxSlope = -1000.0 // Allow looking down at adjacent tiles
+					} else {
+						// Slope = (TileElev - PlayerElev) / Dist
+						slope := (tile.Elevation - playerAlt) / distMeters
+
+						if slope >= maxSlope {
+							// Visible (above horizon)
+							tile.Occluded = false
+							maxSlope = slope
+						} else {
+							// Hidden (below horizon)
+							tile.Occluded = true
+						}
+					}
+				}
+			}
+
+			if x0 == x1 && y0 == y1 {
+				break
+			}
+
+			e2 := 2 * errVal
+			if e2 > -dy {
+				errVal -= dy
+				x0 += sx
+			}
+			if e2 < dx {
+				errVal += dx
+				y0 += sy
+			}
+		}
+	}
+
+	// Cast rays to all perimeter tiles
+	// Top and Bottom rows
+	for x := -radius; x <= radius; x++ {
+		castRay(x, -radius) // Top
+		castRay(x, radius)  // Bottom
+	}
+	// Left and Right columns (excluding corners already done)
+	for y := -radius + 1; y <= radius-1; y++ {
+		castRay(-radius, y) // Left
+		castRay(radius, y)  // Right
+	}
 }
