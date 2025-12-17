@@ -134,13 +134,14 @@ func TestServiceGetMapData_FlyingScale(t *testing.T) {
 		// Ground level: radius 4 = 9x9 grid (odd for centering)
 		{"On ground", 0, false, 1, 9},
 		// Flying: radius = 4 + floor(altitude/5), grid = radius*2 + 1
-		{"Flying at 1m", 1, true, 1, 9},       // 4 + 0 = 4, grid = 9
-		{"Flying at 5m", 5, true, 1, 11},      // 4 + 1 = 5, grid = 11
-		{"Flying at 25m", 25, true, 1, 19},    // 4 + 5 = 9, grid = 19
-		{"Flying at 50m", 50, true, 1, 29},    // 4 + 10 = 14, grid = 29
-		{"Flying at 100m", 100, true, 1, 49},  // 4 + 20 = 24, grid = 49
-		{"Flying at 355m", 355, true, 1, 151}, // 4 + 71 = 75, grid = 151 (max)
-		{"Flying at 500m", 500, true, 1, 151}, // capped at 151
+		{"Flying at 1m", 1, true, 1, 9},      // 4 + 0 = 4, grid = 9
+		{"Flying at 5m", 5, true, 1, 11},     // 4 + 1 = 5, grid = 11
+		{"Flying at 25m", 25, true, 1, 19},   // 4 + 5 = 9, grid = 19
+		{"Flying at 50m", 50, true, 1, 29},   // 4 + 10 = 14, grid = 29
+		{"Flying at 100m", 100, true, 1, 49}, // 4 + 20 = 24, grid = 49
+		{"Flying at 105m", 105, true, 1, 51}, // 4 + 21 = 25, grid = 51 (max)
+		{"Flying at 200m", 200, true, 1, 51}, // capped at 51
+		{"Flying at 500m", 500, true, 1, 51}, // capped at 51
 	}
 
 	for _, tt := range tests {

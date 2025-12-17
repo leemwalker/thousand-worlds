@@ -116,7 +116,9 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 	// Dynamic grid sizing based on altitude
 	// Use ODD grid sizes (2*radius + 1) for perfect centering on player
 	// Base: radius 4 = 9x9 grid at ground level
-	// Grows by 1 tile per 5m of altitude, max 75 (151x151 grid)
+	// Grows by 1 to radius for every 5m of altitude
+	// Max radius 25 = 51x51 grid (2601 tiles) for performance
+	// Higher altitudes will need aggregation (TODO)
 	gridRadius := 4 // Base 9x9 grid
 	scale := 1      // Always 1:1 tile to coordinate mapping
 
@@ -125,9 +127,10 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 		additionalRadius := int(char.PositionZ / 5.0)
 		gridRadius = 4 + additionalRadius
 
-		// Cap at 75 (151x151 grid for odd size)
-		if gridRadius > 75 {
-			gridRadius = 75
+		// Cap at 25 (51x51 grid = 2601 tiles max for performance)
+		// TODO: implement aggregation for higher altitudes
+		if gridRadius > 25 {
+			gridRadius = 25
 		}
 	}
 	gridSize := gridRadius*2 + 1 // Odd number for perfect centering
