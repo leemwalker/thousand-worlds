@@ -52,7 +52,7 @@
             }),
         );
 
-        renderer.render(playerPos, visibleTiles);
+        renderer.render(playerPos, visibleTiles, $mapStore.data.scale || 1);
     }
 
     function getQualityLabel(quality: RenderQuality | undefined): string {

@@ -93,7 +93,7 @@ export class MapRenderer {
         this.quality = quality;
     }
 
-    render(playerPos: Position, visibleArea: VisibleTile[]) {
+    render(playerPos: Position, visibleArea: VisibleTile[], scale: number = 1) {
         const centerX = this.canvas.width / 2;
         const centerY = this.canvas.height / 2;
 
@@ -102,10 +102,12 @@ export class MapRenderer {
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
         // Render visible tiles
+        // Divide by scale to convert world coordinate deltas to grid positions
+        const effectiveScale = scale > 0 ? scale : 1;
         for (const tile of visibleArea) {
-            const screenX = centerX + (tile.x - playerPos.x) * this.tileSize;
+            const screenX = centerX + ((tile.x - playerPos.x) / effectiveScale) * this.tileSize;
             // Negate Y delta: game uses Y-increases-north, screen uses Y-increases-down
-            const screenY = centerY - (tile.y - playerPos.y) * this.tileSize;
+            const screenY = centerY - ((tile.y - playerPos.y) / effectiveScale) * this.tileSize;
 
             this.renderTile(tile, screenX, screenY);
         }

@@ -120,3 +120,43 @@ func TestMapGridConstants(t *testing.T) {
 	assert.Equal(t, 4, MapGridRadius)
 	assert.Equal(t, 9, MapGridSize)
 }
+
+func TestServiceGetMapData_FlyingScale(t *testing.T) {
+	svc := &Service{}
+
+	tests := []struct {
+		name          string
+		altitude      float64
+		isFlying      bool
+		expectedScale int
+		expectedGrid  int
+	}{
+		{"On ground", 0, false, 1, 9},
+		{"Flying at 1m", 1, true, 1, 17},
+		{"Flying at 20m", 20, true, 2, 17},
+		{"Flying at 40m", 40, true, 3, 17},
+		{"Flying at 60m", 60, true, 4, 17},
+		{"Flying at 100m", 100, true, 6, 17},
+		{"Flying at 200m", 200, true, 11, 17},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			char := &auth.Character{
+				CharacterID: uuid.New(),
+				WorldID:     uuid.New(),
+				PositionX:   50.0,
+				PositionY:   50.0,
+				PositionZ:   tt.altitude,
+				IsFlying:    tt.isFlying,
+			}
+
+			ctx := context.Background()
+			mapData, err := svc.GetMapData(ctx, char)
+
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedScale, mapData.Scale, "Scale should match expected")
+			assert.Equal(t, tt.expectedGrid, mapData.GridSize, "Grid size should match expected")
+		})
+	}
+}

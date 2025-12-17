@@ -58,6 +58,7 @@ type MapData struct {
 	PlayerX       float64       `json:"player_x"`
 	PlayerY       float64       `json:"player_y"`
 	RenderQuality RenderQuality `json:"render_quality"`
-	GridSize      int           `json:"grid_size"` // Always 9 (9x9 grid)
+	GridSize      int           `json:"grid_size"` // 9 on ground, 17 when flying
+	Scale         int           `json:"scale"`     // World units per tile (1 = ground, >1 = flying)
 	WorldID       uuid.UUID     `json:"world_id"`
 }

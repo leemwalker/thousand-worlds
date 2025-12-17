@@ -286,6 +286,7 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 		PlayerY:       char.PositionY,
 		RenderQuality: quality,
 		GridSize:      gridSize,
+		Scale:         scale,
 		WorldID:       char.WorldID,
 	}, nil
 }
