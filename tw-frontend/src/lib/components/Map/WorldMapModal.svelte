@@ -43,9 +43,16 @@
         if (!ctx) return;
 
         renderer = new MapRenderer(canvas);
-        renderer.setTileSize(4); // Smaller tiles for world view? Or maybe standard.
-        // For world map modal, we might want a different zoom level or dynamic zoom.
-        // For now, reuse the renderer with potentially different settings.
+        renderer.setTileSize(4);
+        renderer.setViewMode("atlas");
+
+        // Initial setup for Atlas view
+        if ($mapStore.data) {
+            renderer.setWorldSize($mapStore.data.grid_size || 2000);
+            // Initial scale to fit?
+            // Let renderer handle its defaults or set manually
+        }
+
         renderer.start();
 
         if ($mapStore.data) {
@@ -61,18 +68,24 @@
             y: Math.round($mapStore.data.player_y),
         };
 
-        const visibleTiles: VisibleTile[] = $mapStore.data.tiles.map(
-            (tile) => ({
+        // Update world size if changed
+        if ($mapStore.data.grid_size) {
+            renderer.setWorldSize($mapStore.data.grid_size);
+        }
+
+        const visibleTiles: VisibleTile[] = $mapStore.data.tiles.map((tile) => {
+            const vt: VisibleTile = {
                 x: tile.x,
                 y: tile.y,
                 biome: tile.biome || "Default",
                 elevation: tile.elevation || 0,
                 entities: tile.entities || [],
-                is_player: tile.is_player,
-                portal: tile.portal,
-                occluded: tile.occluded,
-            }),
-        );
+            };
+            if (tile.is_player) vt.is_player = true;
+            if (tile.portal) vt.portal = tile.portal;
+            if (tile.occluded) vt.occluded = true;
+            return vt;
+        });
 
         // Use a smaller scale or different settings for world map if needed
         renderer.updateData(playerPos, visibleTiles, 1.0);
@@ -97,21 +110,44 @@
     let unsubscribeWS: (() => void) | null = null;
 
     onMount(() => {
-        // We need to hook into the websocket stream.
-        // Ideally +page.svelte passes messages down, or we subscribe to a store.
-        // For now, let's assume we can subscribe to gameWebSocket messages directly or a store.
-        // gameWebSocket.onMessage is a single handler setter, so we shouldn't overwrite it.
-        // We should use a store for messages if available, or event bus.
-        // But `gameWebSocket` implementation in `websocket.ts` might allow multiple listeners?
-        // Checking `websocket.ts` would be good.
-        // Assuming we can't easily hook cleanly without changing websocket service,
-        // we will rely on +page.svelte passing props or context.
-        // OR: `gameWebSocket` could be an EventTarget?
-        // Workaround: We'll poll or rely on mapStore updates for visual,
-        // and maybe add a distinct store for sim events later.
-        // Actually, let's just use the `messages` store if it existed.
-        // For now, simple implementation: visual only + static stats placeholder
+        // Subscribe to messages for sim stats
+        const unsubscribe = gameWebSocket.onMessage(handleSimMessage);
+
+        // Also add window key listeners for controls when open
+        window.addEventListener("keydown", handleKeydown);
+        window.addEventListener("wheel", handleWheel);
+
+        return () => {
+            unsubscribe();
+            window.removeEventListener("keydown", handleKeydown);
+            window.removeEventListener("wheel", handleWheel);
+        };
     });
+
+    function handleKeydown(e: KeyboardEvent) {
+        if (!isOpen || !renderer) return;
+
+        const speed = 20; // Pan speed
+        switch (e.key.toLowerCase()) {
+            case "w":
+                renderer.pan(0, speed);
+                break;
+            case "s":
+                renderer.pan(0, -speed);
+                break;
+            case "a":
+                renderer.pan(-speed, 0);
+                break;
+            case "d":
+                renderer.pan(speed, 0);
+                break;
+        }
+    }
+
+    function handleWheel(e: WheelEvent) {
+        if (!isOpen || !renderer) return;
+        renderer.zoom(e.deltaY);
+    }
 
     onDestroy(() => {
         if (renderer) renderer.stop();

@@ -636,9 +636,19 @@
             case "error":
                 addMessage("error", msg.data.message);
                 break;
+                break;
             case "sim_event":
                 // Pass to World Map Modal
                 latestSimEvent = msg;
+                // Check if simulation finished
+                if (
+                    msg.data.text &&
+                    msg.data.text.includes("Simulation finished")
+                ) {
+                    console.log("Simulation finished detected, opening map.");
+                    showWorldMap = true;
+                }
+
                 // Optionally log important ones to main chat?
                 if (msg.data.importance && msg.data.importance === "high") {
                     addMessage(

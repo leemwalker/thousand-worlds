@@ -103,6 +103,9 @@ export class MapRenderer {
     private playerPos: Position = { x: 0, y: 0 };
     private visibleTiles: VisibleTile[] = [];
     private scale: number = 1;
+    private viewMode: 'local' | 'atlas' = 'local';
+    private cameraPos: Position = { x: 0, y: 0 };
+    private worldSize: number = 2000; // Default fallback
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
@@ -113,6 +116,33 @@ export class MapRenderer {
         // Accessibility
         this.canvas.setAttribute('role', 'img');
         this.canvas.setAttribute('aria-label', 'Game Map');
+    }
+
+    setViewMode(mode: 'local' | 'atlas') {
+        this.viewMode = mode;
+        this.dirty = true;
+    }
+
+    setWorldSize(size: number) {
+        this.worldSize = size;
+    }
+
+    pan(dx: number, dy: number) {
+        this.cameraPos.x += dx / this.scale;
+        this.cameraPos.y += dy / this.scale;
+        this.dirty = true;
+    }
+
+    zoom(delta: number) {
+        const zoomFactor = 1.1;
+        if (delta < 0) {
+            this.scale *= zoomFactor;
+        } else {
+            this.scale /= zoomFactor;
+        }
+        // Clamp scale
+        this.scale = Math.max(0.1, Math.min(this.scale, 20.0));
+        this.dirty = true;
     }
 
     start() {
@@ -143,10 +173,23 @@ export class MapRenderer {
         }
     }
 
-    updateData(playerPos: Position, tiles: VisibleTile[], scale: number = 1) {
+    updateData(playerPos: Position, tiles: VisibleTile[], scale: number = 1, forceCameraToPlayer: boolean = false) {
         this.playerPos = playerPos;
         this.visibleTiles = tiles;
-        this.scale = scale;
+
+        if (this.viewMode === 'local' || forceCameraToPlayer) {
+            // In local mode, or if forced, camera follows player
+            if (this.viewMode === 'local') {
+                // Update scale only if provided and different? 
+                // Actually in local mode we might want fixed scale or user controlled.
+                // let's keep scale as is if not passed, or use passed
+            }
+            this.cameraPos = { ...playerPos };
+        }
+
+        // If we want to override scale from backend update:
+        // this.scale = scale; 
+
         this.dirty = true;
     }
 
@@ -174,10 +217,13 @@ export class MapRenderer {
 
         const effectiveScale = this.scale > 0 ? this.scale : 1;
 
+        // Determine center point for rendering
+        const centerPos = this.cameraPos;
+
         // Render tiles
         for (const tile of this.visibleTiles) {
-            const screenX = centerX + ((tile.x - this.playerPos.x) / effectiveScale) * this.tileSize;
-            const screenY = centerY - ((tile.y - this.playerPos.y) / effectiveScale) * this.tileSize;
+            const screenX = centerX + ((tile.x - centerPos.x) * this.tileSize * effectiveScale);
+            const screenY = centerY - ((tile.y - centerPos.y) * this.tileSize * effectiveScale);
 
             // Frustum cull (basic) - skip if outside canvas
             // Add margin for tile size
