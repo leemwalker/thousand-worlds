@@ -21,6 +21,7 @@ import (
 	"tw-backend/internal/game/formatter"
 	"tw-backend/internal/game/services/combat"
 	"tw-backend/internal/game/services/entity"
+	"tw-backend/internal/game/services/interaction"
 	"tw-backend/internal/game/services/inventory"
 	"tw-backend/internal/game/services/look"
 	gamemap "tw-backend/internal/game/services/map"
@@ -54,6 +55,7 @@ type GameProcessor struct {
 	ecosystemService   *ecosystem.Service
 	combatService      *combat.Service
 	inventoryService   *inventory.Service
+	interactionService *interaction.Service
 
 	// WorldGeology stores geological state per world (worldID -> geology)
 	worldGeology map[uuid.UUID]*ecosystem.WorldGeology
@@ -77,6 +79,7 @@ func NewGameProcessor(
 	ecosystemService *ecosystem.Service,
 	combatService *combat.Service,
 	inventoryService *inventory.Service,
+	interactionService *interaction.Service,
 ) *GameProcessor {
 	// Create map service with available dependencies
 	mapSvc := gamemap.NewService(worldRepo, skillsRepo, entityService, lookService, worldEntityService, ecosystemService)
@@ -96,6 +99,7 @@ func NewGameProcessor(
 		ecosystemService:   ecosystemService,
 		combatService:      combatService,
 		inventoryService:   inventoryService,
+		interactionService: interactionService,
 		worldGeology:       make(map[uuid.UUID]*ecosystem.WorldGeology),
 	}
 }
@@ -950,20 +954,32 @@ func (p *GameProcessor) handleAttack(ctx context.Context, client websocket.GameC
 	return fmt.Errorf("target '%s' not found", *cmd.Target)
 }
 
-func (p *GameProcessor) handleTalk(_ context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+func (p *GameProcessor) handleTalk(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	if cmd.Target == nil {
 		return errors.New("target required for talk")
 	}
 
-	// TODO: Integrate with NPC dialogue system
+	charID := client.GetCharacterID()
+	var msg string
+	if cmd.Message != nil {
+		msg = *cmd.Message
+	}
+	resp, err := p.interactionService.ProcessDialogue(ctx, charID, *cmd.Target, msg)
+	if err != nil {
+		// Fallback for non-interactive or missing targets
+		client.SendGameMessage("error", fmt.Sprintf("Nobody named %s hears you.", *cmd.Target), nil)
+		return nil
+	}
+
 	formattedDialogue := fmt.Sprintf("%s says: %s",
 		formatter.Format(*cmd.Target, formatter.StyleYellow),
-		formatter.Format("'Hello, traveler!'", formatter.StyleGreen))
+		formatter.Format(fmt.Sprintf("'%s'", resp.Text), formatter.StyleGreen))
+
 	client.SendGameMessage("dialogue", formattedDialogue, map[string]interface{}{
-		"npcName":   *cmd.Target,
-		"npcID":     "placeholder-npc-id",
-		"dialogue":  "Hello, traveler!",
-		"available": []string{"quest", "trade", "goodbye"},
+		"npcName":   resp.NPCName,
+		"npcID":     resp.NPCID,
+		"dialogue":  resp.Text,
+		"available": resp.Options,
 	})
 	return nil
 }
