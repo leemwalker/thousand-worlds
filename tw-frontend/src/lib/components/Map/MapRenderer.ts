@@ -455,6 +455,11 @@ export class MapRenderer {
             const ctx = layer === 'near' ? nCtx : fCtx;
             ctx.fillStyle = color;
             ctx.fillRect(tile.x, tile.y, 1, 1);
+
+            if (tile.occluded) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                ctx.fillRect(tile.x, tile.y, 1, 1);
+            }
         }
 
         const width = this.canvas.width;
