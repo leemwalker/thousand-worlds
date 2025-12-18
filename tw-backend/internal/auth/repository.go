@@ -3,19 +3,14 @@ package auth
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"time"
+
+	apperrors "tw-backend/internal/errors"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
-)
-
-var (
-	ErrUserNotFound      = errors.New("user not found")
-	ErrCharacterNotFound = errors.New("character not found")
-	ErrDuplicateEmail    = errors.New("email already exists")
 )
 
 // PostgresRepository implements Repository using PostgreSQL
@@ -48,7 +43,7 @@ func (r *PostgresRepository) CreateUser(ctx context.Context, user *User) error {
 		// Check for unique constraint violation
 		if pqErr, ok := err.(*pq.Error); ok {
 			if pqErr.Code == "23505" { // unique_violation
-				return ErrDuplicateEmail
+				return apperrors.ErrUserExists
 			}
 		}
 		return fmt.Errorf("failed to create user: %w", err)
@@ -103,7 +98,7 @@ func (r *PostgresRepository) GetUserByEmail(ctx context.Context, email string) (
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, ErrUserNotFound
+		return nil, apperrors.ErrUserNotFound
 	}
 
 	return &user, err
@@ -129,7 +124,7 @@ func (r *PostgresRepository) GetUserByUsername(ctx context.Context, username str
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, ErrUserNotFound
+		return nil, apperrors.ErrUserNotFound
 	}
 
 	return &user, err
@@ -228,7 +223,7 @@ func (r *PostgresRepository) GetCharacter(ctx context.Context, characterID uuid.
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, ErrCharacterNotFound
+		return nil, apperrors.ErrCharacterNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -336,7 +331,7 @@ func (r *PostgresRepository) GetCharacterByUserAndWorld(ctx context.Context, use
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, ErrCharacterNotFound
+		return nil, apperrors.ErrCharacterNotFound
 	}
 	if err != nil {
 		return nil, err

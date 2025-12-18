@@ -1,6 +1,9 @@
 package errors
 
-import "net/http"
+import (
+	"fmt"
+	"net/http"
+)
 
 // Domain-specific error codes for consistent API responses
 
@@ -76,3 +79,32 @@ var (
 	ErrDatabaseConnection = &AppError{Code: "DATABASE_ERROR", Message: "Database connection error", HTTPStatus: http.StatusServiceUnavailable}
 	ErrDatabaseTimeout    = &AppError{Code: "DATABASE_TIMEOUT", Message: "Database operation timed out", HTTPStatus: http.StatusGatewayTimeout}
 )
+
+// Helper functions for dynamic errors
+
+// NewNotFound returns a NotFound error with a custom message
+func NewNotFound(format string, args ...any) error {
+	return &AppError{
+		Code:       ErrNotFound.Code,
+		Message:    fmt.Sprintf(format, args...),
+		HTTPStatus: ErrNotFound.HTTPStatus,
+	}
+}
+
+// NewInvalidInput returns an InvalidInput error with a custom message
+func NewInvalidInput(format string, args ...any) error {
+	return &AppError{
+		Code:       ErrInvalidInput.Code,
+		Message:    fmt.Sprintf(format, args...),
+		HTTPStatus: ErrInvalidInput.HTTPStatus,
+	}
+}
+
+// NewInternalError returns an AppError for internal errors
+func NewInternalError(format string, args ...any) error {
+	return &AppError{
+		Code:       ErrInternalServer.Code,
+		Message:    fmt.Sprintf(format, args...),
+		HTTPStatus: ErrInternalServer.HTTPStatus,
+	}
+}

@@ -45,7 +45,7 @@ func (s *CreationService) GenerateCharacter(req GenerationRequest) (*Character, 
 	// 1. Validate Species
 	template := GetSpeciesTemplate(req.Species)
 	if template.Name == "" {
-		return nil, nil, fmt.Errorf("invalid species: %s", req.Species)
+		return nil, nil, apperrors.NewInvalidInput("invalid species: %s", req.Species)
 	}
 
 	// 2. Apply Variance
@@ -63,7 +63,7 @@ func (s *CreationService) GenerateCharacter(req GenerationRequest) (*Character, 
 
 	// 3. Validate Point Buy
 	if err := ValidatePointBuy(template.BaseAttrs, varianceAttrs, req.PointBuyChoices); err != nil {
-		return nil, nil, fmt.Errorf("invalid point buy allocation: %w", err)
+		return nil, nil, apperrors.NewInvalidInput("invalid point buy allocation: %v", err)
 	}
 
 	// 4. Calculate Final Attributes
@@ -147,7 +147,7 @@ func (s *CreationService) InhabitNPC(req InhabitationRequest) (*Character, *Char
 func (s *CreationService) EnsureCharacter(ctx context.Context, userID uuid.UUID, worldID uuid.UUID) (*auth.Character, error) {
 	// Validate input
 	if userID == uuid.Nil {
-		return nil, fmt.Errorf("invalid user ID: cannot be nil")
+		return nil, apperrors.NewInvalidInput("invalid user ID: cannot be nil")
 	}
 
 	// Check if character exists in this world

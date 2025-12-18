@@ -75,7 +75,7 @@ func (r *eventSourcedRepository) Load(ctx context.Context, id uuid.UUID) (*Chara
 	}
 
 	if len(events) == 0 {
-		return nil, fmt.Errorf("character not found: %s", id)
+		return nil, apperrors.NewNotFound("character not found: %s", id)
 	}
 
 	char := &Character{ID: id}

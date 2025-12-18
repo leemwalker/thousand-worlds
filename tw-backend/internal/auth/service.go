@@ -4,17 +4,22 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"errors"
 	"time"
+
+	apperrors "tw-backend/internal/errors"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
+// Error aliases for backwards compatibility within package (optional)
 var (
-	ErrInvalidCredentials = errors.New("invalid email or password")
-	ErrUserExists         = errors.New("user already exists")
-	ErrInvalidToken       = errors.New("invalid or expired token")
+	ErrInvalidCredentials = apperrors.ErrAuthInvalidCredentials
+	ErrUserExists         = apperrors.ErrUserExists
+	ErrInvalidToken       = apperrors.ErrAuthTokenInvalid
+	ErrUserNotFound       = apperrors.ErrUserNotFound
+	ErrCharacterNotFound  = apperrors.ErrCharacterNotFound
+	ErrDuplicateEmail     = apperrors.ErrUserExists // Map to similar domain error
 )
 
 // Config holds JWT configuration
@@ -45,7 +50,11 @@ func (s *Service) Register(ctx context.Context, email, username, password string
 		return nil, ErrUserExists
 	}
 	// If error is not "not found", it's a real error
-	if err != nil && err != ErrUserNotFound {
+	if err != nil && err != ErrUserNotFound { // We need to check against domain error now if repo returns it, or adapt
+		// Assumption: Repository currently returns standard errors. We might need to wrap them later.
+		// For P1, we focus on Service layer returning domain errors.
+		// If Repo returns sql.ErrNoRows, we should handle that mapping in Repo or here.
+		// Ideally Repo should return domain errors too.
 		return nil, err
 	}
 
@@ -53,7 +62,7 @@ func (s *Service) Register(ctx context.Context, email, username, password string
 	hasher := NewPasswordHasher()
 	hashedPassword, err := hasher.HashPassword(password)
 	if err != nil {
-		return nil, err
+		return nil, apperrors.Wrap(apperrors.ErrInternalServer, "failed to hash password", err)
 	}
 
 	// Create user
@@ -67,9 +76,7 @@ func (s *Service) Register(ctx context.Context, email, username, password string
 	}
 
 	if err := s.repo.CreateUser(ctx, user); err != nil {
-		if err == ErrDuplicateEmail {
-			return nil, ErrUserExists
-		}
+		// Use ErrUserExists if strictly duplicate
 		return nil, err
 	}
 

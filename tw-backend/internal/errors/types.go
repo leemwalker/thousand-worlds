@@ -2,6 +2,7 @@ package errors
 
 import (
 	"encoding/json"
+	stdErrors "errors"
 	"fmt"
 	"net/http"
 )
@@ -65,8 +66,8 @@ type ErrorResponse struct {
 
 // RespondWithError writes an error response to the HTTP writer
 func RespondWithError(w http.ResponseWriter, err error) {
-	appErr, ok := err.(*AppError)
-	if !ok {
+	var appErr *AppError
+	if !stdErrors.As(err, &appErr) {
 		// If not an AppError, treat as internal server error
 		appErr = &AppError{
 			Code:       "UNKNOWN_ERROR",
