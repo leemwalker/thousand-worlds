@@ -19,15 +19,8 @@ export function getGeologyStyleOverride(biome: string): string | null {
     return null;
 }
 
-export function getRenderLayer(player: Position3D, tile: TileData, threshold: number = 500): 'near' | 'far' {
-    // Distance in 3D
-    const dx = player.x - tile.x;
-    const dy = player.y - tile.y;
-    const dz = player.z - tile.elevation;
-
-    // Simple Euclidean distance
-    const distSq = dx * dx + dy * dy + dz * dz;
-    const thresholdSq = threshold * threshold;
-
-    return distSq < thresholdSq ? 'near' : 'far';
+export function getRenderLayer(player: Position3D, tile: TileData, threshold: number = 200): 'near' | 'far' {
+    // Distance in Elevation (Z) Only
+    const dz = Math.abs(player.z - tile.elevation);
+    return dz < threshold ? 'near' : 'far';
 }

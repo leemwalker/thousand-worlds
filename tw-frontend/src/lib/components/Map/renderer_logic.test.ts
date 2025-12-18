@@ -22,19 +22,9 @@ function getGeologyColor(biome: string, elevation: number): string {
 }
 
 function getRenderLayer(player: Position3D, tile: TileData): 'near' | 'far' {
-    // Spec: Relative distance.
-    const dx = player.x - tile.x;
-    const dy = player.y - tile.y;
-    const dz = player.z - tile.elevation; // relative altitude?
-
-    // Note: tile coord x/y are usually grid indices? Or world coords? 
-    // Assuming world coords for distance calc.
-    // Let's assume input is normalized to same units.
-
-    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-    // Threshold: let's say 500 units.
-    return dist < 500 ? 'near' : 'far';
+    // Spec: Elevation Difference Only.
+    const dz = Math.abs(player.z - tile.elevation);
+    return dz < 200 ? 'near' : 'far';
 }
 
 describe('Map Renderer Logic', () => {
@@ -60,25 +50,20 @@ describe('Map Renderer Logic', () => {
     describe('Layer Selection Logic', () => {
         const player: Position3D = { x: 0, y: 0, z: 100 };
 
-        it('should select NEAR layer for close tiles', () => {
-            const closeTile: TileData = { x: 10, y: 10, elevation: 100, biome: 'Forest' }; // Dist ~14
-            expect(getRenderLayer(player, closeTile)).toBe('near');
+        it('should select NEAR layer for close elevation', () => {
+            const sameLevelTile: TileData = { x: 1000, y: 1000, elevation: 100, biome: 'Forest' }; // Far XY, Close Z
+            expect(getRenderLayer(player, sameLevelTile)).toBe('near');
         });
 
-        it('should select FAR layer for distant tiles', () => {
-            const farTile: TileData = { x: 1000, y: 1000, elevation: 100, biome: 'Forest' }; // Dist > 1000
-            expect(getRenderLayer(player, farTile)).toBe('far');
-        });
-
-        it('should select FAR layer for deep valley when player is high', () => {
+        it('should select FAR layer for deep valley (High Z diff)', () => {
             const highPlayer: Position3D = { x: 0, y: 0, z: 2000 };
-            const valleyTile: TileData = { x: 0, y: 0, elevation: 0, biome: 'Forest' }; // Dist 2000
+            const valleyTile: TileData = { x: 0, y: 0, elevation: 0, biome: 'Forest' }; // Z diff 2000
             expect(getRenderLayer(highPlayer, valleyTile)).toBe('far');
         });
 
         it('should select NEAR layer for mountain peak when player is high', () => {
             const highPlayer: Position3D = { x: 0, y: 0, z: 2000 };
-            const peakTile: TileData = { x: 10, y: 0, elevation: 2000, biome: 'Alpine' }; // Dist 10
+            const peakTile: TileData = { x: 10, y: 0, elevation: 2000, biome: 'Alpine' }; // Dist 10, Z diff 0
             expect(getRenderLayer(highPlayer, peakTile)).toBe('near');
         });
     });
