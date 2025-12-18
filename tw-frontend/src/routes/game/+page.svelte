@@ -5,6 +5,7 @@
     import { gameWebSocket, type ServerMessage } from "$lib/services/websocket";
     import WorldEntry from "$lib/components/WorldEntry.svelte";
     import CharacterSheet from "$lib/components/Character/CharacterSheet.svelte";
+    import WorldMapModal from "$lib/components/Map/WorldMapModal.svelte";
     import type { Skill } from "$lib/types/game";
     import CommandInput from "$lib/components/Input/CommandInput.svelte";
     import QuickButtons from "$lib/components/Input/QuickButtons.svelte";
@@ -57,6 +58,10 @@
             charisma: 10,
         },
     };
+
+    // World Map state
+    let showWorldMap = false;
+    let latestSimEvent: any = null;
 
     let currentUser: User | null = null;
     // Use relative URL to go through Vite proxy with extended timeout
@@ -631,6 +636,17 @@
             case "error":
                 addMessage("error", msg.data.message);
                 break;
+            case "sim_event":
+                // Pass to World Map Modal
+                latestSimEvent = msg;
+                // Optionally log important ones to main chat?
+                if (msg.data.importance && msg.data.importance === "high") {
+                    addMessage(
+                        "system",
+                        `[WORLD EVENT] ${msg.data.description || msg.data.text}`,
+                    );
+                }
+                break;
         }
     }
 
@@ -735,6 +751,12 @@
                     class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-sm transition-colors"
                 >
                     Character
+                </button>
+                <button
+                    on:click={() => (showWorldMap = true)}
+                    class="bg-purple-600 hover:bg-purple-500 text-white px-3 py-1 rounded text-sm transition-colors"
+                >
+                    World Map
                 </button>
             {/if}
             <button
@@ -888,6 +910,13 @@
                 </div>
             </div>
         {/if}
+
+        <!-- World Map Modal -->
+        <WorldMapModal
+            isOpen={showWorldMap}
+            onClose={() => (showWorldMap = false)}
+            {latestSimEvent}
+        />
     </main>
 </div>
 

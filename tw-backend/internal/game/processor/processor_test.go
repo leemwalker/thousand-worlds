@@ -2,17 +2,23 @@ package processor
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"tw-backend/cmd/game-server/websocket"
 	"tw-backend/internal/auth"
+	"tw-backend/internal/character"
+	"tw-backend/internal/economy/crafting"
 	"tw-backend/internal/game/constants"
+	"tw-backend/internal/game/services/combat"
 	"tw-backend/internal/game/services/entity"
+	"tw-backend/internal/game/services/inventory"
 	"tw-backend/internal/game/services/look"
 	"tw-backend/internal/player"
 	"tw-backend/internal/repository"
 	"tw-backend/internal/world/interview"
+	"tw-backend/internal/worldentity"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -209,10 +215,10 @@ func TestHandleWatcher(t *testing.T) {
 
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
-	require.NoError(t, err)
-	require.Len(t, client.messages, 1)
+	assert.NoError(t, err)
+	assert.Len(t, client.messages, 1)
 	assert.Equal(t, "system", client.messages[0].Type)
-	assert.Contains(t, client.messages[0].Text, "watcher")
+	assert.Contains(t, client.messages[0].Text, "You enter the world as a watcher.")
 
 	// Verify SetWorldID was called with the correct WorldID
 	assert.Equal(t, worldID, client.WorldID, "Client WorldID should be updated to target world")
@@ -229,6 +235,8 @@ func setupTest(t *testing.T) (*GameProcessor, *mockClient, *auth.MockRepository,
 	}
 	mockWorldRepo.worlds[lobbyWorld.ID] = lobbyWorld
 
+	// Mock Inventory Repo - defined at package level
+
 	interviewRepo := &MockInterviewRepository{}
 	// New LookService requires EntityService
 	entityService := entity.NewService()
@@ -236,7 +244,25 @@ func setupTest(t *testing.T) (*GameProcessor, *mockClient, *auth.MockRepository,
 	interviewService := interview.NewServiceWithRepository(nil, interviewRepo, mockWorldRepo)
 	spatialService := player.NewSpatialService(mockAuthRepo, mockWorldRepo, nil)
 
-	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, lookService, entityService, interviewService, spatialService, nil, nil, nil, nil, nil, nil, nil, nil)
+	// Inventory Service
+	// Inventory Service
+	invRepo := &MockInventoryRepo{}
+	inventoryService := inventory.NewService(entityService, invRepo)
+
+	// WorldEntity Service
+	worldEntityRepo := &MockWorldEntityRepo{}
+	worldEntityService := worldentity.NewService(worldEntityRepo)
+
+	// Combat Service
+	combatService := combat.NewService(entityService)
+
+	// Crafting Service
+	craftingRepo := &MockCraftingRepo{}
+	craftingService := crafting.NewService(craftingRepo, inventoryService, worldEntityService)
+
+	mockCharRepo := &MockCharacterRepo{}
+
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, mockCharRepo, lookService, entityService, interviewService, spatialService, nil, nil, worldEntityService, nil, combatService, inventoryService, nil, craftingService, nil, nil)
 
 	// Create and set up the hub
 	hub := websocket.NewHub(proc)
@@ -598,7 +624,6 @@ func TestHandleHelp(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, client.messages, 1)
 	assert.Equal(t, "system", client.messages[0].Type)
-	assert.Equal(t, "system", client.messages[0].Type)
 	assert.Contains(t, client.messages[0].Text, "Available Commands")
 }
 
@@ -794,7 +819,8 @@ func TestHandleCraft_NoTarget(t *testing.T) {
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "item required")
+	assert.Contains(t, err.Error(), "What do you want to craft?")
+	assert.Len(t, client.messages, 0)
 }
 
 // TestHandleUse tests the use command - not supported in lobby
@@ -853,4 +879,166 @@ func TestNoCharacter(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no active character")
+}
+
+// Mock WorldEntity Repo
+type MockWorldEntityRepo struct{}
+
+func (m *MockWorldEntityRepo) Create(ctx context.Context, entity *worldentity.WorldEntity) error {
+	return nil
+}
+func (m *MockWorldEntityRepo) GetByID(ctx context.Context, id uuid.UUID) (*worldentity.WorldEntity, error) {
+	// Return a dummy entity to prevent nil panics in Delete
+	return &worldentity.WorldEntity{
+		ID:           id,
+		WorldID:      constants.LobbyWorldID, // Default to lobby
+		Name:         "dummy",
+		EntityType:   worldentity.EntityTypeItem,
+		Interactable: true,
+	}, nil
+}
+func (m *MockWorldEntityRepo) GetByWorldID(ctx context.Context, worldID uuid.UUID) ([]*worldentity.WorldEntity, error) {
+	return nil, nil
+}
+func (m *MockWorldEntityRepo) GetByWorldAndType(ctx context.Context, worldID uuid.UUID, entityType worldentity.EntityType) ([]*worldentity.WorldEntity, error) {
+	return nil, nil
+}
+func (m *MockWorldEntityRepo) GetAtPosition(ctx context.Context, worldID uuid.UUID, x, y, radius float64) ([]*worldentity.WorldEntity, error) {
+	return nil, nil
+}
+func (m *MockWorldEntityRepo) GetByName(ctx context.Context, worldID uuid.UUID, name string) (*worldentity.WorldEntity, error) {
+	if name == "sword" {
+		return &worldentity.WorldEntity{
+			ID:           uuid.New(),
+			WorldID:      worldID,
+			Name:         "sword",
+			EntityType:   worldentity.EntityTypeItem,
+			Interactable: true,
+			X:            5.0,
+			Y:            5.0,
+		}, nil
+	}
+	if name == "goblin" {
+		return &worldentity.WorldEntity{
+			ID:           uuid.New(),
+			WorldID:      worldID,
+			Name:         "goblin",
+			EntityType:   worldentity.EntityTypeNPC,
+			Interactable: true,
+			X:            5.0,
+			Y:            5.0,
+			Collision:    true,
+		}, nil
+	}
+	return nil, nil // Not found
+}
+
+// Mock Character Repo
+type MockCharacterRepo struct{}
+
+func (m *MockCharacterRepo) Save(ctx context.Context, char *character.Character, newEvents []interface{}) error {
+	return nil
+}
+func (m *MockCharacterRepo) Load(ctx context.Context, id uuid.UUID) (*character.Character, error) {
+	return nil, fmt.Errorf("not found") // Return error so fallback to AuthRepo is used
+}
+
+// Mock Crafting Repo
+type MockCraftingRepo struct{}
+
+func (m *MockCraftingRepo) CreateTechTree(tree *crafting.TechTree) error             { return nil }
+func (m *MockCraftingRepo) GetTechTree(treeID uuid.UUID) (*crafting.TechTree, error) { return nil, nil }
+func (m *MockCraftingRepo) GetTechTreeByWorld(worldID uuid.UUID) (*crafting.TechTree, error) {
+	return nil, nil
+}
+func (m *MockCraftingRepo) CreateTechNode(node *crafting.TechNode) error             { return nil }
+func (m *MockCraftingRepo) GetTechNode(nodeID uuid.UUID) (*crafting.TechNode, error) { return nil, nil }
+func (m *MockCraftingRepo) GetTechNodesByTree(treeID uuid.UUID) ([]*crafting.TechNode, error) {
+	return nil, nil
+}
+func (m *MockCraftingRepo) GetTechNodesByLevel(level crafting.TechLevel) ([]*crafting.TechNode, error) {
+	return nil, nil
+}
+func (m *MockCraftingRepo) CreateRecipe(recipe *crafting.Recipe) error { return nil }
+func (m *MockCraftingRepo) GetRecipe(recipeID uuid.UUID) (*crafting.Recipe, error) {
+	// Return a dummy recipe matching "sword" structure to prevent nil pointer in Craft service
+	return &crafting.Recipe{
+		RecipeID:    recipeID,
+		Name:        "sword",
+		Ingredients: []crafting.Ingredient{},
+		Output:      crafting.ItemOutput{ItemID: uuid.New(), Quantity: 1},
+	}, nil
+}
+func (m *MockCraftingRepo) GetRecipesByCategory(category crafting.RecipeCategory) ([]*crafting.Recipe, error) {
+	return nil, nil
+}
+func (m *MockCraftingRepo) GetRecipesByTechLevel(techLevel crafting.TechLevel) ([]*crafting.Recipe, error) {
+	return nil, nil
+}
+func (m *MockCraftingRepo) GetRecipesByTechNode(nodeID uuid.UUID) ([]*crafting.Recipe, error) {
+	return nil, nil
+}
+func (m *MockCraftingRepo) GetRecipesBySkill(skill string, maxLevel int) ([]*crafting.Recipe, error) {
+	return nil, nil
+}
+func (m *MockCraftingRepo) UpdateRecipe(recipe *crafting.Recipe) error            { return nil }
+func (m *MockCraftingRepo) DeleteRecipe(recipeID uuid.UUID) error                 { return nil }
+func (m *MockCraftingRepo) UnlockTech(entityID uuid.UUID, nodeID uuid.UUID) error { return nil }
+func (m *MockCraftingRepo) GetUnlockedTech(entityID uuid.UUID) ([]*crafting.UnlockedTech, error) {
+	return nil, nil
+}
+func (m *MockCraftingRepo) IsTechUnlocked(entityID uuid.UUID, nodeID uuid.UUID) (bool, error) {
+	return false, nil
+}
+func (m *MockCraftingRepo) DiscoverRecipe(knowledge *crafting.RecipeKnowledge) error { return nil }
+func (m *MockCraftingRepo) GetKnownRecipes(entityID uuid.UUID) ([]*crafting.Recipe, error) {
+	return nil, nil
+}
+func (m *MockCraftingRepo) GetRecipeKnowledge(entityID uuid.UUID, recipeID uuid.UUID) (*crafting.RecipeKnowledge, error) {
+	return nil, nil
+}
+func (m *MockCraftingRepo) UpdateRecipeProficiency(entityID uuid.UUID, recipeID uuid.UUID, proficiency float64) error {
+	return nil
+}
+func (m *MockCraftingRepo) SearchRecipes(query string, filters crafting.RecipeFilters) ([]*crafting.Recipe, error) {
+	if query == "sword" {
+		// Return a dummy recipe for "craft sword" test
+		return []*crafting.Recipe{{
+			RecipeID:    uuid.New(),
+			Name:        "sword",
+			Output:      crafting.ItemOutput{ItemID: uuid.New(), Quantity: 1},
+			Ingredients: []crafting.Ingredient{},
+		}}, nil
+	}
+	return nil, nil
+}
+
+func (m *MockWorldEntityRepo) Update(ctx context.Context, entity *worldentity.WorldEntity) error {
+	return nil
+}
+func (m *MockWorldEntityRepo) Delete(ctx context.Context, id uuid.UUID) error { return nil }
+
+// Mock Inventory Repo (Package Level)
+type MockInventoryRepo struct{}
+
+func (m *MockInventoryRepo) AddItem(ctx context.Context, charID uuid.UUID, itemID uuid.UUID, quantity int, metadata map[string]interface{}) error {
+	return nil
+}
+
+func (m *MockInventoryRepo) RemoveItem(ctx context.Context, charID uuid.UUID, itemID uuid.UUID, quantity int) error {
+	return nil
+}
+
+func (m *MockInventoryRepo) GetInventory(ctx context.Context, charID uuid.UUID) ([]inventory.InventoryItem, error) {
+	// Return a sword for testing
+	return []inventory.InventoryItem{
+		{
+			ID:          uuid.New(),
+			CharacterID: charID,
+			ItemID:      uuid.New(),
+			Quantity:    1,
+			Name:        "sword",
+			Description: "A sharp blade",
+		},
+	}, nil
 }

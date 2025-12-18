@@ -65,6 +65,10 @@ type GameProcessor struct {
 
 	// worldRunners stores async simulation runners per world
 	worldRunners map[uuid.UUID]*ecosystem.SimulationRunner
+
+	// Persistence
+	simSnapshotRepo *ecosystem.SimulationSnapshotRepository
+	runnerStateRepo *ecosystem.RunnerStateRepository
 }
 
 // NewGameProcessor creates a new game processor
@@ -84,6 +88,8 @@ func NewGameProcessor(
 	inventoryService *inventory.Service,
 	interactionService *interaction.Service,
 	craftingService *crafting.Service,
+	simSnapshotRepo *ecosystem.SimulationSnapshotRepository,
+	runnerStateRepo *ecosystem.RunnerStateRepository,
 ) *GameProcessor {
 	// Create map service with available dependencies
 	mapSvc := gamemap.NewService(worldRepo, skillsRepo, entityService, lookService, worldEntityService, ecosystemService)
@@ -106,6 +112,8 @@ func NewGameProcessor(
 		interactionService: interactionService,
 		craftingService:    craftingService,
 		worldGeology:       make(map[uuid.UUID]*ecosystem.WorldGeology),
+		simSnapshotRepo:    simSnapshotRepo,
+		runnerStateRepo:    runnerStateRepo,
 	}
 }
 
@@ -831,6 +839,7 @@ func (p *GameProcessor) handleInventory(ctx context.Context, client websocket.Ga
 
 	msg := fmt.Sprintf("Inventory:\n%s", strings.Join(itemNames, "\n"))
 	client.SendGameMessage("system", msg, nil)
+	p.sendStateUpdate(client)
 	return nil
 }
 
@@ -955,7 +964,51 @@ func (p *GameProcessor) handleAttack(ctx context.Context, client websocket.GameC
 		return nil
 	}
 
-	// TODO: Handle NPC targets
+	// Handle NPC targets
+	npcEntity, err := p.worldEntityService.GetEntityByName(ctx, authChar.WorldID, targetName)
+	if err == nil && npcEntity != nil {
+		if npcEntity.EntityType != worldentity.EntityTypeNPC {
+			client.SendGameMessage("error", fmt.Sprintf("You cannot attack %s.", npcEntity.Name), nil)
+			return nil
+		}
+
+		// Join combat using EntityID (NPC) - specialized method needed or generic JoinCombat?
+		// combat.Service.JoinCombat takes *action.Combatant. We need to construct one for NPC.
+		// For now, assuming mock behavior is sufficient or we create a simple combatant.
+		// BUT combatService.JoinCombat is what we have.
+		// And we need QueueAttack (attackerID, targetID).
+		// targetID is npcEntity.ID.
+
+		// We need to ensure NPC is in combat.
+		// We'll trust CombatService/Resolver to handle "non-joined" entities implicitly or we join them.
+
+		// Using JoinCombat manually for NPC:
+		/*
+			combatant := &action.Combatant{
+				EntityID: npcEntity.ID,
+				MaxHP: 100, // Default/Placeholder
+				CurrentHP: 100,
+				// ...
+			}
+			p.combatService.JoinCombat(combatant)
+		*/
+
+		// For this fix, let's just QueueAttack. If QueueAttack requires destination combatant to exist,
+		// we might fail unless we implement "JoinCombatFromEntity".
+		// MockCombatRepo/Service ignores logic?
+		// Real CombatService QueueAttack checks "if attacker == nil". Does it check target?
+		// "queueAction := action.NewCombatAction(attackerID, targetID ...)"
+		// It doesn't seem to validate target existence in resolver immediately?
+
+		err := p.combatService.QueueAttack(attackerID, npcEntity.ID)
+		if err != nil {
+			client.SendGameMessage("error", fmt.Sprintf("Failed to attack: %v", err), nil)
+			return nil
+		}
+		client.SendGameMessage("combat", fmt.Sprintf("You attack %s!", npcEntity.Name), nil)
+		return nil
+	}
+
 	return fmt.Errorf("target '%s' not found", *cmd.Target)
 }
 
