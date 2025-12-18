@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"tw-backend/cmd/game-server/websocket"
+	"tw-backend/internal/game/services/inventory"
 	"tw-backend/internal/worldentity"
 )
 
@@ -15,10 +16,9 @@ func (p *GameProcessor) handleGetObject(ctx context.Context, client websocket.Ga
 		return nil
 	}
 
-	target := *cmd.Target
 	charID := client.GetCharacterID()
 
-	char, err := p.authRepo.GetCharacter(ctx, charID)
+	authChar, err := p.authRepo.GetCharacter(ctx, charID)
 	if err != nil {
 		client.SendGameMessage("error", "Failed to find your character.", nil)
 		return nil
@@ -26,15 +26,24 @@ func (p *GameProcessor) handleGetObject(ctx context.Context, client websocket.Ga
 
 	// Check if we have the worldEntityService
 	if p.worldEntityService == nil {
-		// Fall back to legacy behavior
-		client.SendGameMessage("action", fmt.Sprintf("You pick up the %s.", target), nil)
+		client.SendGameMessage("error", "World interaction unavailable.", nil)
 		return nil
 	}
 
 	// Try to find the entity by name
-	entity, err := p.worldEntityService.GetEntityByName(ctx, char.WorldID, target)
-	if err != nil {
-		client.SendGameMessage("error", fmt.Sprintf("You don't see any '%s' here.", target), nil)
+	entity, err := p.worldEntityService.GetEntityByName(ctx, authChar.WorldID, *cmd.Target)
+	if err != nil || entity == nil {
+		client.SendGameMessage("error", fmt.Sprintf("You don't see any '%s' here.", *cmd.Target), nil)
+		return nil
+	}
+
+	// Check distance
+	dx := entity.X - authChar.PositionX
+	dy := entity.Y - authChar.PositionY
+
+	distSq := dx*dx + dy*dy
+	if distSq > 9.0 { // 3 meters squared
+		client.SendGameMessage("error", fmt.Sprintf("You are too far away from the %s.", entity.Name), nil)
 		return nil
 	}
 
@@ -45,9 +54,24 @@ func (p *GameProcessor) handleGetObject(ctx context.Context, client websocket.Ga
 		return nil
 	}
 
-	// Entity is an item and can be picked up
-	// TODO: Add to inventory, remove from world
+	// Remove from world
+	if err := p.worldEntityService.Delete(ctx, entity.ID); err != nil {
+		return fmt.Errorf("failed to pick up item: %w", err)
+	}
+
+	// Add to inventory
+	invItem := inventory.Item{
+		ID:          entity.ID,
+		Name:        entity.Name,
+		Description: entity.Description,
+	}
+
+	if err := p.inventoryService.AddItem(ctx, charID, invItem); err != nil {
+		return fmt.Errorf("failed to add to inventory: %w", err)
+	}
+
 	client.SendGameMessage("action", fmt.Sprintf("You pick up the %s.", entity.Name), nil)
+	p.sendStateUpdate(client)
 	return nil
 }
 

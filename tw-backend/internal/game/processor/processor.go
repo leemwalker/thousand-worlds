@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+
 	"strconv"
 	"strings"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"tw-backend/internal/game/formatter"
 	"tw-backend/internal/game/services/combat"
 	"tw-backend/internal/game/services/entity"
+	"tw-backend/internal/game/services/inventory"
 	"tw-backend/internal/game/services/look"
 	gamemap "tw-backend/internal/game/services/map"
 	"tw-backend/internal/player"
@@ -51,6 +53,7 @@ type GameProcessor struct {
 	worldEntityService *worldentity.Service
 	ecosystemService   *ecosystem.Service
 	combatService      *combat.Service
+	inventoryService   *inventory.Service
 
 	// WorldGeology stores geological state per world (worldID -> geology)
 	worldGeology map[uuid.UUID]*ecosystem.WorldGeology
@@ -73,6 +76,7 @@ func NewGameProcessor(
 	worldEntityService *worldentity.Service,
 	ecosystemService *ecosystem.Service,
 	combatService *combat.Service,
+	inventoryService *inventory.Service,
 ) *GameProcessor {
 	// Create map service with available dependencies
 	mapSvc := gamemap.NewService(worldRepo, skillsRepo, entityService, lookService, worldEntityService, ecosystemService)
@@ -91,6 +95,7 @@ func NewGameProcessor(
 		worldEntityService: worldEntityService,
 		ecosystemService:   ecosystemService,
 		combatService:      combatService,
+		inventoryService:   inventoryService,
 		worldGeology:       make(map[uuid.UUID]*ecosystem.WorldGeology),
 	}
 }
@@ -754,14 +759,69 @@ func (p *GameProcessor) handleLook(ctx context.Context, client websocket.GameCli
 	return nil
 }
 
-func (p *GameProcessor) handleDrop(_ context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+func (p *GameProcessor) handleDrop(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	if cmd.Target == nil {
 		return errors.New("target item required")
 	}
 
-	// TODO: Integrate with inventory system
-	client.SendGameMessage("system", fmt.Sprintf("You drop the %s.", *cmd.Target), nil)
+	charID := client.GetCharacterID()
+	itemName := *cmd.Target
+
+	// Remove from inventory
+	item, err := p.inventoryService.RemoveItem(ctx, charID, itemName)
+	if err != nil {
+		client.SendGameMessage("error", fmt.Sprintf("You don't have a %s.", itemName), nil)
+		return nil
+	}
+
+	// Add to world entities
+	authChar, err := p.authRepo.GetCharacter(ctx, charID)
+	if err != nil {
+		return fmt.Errorf("failed to get character location: %w", err)
+	}
+
+	// Create world entity
+	droppedEntity := worldentity.WorldEntity{
+		ID:           uuid.New(),
+		WorldID:      authChar.WorldID,
+		Name:         item.Name,
+		Description:  item.Description,
+		EntityType:   worldentity.EntityTypeItem,
+		X:            authChar.PositionX,
+		Y:            authChar.PositionY,
+		Z:            authChar.PositionZ,
+		Interactable: true,
+	}
+
+	if err := p.worldEntityService.Create(ctx, &droppedEntity); err != nil {
+		log.Printf("Failed to create dropped entity: %v", err)
+		return fmt.Errorf("failed to drop item")
+	}
+
+	client.SendGameMessage("system", fmt.Sprintf("You drop the %s.", item.Name), nil)
 	p.sendStateUpdate(client)
+	return nil
+}
+
+func (p *GameProcessor) handleInventory(ctx context.Context, client websocket.GameClient) error {
+	charID := client.GetCharacterID()
+	items, err := p.inventoryService.GetInventory(ctx, charID)
+	if err != nil {
+		return fmt.Errorf("failed to get inventory: %w", err)
+	}
+
+	if len(items) == 0 {
+		client.SendGameMessage("system", "Your inventory is empty.", nil)
+		return nil
+	}
+
+	var itemNames []string
+	for _, i := range items {
+		itemNames = append(itemNames, fmt.Sprintf("- %s (%d)", i.Name, i.Quantity))
+	}
+
+	msg := fmt.Sprintf("Inventory:\n%s", strings.Join(itemNames, "\n"))
+	client.SendGameMessage("system", msg, nil)
 	return nil
 }
 
@@ -905,12 +965,6 @@ func (p *GameProcessor) handleTalk(_ context.Context, client websocket.GameClien
 		"dialogue":  "Hello, traveler!",
 		"available": []string{"quest", "trade", "goodbye"},
 	})
-	return nil
-}
-
-func (p *GameProcessor) handleInventory(_ context.Context, client websocket.GameClient) error {
-	// TODO: Get actual inventory from database
-	p.sendStateUpdate(client)
 	return nil
 }
 

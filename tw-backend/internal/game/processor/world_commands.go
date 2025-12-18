@@ -59,7 +59,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	// Parse arguments: years [--epoch epoch_name] [--goal goal_name]
 	args := strings.Fields(strings.TrimSpace(argsStr))
 	if len(args) == 0 {
-		client.SendGameMessage("error", "Usage: world simulate <years> [--epoch name] [--goal name]", nil)
+		client.SendGameMessage("error", "Usage: world simulate <years> [--epoch name] [--goal name] [--only-geology] [--only-life] [--no-diseases] [--water-level level]", nil)
 		return nil
 	}
 
@@ -70,14 +70,37 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	}
 
 	// Parse optional flags
-	var epochFlag, goalFlag string
+	// Parse optional flags
+	var epochFlag, goalFlag, waterLevelFlag string
+	simulateGeology := true
+	simulateLife := true
+	simulateDiseases := true
+
 	for i := 1; i < len(args); i++ {
-		if args[i] == "--epoch" && i+1 < len(args) {
-			epochFlag = args[i+1]
-			i++
-		} else if args[i] == "--goal" && i+1 < len(args) {
-			goalFlag = args[i+1]
-			i++
+		arg := args[i]
+		switch arg {
+		case "--epoch":
+			if i+1 < len(args) {
+				epochFlag = args[i+1]
+				i++
+			}
+		case "--goal":
+			if i+1 < len(args) {
+				goalFlag = args[i+1]
+				i++
+			}
+		case "--water-level":
+			if i+1 < len(args) {
+				waterLevelFlag = args[i+1]
+				i++
+			}
+		case "--only-geology":
+			simulateLife = false
+			simulateDiseases = false
+		case "--only-life":
+			simulateGeology = false
+		case "--no-diseases":
+			simulateDiseases = false
 		}
 	}
 
@@ -131,6 +154,40 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	// Register geology with map service for minimap biome rendering
 	if p.mapService != nil {
 		p.mapService.SetWorldGeology(char.WorldID, geology)
+	}
+
+	// Handle Water Level Override
+	if waterLevelFlag != "" {
+		minElev, maxElev := geology.Heightmap.MinElev, geology.Heightmap.MaxElev
+		if minElev == maxElev {
+			minElev, maxElev = -1000, 8000
+		}
+		var newSeaLevel float64
+		switch strings.ToLower(waterLevelFlag) {
+		case "high":
+			newSeaLevel = minElev + (maxElev-minElev)*0.8
+		case "low":
+			newSeaLevel = minElev + (maxElev-minElev)*0.2
+		case "medium", "average":
+			newSeaLevel = minElev + (maxElev-minElev)*0.5
+		default:
+			if strings.HasSuffix(waterLevelFlag, "%") {
+				valStr := strings.TrimSuffix(waterLevelFlag, "%")
+				if val, err := strconv.ParseFloat(valStr, 64); err == nil {
+					newSeaLevel = minElev + (maxElev-minElev)*(val/100.0)
+				}
+			} else {
+				// Try raw number (meters)
+				if val, err := strconv.ParseFloat(waterLevelFlag, 64); err == nil {
+					newSeaLevel = val
+				}
+			}
+		}
+		geology.SeaLevel = newSeaLevel
+		// Regenerate dynamic features immediately
+		geology.Rivers = geography.GenerateRivers(geology.Heightmap, geology.SeaLevel, geology.Seed)
+		geology.Biomes = geography.AssignBiomes(geology.Heightmap, geology.SeaLevel, geology.Seed, 0.0)
+		client.SendGameMessage("system", fmt.Sprintf("🌊 Water level set to %.0fm (%s)", newSeaLevel, waterLevelFlag), nil)
 	}
 
 	// Use population-based simulation for efficiency
@@ -329,7 +386,10 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		}
 
 		// Simulate population dynamics + evolution + speciation
-		popSim.SimulateYear()
+		// Simulate population dynamics + evolution + speciation
+		if simulateLife {
+			popSim.SimulateYear()
+		}
 
 		// Apply evolution every 1000 years
 		if popSim.CurrentYear%1000 == 0 {
@@ -375,44 +435,46 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			}
 
 			// V2: Pathogen simulation - check for outbreaks every 10k years
-			speciesData := make(map[uuid.UUID]pathogen.SpeciesInfo)
-			for _, biome := range popSim.Biomes {
-				for _, sp := range biome.Species {
-					if sp.Count > 0 {
-						speciesData[sp.SpeciesID] = pathogen.SpeciesInfo{
-							Population:        sp.Count,
-							DiseaseResistance: float32(sp.Traits.DiseaseResistance),
-							DietType:          string(sp.Diet),
-							Density:           float64(sp.Count) / float64(biome.CarryingCapacity+1),
-						}
-						// Check for spontaneous outbreaks
-						newPathogen, outbreak := diseaseSystem.CheckSpontaneousOutbreak(
-							sp.SpeciesID, sp.Name, sp.Count,
-							float64(sp.Count)/float64(biome.CarryingCapacity+1),
-						)
-						if outbreak != nil {
-							totalOutbreaks++
-							// CalculateR0 needs density and resistance params
-							density := float32(sp.Count) / float32(biome.CarryingCapacity+1)
-							r0 := newPathogen.CalculateR0(density, float32(sp.Traits.DiseaseResistance))
-							client.SendGameMessage("system", fmt.Sprintf("🦠 OUTBREAK: %s (%s) in %s! R₀: %.1f",
-								newPathogen.Name, newPathogen.Type, sp.Name, r0), nil)
-							// Log to simulation logger
-							if simLogger != nil {
-								simLogger.LogPathogenOutbreakV2(ctx, popSim.CurrentYear, newPathogen.Name, string(newPathogen.Type), string(newPathogen.Transmission), sp.Name, r0, newPathogen.Virulence, outbreak.PeakInfected)
+			if simulateDiseases && simulateLife {
+				speciesData := make(map[uuid.UUID]pathogen.SpeciesInfo)
+				for _, biome := range popSim.Biomes {
+					for _, sp := range biome.Species {
+						if sp.Count > 0 {
+							speciesData[sp.SpeciesID] = pathogen.SpeciesInfo{
+								Population:        sp.Count,
+								DiseaseResistance: float32(sp.Traits.DiseaseResistance),
+								DietType:          string(sp.Diet),
+								Density:           float64(sp.Count) / float64(biome.CarryingCapacity+1),
+							}
+							// Check for spontaneous outbreaks
+							newPathogen, outbreak := diseaseSystem.CheckSpontaneousOutbreak(
+								sp.SpeciesID, sp.Name, sp.Count,
+								float64(sp.Count)/float64(biome.CarryingCapacity+1),
+							)
+							if outbreak != nil {
+								totalOutbreaks++
+								// CalculateR0 needs density and resistance params
+								density := float32(sp.Count) / float32(biome.CarryingCapacity+1)
+								r0 := newPathogen.CalculateR0(density, float32(sp.Traits.DiseaseResistance))
+								client.SendGameMessage("system", fmt.Sprintf("🦠 OUTBREAK: %s (%s) in %s! R₀: %.1f",
+									newPathogen.Name, newPathogen.Type, sp.Name, r0), nil)
+								// Log to simulation logger
+								if simLogger != nil {
+									simLogger.LogPathogenOutbreakV2(ctx, popSim.CurrentYear, newPathogen.Name, string(newPathogen.Type), string(newPathogen.Transmission), sp.Name, r0, newPathogen.Virulence, outbreak.PeakInfected)
+								}
 							}
 						}
 					}
 				}
-			}
-			// Update all active outbreaks
-			diseaseSystem.Update(popSim.CurrentYear, speciesData)
-			// Report pandemic events
-			for _, pandemic := range diseaseSystem.GetPandemics() {
-				// Report if this is a large pandemic
-				if pandemic.TotalDeaths > 1000 && pandemic.EndYear == popSim.CurrentYear {
-					client.SendGameMessage("system", fmt.Sprintf("☠️ PANDEMIC: %s killed %d across multiple populations",
-						pandemic.PathogenID, pandemic.TotalDeaths), nil)
+				// Update all active outbreaks
+				diseaseSystem.Update(popSim.CurrentYear, speciesData)
+				// Report pandemic events
+				for _, pandemic := range diseaseSystem.GetPandemics() {
+					// Report if this is a large pandemic
+					if pandemic.TotalDeaths > 1000 && pandemic.EndYear == popSim.CurrentYear {
+						client.SendGameMessage("system", fmt.Sprintf("☠️ PANDEMIC: %s killed %d across multiple populations",
+							pandemic.PathogenID, pandemic.TotalDeaths), nil)
+					}
 				}
 			}
 
@@ -488,39 +550,41 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			}
 
 			// Check for new extinctions and calculate cascades
-			for _, biome := range popSim.Biomes {
-				for _, sp := range biome.Species {
-					if sp.Count == 0 && sp.Generation > 0 { // Newly extinct
-						recentExtinctions++ // Track for turning points
-						result := cascadeSim.CalculateCascade(sp.SpeciesID, sp.Name, popSim.CurrentYear, 3)
-						if result != nil && result.TotalAffected > 0 {
-							totalCascades++
-							client.SendGameMessage("system", fmt.Sprintf("💀 EXTINCTION CASCADE: %s extinction affects %d other species",
-								sp.Name, result.TotalAffected), nil)
+			if simulateLife {
+				for _, biome := range popSim.Biomes {
+					for _, sp := range biome.Species {
+						if sp.Count == 0 && sp.Generation > 0 { // Newly extinct
+							recentExtinctions++ // Track for turning points
+							result := cascadeSim.CalculateCascade(sp.SpeciesID, sp.Name, popSim.CurrentYear, 3)
+							if result != nil && result.TotalAffected > 0 {
+								totalCascades++
+								client.SendGameMessage("system", fmt.Sprintf("💀 EXTINCTION CASCADE: %s extinction affects %d other species",
+									sp.Name, result.TotalAffected), nil)
 
-							// Apply cascade effects to populations
-							for affectedID, impact := range result.PopulationChanges {
-								for _, b := range popSim.Biomes {
-									if affected, ok := b.Species[affectedID]; ok {
-										deaths := int64(float32(affected.Count) * impact)
-										affected.Count -= deaths
-										if affected.Count < 0 {
-											affected.Count = 0
+								// Apply cascade effects to populations
+								for affectedID, impact := range result.PopulationChanges {
+									for _, b := range popSim.Biomes {
+										if affected, ok := b.Species[affectedID]; ok {
+											deaths := int64(float32(affected.Count) * impact)
+											affected.Count -= deaths
+											if affected.Count < 0 {
+												affected.Count = 0
+											}
 										}
 									}
 								}
-							}
 
-							// Update phylogenetic tree
-							phyloTree.MarkExtinct(sp.SpeciesID, popSim.CurrentYear)
+								// Update phylogenetic tree
+								phyloTree.MarkExtinct(sp.SpeciesID, popSim.CurrentYear)
+							}
 						}
 					}
 				}
 			}
 		}
 
-		// Check for geological events (every 10000 years)
-		if year%10000 == 0 {
+		// Check for theological events (every 10000 years)
+		if year%10000 == 0 && simulateGeology {
 			tick := year * 365 // Convert to ticks for geo manager
 			previousEventCount := len(geoManager.ActiveEvents)
 			geoManager.CheckForNewEvents(tick, 365*10000)
@@ -546,10 +610,12 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 					geology.ApplyEvent(e)
 
 					// Apply extinction event to populations based on event type
-					eventType := population.ExtinctionEventType(e.Type)
-					deaths := popSim.ApplyExtinctionEvent(eventType, e.Severity)
-					if deaths > 100 {
-						client.SendGameMessage("system", fmt.Sprintf("   💀 %d organisms perished", deaths), nil)
+					if simulateLife {
+						eventType := population.ExtinctionEventType(e.Type)
+						deaths := popSim.ApplyExtinctionEvent(eventType, e.Severity)
+						if deaths > 100 {
+							client.SendGameMessage("system", fmt.Sprintf("   💀 %d organisms perished", deaths), nil)
+						}
 					}
 				}
 
@@ -597,9 +663,11 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			popSim.UpdateGeographicSystems(10000)
 
 			// Apply isolation effects (gigantism/dwarfism) to isolated regions
-			isolationAffected := popSim.ApplyIsolationEffects()
-			if isolationAffected > 0 && year%100000 == 0 {
-				client.SendGameMessage("system", fmt.Sprintf("🏝️ Island effects: %d species affected by isolation", isolationAffected), nil)
+			if simulateLife {
+				isolationAffected := popSim.ApplyIsolationEffects()
+				if isolationAffected > 0 && year%100000 == 0 {
+					client.SendGameMessage("system", fmt.Sprintf("🏝️ Island effects: %d species affected by isolation", isolationAffected), nil)
+				}
 			}
 		}
 

@@ -1,8 +1,8 @@
 package inventory
 
 import (
+	"context"
 	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
 
@@ -17,42 +17,46 @@ type Item struct {
 
 type Service struct {
 	entityService *entity.Service
-	// In-memory store for P0, TODO: Postgres persistence
-	inventories map[uuid.UUID][]Item
+	repo          Repository
 }
 
-func NewService(entityService *entity.Service) *Service {
+func NewService(entityService *entity.Service, repo Repository) *Service {
 	return &Service{
 		entityService: entityService,
-		inventories:   make(map[uuid.UUID][]Item),
+		repo:          repo,
 	}
 }
 
 // AddItem adds an item to a character's inventory
-func (s *Service) AddItem(charID uuid.UUID, item Item) {
-	if s.inventories[charID] == nil {
-		s.inventories[charID] = []Item{}
-	}
-	s.inventories[charID] = append(s.inventories[charID], item)
+func (s *Service) AddItem(ctx context.Context, charID uuid.UUID, item Item) error {
+	return s.repo.AddItem(ctx, charID, item, 1)
 }
 
 // RemoveItem removes an item from inventory by name (first match)
-func (s *Service) RemoveItem(charID uuid.UUID, itemName string) (Item, error) {
-	items := s.inventories[charID]
-	for i, item := range items {
-		if strings.EqualFold(item.Name, itemName) {
-			// Found it
-			s.inventories[charID] = append(items[:i], items[i+1:]...)
-			return item, nil
+func (s *Service) RemoveItem(ctx context.Context, charID uuid.UUID, itemName string) (Item, error) {
+	// Logic needs to fetch inventory first to find ID by name
+	// PROPOSAL: repository should handle "RemoveByName" or we fetch first?
+	// For P0, let's fetch all and filter.
+	items, err := s.repo.GetInventory(ctx, charID)
+	if err != nil {
+		return Item{}, err
+	}
+
+	for _, invItem := range items {
+		// Assuming InventoryItem.Name is populated
+		if invItem.Name == itemName { // Simple case insensitive in future
+			err := s.repo.RemoveItem(ctx, charID, invItem.ItemID, 1)
+			if err != nil {
+				return Item{}, err
+			}
+			return Item{ID: invItem.ItemID, Name: invItem.Name, Description: invItem.Description}, nil
 		}
 	}
+
 	return Item{}, fmt.Errorf("item '%s' not found in inventory", itemName)
 }
 
 // GetInventory returns all items for a character
-func (s *Service) GetInventory(charID uuid.UUID) []Item {
-	if s.inventories[charID] == nil {
-		return []Item{}
-	}
-	return s.inventories[charID]
+func (s *Service) GetInventory(ctx context.Context, charID uuid.UUID) ([]InventoryItem, error) {
+	return s.repo.GetInventory(ctx, charID)
 }

@@ -28,6 +28,7 @@ import (
 	"tw-backend/internal/game/processor"
 	"tw-backend/internal/game/services/combat"
 	"tw-backend/internal/game/services/entity"
+	"tw-backend/internal/game/services/inventory"
 	"tw-backend/internal/game/services/look"
 	"tw-backend/internal/metrics"
 	"tw-backend/internal/player"
@@ -198,6 +199,10 @@ func main() {
 	// Initialize combat service
 	combatService := combat.NewService(entityService)
 
+	// Initialize inventory service
+	inventoryRepo := inventory.NewPostgresRepository(dbPool)
+	inventoryService := inventory.NewService(entityService, inventoryRepo)
+
 	// Initialize game processor
 	gameProcessor := processor.NewGameProcessor(
 		authRepo,
@@ -212,6 +217,7 @@ func main() {
 		worldEntityService,
 		ecosystemService,
 		combatService,
+		inventoryService,
 	)
 
 	// Create and start the Hub
