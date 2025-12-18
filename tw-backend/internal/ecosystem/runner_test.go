@@ -62,6 +62,8 @@ func TestSimulationRunner_PauseResume(t *testing.T) {
 	config.Speed = SpeedNormal
 
 	runner := NewSimulationRunner(config, nil, nil)
+	runner.InitializePopulationSimulator(123)
+
 	runner.Start(0)
 	defer runner.Stop()
 
@@ -107,6 +109,7 @@ func TestSimulationRunner_TickHandler(t *testing.T) {
 	config.Speed = SpeedNormal
 
 	runner := NewSimulationRunner(config, nil, nil)
+	runner.InitializePopulationSimulator(123)
 
 	var tickCount int64
 	runner.SetTickHandler(func(year int64, yearsElapsed int64) error {
@@ -132,6 +135,7 @@ func TestSimulationRunner_Snapshots(t *testing.T) {
 	config.Speed = SpeedNormal   // 10 years per tick
 
 	runner := NewSimulationRunner(config, nil, nil)
+	runner.InitializePopulationSimulator(123)
 
 	var snapshotCount int64
 	runner.SetSnapshotHandler(func(snap *Snapshot) error {
@@ -162,6 +166,8 @@ func TestSimulationRunner_Stats(t *testing.T) {
 	config.Speed = SpeedFast // 100 years per tick
 
 	runner := NewSimulationRunner(config, nil, nil)
+	runner.InitializePopulationSimulator(123)
+
 	runner.Start(0)
 	time.Sleep(100 * time.Millisecond)
 	runner.Stop()
@@ -210,6 +216,8 @@ func TestSimulationRunner_SpeedChange(t *testing.T) {
 	config.Speed = SpeedSlow // 1 year per tick
 
 	runner := NewSimulationRunner(config, nil, nil)
+	runner.InitializePopulationSimulator(123)
+
 	runner.Start(0)
 
 	// Run at slow speed
@@ -240,6 +248,8 @@ func TestPlayerViewSync_BasicFlow(t *testing.T) {
 	config.Speed = SpeedNormal
 
 	runner := NewSimulationRunner(config, nil, nil)
+	runner.InitializePopulationSimulator(123)
+
 	viewSync := NewPlayerViewSync(uuid.New(), runner)
 
 	// Set species counts
@@ -276,6 +286,8 @@ func TestPlayerViewSync_BasicFlow(t *testing.T) {
 
 func TestPlayerViewSync_SpeciesCounts(t *testing.T) {
 	runner := NewSimulationRunner(DefaultConfig(uuid.New()), nil, nil)
+	runner.InitializePopulationSimulator(123)
+
 	viewSync := NewPlayerViewSync(uuid.New(), runner)
 
 	viewSync.UpdateSpeciesCounts(500, 400, 100, 3)
@@ -296,6 +308,8 @@ func TestPlayerViewSync_SpeciesCounts(t *testing.T) {
 
 func TestPlayerViewSync_Snapshot(t *testing.T) {
 	runner := NewSimulationRunner(DefaultConfig(uuid.New()), nil, nil)
+	runner.InitializePopulationSimulator(123)
+
 	viewSync := NewPlayerViewSync(uuid.New(), runner)
 
 	viewSync.UpdateSpeciesCounts(100, 80, 20, 1)

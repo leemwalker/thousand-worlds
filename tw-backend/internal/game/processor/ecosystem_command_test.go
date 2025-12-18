@@ -24,7 +24,7 @@ func TestHandleEcosystem_Status(t *testing.T) {
 	// Pre-populate ecosystem
 	ecoSvc.Spawner.CreateEntity(state.SpeciesRabbit, 1)
 
-	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil)
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil, nil, nil)
 
 	client := &mockClient{
 		UserID:      uuid.New(),
@@ -53,7 +53,7 @@ func TestHandleEcosystem_Spawn(t *testing.T) {
 	mockWorldRepo := NewMockWorldRepository()
 	ecoSvc := ecosystem.NewService(time.Now().Unix())
 
-	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil)
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil, nil, nil)
 
 	// Create user character so we have a location
 	charID := uuid.New()
@@ -106,7 +106,7 @@ func TestHandleEcosystem_WithParsing(t *testing.T) {
 	mockWorldRepo := NewMockWorldRepository()
 	ecoSvc := ecosystem.NewService(time.Now().Unix())
 
-	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil)
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil, nil, nil)
 
 	// Create user character so we have a location
 	charID := uuid.New()
@@ -153,7 +153,7 @@ func TestHandleEcosystem_Alias(t *testing.T) {
 	mockWorldRepo := NewMockWorldRepository()
 	ecoSvc := ecosystem.NewService(time.Now().Unix())
 
-	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil)
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil, nil, nil)
 
 	client := &mockClient{
 		UserID:      uuid.New(),
@@ -180,7 +180,7 @@ func TestHandleEcosystem_Log(t *testing.T) {
 	mockWorldRepo := NewMockWorldRepository()
 	ecoSvc := ecosystem.NewService(time.Now().Unix())
 
-	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil)
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil, nil, nil)
 
 	client := &mockClient{
 		UserID:      uuid.New(),
@@ -219,7 +219,7 @@ func TestHandleEcosystem_Breed(t *testing.T) {
 	mockWorldRepo := NewMockWorldRepository()
 	ecoSvc := ecosystem.NewService(time.Now().Unix())
 
-	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil)
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil, nil, nil)
 
 	client := &mockClient{
 		UserID:      uuid.New(),
@@ -267,7 +267,7 @@ func TestHandleEcosystem_Lineage(t *testing.T) {
 	mockWorldRepo := NewMockWorldRepository()
 	ecoSvc := ecosystem.NewService(time.Now().Unix())
 
-	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil)
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil, nil, nil)
 
 	client := &mockClient{
 		UserID:      uuid.New(),

@@ -4,8 +4,12 @@ package ecosystem
 
 import (
 	"context"
+	"fmt"
+	"math/rand"
 	"sync"
 	"time"
+
+	"tw-backend/internal/ecosystem/population"
 
 	"github.com/google/uuid"
 )
@@ -84,17 +88,29 @@ type SnapshotHandler func(snapshot *Snapshot) error
 // TurningPointHandler is called when a turning point occurs
 type TurningPointHandler func(tp *TurningPoint) error
 
+// EventBroadcastHandler is called when an important event happens (for Watchers)
+type EventBroadcastHandler func(event RunnerEvent)
+
 // SimulationRunner manages background world simulation
 type SimulationRunner struct {
 	config           SimulationConfig
 	state            RunnerState
 	currentYear      int64
 	lastSnapshotYear int64
+	lastSaveYear     int64
+
+	// Core V2 Simulation Engine
+	popSim *population.PopulationSimulator
+
+	// Persistence
+	snapshotRepo *SimulationSnapshotRepository
+	stateRepo    *RunnerStateRepository
 
 	// Handlers
-	tickHandler         TickHandler
-	snapshotHandler     SnapshotHandler
-	turningPointHandler TurningPointHandler
+	tickHandler           TickHandler
+	snapshotHandler       SnapshotHandler
+	turningPointHandler   TurningPointHandler
+	eventBroadcastHandler EventBroadcastHandler
 
 	// Control
 	ctx    context.Context
@@ -117,7 +133,7 @@ type SimulationRunner struct {
 }
 
 // NewSimulationRunner creates a new simulation runner
-func NewSimulationRunner(config SimulationConfig) *SimulationRunner {
+func NewSimulationRunner(config SimulationConfig, snapshotRepo *SimulationSnapshotRepository, stateRepo *RunnerStateRepository) *SimulationRunner {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &SimulationRunner{
@@ -125,10 +141,41 @@ func NewSimulationRunner(config SimulationConfig) *SimulationRunner {
 		state:               RunnerIdle,
 		ctx:                 ctx,
 		cancel:              cancel,
+		snapshotRepo:        snapshotRepo,
+		stateRepo:           stateRepo,
 		turningPointManager: NewTurningPointManager(config.WorldID),
 		recentEvents:        make([]RunnerEvent, 0),
 		snapshots:           make([]*Snapshot, 0),
 	}
+}
+
+// InitializePopulationSimulator sets up the internal V2 engine
+// MUST be called before Start()
+func (sr *SimulationRunner) InitializePopulationSimulator(seed int64) {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+
+	// If we have a repo, try to load existing state
+	if sr.snapshotRepo != nil {
+		fmt.Printf("Attempting to load snapshot for world %s\n", sr.config.WorldID)
+		sim, err := sr.snapshotRepo.LoadSnapshot(sr.ctx, sr.config.WorldID)
+		if err == nil && sim != nil {
+			fmt.Printf("Loaded existing simulation state for world %s (Year %d)\n", sr.config.WorldID, sim.CurrentYear)
+			// Re-initialize non-serialized systems
+			sim.InitializeGeographicSystems(sr.config.WorldID, seed)
+			sr.popSim = sim
+			sr.currentYear = sim.CurrentYear
+			return
+		} else if err != nil {
+			fmt.Printf("Error loading snapshot: %v\n", err)
+		}
+	}
+
+	// Create fresh if no saved state
+	fmt.Printf("Creating fresh population simulator for world %s\n", sr.config.WorldID)
+	sr.popSim = population.NewPopulationSimulator(sr.config.WorldID, seed)
+	sr.popSim.InitializeGeographicSystems(sr.config.WorldID, seed)
+	sr.currentYear = 0
 }
 
 // SetTickHandler sets the handler called for each tick
@@ -152,7 +199,14 @@ func (sr *SimulationRunner) SetTurningPointHandler(handler TurningPointHandler) 
 	sr.turningPointHandler = handler
 }
 
-// Start begins the background simulation
+// SetEventBroadcastHandler sets the handler for broadcasting events to watchers
+func (sr *SimulationRunner) SetEventBroadcastHandler(handler EventBroadcastHandler) {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+	sr.eventBroadcastHandler = handler
+}
+
+// Start begins the simulation
 func (sr *SimulationRunner) Start(startYear int64) error {
 	sr.mu.Lock()
 	if sr.state == RunnerRunning {
@@ -160,9 +214,18 @@ func (sr *SimulationRunner) Start(startYear int64) error {
 		return nil // Already running
 	}
 
+	if sr.popSim == nil {
+		sr.mu.Unlock()
+		return fmt.Errorf("population simulator not initialized")
+	}
+
 	sr.state = RunnerRunning
-	sr.currentYear = startYear
-	sr.lastSnapshotYear = startYear
+	// If starting fresher than current state, use that, otherwise continue from where we are
+	if startYear > sr.currentYear {
+		sr.currentYear = startYear
+	}
+	sr.lastSnapshotYear = sr.currentYear
+	sr.lastSaveYear = sr.currentYear
 	sr.startTime = time.Now()
 	sr.lastTickTime = time.Now()
 	sr.mu.Unlock()
@@ -186,6 +249,9 @@ func (sr *SimulationRunner) Stop() {
 	sr.cancel()
 	sr.wg.Wait()
 
+	// Final save
+	sr.persistState()
+
 	sr.mu.Lock()
 	sr.state = RunnerIdle
 	sr.mu.Unlock()
@@ -198,6 +264,8 @@ func (sr *SimulationRunner) Pause() {
 	if sr.state == RunnerRunning {
 		sr.state = RunnerPaused
 	}
+	// Save on pause
+	go sr.persistState()
 }
 
 // Resume resumes a paused simulation
@@ -277,10 +345,16 @@ func (sr *SimulationRunner) runLoop() {
 	ticker := time.NewTicker(sr.config.TickInterval)
 	defer ticker.Stop()
 
+	// Auto-save ticker (every 30 seconds)
+	saveTicker := time.NewTicker(30 * time.Second)
+	defer saveTicker.Stop()
+
 	for {
 		select {
 		case <-sr.ctx.Done():
 			return
+		case <-saveTicker.C:
+			sr.persistState()
 		case <-ticker.C:
 			sr.mu.RLock()
 			state := sr.state
@@ -297,6 +371,7 @@ func (sr *SimulationRunner) runLoop() {
 
 			// Perform tick
 			if err := sr.tick(int64(speed)); err != nil {
+				fmt.Printf("Simulation error: %v\n", err)
 				sr.mu.Lock()
 				sr.state = RunnerError
 				sr.mu.Unlock()
@@ -311,64 +386,164 @@ func (sr *SimulationRunner) tick(yearsToAdvance int64) error {
 	sr.mu.Lock()
 	defer sr.mu.Unlock()
 
-	// Call tick handler
+	// Run V2 Simulation Step(s)
+	// We run years one by one to ensure proper granularity of events
+	for i := int64(0); i < yearsToAdvance; i++ {
+		sr.popSim.SimulateYear()
+
+		// Periodic Evolution (every 1000 years)
+		if sr.popSim.CurrentYear%1000 == 0 {
+			sr.popSim.ApplyEvolution()
+			sr.popSim.ApplyCoEvolution()
+			sr.popSim.ApplyGeneticDrift()
+			sr.popSim.ApplySexualSelection()
+		}
+
+		// Speciation & Migration (every 10000 years)
+		if sr.popSim.CurrentYear%10000 == 0 {
+			sr.popSim.UpdateOxygenLevel()
+			sr.popSim.ApplyOxygenEffects()
+			if newSpecies := sr.popSim.CheckSpeciation(); newSpecies > 0 {
+				sr.broadcastEvent(RunnerEvent{
+					Year:        sr.popSim.CurrentYear,
+					Type:        "speciation",
+					Description: fmt.Sprintf("%d new species evolved", newSpecies),
+					Importance:  7,
+				})
+			}
+			sr.popSim.ApplyMigrationCycle()
+		}
+
+		// Check for events logged by the simulator this year
+		if len(sr.popSim.Events) > 0 {
+			for _, evtMsg := range sr.popSim.Events {
+				sr.broadcastEvent(RunnerEvent{
+					Year:        sr.popSim.CurrentYear,
+					Type:        "sim_event",
+					Description: evtMsg,
+					Importance:  5,
+				})
+			}
+		}
+	}
+
+	// Update local state
+	sr.currentYear = sr.popSim.CurrentYear
+	sr.yearsSimulated += yearsToAdvance
+	sr.tickCount++
+	sr.lastTickTime = time.Now()
+
+	// External Tick Handler (optional, for legacy hooks)
 	if sr.tickHandler != nil {
 		if err := sr.tickHandler(sr.currentYear, yearsToAdvance); err != nil {
 			return err
 		}
 	}
 
-	// Advance time
-	sr.currentYear += yearsToAdvance
-	sr.yearsSimulated += yearsToAdvance
-	sr.tickCount++
-	sr.lastTickTime = time.Now()
-
 	// Check for snapshot
 	if sr.currentYear-sr.lastSnapshotYear >= sr.config.SnapshotInterval {
 		sr.createSnapshot()
 	}
 
-	// Accumulate Divine Energy over time
+	// Accumulate Divine Energy over time (Turning Point system)
 	if sr.turningPointManager != nil {
 		sr.turningPointManager.AccumulateEnergy(sr.currentYear)
 	}
 
-	// Check for turning points every 100,000 years
+	// Check for turning points
+	// Use slightly randomized check frequency to avoid performance spikes
 	if sr.turningPointManager != nil && sr.currentYear%100000 == 0 && sr.currentYear > 0 {
-		// Get relevant stats for turning point check (simplified for now)
+		// Use stats from PopSim
+		pop, species, extinct := sr.popSim.GetStats()
+		_ = pop // unused
+
 		tp := sr.turningPointManager.CheckForTurningPoint(
 			sr.currentYear,
-			0,   // totalSpecies - would need to be passed in via tick handler
-			0,   // recentExtinctions
-			nil, // newSapientSpecies
-			"",  // significantEvent
+			int(species),
+			int(extinct), // TODO: track recent extinctions only?
+			nil,          // newSapientSpecies
+			"",           // significantEvent
 		)
 		if tp != nil && sr.config.PauseOnTurning {
 			sr.state = RunnerPaused
-			// Call turning point handler (unlocked to allow resolution)
+			sr.broadcastEvent(RunnerEvent{
+				Year:        sr.currentYear,
+				Type:        "turning_point",
+				Description: fmt.Sprintf("Turning Point Reached: %s", tp.Title),
+				Importance:  10,
+			})
+			// Call turning point handler
 			if sr.turningPointHandler != nil {
 				sr.mu.Unlock()
 				_ = sr.turningPointHandler(tp)
 				sr.mu.Lock()
 			}
+			// Force save on turning point
+			go sr.persistState()
 		}
 	}
 
 	// Check for max year
 	if sr.config.MaxYearTarget > 0 && sr.currentYear >= sr.config.MaxYearTarget {
 		sr.state = RunnerPaused
+		sr.broadcastEvent(RunnerEvent{
+			Year:        sr.currentYear,
+			Type:        "system",
+			Description: "Simulation reached target year",
+			Importance:  1,
+		})
 	}
 
 	return nil
 }
 
+// persistState saves both the runner status and the simulation blob
+func (sr *SimulationRunner) persistState() {
+	if sr.stateRepo != nil {
+		_ = sr.SaveState(sr.stateRepo) // Save lightweight state
+	}
+	if sr.snapshotRepo != nil && sr.popSim != nil {
+		sr.mu.RLock()
+		// Make a copy or handle concurrency?
+		// For now we lock during save, which might pause sim briefly.
+		// Optimized: Save logic handles serialization.
+		err := sr.snapshotRepo.SaveSnapshot(context.Background(), sr.config.WorldID, sr.popSim)
+		sr.mu.RUnlock()
+		if err != nil {
+			fmt.Printf("Failed to persist simulation state: %v\n", err)
+		} else {
+			// fmt.Printf("Persisted state at year %d\n", sr.currentYear)
+		}
+	}
+}
+
+// broadcastEvent sends an event to the handler
+func (sr *SimulationRunner) broadcastEvent(event RunnerEvent) {
+	sr.AddEvent(event)
+	if sr.eventBroadcastHandler != nil {
+		// Non-blocking send ideally
+		sr.eventBroadcastHandler(event)
+	}
+}
+
 // createSnapshot creates a new snapshot
 func (sr *SimulationRunner) createSnapshot() {
+	// Simple metadata snapshot for now
+	// If popSim is not initialized, abort
+	if sr.popSim == nil {
+		return
+	}
+
+	pop, species, _ := sr.popSim.GetStats() // Get stats from V2 sim
+	_ = pop
+
 	snapshot := &Snapshot{
-		WorldID:   sr.config.WorldID,
-		Year:      sr.currentYear,
-		CreatedAt: time.Now(),
+		WorldID:       sr.config.WorldID,
+		Year:          sr.currentYear,
+		CreatedAt:     time.Now(),
+		TotalSpecies:  int(species),
+		ExtantSpecies: int(species), // distinct from total if tracking history
+		SapientCount:  0,            // TODO: Track sapients
 	}
 
 	sr.snapshots = append(sr.snapshots, snapshot)
@@ -376,7 +551,6 @@ func (sr *SimulationRunner) createSnapshot() {
 
 	// Call snapshot handler (without lock)
 	if sr.snapshotHandler != nil {
-		// Unlock temporarily for handler
 		sr.mu.Unlock()
 		sr.snapshotHandler(snapshot)
 		sr.mu.Lock()
@@ -385,9 +559,6 @@ func (sr *SimulationRunner) createSnapshot() {
 
 // AddEvent records a simulation event
 func (sr *SimulationRunner) AddEvent(event RunnerEvent) {
-	sr.mu.Lock()
-	defer sr.mu.Unlock()
-
 	sr.recentEvents = append(sr.recentEvents, event)
 
 	// Keep only recent events (last 100)
@@ -480,4 +651,9 @@ func (sr *SimulationRunner) TriggerTurningPoint(title, description string) *Turn
 // GetTurningPointManager returns the turning point manager
 func (sr *SimulationRunner) GetTurningPointManager() *TurningPointManager {
 	return sr.turningPointManager
+}
+
+// Helper to randomly pick an element (used by tests mostly)
+func pickRandom[T any](rng *rand.Rand, slice []T) T {
+	return slice[rng.Intn(len(slice))]
 }

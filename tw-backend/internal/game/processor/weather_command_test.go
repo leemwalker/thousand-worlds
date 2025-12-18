@@ -58,7 +58,7 @@ func TestHandleWeather_GodMode(t *testing.T) {
 	// We need a real LookService if we want to avoid panic if processor uses it?
 	// Processor uses lookService in handleLook. handleWeather doesn't use it.
 
-	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, weatherService, nil, nil, nil, nil, nil, nil, nil)
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, weatherService, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	// Setup Client
 	worldID := uuid.New()
 	client := &mockClient{

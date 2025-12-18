@@ -205,6 +205,10 @@ func main() {
 	craftingRepo := crafting.NewPostgresRepository(dbPool)
 	craftingService := crafting.NewService(craftingRepo, inventoryService, worldEntityService)
 
+	// Initialize simulation persistence
+	simSnapshotRepo := ecosystem.NewSimulationSnapshotRepository(db)
+	runnerStateRepo := ecosystem.NewRunnerStateRepository(db)
+
 	// Initialize game processor
 	gameProcessor := processor.NewGameProcessor(
 		authRepo,
@@ -222,6 +226,8 @@ func main() {
 		inventoryService,
 		interactionService,
 		craftingService,
+		simSnapshotRepo,
+		runnerStateRepo,
 	)
 
 	// Create and start the Hub

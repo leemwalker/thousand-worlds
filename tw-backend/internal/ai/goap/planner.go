@@ -1,7 +1,10 @@
 package ai
 
 import (
+	"fmt"
 	"math"
+	"sort"
+	"strings"
 	"tw-backend/internal/ecosystem/state"
 )
 
@@ -64,19 +67,28 @@ func (p *Planner) Plan(startState map[string]interface{}, goalState map[string]i
 		return true
 	}
 
-	queue := []*node{{state: startState, cost: 0, heuristic: 0}}
-
 	// Visited map to prevent cycles
-	// Key is a simple serialization of the state
 	visited := make(map[string]float64)
 
 	stateKey := func(state map[string]interface{}) string {
-		// Naive serialization for MVP
-		// In a real system, we'd sort keys or use a hash
-		return "state"
+		keys := make([]string, 0, len(state))
+		for k := range state {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		var b strings.Builder
+		for _, k := range keys {
+			b.WriteString(k)
+			b.WriteString(":")
+			b.WriteString(fmt.Sprintf("%v", state[k]))
+			b.WriteString(";")
+		}
+		return b.String()
 	}
-	_ = stateKey // Suppress unused for now
-	_ = visited
+
+	queue := []*node{{state: startState, cost: 0, heuristic: 0}}
+	visited[stateKey(startState)] = 0
 
 	for len(queue) > 0 {
 		// Pop lowest cost
@@ -90,15 +102,9 @@ func (p *Planner) Plan(startState map[string]interface{}, goalState map[string]i
 		}
 		queue = append(queue[:idx], queue[idx+1:]...)
 
-		// Simple cycle detection based on cost alone isn't enough, but for MVP let's assume acyclic
-		// or limited depth.
-		// To fix the lint, we just remove the unused variable if we aren't using it yet.
-		// OR better, we actually implement it.
-		// Let's remove 'visited' for now to fix the lint quickly, as state hashing is complex with map[string]interface{}
-
 		if satisfies(current.state, goalState) {
 			// Reconstruct path
-			var plan []Action
+			plan := make([]Action, 0)
 			for n := current; n.action != nil; n = n.parent {
 				plan = append([]Action{*n.action}, plan...)
 			}
@@ -118,11 +124,20 @@ func (p *Planner) Plan(startState map[string]interface{}, goalState map[string]i
 					newState[k] = v
 				}
 
+				newCost := current.cost + action.Cost
+				sKey := stateKey(newState)
+
+				// Check availability
+				if prevCost, seen := visited[sKey]; seen && prevCost <= newCost {
+					continue
+				}
+				visited[sKey] = newCost
+
 				newNode := &node{
 					state:     newState,
 					action:    &action,
 					parent:    current,
-					cost:      current.cost + action.Cost,
+					cost:      newCost,
 					heuristic: 1.0, // Trivial heuristic
 				}
 				queue = append(queue, newNode)

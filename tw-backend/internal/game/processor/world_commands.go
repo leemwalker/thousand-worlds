@@ -11,7 +11,6 @@ import (
 	"tw-backend/internal/ecosystem/pathogen"
 	"tw-backend/internal/ecosystem/population"
 	"tw-backend/internal/ecosystem/sapience"
-	"tw-backend/internal/ecosystem/state"
 	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/weather"
 
@@ -1024,7 +1023,7 @@ func (p *GameProcessor) handleWorldSpeed(ctx context.Context, client websocket.G
 }
 
 // getOrCreateRunner gets an existing runner or creates a new one for the world
-// If creating a new runner, this also initializes geology and life if not already done
+// now initialized with V2 population simulator and persistence
 func (p *GameProcessor) getOrCreateRunner(worldID uuid.UUID) *ecosystem.SimulationRunner {
 	if p.worldRunners == nil {
 		p.worldRunners = make(map[uuid.UUID]*ecosystem.SimulationRunner)
@@ -1033,46 +1032,40 @@ func (p *GameProcessor) getOrCreateRunner(worldID uuid.UUID) *ecosystem.Simulati
 		return runner
 	}
 
-	// Initialize geology if not exists (ensures world has terrain)
-	geology, exists := p.worldGeology[worldID]
-	if !exists {
-		// Default circumference (Earth-like: 40,000 km = 40,000,000 m)
-		circumference := 40_000_000.0
-
-		// Use world ID bytes as seed for determinism
-		seed := int64(worldID[0])<<56 | int64(worldID[1])<<48 |
-			int64(worldID[2])<<40 | int64(worldID[3])<<32 |
-			int64(worldID[4])<<24 | int64(worldID[5])<<16 |
-			int64(worldID[6])<<8 | int64(worldID[7])
-
-		geology = ecosystem.NewWorldGeology(worldID, seed, circumference)
-		p.worldGeology[worldID] = geology
-	}
-
-	// Initialize terrain and life if first run
-	if !geology.IsInitialized() {
-		geology.InitializeGeology()
-
-		// Spawn initial creatures based on generated biomes
-		if len(geology.Biomes) > 0 {
-			p.ecosystemService.SpawnBiomes(worldID, geology.Biomes)
-		}
-	}
-
-	// Register geology with map service for minimap biome rendering
-	if p.mapService != nil {
-		p.mapService.SetWorldGeology(worldID, geology)
-	}
-
+	// Create config
 	config := ecosystem.DefaultConfig(worldID)
-	runner := ecosystem.NewSimulationRunner(config)
+	// Pass repositories
+	runner := ecosystem.NewSimulationRunner(config, p.simSnapshotRepo, p.runnerStateRepo)
 
-	// Set up tick handler to run actual simulation logic
-	// This is critical - without this, the runner just advances time without simulating life
-	runner.SetTickHandler(func(currentYear int64, yearsElapsed int64) error {
-		// Run ecosystem tick for each elapsed year (simplified - runs breeding check)
-		p.runEcosystemTick(worldID, currentYear, yearsElapsed)
-		return nil
+	// Initialize Simulator (Load from DB or Create New)
+	// Use world ID as seed part 1
+	seed := int64(worldID[0])<<56 | int64(worldID[1])<<48 |
+		int64(worldID[2])<<40 | int64(worldID[3])<<32 |
+		int64(worldID[4])<<24 | int64(worldID[5])<<16 |
+		int64(worldID[6])<<8 | int64(worldID[7])
+
+	// Initialize (this handles loading snapshot if available)
+	runner.InitializePopulationSimulator(seed)
+
+	// Set handlers
+	runner.SetEventBroadcastHandler(func(event ecosystem.RunnerEvent) {
+		// Broadcast to all watchers in this world
+		// We can get clients from Hub
+		if p.Hub != nil {
+			clients := p.Hub.GetClientsByWorldID(worldID)
+			for _, c := range clients {
+				// Check if watcher (optional, or just broadcast to everyone for now)
+				// For 'world run', maybe everyone should see it if they are "watching" via UI
+				// But specifically Watcher role players get it.
+
+				// Using "sim_event" message type
+				c.SendGameMessage("sim_event", event.Description, map[string]interface{}{
+					"year":       event.Year,
+					"type":       event.Type,
+					"importance": event.Importance,
+				})
+			}
+		}
 	})
 
 	p.worldRunners[worldID] = runner
@@ -1103,114 +1096,4 @@ func (p *GameProcessor) getSeasonFromYear(simulatedYear int64) weather.Season {
 	}
 }
 
-// runEcosystemTick runs one tick of ecosystem simulation for the async runner
-// This handles entity needs and reproduction to make life forms actually breed
-func (p *GameProcessor) runEcosystemTick(worldID uuid.UUID, currentYear int64, yearsElapsed int64) {
-	// Update entity needs (hunger, reproduction urge, etc.)
-	for _, entity := range p.ecosystemService.Entities {
-		if entity.WorldID != worldID {
-			continue
-		}
-		// Age entity
-		entity.Age += yearsElapsed
-
-		// Increase hunger over time (simplified aging/needs)
-		entity.Needs.Hunger += float64(yearsElapsed) * 0.01
-		if entity.Needs.Hunger > 100 {
-			entity.Needs.Hunger = 100
-		}
-
-		// Increase reproduction urge over time
-		entity.Needs.ReproductionUrge += float64(yearsElapsed) * 0.1
-
-		// Clamp urge to 100
-		if entity.Needs.ReproductionUrge > 100 {
-			entity.Needs.ReproductionUrge = 100
-		}
-	}
-
-	// Run reproduction (entities with high urge will breed)
-	p.processReproduction()
-
-	// Every 1000 simulation years, handle entity death to maintain population
-	if currentYear%1000 == 0 {
-		p.processEntityTurnover(worldID)
-	}
-}
-
-// processEntityTurnover manages entity death to maintain ecosystem balance
-func (p *GameProcessor) processEntityTurnover(worldID uuid.UUID) {
-	// Remove entities that are starving (natural death)
-	var toRemove []uuid.UUID
-	for id, entity := range p.ecosystemService.Entities {
-		if entity.WorldID != worldID {
-			continue
-		}
-		// Die from starvation if hunger is maxed
-		if entity.Needs.Hunger >= 100 {
-			toRemove = append(toRemove, id)
-		}
-	}
-
-	for _, id := range toRemove {
-		delete(p.ecosystemService.Entities, id)
-		delete(p.ecosystemService.Behaviors, id)
-	}
-}
-
-// processReproduction handles reproduction for entities with high reproduction urge
-func (p *GameProcessor) processReproduction() {
-	em := p.ecosystemService.GetEvolutionManager()
-	if em == nil {
-		return
-	}
-
-	// Population cap - no reproduction if at capacity
-	const maxPopulation = 2000
-	if len(p.ecosystemService.Entities) >= maxPopulation {
-		return
-	}
-
-	// Collect entities ready to reproduce (urge > 80)
-	var readyToMate []*state.LivingEntityState
-	for _, e := range p.ecosystemService.Entities {
-		if e.Needs.ReproductionUrge > 80 {
-			readyToMate = append(readyToMate, e)
-		}
-	}
-
-	// Match pairs of same species
-	mated := make(map[uuid.UUID]bool)
-	for i, e1 := range readyToMate {
-		if mated[e1.EntityID] {
-			continue
-		}
-		for j := i + 1; j < len(readyToMate); j++ {
-			e2 := readyToMate[j]
-			if mated[e2.EntityID] {
-				continue
-			}
-			// Same species required
-			if e1.Species != e2.Species {
-				continue
-			}
-
-			// Reproduce
-			child, err := em.Reproduce(e1, e2)
-			if err != nil {
-				continue
-			}
-
-			// Add child to ecosystem
-			p.ecosystemService.Entities[child.EntityID] = child
-
-			// Reset parents' urge
-			e1.Needs.ReproductionUrge = 0
-			e2.Needs.ReproductionUrge = 0
-
-			mated[e1.EntityID] = true
-			mated[e2.EntityID] = true
-			break
-		}
-	}
-}
+// legacy runEcosystemTick removed - replaced by V2 logic in runner.tick()
