@@ -28,6 +28,7 @@ export interface PortalInfo {
 }
 
 export type RenderQuality = 'low' | 'medium' | 'high';
+export type RenderStyle = 'standard' | 'geology';
 
 // RGB Struct for optimization
 interface RGB { r: number; g: number; b: number; }
@@ -92,7 +93,9 @@ export class MapRenderer {
     private canvas: HTMLCanvasElement;
     private ctx: CanvasRenderingContext2D;
     private tileSize: number = 16;
+    private tileSize: number = 16;
     private quality: RenderQuality = 'low';
+    private style: RenderStyle = 'standard';
 
     // Internal state
     private running: boolean = false;
@@ -173,6 +176,13 @@ export class MapRenderer {
         }
     }
 
+    setStyle(style: RenderStyle) {
+        if (this.style !== style) {
+            this.style = style;
+            this.dirty = true;
+        }
+    }
+
     updateData(playerPos: Position, tiles: VisibleTile[], scale: number = 1, forceCameraToPlayer: boolean = false) {
         this.playerPos = playerPos;
         this.visibleTiles = tiles;
@@ -240,12 +250,32 @@ export class MapRenderer {
     }
 
     private renderTile(tile: VisibleTile, x: number, y: number) {
+        if (this.style === 'geology') {
+            this.renderGeologyTile(tile, x, y);
+            return;
+        }
+
         if (this.quality === 'low') {
             this.renderAsciiTile(tile, x, y);
         } else if (this.quality === 'medium') {
             this.renderIconTile(tile, x, y);
         } else {
             this.renderEmojiTile(tile, x, y);
+        }
+    }
+
+    private renderGeologyTile(tile: VisibleTile, x: number, y: number) {
+        // Pure elevation rendering
+        this.ctx.fillStyle = this.getHypsometricColorString(tile.elevation);
+        this.ctx.fillRect(x - this.tileSize / 2, y - this.tileSize / 2, this.tileSize, this.tileSize);
+
+        // Optional: Grid lines for better readability
+        // this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+        // this.ctx.strokeRect(x - this.tileSize / 2, y - this.tileSize / 2, this.tileSize, this.tileSize);
+
+        if (tile.occluded) {
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            this.ctx.fillRect(x - this.tileSize / 2, y - this.tileSize / 2, this.tileSize, this.tileSize);
         }
     }
 
@@ -360,6 +390,13 @@ export class MapRenderer {
     }
 
     private renderPlayer(x: number, y: number) {
+        // In geology mode, maybe hide player if strictly requested? 
+        // User said "no entities". But player position is usually needed for context.
+        // I'll keep it for now as it's the specific "You" marker, not "entities" of the world.
+        if (this.style === 'geology' && this.viewMode === 'atlas') {
+            // In atlas mode geology, allow player marker to show where they are in the world
+        }
+
         // Player rendering logic (simplified for brevity, similar to original)
         this.ctx.fillStyle = this.quality === 'high' ? 'rgba(255, 215, 0, 0.3)' : '#FFD700';
         if (this.quality === 'high') {

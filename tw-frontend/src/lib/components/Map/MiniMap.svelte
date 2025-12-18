@@ -16,6 +16,7 @@
 
     $: if (renderer && $mapStore.data) {
         renderer.setQuality($mapStore.data.render_quality || "low");
+        renderer.setStyle("geology");
         renderer.setTileSize(tileSize);
         updateMapData();
     }
@@ -29,6 +30,7 @@
 
             if ($mapStore.data) {
                 renderer.setQuality($mapStore.data.render_quality || "low");
+                renderer.setStyle("geology");
                 updateMapData();
             }
         }
