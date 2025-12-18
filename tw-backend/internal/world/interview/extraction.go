@@ -87,6 +87,14 @@ Return ONLY a valid JSON object with these exact fields (use null for missing da
   "landWaterRatio": "string - land/water distribution",
   "uniqueFeatures": ["array of unique geographical features"],
   "extremeEnvironments": ["array of extreme environments"],
+  "climateRange": "string - climate description",
+  "landWaterRatio": "string - land/water distribution",
+  "uniqueFeatures": ["array of unique geographical features"],
+  "extremeEnvironments": ["array of extreme environments"],
+  "waterLevel": "string - specific water level preference (e.g. 'high', 'low', '50%') or null",
+  "simulateGeology": true,
+  "simulateLife": true,
+  "disableDiseases": false,
   "sentientSpecies": ["array of sentient species - REQUIRED, at least one"],
   "politicalStructure": "string - political system",
   "culturalValues": ["array of main cultural values"],
@@ -127,6 +135,10 @@ func parseExtractionResponse(jsonStr string) (*WorldConfiguration, error) {
 		LandWaterRatio      string   `json:"landWaterRatio"`
 		UniqueFeatures      []string `json:"uniqueFeatures"`
 		ExtremeEnvironments []string `json:"extremeEnvironments"`
+		WaterLevel          string   `json:"waterLevel"`
+		SimulateGeology     bool     `json:"simulateGeology"`
+		SimulateLife        bool     `json:"simulateLife"`
+		DisableDiseases     bool     `json:"disableDiseases"`
 		SentientSpecies     []string `json:"sentientSpecies"`
 		PoliticalStructure  string   `json:"politicalStructure"`
 		CulturalValues      []string `json:"culturalValues"`
@@ -155,6 +167,10 @@ func parseExtractionResponse(jsonStr string) (*WorldConfiguration, error) {
 		LandWaterRatio:      raw.LandWaterRatio,
 		UniqueFeatures:      raw.UniqueFeatures,
 		ExtremeEnvironments: raw.ExtremeEnvironments,
+		WaterLevel:          raw.WaterLevel,
+		SimulateGeology:     raw.SimulateGeology,
+		SimulateLife:        raw.SimulateLife,
+		DisableDiseases:     raw.DisableDiseases,
 		SentientSpecies:     raw.SentientSpecies,
 		PoliticalStructure:  raw.PoliticalStructure,
 		CulturalValues:      raw.CulturalValues,

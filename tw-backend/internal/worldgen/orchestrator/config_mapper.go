@@ -17,6 +17,8 @@ type WorldConfig interface {
 	GetGeologicalAge() string
 	GetSentientSpecies() []string
 	GetResourceDistribution() map[string]float64
+	GetSimulationFlags() map[string]bool
+	GetSeaLevel() *float64
 }
 
 // ConfigMapper converts WorldConfiguration to GenerationParams
@@ -87,6 +89,41 @@ func (m *ConfigMapper) MapToParams(config WorldConfig) (*GenerationParams, error
 
 	// Map sentient species to initial species count
 	params.InitialSpeciesCount = int(float64(calculateInitialSpeciesCount(config)) * params.BioDiversityRate)
+
+	// Map simulation flags
+	flags := config.GetSimulationFlags()
+	// Default to true if not present (or if config doesn't implement this yet)
+	params.SimulateGeology = true
+	params.SimulateLife = true
+
+	if val, ok := flags["simulate_geology"]; ok {
+		params.SimulateGeology = val
+	}
+	if val, ok := flags["simulate_life"]; ok {
+		params.SimulateLife = val
+	}
+	if val, ok := flags["disable_diseases"]; ok {
+		params.DisableDiseases = val
+	}
+
+	// Helper defaults for "only_" flags which imply disabling others
+	// If "only geology" is set, disable life
+	if val, ok := flags["only_geology"]; ok && val {
+		params.SimulateGeology = true
+		params.SimulateLife = false
+	}
+	// If "only life" is set, disable geology (though geology is needed for biome/map...
+	// maybe this just means no catastrophes/plate movement simulations?)
+	// The requirement says "only simulate lifeforms, no catastrophes/geological features".
+	// Basic terrain is needed for life. So we assume this means static terrain generation is fine,
+	// but skip active geological simulation steps if any.
+	if val, ok := flags["only_life"]; ok && val {
+		params.SimulateLife = true
+		params.SimulateGeology = false
+	}
+
+	// Map sea level override
+	params.SeaLevelOverride = config.GetSeaLevel()
 
 	return params, nil
 }

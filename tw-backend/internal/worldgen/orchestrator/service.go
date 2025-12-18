@@ -50,6 +50,10 @@ func (s *GeneratorService) GenerateWorld(
 	}
 
 	// 2. Generate geography
+	if params.SeaLevelOverride != nil {
+		params.LandWaterRatio = 1.0 - clamp(*params.SeaLevelOverride, 0.0, 1.0)
+	}
+
 	geoMap, seaLevel, err := s.generateGeography(params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate geography: %w", err)
@@ -59,12 +63,20 @@ func (s *GeneratorService) GenerateWorld(
 	generated.Metadata.LandRatio = params.LandWaterRatio
 
 	// 3. Generate weather patterns
-	weatherStates, weatherCells, err := s.generateWeather(params, geoMap)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate weather: %w", err)
+	// Only generate full weather simulation if geology simulation is enabled
+	// If disabled, we might want a static simple weather or skip it
+	if params.SimulateGeology {
+		weatherStates, weatherCells, err := s.generateWeather(params, geoMap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate weather: %w", err)
+		}
+		generated.Weather = weatherStates
+		generated.WeatherCells = weatherCells
+	} else {
+		// Initialize empty weather for basic functionality
+		generated.Weather = []*weather.WeatherState{}
+		generated.WeatherCells = []*weather.GeographyCell{}
 	}
-	generated.Weather = weatherStates
-	generated.WeatherCells = weatherCells
 
 	// 4. Generate mineral deposits
 	mineralDeposits, err := s.generateMinerals(params, geoMap)
@@ -74,11 +86,15 @@ func (s *GeneratorService) GenerateWorld(
 	generated.Minerals = mineralDeposits
 
 	// 5. Generate species
-	species, err := s.generateSpecies(params, geoMap)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate species: %w", err)
+	if params.SimulateLife {
+		species, err := s.generateSpecies(params, geoMap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate species: %w", err)
+		}
+		generated.Species = species
+	} else {
+		generated.Species = []*evolution.Species{}
 	}
-	generated.Species = species
 
 	// Record generation time
 	generated.Metadata.GenerationTime = time.Since(startTime)

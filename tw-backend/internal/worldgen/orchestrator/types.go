@@ -58,7 +58,14 @@ type GenerationParams struct {
 	// Species parameters
 	InitialSpeciesCount int
 	BioDiversityRate    float64 // Multiplier for species diversity
-	SpeciesTemplates    []evolution.Species
+
+	SpeciesTemplates []evolution.Species
+
+	// Simulation flags
+	SimulateGeology  bool     // If true, catastrophes and geological shifts occur
+	SimulateLife     bool     // If true, species are generated
+	DisableDiseases  bool     // If true, no diseases are generated
+	SeaLevelOverride *float64 // If non-nil, overrides the land/water ratio calc
 
 	// Random seed
 	Seed int64

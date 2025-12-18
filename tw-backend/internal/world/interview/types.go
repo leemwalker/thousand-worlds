@@ -1,6 +1,8 @@
 package interview
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -75,11 +77,18 @@ type WorldConfiguration struct {
 	MagicImpact  string
 
 	// Geography
-	PlanetSize          string
-	ClimateRange        string
-	LandWaterRatio      string
-	UniqueFeatures      []string
+	PlanetSize     string
+	ClimateRange   string
+	LandWaterRatio string
+	UniqueFeatures []string
+
 	ExtremeEnvironments []string
+	WaterLevel          string // "high", "low", "50%", etc.
+
+	// Simulation Flags
+	SimulateGeology bool
+	SimulateLife    bool
+	DisableDiseases bool
 
 	// Culture
 	SentientSpecies    []string
@@ -107,6 +116,41 @@ func (w *WorldConfiguration) GetGeologicalAge() string     { return w.Geological
 func (w *WorldConfiguration) GetSentientSpecies() []string { return w.SentientSpecies }
 func (w *WorldConfiguration) GetResourceDistribution() map[string]float64 {
 	return w.ResourceDistribution
+}
+func (w *WorldConfiguration) GetSimulationFlags() map[string]bool {
+	return map[string]bool{
+		"simulate_geology": w.SimulateGeology,
+		"simulate_life":    w.SimulateLife,
+		"disable_diseases": w.DisableDiseases,
+	}
+}
+
+func (w *WorldConfiguration) GetSeaLevel() *float64 {
+	// Parse WaterLevel string if needed, or if we store it as float eventually
+	// For now, let's parse the string "high" -> 0.8, "low" -> 0.2, etc.
+	// Default nil if not set or standard
+	if w.WaterLevel == "" {
+		return nil
+	}
+
+	level := strings.ToLower(w.WaterLevel)
+	var val float64
+	if strings.Contains(level, "high") || strings.Contains(level, "flood") {
+		val = 0.8
+	} else if strings.Contains(level, "low") || strings.Contains(level, "dry") {
+		val = 0.2
+	} else if strings.Contains(level, "%") {
+		// Try parsing percentage
+		var percent float64
+		if _, err := fmt.Sscanf(level, "%f%%", &percent); err == nil {
+			val = percent / 100.0
+		} else {
+			return nil
+		}
+	} else {
+		return nil
+	}
+	return &val
 }
 
 // Status represents the state of an interview

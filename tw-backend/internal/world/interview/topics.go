@@ -21,6 +21,9 @@ var AllTopics = []Topic{
 	// Geological Age
 	{Category: CategoryGeography, Name: "Geological Age", Description: "How old is this world geologically? (Young with sharp peaks, Mature, or Old with smoothed mountains)"},
 
+	// Simulation Preferences
+	{Category: CategoryTheme, Name: "Simulation Preferences", Description: "Customize simulation detail: catastrophe-only, life-only, no diseases, and water level preferences."},
+
 	// Branching Point (Q7)
 	{Category: CategoryTheme, Name: "Branch", Description: "Decision point: Name world or continue."},
 
