@@ -292,27 +292,13 @@ func (p *GameProcessor) handleDirection(ctx context.Context, client websocket.Ga
 
 	// Move the specified distance
 	if distance > 1 {
-		// Watcher long-distance movement - directly update position
-		char, err := p.authRepo.GetCharacter(ctx, charID)
+		// Watcher long-distance movement
+		msg, err := p.spatialService.HandleMovementCommandWithDistance(ctx, charID, direction, float64(distance))
 		if err != nil {
-			client.SendGameMessage("error", "Could not get character info", nil)
+			client.SendGameMessage("error", err.Error(), nil)
 			return nil
 		}
-
-		// Calculate new position based on direction
-		dx, dy := p.getDirectionVector(direction)
-		newX := char.PositionX + float64(dx*distance)
-		newY := char.PositionY + float64(dy*distance)
-
-		// Update position
-		char.PositionX = newX
-		char.PositionY = newY
-		if err := p.authRepo.UpdateCharacter(ctx, char); err != nil {
-			client.SendGameMessage("error", "Failed to move", nil)
-			return nil
-		}
-
-		client.SendGameMessage("movement", fmt.Sprintf("You travel %d units %s to (%.0f, %.0f).", distance, direction, newX, newY), nil)
+		client.SendGameMessage("movement", msg, nil)
 	} else {
 		// Normal single-step movement
 		msg, err := p.spatialService.HandleMovementCommand(ctx, charID, direction)

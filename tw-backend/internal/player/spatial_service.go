@@ -41,8 +41,12 @@ func NewSpatialService(authRepo auth.Repository, worldRepo repository.WorldRepos
 	}
 }
 
-// HandleMovementCommand processes a movement command (n, s, e, w, etc.)
 func (s *SpatialService) HandleMovementCommand(ctx context.Context, charID uuid.UUID, direction string) (string, error) {
+	return s.HandleMovementCommandWithDistance(ctx, charID, direction, 1.0)
+}
+
+// HandleLongDistanceMovement processes a movement command with a specific distance
+func (s *SpatialService) HandleMovementCommandWithDistance(ctx context.Context, charID uuid.UUID, direction string, distance float64) (string, error) {
 	// 1. Get Character
 	char, err := s.authRepo.GetCharacter(ctx, charID)
 	if err != nil {
@@ -61,6 +65,10 @@ func (s *SpatialService) HandleMovementCommand(ctx context.Context, charID uuid.
 		return "Invalid direction. Use north, south, east, or west.", nil
 	}
 
+	// Scale by distance
+	dx *= distance
+	dy *= distance
+
 	// 4. Calculate New Position
 	newX, newY, message, err := s.CalculateNewPosition(ctx, char, world, dx, dy)
 	if err != nil {
@@ -71,14 +79,27 @@ func (s *SpatialService) HandleMovementCommand(ctx context.Context, charID uuid.
 	char.PositionX = newX
 	char.PositionY = newY
 	// Update orientation to match movement direction unless strafing (not implemented)
-	char.OrientationX = dx
-	char.OrientationY = dy
+	// For orientation, we use the normalized direction (original dx, dy before scaling usually, but sign matches)
+	if distance > 0 {
+		// Normalize orientation vector if possible, though simple clamp works for NESW
+		// dx/dy are already scaled.
+		// Orientation expects unit vector?
+		// Check GetDirectionName... it normalizes.
+		// But let's just use the signs or original parseDirection values?
+		// We can re-parse direction for orientation to be clean
+		normDx, normDy, _ := parseDirection(direction)
+		char.OrientationX = normDx
+		char.OrientationY = normDy
+	}
 	char.OrientationZ = 0 // Flat movement
 
 	if err := s.authRepo.UpdateCharacter(ctx, char); err != nil {
 		return "", fmt.Errorf("failed to update character position: %w", err)
 	}
 
+	if distance > 1 {
+		return fmt.Sprintf("You travel %.0f units %s to (%.0f, %.0f). %s", distance, dirName, newX, newY, message), nil
+	}
 	return fmt.Sprintf("You move %s. %s", dirName, message), nil
 }
 
