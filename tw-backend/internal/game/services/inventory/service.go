@@ -28,12 +28,17 @@ func NewService(entityService *entity.Service, repo Repository) *Service {
 }
 
 // AddItem adds an item to a character's inventory
-func (s *Service) AddItem(ctx context.Context, charID uuid.UUID, item Item) error {
-	return s.repo.AddItem(ctx, charID, item, 1)
+func (s *Service) AddItem(ctx context.Context, charID uuid.UUID, itemID uuid.UUID, quantity int, metadata map[string]interface{}) error {
+	return s.repo.AddItem(ctx, charID, itemID, quantity, metadata)
 }
 
-// RemoveItem removes an item from inventory by name (first match)
-func (s *Service) RemoveItem(ctx context.Context, charID uuid.UUID, itemName string) (Item, error) {
+// RemoveItem removes an item from inventory by ID
+func (s *Service) RemoveItem(ctx context.Context, charID uuid.UUID, itemID uuid.UUID, quantity int) error {
+	return s.repo.RemoveItem(ctx, charID, itemID, quantity)
+}
+
+// RemoveItemByName removes an item from inventory by name (first match)
+func (s *Service) RemoveItemByName(ctx context.Context, charID uuid.UUID, itemName string) (Item, error) {
 	// Logic needs to fetch inventory first to find ID by name
 	// PROPOSAL: repository should handle "RemoveByName" or we fetch first?
 	// For P0, let's fetch all and filter.

@@ -16,7 +16,9 @@ import (
 	"tw-backend/cmd/game-server/websocket"
 	"tw-backend/internal/auth"
 	"tw-backend/internal/character"
+	"tw-backend/internal/economy/crafting"
 	"tw-backend/internal/ecosystem"
+	apperrors "tw-backend/internal/errors"
 	"tw-backend/internal/game/constants"
 	"tw-backend/internal/game/formatter"
 	"tw-backend/internal/game/services/combat"
@@ -56,6 +58,7 @@ type GameProcessor struct {
 	combatService      *combat.Service
 	inventoryService   *inventory.Service
 	interactionService *interaction.Service
+	craftingService    *crafting.Service
 
 	// WorldGeology stores geological state per world (worldID -> geology)
 	worldGeology map[uuid.UUID]*ecosystem.WorldGeology
@@ -80,6 +83,7 @@ func NewGameProcessor(
 	combatService *combat.Service,
 	inventoryService *inventory.Service,
 	interactionService *interaction.Service,
+	craftingService *crafting.Service,
 ) *GameProcessor {
 	// Create map service with available dependencies
 	mapSvc := gamemap.NewService(worldRepo, skillsRepo, entityService, lookService, worldEntityService, ecosystemService)
@@ -100,6 +104,7 @@ func NewGameProcessor(
 		combatService:      combatService,
 		inventoryService:   inventoryService,
 		interactionService: interactionService,
+		craftingService:    craftingService,
 		worldGeology:       make(map[uuid.UUID]*ecosystem.WorldGeology),
 	}
 }
@@ -772,9 +777,9 @@ func (p *GameProcessor) handleDrop(ctx context.Context, client websocket.GameCli
 	itemName := *cmd.Target
 
 	// Remove from inventory
-	item, err := p.inventoryService.RemoveItem(ctx, charID, itemName)
+	item, err := p.inventoryService.RemoveItemByName(ctx, charID, itemName)
 	if err != nil {
-		client.SendGameMessage("error", fmt.Sprintf("You don't have a %s.", itemName), nil)
+		client.SendGameMessage("error", fmt.Sprintf("You don't have '%s'.", itemName), nil)
 		return nil
 	}
 
@@ -984,16 +989,39 @@ func (p *GameProcessor) handleTalk(ctx context.Context, client websocket.GameCli
 	return nil
 }
 
-func (p *GameProcessor) handleCraft(_ context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
-	if cmd.Target == nil {
-		return errors.New("item required for crafting")
+func (p *GameProcessor) handleCraft(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+	if cmd.Target == nil || *cmd.Target == "" {
+		return apperrors.NewInvalidInput("What do you want to craft? (usage: craft <item>)")
 	}
 
-	// TODO: Integrate with crafting system
-	client.SendGameMessage("crafting_success", fmt.Sprintf("You successfully crafted %s!", *cmd.Target), map[string]interface{}{
-		"itemName": *cmd.Target,
-		"quality":  "common",
-		"quantity": 1,
+	charID := client.GetCharacterID()
+	recipeName := *cmd.Target
+
+	// 1. Find Recipe
+	recipe, err := p.craftingService.FindRecipeByName(ctx, recipeName)
+	if err != nil {
+		client.SendGameMessage("crafting_error", fmt.Sprintf("You don't know how to craft '%s'.", recipeName), nil)
+		return nil // Not a system error, just user error
+	}
+
+	// 2. Attempt Craft
+	// Note: We're not passing a specific station yet (nil).
+	// Future: Check nearby entities to find the best matching station.
+	// For now, assume hand-crafting or auto-finding station.
+	// To find station: p.worldEntityService.GetEntitiesAt(...)
+
+	result, err := p.craftingService.Craft(ctx, charID, recipe.RecipeID, nil)
+	if err != nil {
+		// Differentiate errors?
+		client.SendGameMessage("crafting_error", fmt.Sprintf("Failed to craft %s: %v", recipeName, err), nil)
+		return nil
+	}
+
+	// 3. Success
+	client.SendGameMessage("crafting_success", fmt.Sprintf("You successfully crafted %s x%d!", recipeName, result.Item.Quantity), map[string]interface{}{
+		"item_id":  result.Item.ItemID.String(),
+		"quantity": result.Item.Quantity,
+		"quality":  result.Item.Quality,
 	})
 
 	p.sendStateUpdate(client)

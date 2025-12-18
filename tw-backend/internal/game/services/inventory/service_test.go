@@ -6,67 +6,65 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-
-	"tw-backend/internal/game/services/entity"
 )
 
 // MockRepository
 type MockRepository struct {
-	mock.Mock
+	items map[uuid.UUID][]InventoryItem
 }
 
-func (m *MockRepository) AddItem(ctx context.Context, charID uuid.UUID, item Item, quantity int) error {
-	args := m.Called(ctx, charID, item, quantity)
-	return args.Error(0)
+func (m *MockRepository) AddItem(ctx context.Context, charID uuid.UUID, itemID uuid.UUID, quantity int, metadata map[string]interface{}) error {
+	if m.items == nil {
+		m.items = make(map[uuid.UUID][]InventoryItem)
+	}
+	m.items[charID] = append(m.items[charID], InventoryItem{
+		CharacterID: charID,
+		ItemID:      itemID,
+		Quantity:    quantity,
+		Metadata:    metadata,
+		Name:        metadata["name"].(string), // rudimentary support for test
+	})
+	return nil
 }
 
 func (m *MockRepository) RemoveItem(ctx context.Context, charID uuid.UUID, itemID uuid.UUID, quantity int) error {
-	args := m.Called(ctx, charID, itemID, quantity)
-	return args.Error(0)
+	return nil // Mock implementation
 }
 
 func (m *MockRepository) GetInventory(ctx context.Context, charID uuid.UUID) ([]InventoryItem, error) {
-	args := m.Called(ctx, charID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]InventoryItem), args.Error(1)
+	return m.items[charID], nil
 }
 
-func TestInventoryService_AddItem(t *testing.T) {
-	// Setup
-	mockRepo := new(MockRepository)
-	entSvc := entity.NewService()
-	svc := NewService(entSvc, mockRepo)
+func TestService_AddItem(t *testing.T) {
+	mockRepo := &MockRepository{}
+	svc := NewService(nil, mockRepo)
 
 	ctx := context.Background()
 	charID := uuid.New()
-	item := Item{ID: uuid.New(), Name: "Sword", Description: "Sharp"}
+	itemID := uuid.New()
+	metadata := map[string]interface{}{"name": "Test Item"}
 
-	// Expectation
-	mockRepo.On("AddItem", ctx, charID, item, 1).Return(nil)
-
-	// Test
-	err := svc.AddItem(ctx, charID, item)
-
-	// Verify
+	err := svc.AddItem(ctx, charID, itemID, 1, metadata)
 	assert.NoError(t, err)
-	mockRepo.AssertExpectations(t)
+
+	items, _ := mockRepo.GetInventory(ctx, charID)
+	assert.Len(t, items, 1)
+	assert.Equal(t, itemID, items[0].ItemID)
 }
 
 func TestInventoryService_GetInventory(t *testing.T) {
-	mockRepo := new(MockRepository)
-	entSvc := entity.NewService()
-	svc := NewService(entSvc, mockRepo)
+	mockRepo := &MockRepository{}
+	svc := NewService(nil, mockRepo)
 
 	ctx := context.Background()
 	charID := uuid.New()
-	expectedItems := []InventoryItem{
-		{ID: uuid.New(), CharacterID: charID, Name: "Shield"},
-	}
 
-	mockRepo.On("GetInventory", ctx, charID).Return(expectedItems, nil)
+	// Pre-populate mock repo
+	mockRepo.items = map[uuid.UUID][]InventoryItem{
+		charID: {
+			{ID: uuid.New(), CharacterID: charID, Name: "Shield"},
+		},
+	}
 
 	items, err := svc.GetInventory(ctx, charID)
 	assert.NoError(t, err)

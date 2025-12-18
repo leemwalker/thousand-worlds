@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
-	"tw-backend/internal/auth"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+	"tw-backend/internal/auth"
 
 	"github.com/nats-io/nats.go"
 	"github.com/redis/go-redis/v9"
@@ -67,6 +67,7 @@ func main() {
 	rateLimiter := auth.NewRateLimiter(redisClient)
 
 	// Initialize Handler
+	// Explicitly cast to interfaces to ensure compliance, though Go does this implicitly
 	handler := NewAuthHandler(nc, tokenManager, passwordHasher, sessionManager, rateLimiter)
 
 	// Subscribe to Login

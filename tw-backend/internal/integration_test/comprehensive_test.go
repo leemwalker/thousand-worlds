@@ -123,7 +123,7 @@ func TestComprehensiveIntegration(t *testing.T) {
 	lookService := look.NewLookService(worldRepo, nil, entitySvc, interviewRepo, authRepo, nil, nil)
 	interviewSvc := interview.NewServiceWithRepository(nil, interviewRepo, worldRepo)
 	spatialSvc := player.NewSpatialService(authRepo, worldRepo, nil)
-	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, entitySvc, interviewSvc, spatialSvc, nil, nil, nil, nil)
+	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, nil, lookService, entitySvc, interviewSvc, spatialSvc, nil, nil, nil, nil, nil, nil, nil, nil)
 	hub := websocket.NewHub(gameProcessor)
 	gameProcessor.SetHub(hub)
 

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -9,11 +10,15 @@ import (
 	"github.com/google/uuid"
 )
 
-type EntryHandler struct {
-	service *entry.Service
+type EntryProvider interface {
+	GetEntryOptions(ctx context.Context, worldID uuid.UUID) (*entry.EntryOptions, error)
 }
 
-func NewEntryHandler(service *entry.Service) *EntryHandler {
+type EntryHandler struct {
+	service EntryProvider
+}
+
+func NewEntryHandler(service EntryProvider) *EntryHandler {
 	return &EntryHandler{
 		service: service,
 	}

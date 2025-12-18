@@ -22,6 +22,7 @@ import (
 	"tw-backend/internal/ai/ollama"
 	"tw-backend/internal/auth"
 	"tw-backend/internal/character"
+	"tw-backend/internal/economy/crafting"
 	"tw-backend/internal/ecosystem"
 	"tw-backend/internal/eventstore"
 	"tw-backend/internal/game/entry"
@@ -200,6 +201,10 @@ func main() {
 	// Initialize interaction service
 	interactionService := interaction.NewService(interviewService)
 
+	// Initialize crafting service
+	craftingRepo := crafting.NewPostgresRepository(dbPool)
+	craftingService := crafting.NewService(craftingRepo, inventoryService, worldEntityService)
+
 	// Initialize game processor
 	gameProcessor := processor.NewGameProcessor(
 		authRepo,
@@ -216,6 +221,7 @@ func main() {
 		combatService,
 		inventoryService,
 		interactionService,
+		craftingService,
 	)
 
 	// Create and start the Hub

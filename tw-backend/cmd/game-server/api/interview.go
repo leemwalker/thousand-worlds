@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -9,11 +10,19 @@ import (
 	"tw-backend/internal/world/interview"
 )
 
-type InterviewHandler struct {
-	service *interview.InterviewService
+type Interviewer interface {
+	StartInterview(ctx context.Context, userID uuid.UUID) (*interview.InterviewSession, string, error)
+	ProcessResponse(ctx context.Context, userID uuid.UUID, message string) (string, bool, error)
+	GetActiveInterview(ctx context.Context, userID uuid.UUID) (*interview.InterviewSession, error)
+	ResumeInterview(ctx context.Context, userID uuid.UUID) (*interview.InterviewSession, string, error)
+	CompleteInterview(ctx context.Context, userID, sessionID uuid.UUID) (*interview.WorldConfiguration, error)
 }
 
-func NewInterviewHandler(service *interview.InterviewService) *InterviewHandler {
+type InterviewHandler struct {
+	service Interviewer
+}
+
+func NewInterviewHandler(service Interviewer) *InterviewHandler {
 	return &InterviewHandler{service: service}
 }
 

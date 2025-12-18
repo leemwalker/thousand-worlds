@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"tw-backend/internal/auth"
 	"time"
+	"tw-backend/internal/auth"
 
 	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
@@ -16,15 +16,33 @@ type Publisher interface {
 	Publish(subject string, data []byte) error
 }
 
-type AuthHandler struct {
-	publisher      Publisher
-	tokenManager   *auth.TokenManager
-	passwordHasher *auth.PasswordHasher
-	sessionManager *auth.SessionManager
-	rateLimiter    *auth.RateLimiter
+// Interfaces for dependency injection and testing
+type TokenManager interface {
+	GenerateToken(userID, username string, roles []string) (string, error)
 }
 
-func NewAuthHandler(pub Publisher, tm *auth.TokenManager, ph *auth.PasswordHasher, sm *auth.SessionManager, rl *auth.RateLimiter) *AuthHandler {
+type PasswordHasher interface {
+	ComparePassword(password, encodedHash string) (bool, error)
+	HashPassword(password string) (string, error)
+}
+
+type SessionManager interface {
+	CreateSession(ctx context.Context, userID, username string) (*auth.Session, error)
+}
+
+type RateLimiter interface {
+	Allow(ctx context.Context, key string, limit int, window time.Duration) (bool, error)
+}
+
+type AuthHandler struct {
+	publisher      Publisher
+	tokenManager   TokenManager
+	passwordHasher PasswordHasher
+	sessionManager SessionManager
+	rateLimiter    RateLimiter
+}
+
+func NewAuthHandler(pub Publisher, tm TokenManager, ph PasswordHasher, sm SessionManager, rl RateLimiter) *AuthHandler {
 	return &AuthHandler{
 		publisher:      pub,
 		tokenManager:   tm,

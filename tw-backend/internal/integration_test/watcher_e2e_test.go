@@ -137,7 +137,7 @@ func TestWatcherEntryE2E(t *testing.T) {
 	entitySvc := entity.NewService()
 	lookService := look.NewLookService(worldRepo, nil, entitySvc, interviewRepo, authRepo, nil, nil) // Use interviewRepo (repository interface) not service
 	spatialSvc := player.NewSpatialService(authRepo, worldRepo, nil)
-	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, lookService, entitySvc, interviewService, spatialSvc, nil, nil, nil, nil)
+	gameProcessor := processor.NewGameProcessor(authRepo, worldRepo, nil, lookService, entitySvc, interviewService, spatialSvc, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	// Assign to `proc` if used later, or rename later usages to gameProcessor
 	proc := gameProcessor

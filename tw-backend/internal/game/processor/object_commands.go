@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"tw-backend/cmd/game-server/websocket"
+	"tw-backend/internal/errors"
 	"tw-backend/internal/game/services/inventory"
 	"tw-backend/internal/worldentity"
 )
@@ -65,9 +66,12 @@ func (p *GameProcessor) handleGetObject(ctx context.Context, client websocket.Ga
 		Name:        entity.Name,
 		Description: entity.Description,
 	}
-
-	if err := p.inventoryService.AddItem(ctx, charID, invItem); err != nil {
-		return fmt.Errorf("failed to add to inventory: %w", err)
+	metadata := map[string]interface{}{
+		"name":        invItem.Name,
+		"description": invItem.Description,
+	}
+	if err := p.inventoryService.AddItem(ctx, charID, invItem.ID, 1, metadata); err != nil {
+		return errors.NewInternalError("failed to add item to inventory: %v", err)
 	}
 
 	client.SendGameMessage("action", fmt.Sprintf("You pick up the %s.", entity.Name), nil)

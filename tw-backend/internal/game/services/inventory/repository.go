@@ -10,7 +10,7 @@ import (
 
 // Repository handles inventory persistence
 type Repository interface {
-	AddItem(ctx context.Context, charID uuid.UUID, item Item, quantity int) error
+	AddItem(ctx context.Context, charID uuid.UUID, itemID uuid.UUID, quantity int, metadata map[string]interface{}) error
 	RemoveItem(ctx context.Context, charID uuid.UUID, itemID uuid.UUID, quantity int) error
 	GetInventory(ctx context.Context, charID uuid.UUID) ([]InventoryItem, error)
 }
@@ -39,23 +39,20 @@ func NewPostgresRepository(db *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{db: db}
 }
 
-func (r *PostgresRepository) AddItem(ctx context.Context, charID uuid.UUID, item Item, quantity int) error {
+func (r *PostgresRepository) AddItem(ctx context.Context, charID uuid.UUID, itemID uuid.UUID, quantity int, metadata map[string]interface{}) error {
 	query := `
 		INSERT INTO character_inventory (id, character_id, item_id, quantity, metadata)
 		VALUES ($1, $2, $3, $4, $5)
 	`
-	// For P0, we map item.Name/Description to metadata since items table isn't fully linked
-	// In future, item_id would be FK to items table.
-	// We use item.ID as item_id.
-	metadata := map[string]interface{}{
-		"name":        item.Name,
-		"description": item.Description,
+	// Use passed metadata directly
+	if metadata == nil {
+		metadata = make(map[string]interface{})
 	}
 
 	_, err := r.db.Exec(ctx, query,
 		uuid.New(),
 		charID,
-		item.ID,
+		itemID,
 		quantity,
 		metadata,
 	)
