@@ -14,9 +14,11 @@ import (
 
 	"tw-backend/cmd/game-server/websocket"
 	"tw-backend/internal/auth"
+	"tw-backend/internal/character"
 	"tw-backend/internal/ecosystem"
 	"tw-backend/internal/game/constants"
 	"tw-backend/internal/game/formatter"
+	"tw-backend/internal/game/services/combat"
 	"tw-backend/internal/game/services/entity"
 	"tw-backend/internal/game/services/look"
 	gamemap "tw-backend/internal/game/services/map"
@@ -38,6 +40,7 @@ type GameProcessor struct {
 	Hub                *websocket.Hub
 	authRepo           auth.Repository
 	worldRepo          repository.WorldRepository
+	characterRepo      character.CharacterRepository // Full character data (event sourced)
 	lookService        *look.LookService
 	entityService      *entity.Service
 	interviewService   *interview.InterviewService
@@ -47,6 +50,7 @@ type GameProcessor struct {
 	skillsRepo         skills.Repository
 	worldEntityService *worldentity.Service
 	ecosystemService   *ecosystem.Service
+	combatService      *combat.Service
 
 	// WorldGeology stores geological state per world (worldID -> geology)
 	worldGeology map[uuid.UUID]*ecosystem.WorldGeology
@@ -59,6 +63,7 @@ type GameProcessor struct {
 func NewGameProcessor(
 	authRepo auth.Repository,
 	worldRepo repository.WorldRepository,
+	characterRepo character.CharacterRepository,
 	lookService *look.LookService,
 	entityService *entity.Service,
 	interviewService *interview.InterviewService,
@@ -67,6 +72,7 @@ func NewGameProcessor(
 	skillsRepo skills.Repository,
 	worldEntityService *worldentity.Service,
 	ecosystemService *ecosystem.Service,
+	combatService *combat.Service,
 ) *GameProcessor {
 	// Create map service with available dependencies
 	mapSvc := gamemap.NewService(worldRepo, skillsRepo, entityService, lookService, worldEntityService, ecosystemService)
@@ -74,6 +80,7 @@ func NewGameProcessor(
 	return &GameProcessor{
 		authRepo:           authRepo,
 		worldRepo:          worldRepo,
+		characterRepo:      characterRepo,
 		lookService:        lookService,
 		entityService:      entityService,
 		interviewService:   interviewService,
@@ -83,6 +90,7 @@ func NewGameProcessor(
 		skillsRepo:         skillsRepo,
 		worldEntityService: worldEntityService,
 		ecosystemService:   ecosystemService,
+		combatService:      combatService,
 		worldGeology:       make(map[uuid.UUID]*ecosystem.WorldGeology),
 	}
 }
@@ -757,22 +765,129 @@ func (p *GameProcessor) handleDrop(_ context.Context, client websocket.GameClien
 	return nil
 }
 
-func (p *GameProcessor) handleAttack(_ context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+// Tick processes periodic game updates (combat)
+func (p *GameProcessor) Tick(dt time.Duration) {
+	events := p.combatService.Tick(dt)
+	for _, evt := range events {
+		// Broadcast combat events
+		// precise broadcasting would require mapped locations, here we broadcast to world or participants
+		// For P0, we broadcast to the participants
+
+		data := evt.Data
+		actorIDStr, _ := data["actor_id"].(uuid.UUID)
+		targetIDStr, _ := data["target_id"].(uuid.UUID)
+
+		// Simplify: Find clients for these IDs and send message
+		// In real impl, we'd use p.Hub.GetClientByCharacterID() if it existed, or loop
+
+		// Construct message
+		var msg string
+		if evt.Type == "combat_action" {
+			actionType := data["type"].(string)
+			msg = fmt.Sprintf("Combat: %s performs %s on %s", actorIDStr, actionType, targetIDStr)
+		}
+
+		// Send to world (spammy but works for P0 verification)
+		// Better: Send to Hub broadcast for that world? We don't have event location easily available in event yet
+		// We can get location from actor if we looked them up.
+
+		// For now, just log and try to notify players if possible
+		log.Printf("[COMBAT-EVENT] %s: %s", evt.Type, msg)
+
+		// Broadcast to all clients (global broadcast for debug/proof)
+		// p.Hub.Broadcast(websocket.GameMessage{Type: "combat_event", Payload: msg})
+	}
+}
+
+func (p *GameProcessor) handleAttack(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	if cmd.Target == nil {
 		return errors.New("target required for attack")
 	}
 
-	// TODO: Integrate with combat system
-	formattedCombat := fmt.Sprintf("You attack %s for %s damage!",
-		formatter.Target(*cmd.Target),
-		formatter.Damage(10))
-	client.SendGameMessage("combat", formattedCombat, map[string]interface{}{
-		"targetName": *cmd.Target,
-		"damage":     10,
-	})
+	targetName := strings.ToLower(*cmd.Target)
+	attackerID := client.GetCharacterID()
 
-	p.sendStateUpdate(client)
-	return nil
+	// Try to get full character data (with attributes)
+	attackerChar, err := p.characterRepo.Load(ctx, attackerID)
+	if err != nil {
+		// FALLBACK: If event-sourced character not found, load basic auth data and mock attributes
+		authChar, authErr := p.authRepo.GetCharacter(ctx, attackerID)
+		if authErr != nil {
+			return authErr
+		}
+
+		// Use default template (Human) since Species is not yet in Auth DB
+		// TODO: Add Species to Auth DB or migrate fully to Event Sourcing
+		template := character.GetSpeciesTemplate(character.SpeciesHuman)
+		attackerChar = &character.Character{
+			ID:        authChar.CharacterID,
+			Name:      authChar.Name,
+			BaseAttrs: template.BaseAttrs,
+			SecAttrs:  character.CalculateSecondaryAttributes(template.BaseAttrs),
+		}
+	}
+
+	// Ensure attacker is in combat state
+	p.combatService.JoinCombatFromCharacter(attackerChar)
+
+	// fast lookup: is target a player?
+	// Get clients in same world
+	var targetClientID uuid.UUID
+	// Use authChar worldID if attackerChar might be fresh/empty on some fields?
+	// attackerChar from Load should have WorldID if event sourced properly?
+	// The Load() implementation rehydrates from events. events have PlayerID/Name/Attributes.
+	// They might NOT have WorldID updates (since movement is likely not event sourced yet?).
+	// Safest is to rely on client/auth state for location.
+
+	// Get worldID from client state or authRepo
+	authChar, _ := p.authRepo.GetCharacter(ctx, attackerID)
+	if authChar == nil {
+		return errors.New("failed to resolve attacker location")
+	}
+
+	roomClients := p.Hub.GetClientsByWorldID(authChar.WorldID)
+	var targetChar *character.Character
+
+	for _, c := range roomClients {
+		if strings.ToLower(c.GetUsername()) == targetName {
+			tID := c.GetCharacterID()
+			targetClientID = tID
+
+			// Load target full char
+			tChar, err := p.characterRepo.Load(ctx, tID)
+			if err != nil {
+				// Fallback for target
+				tAuthChar, tAuthErr := p.authRepo.GetCharacter(ctx, tID)
+				if tAuthErr == nil {
+					template := character.GetSpeciesTemplate(character.SpeciesHuman)
+					tChar = &character.Character{
+						ID:        tAuthChar.CharacterID,
+						Name:      tAuthChar.Name,
+						BaseAttrs: template.BaseAttrs,
+						SecAttrs:  character.CalculateSecondaryAttributes(template.BaseAttrs),
+					}
+				}
+			}
+			targetChar = tChar
+			break
+		}
+	}
+
+	if targetChar != nil {
+		// Target is a player
+		p.combatService.JoinCombatFromCharacter(targetChar)
+		err := p.combatService.QueueAttack(attackerID, targetClientID)
+		if err != nil {
+			client.SendGameMessage("error", fmt.Sprintf("Failed to attack: %v", err), nil)
+			return nil
+		}
+
+		client.SendGameMessage("combat", fmt.Sprintf("You attack %s!", targetChar.Name), nil)
+		return nil
+	}
+
+	// TODO: Handle NPC targets
+	return fmt.Errorf("target '%s' not found", *cmd.Target)
 }
 
 func (p *GameProcessor) handleTalk(_ context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {

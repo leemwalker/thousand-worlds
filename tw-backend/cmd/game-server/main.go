@@ -23,8 +23,10 @@ import (
 	"tw-backend/internal/auth"
 	"tw-backend/internal/character"
 	"tw-backend/internal/ecosystem"
+	"tw-backend/internal/eventstore"
 	"tw-backend/internal/game/entry"
 	"tw-backend/internal/game/processor"
+	"tw-backend/internal/game/services/combat"
 	"tw-backend/internal/game/services/entity"
 	"tw-backend/internal/game/services/look"
 	"tw-backend/internal/metrics"
@@ -141,6 +143,10 @@ func main() {
 		rateLimiter = auth.NewRateLimiter(redisClient)
 	}
 
+	// Initialize EventStore and CharacterRepository
+	eventStore := eventstore.NewPostgresEventStore(dbPool)
+	characterRepo := character.NewCharacterRepository(eventStore)
+
 	// Initialize weather service
 	weatherRepo := weather.NewPostgresRepository(db)
 	weatherService := weather.NewService(weatherRepo)
@@ -189,10 +195,14 @@ func main() {
 	// Initialize skills repository (needed for map service)
 	skillsRepo := skills.NewRepository(dbPool)
 
+	// Initialize combat service
+	combatService := combat.NewService(entityService)
+
 	// Initialize game processor
 	gameProcessor := processor.NewGameProcessor(
 		authRepo,
 		worldRepo,
+		characterRepo,
 		lookService,
 		entityService,
 		interviewService,
@@ -201,12 +211,27 @@ func main() {
 		skillsRepo,
 		worldEntityService,
 		ecosystemService,
+		combatService,
 	)
 
 	// Create and start the Hub
 	hub := websocket.NewHub(gameProcessor)
 	gameProcessor.SetHub(hub)
 	go hub.Run(ctx)
+
+	// Start combat tick loop
+	go func() {
+		ticker := time.NewTicker(100 * time.Millisecond) // 100ms combat tick
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				gameProcessor.Tick(100 * time.Millisecond)
+			}
+		}
+	}()
 
 	// Create health check handler
 	healthHandler := api.NewHealthHandler()

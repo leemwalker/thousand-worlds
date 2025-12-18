@@ -1,19 +1,8 @@
 import { writable, get } from 'svelte/store';
 import { commandQueue } from './command-queue';
 import { mapStore } from '$lib/stores/map';
-
-export interface ServerMessage {
-    type: string;
-    data: any;
-}
-
-// Command message structure - send raw text to backend
-export interface CommandMessage {
-    type: 'command';
-    data: {
-        text: string;
-    };
-}
+import { gameStore } from '$lib/stores/game';
+import type { ServerMessage, ClientMessage, GameCommand, GameOutputMessage } from '$lib/types/websocket';
 
 export class GameWebSocket {
     private ws: WebSocket | null = null;
@@ -48,15 +37,11 @@ export class GameWebSocket {
         const hostname = window.location.hostname;
         const port = window.location.port;
 
-        // If running on frontend's production port (3000) or any non-dev port, 
-        // connect directly to backend on port 8080
-        const isDevServer = port === '5173';
-        const wsHost = isDevServer
-            ? `${hostname}:${port}` // Use Vite proxy in development
-            : `${hostname}:8080`;   // Direct to backend in production
+        // Use environment variable if available, otherwise fallback to logic
+        const wsHost = import.meta.env.VITE_WS_URL ||
+            (port === '5173' ? `${hostname}:${port}` : `${hostname}:8080`);
 
         let wsUrl = `${protocol}//${wsHost}/api/game/ws`;
-
 
         if (this.currentCharacterId) {
             wsUrl += `?character_id=${encodeURIComponent(this.currentCharacterId)}`;
@@ -66,12 +51,12 @@ export class GameWebSocket {
 
         try {
             this.ws = new WebSocket(wsUrl);
-            console.log('[WebSocket] WebSocket object created');
 
             this.ws.onopen = () => {
                 console.log('[WebSocket] Connection opened!');
                 this.connected.set(true);
                 this.reconnectAttempts = 0;
+                gameStore.setLoading(false); // Stop loading if valid connection
 
                 // Process any queued commands
                 this.processQueuedCommands();
@@ -88,7 +73,7 @@ export class GameWebSocket {
                     for (const part of parts) {
                         try {
                             const message: ServerMessage = JSON.parse(part);
-                            console.log('[WebSocket] Message received:', message);
+                            // console.log('[WebSocket] Message received:', message.type); 
                             this.handleMessage(message);
                         } catch (e) {
                             console.error('[WebSocket] Failed to parse message part:', e);
@@ -96,12 +81,12 @@ export class GameWebSocket {
                     }
                 } catch (error) {
                     console.error('[WebSocket] Failed to process message:', error);
-                    console.log('[WebSocket] Raw data:', event.data);
                 }
             };
 
             this.ws.onerror = (error) => {
                 console.error('[WebSocket] Error:', error);
+                gameStore.setError('Connection error');
             };
 
             this.ws.onclose = () => {
@@ -113,6 +98,7 @@ export class GameWebSocket {
             };
         } catch (error) {
             console.error('[WebSocket] Failed to create WebSocket:', error);
+            gameStore.setError('Failed to create connection');
         }
     }
 
@@ -131,7 +117,7 @@ export class GameWebSocket {
             return;
         }
 
-        const message: CommandMessage = {
+        const message: GameCommand = {
             type: 'command',
             data: { text },
         };
@@ -160,7 +146,7 @@ export class GameWebSocket {
                         return;
                     }
 
-                    const message: CommandMessage = {
+                    const message: GameCommand = {
                         type: 'command',
                         data: { text }
                     };
@@ -191,11 +177,30 @@ export class GameWebSocket {
     }
 
     private handleMessage(message: ServerMessage): void {
-        // Handle map updates - they come as game_message with data.type='map_update'
-        // The actual map data is in data.metadata
-        if (message.type === 'game_message' && message.data?.type === 'map_update' && message.data?.metadata) {
-            console.log('[WS] Received map_update:', message.data.metadata);
-            mapStore.setMapData(message.data.metadata);
+        // Handle map updates
+        if (message.type === 'map_update') {
+            // console.log('[WS] map_update received');
+            mapStore.setMapData(message.data);
+        } else if (message.type === 'game_message') {
+            // Handle legacy embedded map updates
+            const gameMsg = message as GameOutputMessage;
+            if (gameMsg.data?.metadata && gameMsg.data.type === 'map_update') {
+                mapStore.setMapData(gameMsg.data.metadata);
+            }
+
+            // Add to game store
+            gameStore.addMessage({
+                type: 'game_message',
+                timestamp: message.timestamp || Date.now(),
+                content: gameMsg.data.content,
+                sender: gameMsg.data.sender,
+                channel: gameMsg.data.channel
+            });
+        } else if (message.type === 'state_update') {
+            gameStore.updateStats(message.data.stats || {});
+            if (message.data.inventory) {
+                gameStore.setInventory(message.data.inventory);
+            }
         }
 
         // Notify all handlers
@@ -211,13 +216,16 @@ export class GameWebSocket {
     private attemptReconnect(): void {
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
             console.error('Max reconnect attempts reached');
+            gameStore.setError('Connection lost. Please refresh.');
             return;
         }
 
         this.reconnectAttempts++;
-        const delay = this.reconnectDelay * this.reconnectAttempts;
+        // Add jitter
+        const jitter = this.reconnectDelay * 0.2 * (Math.random() - 0.5);
+        const delay = (this.reconnectDelay * this.reconnectAttempts) + jitter;
 
-        console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+        console.log(`Reconnecting in ${Math.round(delay)}ms (attempt ${this.reconnectAttempts})`);
 
         setTimeout(() => {
             this.connect(this.currentCharacterId);

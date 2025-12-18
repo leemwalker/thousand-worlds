@@ -1,5 +1,4 @@
-<script lang="ts">
-    import { onMount } from "svelte";
+    import { onDestroy, onMount } from "svelte";
     import { MapRenderer } from "./MapRenderer";
     import type { VisibleTile, RenderQuality } from "./MapRenderer";
     import { mapStore } from "$lib/stores/map";
@@ -17,22 +16,30 @@
     $: if (renderer && $mapStore.data) {
         renderer.setQuality($mapStore.data.render_quality || "low");
         renderer.setTileSize(tileSize);
-        renderMap();
+        updateMapData();
     }
 
     onMount(() => {
-        console.log("[MiniMap] v2.1 Loaded - 0.5px overlap + no grid lines");
+        console.log("[MiniMap] v2.2 Optimized Loop");
         if (canvas) {
             renderer = new MapRenderer(canvas);
             renderer.setTileSize(tileSize);
+            renderer.start(); // Start render loop
+
             if ($mapStore.data) {
                 renderer.setQuality($mapStore.data.render_quality || "low");
-                renderMap();
+                updateMapData();
             }
         }
     });
 
-    function renderMap() {
+    onDestroy(() => {
+        if (renderer) {
+            renderer.stop();
+        }
+    });
+
+    function updateMapData() {
         if (!renderer || !$mapStore.data) return;
 
         const playerPos = {
@@ -45,7 +52,7 @@
             (tile) => ({
                 x: tile.x,
                 y: tile.y,
-                biome: tile.biome || "",
+                biome: tile.biome || "Default", // Provide internal default
                 elevation: tile.elevation || 0,
                 entities: tile.entities || [],
                 is_player: tile.is_player,
@@ -54,7 +61,7 @@
             }),
         );
 
-        renderer.render(playerPos, visibleTiles, $mapStore.data.scale || 1);
+        renderer.updateData(playerPos, visibleTiles, $mapStore.data.scale || 1);
     }
 
     function getQualityLabel(quality: RenderQuality | undefined): string {
