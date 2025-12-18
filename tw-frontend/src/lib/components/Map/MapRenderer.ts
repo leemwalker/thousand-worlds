@@ -421,14 +421,7 @@ export class MapRenderer {
         }
     }
 
-    private renderPlayer(x: number, y: number) {
-        // In geology mode, maybe hide player if strictly requested? 
-        // User said "no entities". But player position is usually needed for context.
-        // I'll keep it for now as it's the specific "You" marker, not "entities" of the world.
-        if (this.style === 'geology' && this.viewMode === 'atlas') {
-            // In atlas mode geology, allow player marker to show where they are in the world
-        }
-    }
+    // renderPlayer moved to bottom
 
     private renderHybridMap() {
         // 1. Grid Size Estimation
@@ -494,81 +487,87 @@ export class MapRenderer {
         this.ctx.drawImage(this.nearBuffer!, dx, dy, destW, destH);
 
         this.ctx.restore();
+
+        // Render Player on top
+        this.renderPlayer(centerX, centerY);
     }
+
+    private renderPlayer(x: number, y: number) {
+        // Geology/Atlas check if we want to hide it? (Optional)
 
         // Player rendering logic (simplified for brevity, similar to original)
         this.ctx.fillStyle = this.quality === 'high' ? 'rgba(255, 215, 0, 0.3)' : '#FFD700';
-if (this.quality === 'high') {
-    this.ctx.fillRect(x - this.tileSize / 2, y - this.tileSize / 2, this.tileSize, this.tileSize);
-    this.ctx.fillStyle = '#FFD700'; // Reset for text
-}
+        if (this.quality === 'high') {
+            this.ctx.fillRect(x - this.tileSize / 2, y - this.tileSize / 2, this.tileSize, this.tileSize);
+            this.ctx.fillStyle = '#FFD700'; // Reset for text
+        }
 
-const symbol = this.quality === 'high' ? '🧍' : '@';
-this.ctx.font = this.quality === 'high' ? `${this.tileSize * 0.7}px Arial` : `bold ${this.tileSize * 0.8}px monospace`;
-this.ctx.textAlign = 'center';
-this.ctx.textBaseline = 'middle';
-this.ctx.fillText(symbol, x, y);
+        const symbol = this.quality === 'high' ? '🧍' : '@';
+        this.ctx.font = this.quality === 'high' ? `${this.tileSize * 0.7}px Arial` : `bold ${this.tileSize * 0.8}px monospace`;
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(symbol, x, y);
 
-this.ctx.strokeStyle = '#FFD700';
-this.ctx.lineWidth = 2;
-this.ctx.strokeRect(x - this.tileSize / 2 + 1, y - this.tileSize / 2 + 1, this.tileSize - 2, this.tileSize - 2);
+        this.ctx.strokeStyle = '#FFD700';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(x - this.tileSize / 2 + 1, y - this.tileSize / 2 + 1, this.tileSize - 2, this.tileSize - 2);
     }
 
     private getBiomeColorString(biome: string, alpha: number = 1): string {
-    let rgb = COLORS_RGB[biome];
-    if (!rgb) {
-        const key = Object.keys(COLORS_RGB).find(k => k.toLowerCase() === biome.toLowerCase());
-        if (key) rgb = COLORS_RGB[key];
+        let rgb = COLORS_RGB[biome];
+        if (!rgb) {
+            const key = Object.keys(COLORS_RGB).find(k => k.toLowerCase() === biome.toLowerCase());
+            if (key) rgb = COLORS_RGB[key];
 
-        // Final fallback if undefined
-        if (!rgb) rgb = COLORS_RGB.Default;
+            // Final fallback if undefined
+            if (!rgb) rgb = COLORS_RGB.Default;
+        }
+
+        // Strict fallback if Default is missing
+        const finalRgb: RGB = rgb || { r: 51, g: 51, b: 51 };
+
+        // rgb is guaranteed defined here
+        return `rgba(${finalRgb.r}, ${finalRgb.g}, ${finalRgb.b}, ${alpha})`;
     }
-
-    // Strict fallback if Default is missing
-    const finalRgb: RGB = rgb || { r: 51, g: 51, b: 51 };
-
-    // rgb is guaranteed defined here
-    return `rgba(${finalRgb.r}, ${finalRgb.g}, ${finalRgb.b}, ${alpha})`;
-}
 
     private getHypsometricColorString(elevation: number): string {
-    // Find segments
-    for (let i = 0; i < ELEVATION_STOPS.length - 1; i++) {
-        const start = ELEVATION_STOPS[i];
-        const end = ELEVATION_STOPS[i + 1];
-        if (start && end && elevation >= start.el && elevation <= end.el) {
-            const t = (elevation - start.el) / (end.el - start.el);
-            return this.lerpRgbToString(start.color, end.color, t);
+        // Find segments
+        for (let i = 0; i < ELEVATION_STOPS.length - 1; i++) {
+            const start = ELEVATION_STOPS[i];
+            const end = ELEVATION_STOPS[i + 1];
+            if (start && end && elevation >= start.el && elevation <= end.el) {
+                const t = (elevation - start.el) / (end.el - start.el);
+                return this.lerpRgbToString(start.color, end.color, t);
+            }
         }
+
+        // Fallback checks with strict assertion
+        const first = ELEVATION_STOPS[0];
+        const last = ELEVATION_STOPS[ELEVATION_STOPS.length - 1];
+
+        if (first && elevation < first.el) return this.rgbToString(first.color);
+        if (last) return this.rgbToString(last.color);
+
+        const defaultRgb = COLORS_RGB.Default || { r: 51, g: 51, b: 51 };
+        return this.rgbToString(defaultRgb);
     }
 
-    // Fallback checks with strict assertion
-    const first = ELEVATION_STOPS[0];
-    const last = ELEVATION_STOPS[ELEVATION_STOPS.length - 1];
-
-    if (first && elevation < first.el) return this.rgbToString(first.color);
-    if (last) return this.rgbToString(last.color);
-
-    const defaultRgb = COLORS_RGB.Default || { r: 51, g: 51, b: 51 };
-    return this.rgbToString(defaultRgb);
-}
-
     private lerpRgbToString(c1: RGB, c2: RGB, t: number): string {
-    const r = Math.round(c1.r + (c2.r - c1.r) * t);
-    const g = Math.round(c1.g + (c2.g - c1.g) * t);
-    const b = Math.round(c1.b + (c2.b - c1.b) * t);
-    return `rgb(${r}, ${g}, ${b})`;
-}
+        const r = Math.round(c1.r + (c2.r - c1.r) * t);
+        const g = Math.round(c1.g + (c2.g - c1.g) * t);
+        const b = Math.round(c1.b + (c2.b - c1.b) * t);
+        return `rgb(${r}, ${g}, ${b})`;
+    }
 
     private rgbToString(c: RGB): string {
-    return `rgb(${c.r}, ${c.g}, ${c.b})`;
-}
+        return `rgb(${c.r}, ${c.g}, ${c.b})`;
+    }
 
     private getEntityColor(type: string): string {
-    const colors: Record<string, string> = {
-        'npc': '#FFFF00', 'player': '#00FFFF', 'resource': '#FFA500',
-        'monster': '#FF0000', 'item': '#FFA500'
-    };
-    return colors[type] || '#FFFFFF';
-}
+        const colors: Record<string, string> = {
+            'npc': '#FFFF00', 'player': '#00FFFF', 'resource': '#FFA500',
+            'monster': '#FF0000', 'item': '#FFA500'
+        };
+        return colors[type] || '#FFFFFF';
+    }
 }
