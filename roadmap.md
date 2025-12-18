@@ -804,13 +804,12 @@ Edge cases tested (overfilled, negative weight, stack overflow)
 
 Dependencies: Phase 2.1 (Character System)
 Files to Create:
-`internal/item/types.go` - Item schema
-`internal/item/inventory.go` - Inventory logic
+`internal/item/inventory.go` - Inventory management
+`internal/item/item.go` - Item definition
 `internal/item/equipment.go` - Equipment slots
-`internal/item/durability.go` - Durability system
-`internal/item/commands.go` - Item commands
-`internal/item/events.go` - Inventory events
-`internal/item/_test.go` - Test suite
+`internal/item/durability.go` - Item degradation
+`internal/item/commands.go` - Usage commands
+`internal/item/inventory_test.go` - Test suite
 
 
 ---

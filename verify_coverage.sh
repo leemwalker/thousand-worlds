@@ -29,7 +29,7 @@ BOLD=""
 RESET=""
 
 # Default configuration
-WORK_DIR="mud-platform-backend"
+WORK_DIR="tw-backend"
 UNIT_THRESHOLD=80
 INTEGRATION_THRESHOLD=100
 OUTPUT_DIR="coverage-reports"
@@ -285,12 +285,12 @@ discover_packages() {
     local packages
     
     if [[ -n "$TARGET_PACKAGES" ]]; then
-        # Use specified packages, stripping mud-platform-backend/ prefix if present
-        packages=$(echo "$TARGET_PACKAGES" | sed 's|^mud-platform-backend/||' | sed 's|^\./mud-platform-backend/||')
+        # Use specified packages, stripping tw-backend/ prefix if present
+        packages=$(echo "$TARGET_PACKAGES" | sed 's|^tw-backend/||' | sed 's|^\./tw-backend/||')
     else
         # Discover all packages with tests
         cd "$base_dir" || exit 3
-        packages=$(go list ./... 2>/dev/null | grep -v vendor || true)
+        packages=$(go list ./... 2>/dev/null | grep -v vendor | tr '\n' ' ' || true)
         cd - > /dev/null || exit 3
     fi
 
