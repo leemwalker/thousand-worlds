@@ -148,7 +148,7 @@ func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.Gam
 	// Route command to appropriate handler
 	switch cmd.Action {
 	case "help":
-		return p.handleHelp(ctx, client)
+		return p.handleHelp(ctx, client, cmd)
 
 	// Cardinal directions (pass cmd for watcher distance movement)
 	case "north", "n":
@@ -262,35 +262,13 @@ func (p *GameProcessor) handleCreateWorld(_ context.Context, client websocket.Ga
 }
 
 // Command handlers
-func (p *GameProcessor) handleHelp(_ context.Context, client websocket.GameClient) error {
-	helpText := `
-Available Commands:
-  Movement:
-    n, ne, e, se, s, sw, w, nw - Move in cardinal directions
-    up, down                   - Move vertically
-  
-  Interaction:
-    open <door/container>      - Open doors or containers
-    enter <portal/doorway>     - Enter through portals or doorways
-    look [target]              - Look around or examine something
-  
-  Communication:
-    say <message>              - Speak to nearby players
-    whisper <player> <message> - Whisper to nearby player (5m range)
-    tell <player> <message>    - Direct message to any player
-  
-  Social:
-    who                        - List online players
-  
-  Actions:
-    take <item>                - Pick up an item
-    drop <item>                - Drop an item
-    inventory                  - View your inventory
-    attack <target>            - Attack a target
-    talk <target>              - Talk to an NPC
-    craft <item>               - Craft an item
-    use <item>                 - Use an item
-`
+func (p *GameProcessor) handleHelp(_ context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+	var args []string
+	if cmd != nil && cmd.Target != nil {
+		args = strings.Fields(*cmd.Target)
+	}
+
+	helpText := GetHelpText(args)
 	client.SendGameMessage("system", helpText, nil)
 	return nil
 }

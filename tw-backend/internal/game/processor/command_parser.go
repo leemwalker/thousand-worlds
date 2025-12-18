@@ -135,8 +135,15 @@ func (p *CommandParser) ParseText(text string) *websocket.CommandData {
 		}
 
 	// Commands without arguments
-	case "help", "who", "inventory", "lobby":
+	case "who", "inventory", "lobby":
 		// No additional fields needed
+
+	case "help":
+		// Format: help [args]
+		if len(args) > 0 {
+			target := strings.Join(args, " ")
+			cmd.Target = &target
+		}
 
 	case "watcher":
 		// Format: watcher <world_id>
