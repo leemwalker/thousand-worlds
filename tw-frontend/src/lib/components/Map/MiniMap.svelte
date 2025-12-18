@@ -1,3 +1,4 @@
+<script lang="ts">
     import { onDestroy, onMount } from "svelte";
     import { MapRenderer } from "./MapRenderer";
     import type { VisibleTile, RenderQuality } from "./MapRenderer";

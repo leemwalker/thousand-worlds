@@ -852,9 +852,19 @@
         {#if showCharacterSheet}
             <div
                 class="absolute inset-0 bg-black/80 flex items-center justify-center p-4 z-50 transition-opacity"
+                role="button"
+                tabindex="0"
                 on:click={() => (showCharacterSheet = false)}
+                on:keydown={(e) =>
+                    e.key === "Escape" && (showCharacterSheet = false)}
             >
-                <div class="relative max-w-md w-full" on:click|stopPropagation>
+                <div
+                    class="relative max-w-md w-full"
+                    role="document"
+                    on:click|stopPropagation
+                    on:keydown|stopPropagation
+                    tabindex="-1"
+                >
                     <button
                         class="absolute -top-2 -right-2 bg-gray-700 rounded-full w-8 h-8 flex items-center justify-center text-white hover:bg-gray-600 z-10"
                         on:click={() => (showCharacterSheet = false)}

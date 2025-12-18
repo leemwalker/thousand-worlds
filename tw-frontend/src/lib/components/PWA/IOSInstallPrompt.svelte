@@ -25,12 +25,18 @@
     <div
         class="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center md:justify-center p-4"
         transition:fade={{ duration: 200 }}
+        role="button"
+        tabindex="0"
         on:click={dismiss}
+        on:keydown={(e) => e.key === "Escape" && dismiss()}
     >
         <div
             class="bg-gray-900 rounded-2xl p-6 max-w-md w-full border border-gray-700 shadow-2xl"
             transition:fly={{ y: 100, duration: 300 }}
+            role="document"
             on:click|stopPropagation
+            on:keydown|stopPropagation
+            tabindex="-1"
         >
             <div class="flex items-center gap-3 mb-4">
                 <div

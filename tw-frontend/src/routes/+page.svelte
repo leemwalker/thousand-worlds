@@ -4,9 +4,6 @@
   import { gameAPI } from "$lib/services/api";
   import { gameWebSocket } from "$lib/services/websocket";
 
-  // svelte-ignore unused-export-let
-  export let params = {};
-
   let email = "";
   let username = "";
   let password = "";
