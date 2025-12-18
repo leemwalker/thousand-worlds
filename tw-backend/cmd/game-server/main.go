@@ -98,7 +98,7 @@ func main() {
 	// Initialize pgxpool for WorldRepository and InterviewRepository
 	poolConfig, err := pgxpool.ParseConfig(dbDSN)
 	if err != nil {
-		log.Fatal("Failed to parse database URL for pgxpool:", err)
+		log.Fatal().Err(err).Msg("Failed to parse database URL for pgxpool")
 	}
 
 	// Configure connection pool for production use
@@ -278,6 +278,22 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
+	// Propagate Request ID to Zerolog
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			reqID := middleware.GetReqID(r.Context())
+			if reqID != "" {
+				// Create a logger with the request ID
+				logger := log.With().Str("req_id", reqID).Logger()
+				// Store the logger in the context
+				ctx := logger.WithContext(r.Context())
+				next.ServeHTTP(w, r.WithContext(ctx))
+			} else {
+				next.ServeHTTP(w, r)
+			}
+		})
+	})
+
 	// Custom metrics middleware - but NOT for WebSocket (it breaks hijacking)
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -297,7 +313,7 @@ func main() {
 	if corsOrigins == "" {
 		// Default for local development
 		corsOrigins = "http://localhost:5173"
-		log.Println("INFO: Using default CORS origins for development:", corsOrigins)
+		log.Info().Str("origins", corsOrigins).Msg("Using default CORS origins for development")
 	}
 
 	// Split comma-separated origins
@@ -309,11 +325,11 @@ func main() {
 	// Validate CORS configuration security
 	for _, origin := range allowedOrigins {
 		if origin == "*" {
-			log.Fatal("FATAL: Wildcard (*) CORS origin is not allowed for security. Specify exact origins.")
+			log.Fatal().Msg("FATAL: Wildcard (*) CORS origin is not allowed for security. Specify exact origins.")
 		}
 	}
 
-	log.Printf("INFO: CORS allowed origins: %v", allowedOrigins)
+	log.Info().Any("origins", allowedOrigins).Msg("CORS allowed origins")
 
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   allowedOrigins,
@@ -386,14 +402,14 @@ func main() {
 		signal.Notify(sigint, os.Interrupt, syscall.SIGTERM)
 		<-sigint
 
-		log.Println("Shutting down server...")
+		log.Info().Msg("Shutting down server...")
 		cancel()
 
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer shutdownCancel()
 
 		if err := server.Shutdown(shutdownCtx); err != nil {
-			log.Printf("Server shutdown error: %v", err)
+			log.Error().Err(err).Msg("Server shutdown error")
 		}
 	}()
 
