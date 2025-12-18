@@ -5,6 +5,7 @@ export interface MapData {
     tiles: VisibleTile[];
     player_x: number;
     player_y: number;
+    player_z?: number;
     render_quality?: RenderQuality;
     grid_size: number;
     scale?: number;

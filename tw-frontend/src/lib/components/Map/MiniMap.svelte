@@ -45,9 +45,9 @@
     function updateMapData() {
         if (!renderer || !$mapStore.data) return;
 
-        const playerPos = {
             x: Math.round($mapStore.data.player_x),
             y: Math.round($mapStore.data.player_y),
+            z: Math.round($mapStore.data.player_z || 0) // Pass Player Z
         };
 
         // Convert tiles to VisibleTile format

@@ -1,6 +1,9 @@
+import { getGeologyStyleOverride, getRenderLayer } from './mapLogic';
+
 export interface Position {
     x: number;
     y: number;
+    z?: number; // Added Z support
 }
 
 export interface VisibleTile {
@@ -93,7 +96,6 @@ export class MapRenderer {
     private canvas: HTMLCanvasElement;
     private ctx: CanvasRenderingContext2D;
     private tileSize: number = 16;
-    private tileSize: number = 16;
     private quality: RenderQuality = 'low';
     private style: RenderStyle = 'standard';
 
@@ -103,12 +105,17 @@ export class MapRenderer {
     private frameId: number | null = null;
 
     // Data buffer
-    private playerPos: Position = { x: 0, y: 0 };
+    private playerPos: Position = { x: 0, y: 0, z: 0 };
     private visibleTiles: VisibleTile[] = [];
     private scale: number = 1;
     private viewMode: 'local' | 'atlas' = 'local';
     private cameraPos: Position = { x: 0, y: 0 };
     private worldSize: number = 2000; // Default fallback
+
+    // Offscreen buffers for Hybrid Rendering
+    private nearBuffer: HTMLCanvasElement | null = null;
+    private farBuffer: HTMLCanvasElement | null = null;
+    private bufferSize: number = 0; // Current size of buffer (grid size)
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
@@ -215,7 +222,32 @@ export class MapRenderer {
         this.frameId = requestAnimationFrame(this.loop);
     };
 
+    private initBuffers(size: number) {
+        if (!this.nearBuffer || !this.farBuffer || this.bufferSize !== size) {
+            this.bufferSize = size;
+
+            this.nearBuffer = document.createElement('canvas');
+            this.nearBuffer.width = size;
+            this.nearBuffer.height = size;
+
+            this.farBuffer = document.createElement('canvas');
+            this.farBuffer.width = size;
+            this.farBuffer.height = size;
+        }
+
+        // Clear buffers
+        const nCtx = this.nearBuffer.getContext('2d');
+        const fCtx = this.farBuffer.getContext('2d');
+        if (nCtx) nCtx.clearRect(0, 0, size, size);
+        if (fCtx) fCtx.clearRect(0, 0, size, size);
+    }
+
     private render() {
+        if (this.style === 'geology' && this.viewMode === 'atlas') {
+            this.renderHybridMap();
+            return;
+        }
+
         const width = this.canvas.width;
         const height = this.canvas.height;
         const centerX = width / 2;
@@ -396,80 +428,142 @@ export class MapRenderer {
         if (this.style === 'geology' && this.viewMode === 'atlas') {
             // In atlas mode geology, allow player marker to show where they are in the world
         }
+    }
+
+    private renderHybridMap() {
+        // 1. Grid Size Estimation
+        const size = this.worldSize || 2000;
+        this.initBuffers(size);
+
+        const nCtx = this.nearBuffer!.getContext('2d');
+        const fCtx = this.farBuffer!.getContext('2d');
+        if (!nCtx || !fCtx) return;
+
+        const playerZ = this.playerPos.z || 0;
+
+        for (const tile of this.visibleTiles) {
+            let color = getGeologyStyleOverride(tile.biome);
+            if (!color) {
+                color = this.getHypsometricColorString(tile.elevation);
+            }
+
+            const layer = getRenderLayer(
+                { x: this.playerPos.x, y: this.playerPos.y, z: playerZ },
+                { x: tile.x, y: tile.y, elevation: tile.elevation, biome: tile.biome }
+            );
+
+            const ctx = layer === 'near' ? nCtx : fCtx;
+            ctx.fillStyle = color;
+            ctx.fillRect(tile.x, tile.y, 1, 1);
+        }
+
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+        const centerX = width / 2;
+        const centerY = height / 2;
+
+        this.ctx.fillStyle = '#1a1a2e';
+        this.ctx.fillRect(0, 0, width, height);
+
+        const effectiveScale = this.scale;
+        const destW = size * effectiveScale;
+        const destH = size * effectiveScale;
+
+        const destX = centerX + (0 - this.cameraPos.x) * effectiveScale;
+        const destY = centerY - this.cameraPos.y * effectiveScale;
+
+        this.ctx.save();
+
+        // Flip Y logic
+        this.ctx.translate(centerX, centerY);
+        this.ctx.scale(1, -1);
+        this.ctx.translate(-centerX, -centerY);
+
+        const dx = centerX - this.cameraPos.x * effectiveScale;
+        const dy = centerY - this.cameraPos.y * effectiveScale;
+
+        this.ctx.imageSmoothingEnabled = false;
+        this.ctx.drawImage(this.farBuffer!, dx, dy, destW, destH);
+
+        this.ctx.imageSmoothingEnabled = true;
+        this.ctx.drawImage(this.nearBuffer!, dx, dy, destW, destH);
+
+        this.ctx.restore();
+    }
 
         // Player rendering logic (simplified for brevity, similar to original)
         this.ctx.fillStyle = this.quality === 'high' ? 'rgba(255, 215, 0, 0.3)' : '#FFD700';
-        if (this.quality === 'high') {
-            this.ctx.fillRect(x - this.tileSize / 2, y - this.tileSize / 2, this.tileSize, this.tileSize);
-            this.ctx.fillStyle = '#FFD700'; // Reset for text
-        }
+if (this.quality === 'high') {
+    this.ctx.fillRect(x - this.tileSize / 2, y - this.tileSize / 2, this.tileSize, this.tileSize);
+    this.ctx.fillStyle = '#FFD700'; // Reset for text
+}
 
-        const symbol = this.quality === 'high' ? '🧍' : '@';
-        this.ctx.font = this.quality === 'high' ? `${this.tileSize * 0.7}px Arial` : `bold ${this.tileSize * 0.8}px monospace`;
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(symbol, x, y);
+const symbol = this.quality === 'high' ? '🧍' : '@';
+this.ctx.font = this.quality === 'high' ? `${this.tileSize * 0.7}px Arial` : `bold ${this.tileSize * 0.8}px monospace`;
+this.ctx.textAlign = 'center';
+this.ctx.textBaseline = 'middle';
+this.ctx.fillText(symbol, x, y);
 
-        this.ctx.strokeStyle = '#FFD700';
-        this.ctx.lineWidth = 2;
-        this.ctx.strokeRect(x - this.tileSize / 2 + 1, y - this.tileSize / 2 + 1, this.tileSize - 2, this.tileSize - 2);
+this.ctx.strokeStyle = '#FFD700';
+this.ctx.lineWidth = 2;
+this.ctx.strokeRect(x - this.tileSize / 2 + 1, y - this.tileSize / 2 + 1, this.tileSize - 2, this.tileSize - 2);
     }
 
     private getBiomeColorString(biome: string, alpha: number = 1): string {
-        let rgb = COLORS_RGB[biome];
-        if (!rgb) {
-            const key = Object.keys(COLORS_RGB).find(k => k.toLowerCase() === biome.toLowerCase());
-            if (key) rgb = COLORS_RGB[key];
+    let rgb = COLORS_RGB[biome];
+    if (!rgb) {
+        const key = Object.keys(COLORS_RGB).find(k => k.toLowerCase() === biome.toLowerCase());
+        if (key) rgb = COLORS_RGB[key];
 
-            // Final fallback if undefined
-            if (!rgb) rgb = COLORS_RGB.Default;
-        }
-
-        // Strict fallback if Default is missing
-        const finalRgb: RGB = rgb || { r: 51, g: 51, b: 51 };
-
-        // rgb is guaranteed defined here
-        return `rgba(${finalRgb.r}, ${finalRgb.g}, ${finalRgb.b}, ${alpha})`;
+        // Final fallback if undefined
+        if (!rgb) rgb = COLORS_RGB.Default;
     }
+
+    // Strict fallback if Default is missing
+    const finalRgb: RGB = rgb || { r: 51, g: 51, b: 51 };
+
+    // rgb is guaranteed defined here
+    return `rgba(${finalRgb.r}, ${finalRgb.g}, ${finalRgb.b}, ${alpha})`;
+}
 
     private getHypsometricColorString(elevation: number): string {
-        // Find segments
-        for (let i = 0; i < ELEVATION_STOPS.length - 1; i++) {
-            const start = ELEVATION_STOPS[i];
-            const end = ELEVATION_STOPS[i + 1];
-            if (start && end && elevation >= start.el && elevation <= end.el) {
-                const t = (elevation - start.el) / (end.el - start.el);
-                return this.lerpRgbToString(start.color, end.color, t);
-            }
+    // Find segments
+    for (let i = 0; i < ELEVATION_STOPS.length - 1; i++) {
+        const start = ELEVATION_STOPS[i];
+        const end = ELEVATION_STOPS[i + 1];
+        if (start && end && elevation >= start.el && elevation <= end.el) {
+            const t = (elevation - start.el) / (end.el - start.el);
+            return this.lerpRgbToString(start.color, end.color, t);
         }
-
-        // Fallback checks with strict assertion
-        const first = ELEVATION_STOPS[0];
-        const last = ELEVATION_STOPS[ELEVATION_STOPS.length - 1];
-
-        if (first && elevation < first.el) return this.rgbToString(first.color);
-        if (last) return this.rgbToString(last.color);
-
-        const defaultRgb = COLORS_RGB.Default || { r: 51, g: 51, b: 51 };
-        return this.rgbToString(defaultRgb);
     }
+
+    // Fallback checks with strict assertion
+    const first = ELEVATION_STOPS[0];
+    const last = ELEVATION_STOPS[ELEVATION_STOPS.length - 1];
+
+    if (first && elevation < first.el) return this.rgbToString(first.color);
+    if (last) return this.rgbToString(last.color);
+
+    const defaultRgb = COLORS_RGB.Default || { r: 51, g: 51, b: 51 };
+    return this.rgbToString(defaultRgb);
+}
 
     private lerpRgbToString(c1: RGB, c2: RGB, t: number): string {
-        const r = Math.round(c1.r + (c2.r - c1.r) * t);
-        const g = Math.round(c1.g + (c2.g - c1.g) * t);
-        const b = Math.round(c1.b + (c2.b - c1.b) * t);
-        return `rgb(${r}, ${g}, ${b})`;
-    }
+    const r = Math.round(c1.r + (c2.r - c1.r) * t);
+    const g = Math.round(c1.g + (c2.g - c1.g) * t);
+    const b = Math.round(c1.b + (c2.b - c1.b) * t);
+    return `rgb(${r}, ${g}, ${b})`;
+}
 
     private rgbToString(c: RGB): string {
-        return `rgb(${c.r}, ${c.g}, ${c.b})`;
-    }
+    return `rgb(${c.r}, ${c.g}, ${c.b})`;
+}
 
     private getEntityColor(type: string): string {
-        const colors: Record<string, string> = {
-            'npc': '#FFFF00', 'player': '#00FFFF', 'resource': '#FFA500',
-            'monster': '#FF0000', 'item': '#FFA500'
-        };
-        return colors[type] || '#FFFFFF';
-    }
+    const colors: Record<string, string> = {
+        'npc': '#FFFF00', 'player': '#00FFFF', 'resource': '#FFA500',
+        'monster': '#FF0000', 'item': '#FFA500'
+    };
+    return colors[type] || '#FFFFFF';
+}
 }
