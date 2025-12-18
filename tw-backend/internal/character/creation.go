@@ -11,6 +11,8 @@ import (
 	"tw-backend/internal/game/constants"
 
 	"github.com/google/uuid"
+
+	apperrors "tw-backend/internal/errors"
 )
 
 // CreationService handles character creation logic

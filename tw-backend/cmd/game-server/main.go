@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"io"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -16,6 +14,8 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"tw-backend/cmd/game-server/api"
 	"tw-backend/cmd/game-server/websocket"
@@ -41,18 +41,12 @@ import (
 )
 
 func main() {
-	// Setup logging
-	logFile, err := os.OpenFile("server.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-		log.Fatal("Failed to open log file:", err)
-	}
-	defer logFile.Close()
+	// Setup logging (Zerolog)
+	// For local development, use ConsoleWriter. For production, use JSON.
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 
-	// Create multi-writer for both stdout and file
-	mw := io.MultiWriter(os.Stdout, logFile)
-	log.SetOutput(mw)
-
-	log.Println("Starting Thousand Worlds Game Server...")
+	log.Info().Msg("Starting Thousand Worlds Game Server...")
 
 	// Create context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -61,10 +55,10 @@ func main() {
 	// Load JWT secret from environment - REQUIRED
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
-		log.Fatal("FATAL: JWT_SECRET environment variable must be set. Generate with: openssl rand -hex 32")
+		log.Fatal().Msg("FATAL: JWT_SECRET environment variable must be set. Generate with: openssl rand -hex 32")
 	}
 	if len(jwtSecret) < 32 {
-		log.Fatal("FATAL: JWT_SECRET must be at least 32 characters long for security")
+		log.Fatal().Msg("FATAL: JWT_SECRET must be at least 32 characters long for security")
 	}
 
 	// Database connection
@@ -73,10 +67,10 @@ func main() {
 		dbDSN = "postgres://postgres:postgres@127.0.0.1:5432/thousand_worlds?sslmode=disable"
 	}
 
-	log.Printf("Connecting to database...")
+	log.Info().Msg("Connecting to database...")
 	db, err := auth.ConnectDB(dbDSN)
 	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
+		log.Fatal().Err(err).Msg("Failed to connect to database")
 	}
 	defer db.Close()
 
@@ -86,7 +80,7 @@ func main() {
 		redisAddr = "localhost:6379"
 	}
 
-	log.Printf("Connecting to Redis...")
+	log.Info().Msg("Connecting to Redis...")
 	redisClient := redis.NewClient(&redis.Options{
 		Addr: redisAddr,
 		DB:   0,
@@ -94,8 +88,7 @@ func main() {
 
 	// Verify Redis connection
 	if err := redisClient.Ping(ctx).Err(); err != nil {
-		log.Printf("WARNING: Failed to connect to Redis: %v", err)
-		log.Printf("Session management and rate limiting will be disabled")
+		log.Warn().Err(err).Msg("Failed to connect to Redis. Session management and rate limiting will be disabled")
 		redisClient = nil
 	}
 
@@ -115,11 +108,11 @@ func main() {
 	poolConfig.MaxConnIdleTime = 30 * time.Minute // Close idle connections after 30 min
 	poolConfig.HealthCheckPeriod = time.Minute    // Health check every minute
 
-	log.Printf("Database pool configured: MaxConns=%d, MinConns=%d", poolConfig.MaxConns, poolConfig.MinConns)
+	log.Info().Int("max_conns", int(poolConfig.MaxConns)).Int("min_conns", int(poolConfig.MinConns)).Msg("Database pool configured")
 
 	dbPool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {
-		log.Fatal("Failed to connect to database with pgxpool:", err)
+		log.Fatal().Err(err).Msg("Failed to connect to database with pgxpool")
 	}
 	// defer dbPool.Close() // Defer close in main function scope
 
@@ -404,10 +397,10 @@ func main() {
 		}
 	}()
 
-	log.Printf("Server listening on port %s", port)
+	log.Info().Str("port", port).Msg("Server listening")
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatal("Server error:", err)
+		log.Fatal().Err(err).Msg("Server error")
 	}
 
-	log.Println("Server stopped")
+	log.Info().Msg("Server stopped")
 }

@@ -9,6 +9,8 @@ import (
 	"tw-backend/internal/eventstore"
 
 	"github.com/google/uuid"
+
+	apperrors "tw-backend/internal/errors"
 )
 
 // CharacterRepository handles persistence of characters via event sourcing
