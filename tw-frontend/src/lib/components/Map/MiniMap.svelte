@@ -52,18 +52,19 @@
         };
 
         // Convert tiles to VisibleTile format
-        const visibleTiles: VisibleTile[] = $mapStore.data.tiles.map(
-            (tile) => ({
+        const visibleTiles: VisibleTile[] = $mapStore.data.tiles.map((tile) => {
+            const vt: VisibleTile = {
                 x: tile.x,
                 y: tile.y,
-                biome: tile.biome || "Default", // Provide internal default
+                biome: tile.biome || "Default",
                 elevation: tile.elevation || 0,
                 entities: tile.entities || [],
                 is_player: tile.is_player || false,
-                portal: tile.portal, // portal is PortalInfo | undefined, which might still be an issue if exactOptionalPropertyTypes
                 occluded: tile.occluded || false,
-            }),
-        );
+            };
+            if (tile.portal) vt.portal = tile.portal;
+            return vt;
+        });
 
         renderer.updateData(playerPos, visibleTiles, $mapStore.data.scale || 1);
     }
