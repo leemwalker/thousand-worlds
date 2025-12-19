@@ -180,12 +180,14 @@ export class GameWebSocket {
         // Handle map updates
         if (message.type === 'map_update') {
             // console.log('[WS] map_update received');
-            mapStore.setMapData(message.data);
+            const mappedData = this.mapBackendToFrontend(message.data);
+            mapStore.setMapData(mappedData);
         } else if (message.type === 'game_message') {
             // Handle legacy embedded map updates
             const gameMsg = message as GameOutputMessage;
             if (gameMsg.data?.metadata && gameMsg.data.type === 'map_update') {
-                mapStore.setMapData(gameMsg.data.metadata);
+                const mappedData = this.mapBackendToFrontend(gameMsg.data.metadata);
+                mapStore.setMapData(mappedData);
             }
 
             // Add to game store
@@ -211,6 +213,33 @@ export class GameWebSocket {
                 console.error('Message handler error:', error);
             }
         });
+    }
+
+    private mapBackendToFrontend(data: any): any {
+        // Check if data is already in frontend format (has 'tiles' array)
+        if (data && Array.isArray(data.tiles)) {
+            return data;
+        }
+
+        // Check if data is in backend format (has 'cells' array)
+        if (data && Array.isArray(data.cells)) {
+            return {
+                ...data,
+                tiles: data.cells.map((cell: any) => ({
+                    x: cell.q,
+                    y: cell.r,
+                    biome: cell.biome_type || "Default",
+                    elevation: cell.elevation || 0,
+                    // Map other fields if needed, or pass through extra props usually ignored
+                    occluded: cell.occluded,
+                    is_player: cell.is_player,
+                    entities: cell.entities,
+                    portal: cell.portal
+                }))
+            };
+        }
+
+        return data; // Return as-is if unrecognized
     }
 
     private attemptReconnect(): void {
