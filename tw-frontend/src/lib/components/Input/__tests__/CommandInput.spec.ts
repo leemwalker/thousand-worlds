@@ -22,40 +22,50 @@ describe('CommandInput', () => {
         expect(getByText('Send')).toBeTruthy();
     });
 
-    it('sends command when Send button is clicked', async () => {
-        const { getByPlaceholderText, getByText } = render(CommandInput);
+    it('dispatches submit event when Send button is clicked', async () => {
+        const { getByPlaceholderText, getByText, component } = render(CommandInput);
         const input = getByPlaceholderText('Enter command...') as HTMLInputElement;
         const sendButton = getByText('Send');
+        const mockSubmit = vi.fn();
+        component.$on('submit', mockSubmit);
 
         await fireEvent.input(input, { target: { value: 'look' } });
         await fireEvent.click(sendButton);
 
-        expect(gameWebSocket.sendRawCommand).toHaveBeenCalledWith('look');
+        expect(mockSubmit).toHaveBeenCalled();
+        expect(mockSubmit.mock.calls[0][0].detail).toBe('look');
     });
 
-    it('sends command when Enter key is pressed', async () => {
-        const { getByPlaceholderText } = render(CommandInput);
+    it('dispatches submit event when Enter key is pressed', async () => {
+        const { getByPlaceholderText, component } = render(CommandInput);
         const input = getByPlaceholderText('Enter command...') as HTMLInputElement;
+        const mockSubmit = vi.fn();
+        component.$on('submit', mockSubmit);
 
         await fireEvent.input(input, { target: { value: 'north' } });
         await fireEvent.keyDown(input, { key: 'Enter' });
 
-        expect(gameWebSocket.sendRawCommand).toHaveBeenCalledWith('north');
+        expect(mockSubmit).toHaveBeenCalled();
+        expect(mockSubmit.mock.calls[0][0].detail).toBe('north');
     });
 
-    it('does not send empty commands', async () => {
-        const { getByPlaceholderText } = render(CommandInput);
+    it('does not dispatch empty commands', async () => {
+        const { getByPlaceholderText, component } = render(CommandInput);
         const input = getByPlaceholderText('Enter command...') as HTMLInputElement;
+        const mockSubmit = vi.fn();
+        component.$on('submit', mockSubmit);
 
         await fireEvent.input(input, { target: { value: '   ' } });
         await fireEvent.keyDown(input, { key: 'Enter' });
 
-        expect(gameWebSocket.sendRawCommand).not.toHaveBeenCalled();
+        expect(mockSubmit).not.toHaveBeenCalled();
     });
 
     it('clears input after sending command', async () => {
-        const { getByPlaceholderText } = render(CommandInput);
+        const { getByPlaceholderText, component } = render(CommandInput);
         const input = getByPlaceholderText('Enter command...') as HTMLInputElement;
+        const mockSubmit = vi.fn();
+        component.$on('submit', mockSubmit);
 
         await fireEvent.input(input, { target: { value: 'inventory' } });
         await fireEvent.keyDown(input, { key: 'Enter' });
@@ -103,13 +113,16 @@ describe('CommandInput', () => {
     });
 
     it('trims whitespace from commands', async () => {
-        const { getByPlaceholderText } = render(CommandInput);
+        const { getByPlaceholderText, component } = render(CommandInput);
         const input = getByPlaceholderText('Enter command...') as HTMLInputElement;
+        const mockSubmit = vi.fn();
+        component.$on('submit', mockSubmit);
 
         await fireEvent.input(input, { target: { value: '  look around  ' } });
         await fireEvent.keyDown(input, { key: 'Enter' });
 
-        expect(gameWebSocket.sendRawCommand).toHaveBeenCalledWith('look around');
+        expect(mockSubmit).toHaveBeenCalled();
+        expect(mockSubmit.mock.calls[0][0].detail).toBe('look around');
     });
 
     it('disables send button when input is empty', async () => {

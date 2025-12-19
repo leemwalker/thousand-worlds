@@ -40,9 +40,10 @@ describe('GameWebSocket', () => {
         vi.unstubAllGlobals();
         mockWs = new MockWebSocket();
         vi.stubGlobal('WebSocket', vi.fn(() => mockWs));
-        // Also stub window location
-        vi.stubGlobal('window', {
-            location: { protocol: 'http:', hostname: 'localhost', port: '5173' }
+        // Mock window.location without replacing the whole window object
+        Object.defineProperty(window, 'location', {
+            value: { protocol: 'http:', hostname: 'localhost', port: '5173' },
+            writable: true
         });
 
         wsService = new GameWebSocket();
@@ -55,7 +56,7 @@ describe('GameWebSocket', () => {
     it('should connect and update store', () => {
         wsService.connect('char-123');
 
-        expect(window.WebSocket).toHaveBeenCalled();
+        expect(WebSocket).toHaveBeenCalled();
 
         // Simulate open
         mockWs.onopen();
