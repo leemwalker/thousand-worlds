@@ -10,7 +10,7 @@ return {
 	assets: new Set(["favicon.ico","manifest.json","offline.html"]),
 	mimeTypes: {".json":"application/json",".html":"text/html"},
 	_: {
-		client: {start:"_app/immutable/entry/start.B_OPwovi.js",app:"_app/immutable/entry/app.BPUYVAHU.js",imports:["_app/immutable/entry/start.B_OPwovi.js","_app/immutable/chunks/BZrBSvfc.js","_app/immutable/chunks/CNXArMli.js","_app/immutable/chunks/B0GIxsE8.js","_app/immutable/entry/app.BPUYVAHU.js","_app/immutable/chunks/CNXArMli.js","_app/immutable/chunks/BWH_Fj_B.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
+		client: {start:"_app/immutable/entry/start.CwA5Gg-R.js",app:"_app/immutable/entry/app.CecvxHpH.js",imports:["_app/immutable/entry/start.CwA5Gg-R.js","_app/immutable/chunks/DiMEog3q.js","_app/immutable/chunks/CNXArMli.js","_app/immutable/chunks/B0GIxsE8.js","_app/immutable/entry/app.CecvxHpH.js","_app/immutable/chunks/CNXArMli.js","_app/immutable/chunks/BWH_Fj_B.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
 		nodes: [
 			__memo(() => import('./nodes/0.js')),
 			__memo(() => import('./nodes/1.js')),
