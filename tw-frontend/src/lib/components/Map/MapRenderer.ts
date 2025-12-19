@@ -335,11 +335,13 @@ export class MapRenderer {
     }
 
     private renderAsciiTile(tile: VisibleTile, x: number, y: number) {
-        this.ctx.fillStyle = this.getBiomeColorString(tile.biome, 0.3);
-        this.ctx.fillRect(x - this.tileSize / 2, y - this.tileSize / 2, this.tileSize, this.tileSize);
+        // Fill with biome color - use high alpha for visibility
+        this.ctx.fillStyle = this.getBiomeColorString(tile.biome, 0.8);
+        // Overdraw slightly to prevent sub-pixel gaps
+        const drawSize = this.tileSize + 0.6;
+        this.ctx.fillRect(x - this.tileSize / 2, y - this.tileSize / 2, drawSize, drawSize);
 
-        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-        this.ctx.strokeRect(x - this.tileSize / 2, y - this.tileSize / 2, this.tileSize, this.tileSize);
+        // Grid lines removed - caused visual noise
 
         if (tile.occluded) {
             this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';

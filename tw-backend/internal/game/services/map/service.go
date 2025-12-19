@@ -79,6 +79,51 @@ func (s *Service) getWorldGeology(worldID uuid.UUID) *ecosystem.WorldGeology {
 	return s.worldGeology[worldID]
 }
 
+// worldToGrid converts world coordinates to heightmap grid indices
+// World coordinates can be very large (e.g., spherical world with circumference 17M)
+// but heightmap is typically 512x512 or similar
+func worldToGrid(worldX, worldY float64, minX, minY, maxX, maxY float64, gridWidth, gridHeight int) (int, int) {
+	// Calculate world dimensions
+	worldWidth := maxX - minX
+	worldHeight := maxY - minY
+
+	// Avoid division by zero
+	if worldWidth <= 0 {
+		worldWidth = 1
+	}
+	if worldHeight <= 0 {
+		worldHeight = 1
+	}
+
+	// Normalize world position to 0..1
+	normalizedX := (worldX - minX) / worldWidth
+	normalizedY := (worldY - minY) / worldHeight
+
+	// Handle wrapping for spherical worlds
+	normalizedX = normalizedX - math.Floor(normalizedX) // Keep in 0..1
+	normalizedY = normalizedY - math.Floor(normalizedY)
+
+	// Scale to grid dimensions
+	gridX := int(normalizedX * float64(gridWidth))
+	gridY := int(normalizedY * float64(gridHeight))
+
+	// Clamp to valid range
+	if gridX < 0 {
+		gridX = 0
+	}
+	if gridX >= gridWidth {
+		gridX = gridWidth - 1
+	}
+	if gridY < 0 {
+		gridY = 0
+	}
+	if gridY >= gridHeight {
+		gridY = gridHeight - 1
+	}
+
+	return gridX, gridY
+}
+
 // GetMapData returns visible tiles in a 9x9 grid centered on the player (15x15 when flying)
 func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapData, error) {
 	// Default to max perception (100) for lobby users who don't have skills yet
@@ -195,21 +240,8 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 			// Get biome and elevation from world data if available
 			if hasWorldData && worldData.Geography != nil {
 				hm := worldData.Geography.Heightmap
-				// Clamp to world bounds
-				gridX := tileX
-				gridY := tileY
-				if gridX < 0 {
-					gridX = 0
-				}
-				if gridX >= hm.Width {
-					gridX = hm.Width - 1
-				}
-				if gridY < 0 {
-					gridY = 0
-				}
-				if gridY >= hm.Height {
-					gridY = hm.Height - 1
-				}
+				// Convert world coordinates to heightmap grid indices
+				gridX, gridY := worldToGrid(float64(tileX), float64(tileY), minX, minY, maxX, maxY, hm.Width, hm.Height)
 
 				tile.Elevation = hm.Get(gridX, gridY)
 
@@ -222,21 +254,8 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 				// Fallback: use worldGeology data from async runner or world simulate
 				hm := geo.Heightmap
 				if hm != nil {
-					// Clamp to heightmap bounds
-					gridX := tileX
-					gridY := tileY
-					if gridX < 0 {
-						gridX = 0
-					}
-					if gridX >= hm.Width {
-						gridX = hm.Width - 1
-					}
-					if gridY < 0 {
-						gridY = 0
-					}
-					if gridY >= hm.Height {
-						gridY = hm.Height - 1
-					}
+					// Convert world coordinates to heightmap grid indices
+					gridX, gridY := worldToGrid(float64(tileX), float64(tileY), minX, minY, maxX, maxY, hm.Width, hm.Height)
 
 					tile.Elevation = hm.Get(gridX, gridY)
 
