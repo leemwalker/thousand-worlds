@@ -297,8 +297,13 @@ export class MapRenderer {
     }
 
     private renderGeologyTile(tile: VisibleTile, x: number, y: number) {
-        // Pure elevation rendering
-        this.ctx.fillStyle = this.getHypsometricColorString(tile.elevation);
+        // Check for override (Lobby/Void/Default)
+        let color = getGeologyStyleOverride(tile.biome);
+        if (!color) {
+            color = this.getHypsometricColorString(tile.elevation);
+        }
+
+        this.ctx.fillStyle = color;
         this.ctx.fillRect(x - this.tileSize / 2, y - this.tileSize / 2, this.tileSize, this.tileSize);
 
         // Optional: Grid lines for better readability
@@ -467,24 +472,31 @@ export class MapRenderer {
         const destW = size * effectiveScale;
         const destH = size * effectiveScale;
 
-        const destX = centerX + (0 - this.cameraPos.x) * effectiveScale;
-        const destY = centerY - this.cameraPos.y * effectiveScale;
-
         this.ctx.save();
 
-        // Flip Y logic
+        // New Transform: Center Origin, Flip Y
         this.ctx.translate(centerX, centerY);
         this.ctx.scale(1, -1);
-        this.ctx.translate(-centerX, -centerY);
 
-        const dx = centerX - this.cameraPos.x * effectiveScale;
-        const dy = centerY - this.cameraPos.y * effectiveScale;
+        // Calculate draw position:
+        // We want (CameraX, CameraY) to be at (0,0) [Screen Center]
+        // The Buffer image has (0,0) at World(0,0).
+        // So we offset by Camera Position scaled.
+        // ScreenPos = (WorldPos - CamPos) * Scale
+        const drawX = -this.cameraPos.x * effectiveScale;
+        const drawY = -this.cameraPos.y * effectiveScale;
 
-        this.ctx.imageSmoothingEnabled = false;
-        this.ctx.drawImage(this.farBuffer!, dx, dy, destW, destH);
+        // Smoothing: If we are zoomed out (scale < 1), always smooth to avoid aliasing.
+        // If zoomed in, respect the far/near pixelation choice.
+        const forceSmooth = effectiveScale < 1.0;
 
-        this.ctx.imageSmoothingEnabled = true;
-        this.ctx.drawImage(this.nearBuffer!, dx, dy, destW, destH);
+        // Draw Far Buffer
+        this.ctx.imageSmoothingEnabled = forceSmooth ? true : false;
+        this.ctx.drawImage(this.farBuffer!, drawX, drawY, destW, destH);
+
+        // Draw Near Buffer
+        this.ctx.imageSmoothingEnabled = true; // Always smooth near layer
+        this.ctx.drawImage(this.nearBuffer!, drawX, drawY, destW, destH);
 
         this.ctx.restore();
 
