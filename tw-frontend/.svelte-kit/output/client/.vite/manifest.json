@@ -1,6 +1,6 @@
 {
   ".svelte-kit/generated/client-optimized/app.js": {
-    "file": "_app/immutable/entry/app.CecvxHpH.js",
+    "file": "_app/immutable/entry/app.BVMx-oar.js",
     "name": "entry/app",
     "src": ".svelte-kit/generated/client-optimized/app.js",
     "isEntry": true,
@@ -32,7 +32,7 @@
     ]
   },
   ".svelte-kit/generated/client-optimized/nodes/1.js": {
-    "file": "_app/immutable/nodes/1.MYD0Gylu.js",
+    "file": "_app/immutable/nodes/1.BxM27y24.js",
     "name": "nodes/1",
     "src": ".svelte-kit/generated/client-optimized/nodes/1.js",
     "isEntry": true,
@@ -40,11 +40,11 @@
     "imports": [
       "_CNXArMli.js",
       "_BWH_Fj_B.js",
-      "_DiMEog3q.js"
+      "_BDTL-DB-.js"
     ]
   },
   ".svelte-kit/generated/client-optimized/nodes/2.js": {
-    "file": "_app/immutable/nodes/2.CX1S5sUV.js",
+    "file": "_app/immutable/nodes/2.DKi0bH8_.js",
     "name": "nodes/2",
     "src": ".svelte-kit/generated/client-optimized/nodes/2.js",
     "isEntry": true,
@@ -52,12 +52,12 @@
     "imports": [
       "_CNXArMli.js",
       "_BWH_Fj_B.js",
-      "_DiMEog3q.js",
+      "_BDTL-DB-.js",
       "_DyiKixLh.js"
     ]
   },
   ".svelte-kit/generated/client-optimized/nodes/3.js": {
-    "file": "_app/immutable/nodes/3.C-24To4z.js",
+    "file": "_app/immutable/nodes/3.DgBA5TMa.js",
     "name": "nodes/3",
     "src": ".svelte-kit/generated/client-optimized/nodes/3.js",
     "isEntry": true,
@@ -65,7 +65,7 @@
     "imports": [
       "_CNXArMli.js",
       "_BWH_Fj_B.js",
-      "_DiMEog3q.js",
+      "_BDTL-DB-.js",
       "_DyiKixLh.js",
       "_B0GIxsE8.js",
       "_CVTDIfUj.js"
@@ -79,6 +79,14 @@
     "name": "index",
     "imports": [
       "_CNXArMli.js"
+    ]
+  },
+  "_BDTL-DB-.js": {
+    "file": "_app/immutable/chunks/BDTL-DB-.js",
+    "name": "entry",
+    "imports": [
+      "_CNXArMli.js",
+      "_B0GIxsE8.js"
     ]
   },
   "_BWH_Fj_B.js": {
@@ -99,14 +107,6 @@
       "_CNXArMli.js"
     ]
   },
-  "_DiMEog3q.js": {
-    "file": "_app/immutable/chunks/DiMEog3q.js",
-    "name": "entry",
-    "imports": [
-      "_CNXArMli.js",
-      "_B0GIxsE8.js"
-    ]
-  },
   "_DyiKixLh.js": {
     "file": "_app/immutable/chunks/DyiKixLh.js",
     "name": "game",
@@ -115,12 +115,12 @@
     ]
   },
   "node_modules/@sveltejs/kit/src/runtime/client/entry.js": {
-    "file": "_app/immutable/entry/start.CwA5Gg-R.js",
+    "file": "_app/immutable/entry/start.CLq9Y2xi.js",
     "name": "entry/start",
     "src": "node_modules/@sveltejs/kit/src/runtime/client/entry.js",
     "isEntry": true,
     "imports": [
-      "_DiMEog3q.js"
+      "_BDTL-DB-.js"
     ]
   }
 }
