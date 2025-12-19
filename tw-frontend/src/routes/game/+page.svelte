@@ -367,11 +367,24 @@
 
     async function handleCommand(cmd?: string) {
         const input = cmd ? cmd.trim() : commandInput.trim();
-        if (!input) return;
+        console.log("[handleCommand] Called with:", {
+            cmd,
+            commandInput,
+            input,
+            onboardingStep,
+            isConnected,
+        });
+        if (!input) {
+            console.log("[handleCommand] Empty input, returning");
+            return;
+        }
 
         addMessage("player", `> ${input}`);
 
         if (onboardingStep === "interview") {
+            console.log(
+                "[handleCommand] In interview mode, redirecting to sendInterviewResponse",
+            );
             userResponse = input;
             commandInput = "";
             sendInterviewResponse();
@@ -393,7 +406,9 @@
         }
 
         // Send raw text command to backend - backend will parse and process it
+        console.log("[handleCommand] Sending to WebSocket:", input);
         gameWebSocket.sendCommandWithQueue(input);
+        console.log("[handleCommand] Command sent to WebSocket queue");
         if (!cmd) commandInput = ""; // Only clear binding if used
     }
 

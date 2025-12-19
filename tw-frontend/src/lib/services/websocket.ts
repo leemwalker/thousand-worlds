@@ -112,8 +112,9 @@ export class GameWebSocket {
     }
 
     sendRawCommand(text: string): void {
+        console.log('[WebSocket] sendRawCommand called:', text);
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-            console.error('WebSocket not connected');
+            console.error('[WebSocket] Not connected, readyState:', this.ws?.readyState);
             return;
         }
 
@@ -122,7 +123,9 @@ export class GameWebSocket {
             data: { text },
         };
 
+        console.log('[WebSocket] Sending command:', JSON.stringify(message));
         this.ws.send(JSON.stringify(message));
+        console.log('[WebSocket] Command sent successfully');
     }
 
     async sendCommandWithQueue(text: string): Promise<void> {
