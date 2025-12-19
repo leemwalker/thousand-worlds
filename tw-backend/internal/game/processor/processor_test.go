@@ -216,9 +216,11 @@ func TestHandleWatcher(t *testing.T) {
 	err := processor.ProcessCommand(context.Background(), client, cmd)
 
 	assert.NoError(t, err)
-	assert.Len(t, client.messages, 1)
+	// Now expects 2 messages: system message + map_update
+	assert.Len(t, client.messages, 2)
 	assert.Equal(t, "system", client.messages[0].Type)
 	assert.Contains(t, client.messages[0].Text, "You enter the world as a watcher.")
+	assert.Equal(t, "map_update", client.messages[1].Type)
 
 	// Verify SetWorldID was called with the correct WorldID
 	assert.Equal(t, worldID, client.WorldID, "Client WorldID should be updated to target world")

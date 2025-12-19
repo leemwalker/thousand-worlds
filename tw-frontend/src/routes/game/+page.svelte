@@ -646,21 +646,33 @@
                     startWorldInterview();
                 } else {
                     addMessage(type, msg.data.text);
+                    // Check if this is a simulation complete message (opens world map)
+                    if (
+                        type === "system" &&
+                        msg.data.text?.includes("Simulation Complete")
+                    ) {
+                        console.log(
+                            "Simulation Complete detected, opening world map.",
+                        );
+                        showWorldMap = true;
+                    }
                 }
                 break;
             case "error":
                 addMessage("error", msg.data.message);
                 break;
-                break;
             case "sim_event":
                 // Pass to World Map Modal
                 latestSimEvent = msg;
-                // Check if simulation finished
+                // Check if simulation finished (legacy check for sim_event type)
                 if (
                     msg.data.text &&
-                    msg.data.text.includes("Simulation finished")
+                    (msg.data.text.includes("Simulation finished") ||
+                        msg.data.text.includes("Simulation Complete"))
                 ) {
-                    console.log("Simulation finished detected, opening map.");
+                    console.log(
+                        "Simulation finished detected via sim_event, opening map.",
+                    );
                     showWorldMap = true;
                 }
 

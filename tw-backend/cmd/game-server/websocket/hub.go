@@ -46,6 +46,7 @@ type Hub struct {
 // MessageProcessor handles game logic for messages
 type MessageProcessor interface {
 	ProcessCommand(ctx context.Context, client GameClient, cmd *CommandData) error
+	OnClientConnected(ctx context.Context, client GameClient)
 }
 
 // NewHub creates a new WebSocket hub
@@ -77,6 +78,11 @@ func (h *Hub) Run(ctx context.Context) {
 			h.mu.Unlock()
 			metrics.SetActiveConnections(len(h.Clients))
 			log.Printf("Client registered: %s (character: %s)", client.ID, client.CharacterID)
+
+			// Send initial game state (including map)
+			if h.Processor != nil {
+				h.Processor.OnClientConnected(ctx, client)
+			}
 
 		case client := <-h.Unregister:
 			h.mu.Lock()

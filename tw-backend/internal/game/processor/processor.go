@@ -122,6 +122,13 @@ func (p *GameProcessor) SetHub(hub *websocket.Hub) {
 	p.Hub = hub
 }
 
+// OnClientConnected is called when a client connects to the WebSocket
+// It sends initial game state including the map
+func (p *GameProcessor) OnClientConnected(ctx context.Context, client websocket.GameClient) {
+	// Send initial map update so minimap is visible immediately
+	p.sendMapUpdate(ctx, client)
+}
+
 // ProcessCommand processes a game command from a client
 func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	log.Printf("[PROCESSOR] ProcessCommand called with Text='%s', Action='%s'", cmd.Text, cmd.Action)
@@ -1248,6 +1255,8 @@ func (p *GameProcessor) handleWatcher(ctx context.Context, client websocket.Game
 			"role":         "watcher",
 			"world_id":     worldID.String(),
 		})
+		// Send map update for new world
+		p.sendMapUpdate(ctx, client)
 		return nil
 	}
 
@@ -1282,6 +1291,9 @@ func (p *GameProcessor) handleWatcher(ctx context.Context, client websocket.Game
 		"role":         "watcher",
 		"world_id":     worldID.String(),
 	})
+
+	// Send map update for new world
+	p.sendMapUpdate(ctx, client)
 
 	return nil
 }
