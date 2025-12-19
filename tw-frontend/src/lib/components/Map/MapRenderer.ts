@@ -304,7 +304,9 @@ export class MapRenderer {
         }
 
         this.ctx.fillStyle = color;
-        this.ctx.fillRect(x - this.tileSize / 2, y - this.tileSize / 2, this.tileSize, this.tileSize);
+        // Overdraw slightly (tileSize + 0.6) to prevent sub-pixel gaps (gridlines)
+        const drawSize = this.tileSize + 0.6;
+        this.ctx.fillRect(x - this.tileSize / 2, y - this.tileSize / 2, drawSize, drawSize);
 
         // Optional: Grid lines for better readability
         // this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
