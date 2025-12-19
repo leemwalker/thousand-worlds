@@ -15,14 +15,21 @@
     let renderer: MapRenderer | null = null;
 
     $: if (renderer && $mapStore.data) {
+        console.log("[MiniMap] Data received:", {
+            tiles: $mapStore.data.tiles?.length,
+            quality: $mapStore.data.render_quality,
+            grid_size: $mapStore.data.grid_size,
+            player: { x: $mapStore.data.player_x, y: $mapStore.data.player_y },
+            sample_tile: $mapStore.data.tiles?.[0],
+        });
         renderer.setQuality($mapStore.data.render_quality || "low");
-        renderer.setStyle("geology");
+        renderer.setStyle("standard"); // Use biome-based rendering instead of geology
         renderer.setTileSize(tileSize);
         updateMapData();
     }
 
     onMount(() => {
-        console.log("[MiniMap] v2.2 Optimized Loop");
+        console.log("[MiniMap] v2.3 Debug Mode");
         if (canvas) {
             renderer = new MapRenderer(canvas);
             renderer.setTileSize(tileSize);
@@ -30,7 +37,7 @@
 
             if ($mapStore.data) {
                 renderer.setQuality($mapStore.data.render_quality || "low");
-                renderer.setStyle("geology");
+                renderer.setStyle("standard"); // Use biome-based rendering
                 updateMapData();
             }
         }

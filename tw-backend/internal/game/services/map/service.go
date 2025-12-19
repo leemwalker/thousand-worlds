@@ -64,6 +64,12 @@ func (s *Service) SetWorldGeology(worldID uuid.UUID, geo *ecosystem.WorldGeology
 	s.worldGeologyMu.Lock()
 	defer s.worldGeologyMu.Unlock()
 	s.worldGeology[worldID] = geo
+	if geo != nil && geo.IsInitialized() {
+		log.Printf("[MAP] SetWorldGeology: Registered geology for world %s with %d biomes, heightmap %dx%d",
+			worldID, len(geo.Biomes), geo.Heightmap.Width, geo.Heightmap.Height)
+	} else if geo == nil {
+		log.Printf("[MAP] SetWorldGeology: Cleared geology for world %s", worldID)
+	}
 }
 
 // getWorldGeology retrieves cached geology data
@@ -99,6 +105,13 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 	if s.lookService != nil {
 		worldData, hasWorldData = s.lookService.GetCachedWorldData(char.WorldID)
 	}
+
+	// Check for geology fallback
+	geo := s.getWorldGeology(char.WorldID)
+	hasGeology := geo != nil && geo.IsInitialized()
+
+	log.Printf("[MAP] GetMapData: world=%s hasWorldData=%v hasGeology=%v quality=%s",
+		char.WorldID, hasWorldData, hasGeology, quality)
 
 	// Get world bounds for boundary checking
 	var minX, minY, maxX, maxY float64 = 0, 0, 10, 10 // Default lobby bounds
@@ -205,7 +218,7 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 				if idx >= 0 && idx < len(worldData.Geography.Biomes) {
 					tile.Biome = string(worldData.Geography.Biomes[idx].Type)
 				}
-			} else if geo := s.getWorldGeology(char.WorldID); geo != nil && geo.IsInitialized() {
+			} else if hasGeology {
 				// Fallback: use worldGeology data from async runner or world simulate
 				hm := geo.Heightmap
 				if hm != nil {
@@ -317,6 +330,13 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 	if len(tiles) != expectedCount {
 		log.Printf("[MAP] WARNING: Generated %d tiles, expected %d (gridSize %d)", len(tiles), expectedCount, gridSize)
 	}
+
+	// Debug: Log biome distribution
+	biomeCounts := make(map[string]int)
+	for _, t := range tiles {
+		biomeCounts[t.Biome]++
+	}
+	log.Printf("[MAP] Generated %d tiles, biome distribution: %v", len(tiles), biomeCounts)
 
 	return &MapData{
 		Tiles:         tiles,

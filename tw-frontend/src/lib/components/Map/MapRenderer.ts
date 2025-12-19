@@ -194,6 +194,22 @@ export class MapRenderer {
         this.playerPos = playerPos;
         this.visibleTiles = tiles;
 
+        // Debug: Log incoming data
+        if (tiles.length > 0) {
+            const biomes = new Set(tiles.map(t => t.biome));
+            const elevations = tiles.map(t => t.elevation);
+            const minElev = Math.min(...elevations);
+            const maxElev = Math.max(...elevations);
+            console.log("[MapRenderer] updateData:", {
+                tileCount: tiles.length,
+                biomes: Array.from(biomes),
+                elevationRange: { min: minElev, max: maxElev },
+                quality: this.quality,
+                style: this.style,
+                sampleTile: tiles[Math.floor(tiles.length / 2)]
+            });
+        }
+
         if (this.viewMode === 'local' || forceCameraToPlayer) {
             // In local mode, or if forced, camera follows player
             if (this.viewMode === 'local') {
