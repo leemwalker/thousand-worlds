@@ -10,10 +10,10 @@ echo "Pulling latest code..."
 cd /home/walker/git/thousand-worlds
 git pull
 
-# Rebuild game server and frontend
+# Rebuild game server and frontend (disable BuildKit to avoid cache issues)
 echo "Rebuilding game-server and frontend..."
 cd tw-backend
-docker compose -f docker-compose.prod.yml build --no-cache game-server frontend
+DOCKER_BUILDKIT=0 docker compose -f docker-compose.prod.yml build --no-cache --pull game-server frontend
 
 # Restart services
 echo "Restarting services..."
