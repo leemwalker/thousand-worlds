@@ -6,6 +6,7 @@ export default defineConfig({
     plugins: [
         sveltekit(),
         SvelteKitPWA({
+            pwaAssets: { disabled: true },
             registerType: 'autoUpdate',
             includeAssets: ['favicon.ico', 'icons/*.png'],
             manifest: {
