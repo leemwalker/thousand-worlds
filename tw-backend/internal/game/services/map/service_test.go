@@ -231,29 +231,24 @@ func TestServiceGetMapData_Occlusion(t *testing.T) {
 	}
 	worldID := uuid.New()
 
-	// Create a simple heightmap
-	// 20x20
-	// Player at 10,10.
-	// Hill at 12,10 (Elev 50).
-	// Target at 14,10 (Elev 0).
-	// Player Elev 0.
-	// Slope to Hill: (50-0)/2 = 25.
-	// Slope to Target: (0-0)/4 = 0.
-	// 0 < 25 -> Hidden.
+	// Create a heightmap that matches default world bounds (0,0,10,10)
+	// Using 10x10 heightmap so world coords map 1:1 to grid indices
+	// Player at (5,5), Hill at (7,5), Target at (9,5)
+	// Slope to Hill at dist 2: (50-0)/2 = 25
+	// Slope to Target at dist 4: (0-0)/4 = 0 (below horizon of 25)
 
 	hm := &geography.Heightmap{
-		Width:      20,
-		Height:     20,
-		Elevations: make([]float64, 400),
+		Width:      10,
+		Height:     10,
+		Elevations: make([]float64, 100),
 	}
-	// Default 0
-	hm.Set(12, 10, 50.0) // The Hill
+	// Set the Hill at grid position (7, 5) - corresponds to world (7, 5)
+	hm.Set(7, 5, 50.0)
 
 	geo := &ecosystem.WorldGeology{
 		Heightmap: hm,
-		Biomes:    make([]geography.Biome, 400),
+		Biomes:    make([]geography.Biome, 100),
 	}
-	// Init biomes to avoid panic
 	for i := range geo.Biomes {
 		geo.Biomes[i] = geography.Biome{Type: "plains"}
 	}
@@ -262,8 +257,8 @@ func TestServiceGetMapData_Occlusion(t *testing.T) {
 	char := &auth.Character{
 		CharacterID: uuid.New(),
 		WorldID:     worldID,
-		PositionX:   10.0,
-		PositionY:   10.0,
+		PositionX:   5.0, // Center player in the world
+		PositionY:   5.0,
 		PositionZ:   0.0,
 	}
 
@@ -274,10 +269,10 @@ func TestServiceGetMapData_Occlusion(t *testing.T) {
 	var hillTile, targetTile *MapTile
 	for i := range mapData.Tiles {
 		tile := &mapData.Tiles[i]
-		if tile.X == 12 && tile.Y == 10 {
+		if tile.X == 7 && tile.Y == 5 {
 			hillTile = tile
 		}
-		if tile.X == 14 && tile.Y == 10 {
+		if tile.X == 9 && tile.Y == 5 {
 			targetTile = tile
 		}
 	}
@@ -285,6 +280,6 @@ func TestServiceGetMapData_Occlusion(t *testing.T) {
 	assert.NotNil(t, hillTile, "Hill tile should be in grid")
 	assert.NotNil(t, targetTile, "Target tile should be in grid")
 
-	assert.False(t, hillTile.Occluded, "Hill should see player (slope 25 > -inf)")
+	assert.False(t, hillTile.Occluded, "Hill should be visible (slope 25 > -inf)")
 	assert.True(t, targetTile.Occluded, "Target behind hill should be occluded (slope 0 < 25)")
 }
