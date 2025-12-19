@@ -59,9 +59,9 @@
                 biome: tile.biome || "Default", // Provide internal default
                 elevation: tile.elevation || 0,
                 entities: tile.entities || [],
-                is_player: tile.is_player,
-                portal: tile.portal,
-                occluded: tile.occluded,
+                is_player: tile.is_player || false,
+                portal: tile.portal, // portal is PortalInfo | undefined, which might still be an issue if exactOptionalPropertyTypes
+                occluded: tile.occluded || false,
             }),
         );
 
