@@ -470,3 +470,93 @@ func (s *Service) computeOcclusion(grid [][]*MapTile, radius int, playerAlt floa
 		castRay(radius, y)  // Right
 	}
 }
+
+// GetWorldMapData returns aggregated world map data for full world display
+// The world is divided into a grid of regions, each with a dominant biome
+func (s *Service) GetWorldMapData(ctx context.Context, char *auth.Character, gridSize int) (*WorldMapData, error) {
+	if gridSize <= 0 {
+		gridSize = 64 // Default to 64x64 grid
+	}
+
+	world, err := s.worldRepo.GetWorld(ctx, char.WorldID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Determine world bounds
+	var worldWidth, worldHeight float64
+	if world.Circumference != nil && *world.Circumference > 0 {
+		// Spherical world
+		worldWidth = *world.Circumference
+		worldHeight = *world.Circumference / 2 // -90 to +90 degrees = half circumference
+	} else if world.BoundsMin != nil && world.BoundsMax != nil {
+		// Bounded world
+		worldWidth = world.BoundsMax.X - world.BoundsMin.X
+		worldHeight = world.BoundsMax.Y - world.BoundsMin.Y
+	} else {
+		// Default fallback
+		worldWidth = 1000
+		worldHeight = 1000
+	}
+
+	// Calculate region size (world units per grid cell)
+	regionWidth := worldWidth / float64(gridSize)
+	regionHeight := worldHeight / float64(gridSize)
+
+	// Get geology data for biome lookup
+	geo := s.getWorldGeology(char.WorldID)
+
+	tiles := make([]WorldMapTile, 0, gridSize*gridSize)
+	playerGridX := int(char.PositionX / regionWidth)
+	playerGridY := int(char.PositionY / regionHeight)
+
+	// Generate aggregated tiles
+	for gy := 0; gy < gridSize; gy++ {
+		for gx := 0; gx < gridSize; gx++ {
+			// Calculate center of this region in world coordinates
+			centerX := (float64(gx) + 0.5) * regionWidth
+			centerY := (float64(gy) + 0.5) * regionHeight
+
+			biome := "default"
+			elevation := 0.0
+
+			// Look up biome from geology
+			if geo != nil && geo.Heightmap != nil {
+				hm := geo.Heightmap
+				if hm.Width > 0 && hm.Height > 0 {
+					// Convert grid position to heightmap indices
+					hmX, hmY := worldToGrid(centerX, centerY, 0, 0, worldWidth, worldHeight, hm.Width, hm.Height)
+					if hmX >= 0 && hmX < hm.Width && hmY >= 0 && hmY < hm.Height {
+						elevation = hm.Get(hmX, hmY)
+						// Get biome from geo.Biomes array using linear index
+						idx := hmY*hm.Width + hmX
+						if idx >= 0 && idx < len(geo.Biomes) {
+							biome = string(geo.Biomes[idx].Type)
+						}
+					}
+				}
+			}
+
+			tile := WorldMapTile{
+				GridX:        gx,
+				GridY:        gy,
+				Biome:        biome,
+				AvgElevation: elevation,
+				IsPlayer:     gx == playerGridX && gy == playerGridY,
+			}
+			tiles = append(tiles, tile)
+		}
+	}
+
+	return &WorldMapData{
+		Tiles:       tiles,
+		GridWidth:   gridSize,
+		GridHeight:  gridSize,
+		WorldWidth:  worldWidth,
+		WorldHeight: worldHeight,
+		PlayerX:     char.PositionX,
+		PlayerY:     char.PositionY,
+		WorldID:     char.WorldID,
+		WorldName:   world.Name,
+	}, nil
+}

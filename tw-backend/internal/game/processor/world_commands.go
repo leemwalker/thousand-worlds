@@ -47,8 +47,10 @@ func (p *GameProcessor) handleWorld(ctx context.Context, client websocket.GameCl
 			return nil
 		}
 		return p.handleWorldSpeed(ctx, client, *cmd.Message)
+	case "map":
+		return p.handleWorldMap(ctx, client)
 	default:
-		client.SendGameMessage("error", "Unknown world command. Try: 'simulate', 'info', 'reset', 'run', 'pause', 'speed'", nil)
+		client.SendGameMessage("error", "Unknown world command. Try: 'simulate', 'info', 'reset', 'run', 'pause', 'speed', 'map'", nil)
 		return nil
 	}
 }
@@ -1019,6 +1021,43 @@ func (p *GameProcessor) handleWorldSpeed(ctx context.Context, client websocket.G
 
 	runner.SetSpeed(speed)
 	client.SendGameMessage("system", fmt.Sprintf("🏃 Simulation speed set to %s (%d years/sec).", speedLower, speed), nil)
+	return nil
+}
+
+// handleWorldMap sends full world map data to the client for the world map modal
+func (p *GameProcessor) handleWorldMap(ctx context.Context, client websocket.GameClient) error {
+	char, err := p.authRepo.GetCharacter(ctx, client.GetCharacterID())
+	if err != nil || char == nil {
+		client.SendGameMessage("error", "Could not get character", nil)
+		return nil
+	}
+
+	if p.mapService == nil {
+		client.SendGameMessage("error", "Map service not available", nil)
+		return nil
+	}
+
+	// Get aggregated world map data (64x64 grid by default)
+	mapData, err := p.mapService.GetWorldMapData(ctx, char, 64)
+	if err != nil {
+		client.SendGameMessage("error", fmt.Sprintf("Failed to generate world map: %v", err), nil)
+		return nil
+	}
+
+	// Convert to map[string]interface{} for JSON serialization
+	payload := map[string]interface{}{
+		"tiles":        mapData.Tiles,
+		"grid_width":   mapData.GridWidth,
+		"grid_height":  mapData.GridHeight,
+		"world_width":  mapData.WorldWidth,
+		"world_height": mapData.WorldHeight,
+		"player_x":     mapData.PlayerX,
+		"player_y":     mapData.PlayerY,
+		"world_id":     mapData.WorldID.String(),
+		"world_name":   mapData.WorldName,
+	}
+
+	client.SendGameMessage("world_map_data", "", payload)
 	return nil
 }
 

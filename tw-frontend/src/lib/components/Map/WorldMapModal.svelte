@@ -13,6 +13,8 @@
     let renderer: MapRenderer | null = null;
     let containerWidth = 0;
     let containerHeight = 0;
+    let worldMapData: any = null;
+    let loading = false;
 
     // Simulation stats
     let simStats = {
@@ -24,16 +26,29 @@
 
     $: if (isOpen && canvas) {
         initRenderer();
+        requestWorldMap();
     }
 
     $: if (!isOpen && renderer) {
         renderer.stop();
         renderer = null;
+        worldMapData = null;
     }
 
-    // Subscribe to map store updates
-    $: if (renderer && $mapStore.data && isOpen) {
-        updateMap();
+    // Update map when world map data is received
+    $: if (renderer && worldMapData && isOpen) {
+        updateWorldMap();
+    }
+
+    // Fallback: Subscribe to minimap store if no world map data
+    $: if (renderer && !worldMapData && $mapStore.data && isOpen) {
+        updateFromMinimap();
+    }
+
+    function requestWorldMap() {
+        loading = true;
+        // Send command to request world map data
+        gameWebSocket.sendRawCommand("world map");
     }
 
     function initRenderer() {
@@ -45,22 +60,48 @@
         renderer = new MapRenderer(canvas);
         renderer.setTileSize(4);
         renderer.setViewMode("atlas");
-
-        // Initial setup for Atlas view
-        if ($mapStore.data) {
-            renderer.setWorldSize($mapStore.data.grid_size || 2000);
-            // Initial scale to fit?
-            // Let renderer handle its defaults or set manually
-        }
+        renderer.setQuality("low"); // Use ASCII for performance on large map
 
         renderer.start();
-
-        if ($mapStore.data) {
-            updateMap();
-        }
     }
 
-    function updateMap() {
+    // Update from full world map data (Issue 5)
+    function updateWorldMap() {
+        if (!renderer || !worldMapData) return;
+
+        const playerPos = {
+            x: Math.round(worldMapData.player_x || 0),
+            y: Math.round(worldMapData.player_y || 0),
+            z: 0,
+        };
+
+        renderer.setWorldSize(worldMapData.grid_width * 100); // Estimate world size
+
+        // Convert WorldMapTile to VisibleTile format
+        const visibleTiles: VisibleTile[] = worldMapData.tiles.map(
+            (tile: any) => {
+                const vt: VisibleTile = {
+                    x:
+                        tile.grid_x *
+                        (worldMapData.world_width / worldMapData.grid_width),
+                    y:
+                        tile.grid_y *
+                        (worldMapData.world_height / worldMapData.grid_height),
+                    biome: tile.biome || "Default",
+                    elevation: tile.avg_elevation || 0,
+                    entities: [],
+                };
+                if (tile.is_player) vt.is_player = true;
+                return vt;
+            },
+        );
+
+        loading = false;
+        renderer.updateData(playerPos, visibleTiles, 1.0);
+    }
+
+    // Fallback: Update from minimap data
+    function updateFromMinimap() {
         if (!renderer || !$mapStore.data) return;
 
         const playerPos = {
@@ -69,31 +110,38 @@
             z: Math.round($mapStore.data.player_z || 0),
         };
 
-        // Update world size if changed
         if ($mapStore.data.grid_size) {
             renderer.setWorldSize($mapStore.data.grid_size);
         }
 
-        const visibleTiles: VisibleTile[] = $mapStore.data.tiles.map((tile) => {
-            const vt: VisibleTile = {
-                x: tile.x,
-                y: tile.y,
-                biome: tile.biome || "Default",
-                elevation: tile.elevation || 0,
-                entities: tile.entities || [],
-            };
-            if (tile.is_player) vt.is_player = true;
-            if (tile.portal) vt.portal = tile.portal;
-            if (tile.occluded) vt.occluded = true;
-            return vt;
-        });
+        const visibleTiles: VisibleTile[] = $mapStore.data.tiles.map(
+            (tile: any) => {
+                const vt: VisibleTile = {
+                    x: tile.x,
+                    y: tile.y,
+                    biome: tile.biome || "Default",
+                    elevation: tile.elevation || 0,
+                    entities: tile.entities || [],
+                };
+                if (tile.is_player) vt.is_player = true;
+                if (tile.portal) vt.portal = tile.portal;
+                if (tile.occluded) vt.occluded = true;
+                return vt;
+            },
+        );
 
-        // Use a smaller scale or different settings for world map if needed
         renderer.updateData(playerPos, visibleTiles, 1.0);
     }
 
-    // Listen for sim events
+    // Listen for sim events and world map data
     function handleSimMessage(msg: any) {
+        // Handle world map data from backend (Issue 5)
+        if (msg.type === "world_map_data") {
+            worldMapData = msg.data;
+            loading = false;
+            return;
+        }
+
         if (msg.type === "sim_event") {
             simStats.year = msg.data.year || simStats.year;
             // Add to event log

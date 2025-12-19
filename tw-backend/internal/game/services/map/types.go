@@ -63,3 +63,26 @@ type MapData struct {
 	Scale         int           `json:"scale"`     // World units per tile (1 = ground, >1 = flying)
 	WorldID       uuid.UUID     `json:"world_id"`
 }
+
+// WorldMapTile represents an aggregated tile for the full world map
+// Each tile represents a region of the world (e.g., 100x100 world units)
+type WorldMapTile struct {
+	GridX        int     `json:"grid_x"`              // Grid X position (0-based)
+	GridY        int     `json:"grid_y"`              // Grid Y position (0-based)
+	Biome        string  `json:"biome"`               // Dominant biome in this region
+	AvgElevation float64 `json:"avg_elevation"`       // Average elevation
+	IsPlayer     bool    `json:"is_player,omitempty"` // Player is in this region
+}
+
+// WorldMapData contains aggregated data for full world map display
+type WorldMapData struct {
+	Tiles       []WorldMapTile `json:"tiles"`
+	GridWidth   int            `json:"grid_width"`   // Number of columns
+	GridHeight  int            `json:"grid_height"`  // Number of rows
+	WorldWidth  float64        `json:"world_width"`  // World width in units
+	WorldHeight float64        `json:"world_height"` // World height in units
+	PlayerX     float64        `json:"player_x"`     // Player X position
+	PlayerY     float64        `json:"player_y"`     // Player Y position
+	WorldID     uuid.UUID      `json:"world_id"`
+	WorldName   string         `json:"world_name,omitempty"`
+}

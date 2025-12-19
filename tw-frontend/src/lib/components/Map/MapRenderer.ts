@@ -32,6 +32,15 @@ export interface PortalInfo {
 
 export type RenderQuality = 'low' | 'medium' | 'high';
 export type RenderStyle = 'standard' | 'geology';
+export type FalloffType = 'linear' | 'smooth' | 'sharp';
+
+// Configuration for biome blending (smooth transitions)
+export interface BlendConfig {
+    enabled: boolean;          // Enable/disable blending
+    radius: number;            // Blend radius in tile units (default: 1.5)
+    falloff: FalloffType;      // Weight falloff curve
+    waterTransition: number;   // Extra blend for water/land (default: 2.0)
+}
 
 // RGB Struct for optimization
 interface RGB { r: number; g: number; b: number; }
@@ -117,6 +126,14 @@ export class MapRenderer {
     private farBuffer: HTMLCanvasElement | null = null;
     private bufferSize: number = 0; // Current size of buffer (grid size)
 
+    // Biome blending configuration (Issue 3: smooth biome transitions)
+    private blendConfig: BlendConfig = {
+        enabled: true,
+        radius: 1.5,           // Blend radius in tile units
+        falloff: 'smooth',     // Weight falloff curve
+        waterTransition: 2.0,  // Extra blend for water/land
+    };
+
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         const context = canvas.getContext('2d', { alpha: false }); // Optimize for no transparency on canvas
@@ -188,6 +205,93 @@ export class MapRenderer {
             this.style = style;
             this.dirty = true;
         }
+    }
+
+    /**
+     * Configure biome blending for smooth transitions
+     */
+    setBlendConfig(config: Partial<BlendConfig>) {
+        this.blendConfig = { ...this.blendConfig, ...config };
+        this.dirty = true;
+    }
+
+    /**
+     * Get blended color for a tile based on neighboring biomes
+     * Returns interpolated RGB color for smooth biome transitions
+     */
+    private getBlendedBiomeColor(tile: VisibleTile, tiles: VisibleTile[], alpha: number = 1): string {
+        if (!this.blendConfig.enabled) {
+            return this.getBiomeColorString(tile.biome, alpha);
+        }
+
+        const { radius, falloff, waterTransition } = this.blendConfig;
+        const isWaterBiome = tile.biome === 'Ocean' || tile.biome === 'ocean';
+        const effectiveRadius = isWaterBiome ? waterTransition : radius;
+
+        // Find tiles within blend radius
+        const neighbors = tiles.filter(t =>
+            Math.abs(t.x - tile.x) <= effectiveRadius &&
+            Math.abs(t.y - tile.y) <= effectiveRadius
+        );
+
+        if (neighbors.length <= 1) {
+            return this.getBiomeColorString(tile.biome, alpha);
+        }
+
+        // Calculate weighted average of biome colors
+        let r = 0, g = 0, b = 0, totalWeight = 0;
+        for (const neighbor of neighbors) {
+            const dist = Math.sqrt(
+                Math.pow(neighbor.x - tile.x, 2) +
+                Math.pow(neighbor.y - tile.y, 2)
+            );
+            const weight = this.calculateBlendWeight(dist, effectiveRadius, falloff);
+            const rgb = this.getBiomeRGB(neighbor.biome);
+
+            r += rgb.r * weight;
+            g += rgb.g * weight;
+            b += rgb.b * weight;
+            totalWeight += weight;
+        }
+
+        if (totalWeight > 0) {
+            r = Math.round(r / totalWeight);
+            g = Math.round(g / totalWeight);
+            b = Math.round(b / totalWeight);
+        }
+
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    /**
+     * Calculate blend weight based on distance and falloff curve
+     */
+    private calculateBlendWeight(dist: number, radius: number, falloff: FalloffType): number {
+        if (dist >= radius) return 0;
+        const normalizedDist = dist / radius;
+
+        switch (falloff) {
+            case 'linear':
+                return 1 - normalizedDist;
+            case 'smooth':
+                // Smooth cosine falloff
+                return Math.cos(normalizedDist * Math.PI / 2);
+            case 'sharp':
+                // Inverse distance (more weight to close tiles)
+                return dist > 0 ? 1 / (dist + 0.1) : 10;
+            default:
+                return 1 - normalizedDist;
+        }
+    }
+
+    /**
+     * Get RGB color for a biome (used in blending calculations)
+     */
+    private getBiomeRGB(biome: string): RGB {
+        // Normalize biome name (case-insensitive lookup)
+        const normalizedBiome = biome.charAt(0).toUpperCase() + biome.slice(1).toLowerCase();
+        const color = COLORS_RGB[normalizedBiome] || COLORS_RGB[biome] || { r: 128, g: 128, b: 128 };
+        return color;
     }
 
     updateData(playerPos: Position, tiles: VisibleTile[], scale: number = 1, forceCameraToPlayer: boolean = false) {
@@ -303,13 +407,58 @@ export class MapRenderer {
             return;
         }
 
-        if (this.quality === 'low') {
+        // Issue 4: Distance-based LOD rendering
+        // Calculate 3D distance from player to tile for LOD selection
+        const distance = this.getTileDistance3D(tile);
+
+        // LOD Tiers:
+        // Near (<50m): Full quality based on perception
+        // Medium (50-200m): Reduced to ASCII mode
+        // Far (>200m): Simplified pixel rendering
+        if (distance > 200) {
+            // Far LOD: Simple pixelated rendering (fastest)
+            this.renderPixelTile(tile, x, y);
+        } else if (distance > 50 && this.quality !== 'low') {
+            // Medium LOD: Downgrade to ASCII for distant tiles
             this.renderAsciiTile(tile, x, y);
-        } else if (this.quality === 'medium') {
-            this.renderIconTile(tile, x, y);
         } else {
-            this.renderEmojiTile(tile, x, y);
+            // Near LOD: Original quality-based rendering
+            if (this.quality === 'low') {
+                this.renderAsciiTile(tile, x, y);
+            } else if (this.quality === 'medium') {
+                this.renderIconTile(tile, x, y);
+            } else {
+                this.renderEmojiTile(tile, x, y);
+            }
         }
+    }
+
+    /**
+     * Calculate 3D distance from player to tile
+     * Uses player Z (altitude) and tile elevation for proper LOD
+     */
+    private getTileDistance3D(tile: VisibleTile): number {
+        const dx = tile.x - this.playerPos.x;
+        const dy = tile.y - this.playerPos.y;
+        // Z distance is player altitude minus tile elevation
+        const dz = (this.playerPos.z || 0) - tile.elevation;
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    /**
+     * Simplified pixel rendering for far LOD (Issue 4)
+     * Single color fill without symbols or details
+     */
+    private renderPixelTile(tile: VisibleTile, x: number, y: number) {
+        // Use simple biome color (no blending for performance)
+        this.ctx.fillStyle = this.getBiomeColorString(tile.biome, 0.5);
+        const drawSize = this.tileSize + 0.6;
+        this.ctx.fillRect(x - this.tileSize / 2, y - this.tileSize / 2, drawSize, drawSize);
+
+        // Fog effect for distant tiles
+        const fogAlpha = 0.2;
+        this.ctx.fillStyle = `rgba(128, 128, 128, ${fogAlpha})`;
+        this.ctx.fillRect(x - this.tileSize / 2, y - this.tileSize / 2, drawSize, drawSize);
     }
 
     private renderGeologyTile(tile: VisibleTile, x: number, y: number) {
@@ -335,8 +484,8 @@ export class MapRenderer {
     }
 
     private renderAsciiTile(tile: VisibleTile, x: number, y: number) {
-        // Fill with biome color - use high alpha for visibility
-        this.ctx.fillStyle = this.getBiomeColorString(tile.biome, 0.8);
+        // Fill with blended biome color for smooth transitions (Issue 3)
+        this.ctx.fillStyle = this.getBlendedBiomeColor(tile, this.visibleTiles, 0.8);
         // Overdraw slightly to prevent sub-pixel gaps
         const drawSize = this.tileSize + 0.6;
         this.ctx.fillRect(x - this.tileSize / 2, y - this.tileSize / 2, drawSize, drawSize);
@@ -366,7 +515,8 @@ export class MapRenderer {
     }
 
     private renderIconTile(tile: VisibleTile, x: number, y: number) {
-        this.ctx.fillStyle = this.getBiomeColorString(tile.biome, 0.6);
+        // Use blended biome color for smooth transitions (Issue 3)
+        this.ctx.fillStyle = this.getBlendedBiomeColor(tile, this.visibleTiles, 0.6);
         this.ctx.fillRect(x - this.tileSize / 2, y - this.tileSize / 2, this.tileSize, this.tileSize);
 
         // Elevation shading
