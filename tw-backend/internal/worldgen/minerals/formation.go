@@ -254,3 +254,212 @@ func ExtractResource(deposit *MineralDeposit, amount int) int {
 
 	return extracted
 }
+
+// CoalFormationConfig holds parameters for coal seam generation
+type CoalFormationConfig struct {
+	OrganicMatter float64 // Amount of plant matter buried (0-1)
+	BurialDepth   float64 // Meters
+	BurialAge     int64   // Years of burial
+}
+
+// GenerateCoalDeposits creates coal seams from buried organic matter.
+// Coal rank increases with depth and age (peat → lignite → bituminous → anthracite).
+func GenerateCoalDeposits(config CoalFormationConfig) []*MineralDeposit {
+	// Coal requires significant organic matter and burial
+	if config.OrganicMatter < 0.3 || config.BurialAge < 1_000_000 {
+		return nil
+	}
+
+	deposits := make([]*MineralDeposit, 0)
+
+	// Determine coal rank based on burial depth and age
+	// Deeper/older = higher rank
+	var coalType string
+	rank := (config.BurialDepth / 1000) + float64(config.BurialAge)/100_000_000
+
+	switch {
+	case rank < 1:
+		coalType = "Peat"
+	case rank < 2:
+		coalType = "Lignite"
+	case rank < 5:
+		coalType = "Bituminous"
+	default:
+		coalType = "Anthracite"
+	}
+
+	deposit := &MineralDeposit{
+		DepositID: uuid.New(),
+		MineralType: MineralType{
+			Name:          coalType,
+			FormationType: FormationSedimentary,
+			BaseValue:     int(rank * 3),
+		},
+		FormationType: FormationSedimentary,
+		Depth:         config.BurialDepth,
+		Quantity:      int(config.OrganicMatter * 10000),
+		Concentration: config.OrganicMatter,
+		VeinSize:      VeinSizeLarge,
+		GeologicalAge: float64(config.BurialAge) / 1_000_000,
+	}
+	deposits = append(deposits, deposit)
+
+	return deposits
+}
+
+// EvaporiteFormationConfig holds parameters for evaporite generation
+type EvaporiteFormationConfig struct {
+	WaterVolume   float64 // Initial water in basin
+	EvaporateRate float64 // Rate of evaporation (0-1)
+	Climate       string  // "arid", "semi-arid", etc.
+}
+
+// GenerateEvaporiteDeposits creates salt and gypsum deposits from evaporating water.
+// Forms in sequence: carbonates → gypsum → halite (salt) → potash
+func GenerateEvaporiteDeposits(config EvaporiteFormationConfig) []*MineralDeposit {
+	// Evaporites require arid climate and significant evaporation
+	if config.EvaporateRate < 0.5 || config.Climate != "arid" {
+		return nil
+	}
+
+	deposits := make([]*MineralDeposit, 0)
+
+	// Evaporation sequence based on solubility (least soluble precipitates first)
+	evaporites := []struct {
+		name       string
+		solubility float64
+	}{
+		{"Gypsum", 0.3},
+		{"Halite", 0.6},
+		{"Potash", 0.9},
+	}
+
+	for _, evap := range evaporites {
+		if config.EvaporateRate >= evap.solubility {
+			deposit := &MineralDeposit{
+				DepositID: uuid.New(),
+				MineralType: MineralType{
+					Name:          evap.name,
+					FormationType: FormationSedimentary,
+				},
+				FormationType: FormationSedimentary,
+				Quantity:      int(config.WaterVolume * (1 - evap.solubility) * 1000),
+				Concentration: config.EvaporateRate,
+				VeinSize:      VeinSizeLarge,
+			}
+			deposits = append(deposits, deposit)
+		}
+	}
+
+	if len(deposits) == 0 {
+		return nil
+	}
+	return deposits
+}
+
+// GenerateToolStoneDeposits creates obsidian/flint deposits suitable for tool-making.
+// Obsidian from volcanic flows, flint from chalk/limestone nodules.
+func GenerateToolStoneDeposits(volcanicContext bool, hasChalk bool) []*MineralDeposit {
+	if !volcanicContext && !hasChalk {
+		return nil
+	}
+
+	deposits := make([]*MineralDeposit, 0)
+
+	if volcanicContext {
+		// Obsidian - volcanic glass
+		deposit := &MineralDeposit{
+			DepositID: uuid.New(),
+			MineralType: MineralType{
+				Name:          "Obsidian",
+				FormationType: FormationIgneous,
+				Hardness:      5.5,
+				BaseValue:     20,
+			},
+			FormationType: FormationIgneous,
+			Quantity:      500,
+			Concentration: 0.8,
+			VeinSize:      VeinSizeSmall,
+		}
+		deposits = append(deposits, deposit)
+	}
+
+	if hasChalk {
+		// Flint - silica nodules in chalk
+		deposit := &MineralDeposit{
+			DepositID: uuid.New(),
+			MineralType: MineralType{
+				Name:          "Flint",
+				FormationType: FormationSedimentary,
+				Hardness:      7.0,
+				BaseValue:     10,
+			},
+			FormationType: FormationSedimentary,
+			Quantity:      1000,
+			Concentration: 0.6,
+			VeinSize:      VeinSizeSmall,
+		}
+		deposits = append(deposits, deposit)
+	}
+
+	return deposits
+}
+
+// DiscoverDeposits searches a region for mineral deposits.
+// Returns deposits found based on survey skill and surface visibility.
+func DiscoverDeposits(deposits []*MineralDeposit, searchDepth float64, surveySkill float64) []*MineralDeposit {
+	if len(deposits) == 0 || surveySkill <= 0 {
+		return nil
+	}
+
+	discovered := make([]*MineralDeposit, 0)
+
+	for _, dep := range deposits {
+		// Surface-visible deposits are always found
+		if dep.SurfaceVisible {
+			discovered = append(discovered, dep)
+			continue
+		}
+
+		// Hidden deposits require depth access and skill
+		if dep.Depth <= searchDepth && surveySkill >= 0.5 {
+			// Probability based on skill and depth
+			discoveryChance := surveySkill * (1 - dep.Depth/searchDepth*0.5)
+			if discoveryChance > 0.3 {
+				discovered = append(discovered, dep)
+			}
+		}
+	}
+
+	if len(discovered) == 0 {
+		return nil
+	}
+	return discovered
+}
+
+// SampleConcentration returns the ore grade at a specific point in a deposit.
+// Concentration varies from center (richest) to edges.
+func SampleConcentration(deposit *MineralDeposit, sampleX, sampleY float64) float64 {
+	if deposit == nil {
+		return 0
+	}
+
+	// Calculate distance from deposit center
+	dx := sampleX - deposit.Location.X
+	dy := sampleY - deposit.Location.Y
+	distance := dx*dx + dy*dy
+
+	// Use vein dimensions for falloff (approximate radius)
+	radiusSq := deposit.VeinLength * deposit.VeinWidth / 4
+	if radiusSq == 0 {
+		radiusSq = 100 // Default 10m radius
+	}
+
+	// Concentration decreases with distance from center
+	falloff := 1 - (distance / (radiusSq * 4))
+	if falloff < 0 {
+		falloff = 0
+	}
+
+	return deposit.Concentration * falloff
+}

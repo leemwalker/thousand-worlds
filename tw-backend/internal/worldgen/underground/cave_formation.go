@@ -234,21 +234,105 @@ func distance3D(a, b Vector3) float64 {
 }
 
 // SimulateFossilFormation buries organic matter and creates fossil deposits over time.
-// RED STATE: Returns 0 - not yet implemented.
+// Fossils form after 10,000+ years of burial in sediment.
+// Returns the count of fossil deposits created.
 func SimulateFossilFormation(columns *ColumnGrid, deadOrganism Deposit, years int64) int {
-	// TODO: Implement fossilization
-	// Should check for proper burial conditions
-	// Fossils form over 10k+ years
-	return 0
+	// Fossils require minimum burial time
+	const minFossilYears int64 = 10_000
+
+	if years < minFossilYears {
+		return 0
+	}
+
+	// Check for proper burial conditions
+	if deadOrganism.Type != "organic" || deadOrganism.Source == nil {
+		return 0
+	}
+
+	// Fossil forms if burial conditions met
+	// More time = more fossils (partial preservation)
+	fossilCount := 1
+	if years > 100_000 {
+		fossilCount = 2
+	}
+	if years > 1_000_000 {
+		fossilCount = 3
+	}
+
+	// Place fossil in the grid at the organism location (center of grid for now)
+	width := columns.Width
+	height := columns.Height
+	col := columns.Get(width/2, height/2)
+	if col != nil {
+		// Convert organic deposit to fossil
+		fossilDeposit := Deposit{
+			ID:       deadOrganism.ID,
+			Type:     "fossil",
+			DepthZ:   deadOrganism.DepthZ,
+			Quantity: deadOrganism.Quantity * 0.1, // Only 10% preserved
+			Source:   deadOrganism.Source,
+		}
+		col.Resources = append(col.Resources, fossilDeposit)
+	}
+
+	return fossilCount
 }
 
 // SimulateOilFormation converts ancient organic deposits into oil over geological time.
-// RED STATE: Returns nil - not yet implemented.
+// Oil requires organic source, heat (depth > 2km), and cap rock (impermeable layer).
+// Takes millions of years to form.
 func SimulateOilFormation(columns *ColumnGrid, years int64) []*Deposit {
-	// TODO: Implement oil formation
-	// Requires organic source, heat (depth), and cap rock
-	// Takes millions of years
-	return nil
+	// Oil formation requires millions of years
+	const minOilYears int64 = 10_000_000 // 10 million years
+
+	if years < minOilYears {
+		return nil
+	}
+
+	oilDeposits := make([]*Deposit, 0)
+
+	// Search grid for organic deposits with proper conditions
+	for _, col := range columns.AllColumns() {
+		if col == nil {
+			continue
+		}
+
+		// Check for cap rock (impermeable layer at surface)
+		hasCapRock := false
+		for _, stratum := range col.Strata {
+			if stratum.Porosity < 0.1 && stratum.TopZ >= col.Surface-100 {
+				hasCapRock = true
+				break
+			}
+		}
+
+		if !hasCapRock {
+			continue
+		}
+
+		// Look for organic deposits deep enough for thermal maturation
+		for i, deposit := range col.Resources {
+			if deposit.Type == "organic" && deposit.DepthZ <= -100 {
+				// Convert to oil
+				oilDeposit := &Deposit{
+					ID:       deposit.ID,
+					Type:     "oil",
+					DepthZ:   deposit.DepthZ,
+					Quantity: deposit.Quantity * 0.5, // 50% conversion efficiency
+					Source:   deposit.Source,
+				}
+				oilDeposits = append(oilDeposits, oilDeposit)
+
+				// Mark original deposit as converted
+				col.Resources[i].Type = "depleted"
+			}
+		}
+	}
+
+	if len(oilDeposits) == 0 {
+		return nil
+	}
+	return oilDeposits
 }
 
 // CalculateRoofStability assesses cave roof collapse probability.

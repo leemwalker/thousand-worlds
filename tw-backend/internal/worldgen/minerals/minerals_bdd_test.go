@@ -3,6 +3,7 @@ package minerals_test
 import (
 	"testing"
 
+	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/minerals"
 
 	"github.com/stretchr/testify/assert"
@@ -173,8 +174,18 @@ func TestBDD_Mining_Depletion(t *testing.T) {
 //
 //	AND Hidden veins require progressively deeper mining
 func TestBDD_OreVein_Discovery(t *testing.T) {
-	t.Log("Ore vein discovery requires DiscoverDeposits function - not yet implemented")
-	assert.Fail(t, "Ore discovery not yet implemented")
+	// Create deposits, some visible, some hidden
+	deposits := []*minerals.MineralDeposit{
+		{SurfaceVisible: true, Depth: 10},
+		{SurfaceVisible: false, Depth: 50},
+		{SurfaceVisible: false, Depth: 200},
+	}
+
+	// Discover with high skill and deep search
+	discovered := minerals.DiscoverDeposits(deposits, 100, 0.8)
+
+	require.NotNil(t, discovered, "Should discover some deposits")
+	assert.GreaterOrEqual(t, len(discovered), 1, "Should find at least visible deposits")
 }
 
 // -----------------------------------------------------------------------------
@@ -199,8 +210,16 @@ func TestBDD_Tin_Formation(t *testing.T) {
 //
 //	AND Should be high hardness (suitable for tools)
 func TestBDD_ToolStone_Formation(t *testing.T) {
-	t.Log("Tool stone formation requires GenerateToolStone function")
-	assert.Fail(t, "Tool stone formation not yet implemented")
+	// Test volcanic obsidian
+	volcanicDeposits := minerals.GenerateToolStoneDeposits(true, false)
+	require.NotNil(t, volcanicDeposits, "Volcanic context should create tool stones")
+	assert.Greater(t, len(volcanicDeposits), 0, "Should have at least one deposit")
+	assert.Equal(t, "Obsidian", volcanicDeposits[0].MineralType.Name, "Volcanic should create obsidian")
+
+	// Test chalk flint
+	chalkDeposits := minerals.GenerateToolStoneDeposits(false, true)
+	require.NotNil(t, chalkDeposits, "Chalk should create flint")
+	assert.Equal(t, "Flint", chalkDeposits[0].MineralType.Name, "Chalk should create flint")
 }
 
 // -----------------------------------------------------------------------------
@@ -212,8 +231,18 @@ func TestBDD_ToolStone_Formation(t *testing.T) {
 //
 //	AND Coal rank should increase with depth/age
 func TestBDD_Coal_Formation(t *testing.T) {
-	t.Log("Coal formation requires organic burial simulation")
-	assert.Fail(t, "Coal seam formation not yet implemented")
+	config := minerals.CoalFormationConfig{
+		OrganicMatter: 0.8,        // High organic content (swamp)
+		BurialDepth:   500,        // 500m burial
+		BurialAge:     50_000_000, // 50 million years
+	}
+
+	deposits := minerals.GenerateCoalDeposits(config)
+
+	require.NotNil(t, deposits, "Should generate coal deposits")
+	assert.Greater(t, len(deposits), 0, "Should have at least one coal seam")
+	// With 500m depth and 50M years, rank = 0.5 + 0.5 = 1, should be Lignite
+	assert.Equal(t, "Lignite", deposits[0].MineralType.Name, "Should be lignite at this depth/age")
 }
 
 // -----------------------------------------------------------------------------
@@ -225,8 +254,24 @@ func TestBDD_Coal_Formation(t *testing.T) {
 //
 //	AND Deposit layers should show evaporation sequence
 func TestBDD_Evaporite_Formation(t *testing.T) {
-	t.Log("Evaporite formation requires climate simulation")
-	assert.Fail(t, "Evaporite formation not yet implemented")
+	config := minerals.EvaporiteFormationConfig{
+		WaterVolume:   1000,   // Large basin
+		EvaporateRate: 0.8,    // High evaporation
+		Climate:       "arid", // Arid climate required
+	}
+
+	deposits := minerals.GenerateEvaporiteDeposits(config)
+
+	require.NotNil(t, deposits, "Should generate evaporite deposits")
+	assert.Greater(t, len(deposits), 0, "Should have at least one evaporite layer")
+	// Check evaporation sequence - should have gypsum and halite
+	foundGypsum := false
+	for _, dep := range deposits {
+		if dep.MineralType.Name == "Gypsum" {
+			foundGypsum = true
+		}
+	}
+	assert.True(t, foundGypsum, "Should have gypsum in evaporite sequence")
 }
 
 // -----------------------------------------------------------------------------
@@ -251,8 +296,21 @@ func TestBDD_Saltpeter_Formation(t *testing.T) {
 //
 //	AND Mining should follow richest veins first
 func TestBDD_OreGrade_Variation(t *testing.T) {
-	t.Log("Ore grade variation requires SampleConcentration function")
-	assert.Fail(t, "Ore grade variation not yet implemented")
+	// Create a deposit with known center and dimensions
+	deposit := &minerals.MineralDeposit{
+		Location:      geography.Point{X: 100, Y: 100},
+		Concentration: 0.8,
+		VeinLength:    50,
+		VeinWidth:     20,
+	}
+
+	// Sample at center - should be richest
+	centerConc := minerals.SampleConcentration(deposit, 100, 100)
+	// Sample at edge - should be lower
+	edgeConc := minerals.SampleConcentration(deposit, 105, 100)
+
+	assert.Greater(t, centerConc, 0.0, "Center should have positive concentration")
+	assert.GreaterOrEqual(t, centerConc, edgeConc, "Center should be richer than edge")
 }
 
 // -----------------------------------------------------------------------------

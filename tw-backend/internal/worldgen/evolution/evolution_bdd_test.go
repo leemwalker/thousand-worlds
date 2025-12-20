@@ -129,11 +129,19 @@ func TestBDD_IslandDwarfism_SizeReduction(t *testing.T) {
 		Population: 100,
 	}
 
-	// Island isolation should cause size reduction
-	// This documents the gap - dwarfism not yet implemented
-	_ = elephant
-	t.Log("Island dwarfism requires SimulateIsolation function - not yet implemented")
-	assert.Fail(t, "Island dwarfism not yet implemented")
+	// Configure small island with limited resources
+	config := evolution.IsolationConfig{
+		IslandArea:      100,       // Small island
+		ResourceDensity: 0.3,       // Low resources
+		Years:           1_000_000, // 1 million years
+	}
+
+	// Simulate isolation
+	sizeMultiplier := evolution.SimulateIsolation(elephant, config)
+
+	// Should experience dwarfism (multiplier < 1)
+	assert.Less(t, sizeMultiplier, 1.0, "Large animals should shrink on islands")
+	assert.Greater(t, sizeMultiplier, 0.0, "Should still have positive size")
 }
 
 // -----------------------------------------------------------------------------
@@ -296,11 +304,17 @@ func TestBDD_Physics_SquareCubeLaw(t *testing.T) {
 		Population: 10,
 	}
 
-	// Fitness should be very low due to biomechanical stress
-	// This requires CalculateBiomechanicalFitness
-	_ = titan
-	t.Log("Square-cube law requires CalculateBiomechanicalFitness - not yet implemented")
-	assert.Fail(t, "Biomechanical limits not yet implemented")
+	// Calculate biomechanical fitness
+	fitness := evolution.CalculateBiomechanicalFitness(titan)
+
+	// Should have very low fitness due to square-cube law
+	assert.Less(t, fitness, 0.5, "Giant animal should have reduced fitness")
+	assert.Greater(t, fitness, 0.0, "Should still have positive fitness")
+
+	// Normal-sized animal should have full fitness
+	normalAnimal := &evolution.Species{Size: 5.0}
+	normalFitness := evolution.CalculateBiomechanicalFitness(normalAnimal)
+	assert.Equal(t, 1.0, normalFitness, "Normal-sized animal should have full fitness")
 }
 
 // -----------------------------------------------------------------------------

@@ -234,3 +234,91 @@ func SimulateCambrianExplosion(species []*Species, o2Level float64, years int64)
 	// Return the number of NEW species (not counting original)
 	return int(finalCount - currentCount)
 }
+
+// CalculateBiomechanicalFitness applies square-cube law limits to species size.
+// Very large animals have proportionally more mass than bone strength can support.
+// Returns fitness from 0.0 (impossible) to 1.0 (optimal size).
+func CalculateBiomechanicalFitness(species *Species) float64 {
+	if species == nil {
+		return 0
+	}
+
+	// Maximum sustainable size for a land animal (in arbitrary units)
+	// Largest land animals in history were ~70-80 tons (sauropods)
+	// We use size 12 as approximate safe maximum
+	const maxSafeSize = 12.0
+	const criticalSize = 20.0 // Above this, fitness drops to near zero
+
+	if species.Size <= maxSafeSize {
+		return 1.0 // No penalty for normal-sized animals
+	}
+
+	// Square-cube law: mass grows as cube, strength grows as square
+	// So fitness decreases rapidly above max safe size
+	excessSize := species.Size - maxSafeSize
+	overload := excessSize / (criticalSize - maxSafeSize)
+
+	// Fitness decreases exponentially with size overload
+	fitness := math.Exp(-overload * 2)
+
+	if fitness < 0.01 {
+		fitness = 0.01 // Minimum for extinction threshold
+	}
+
+	return fitness
+}
+
+// IsolationConfig holds parameters for island isolation simulation
+type IsolationConfig struct {
+	IslandArea      float64 // km²
+	ResourceDensity float64 // 0-1, how much food per unit area
+	Years           int64   // Duration of isolation
+}
+
+// SimulateIsolation models island dwarfism/gigantism over time.
+// Large animals shrink on small islands with limited resources.
+// Returns the size multiplier (< 1 = dwarfism, > 1 = gigantism).
+func SimulateIsolation(species *Species, config IsolationConfig) float64 {
+	if species == nil || config.Years <= 0 {
+		return 1.0
+	}
+
+	// Island dwarfism affects large animals (> 3.0 size)
+	// Island gigantism affects small animals (< 0.5 size) with no predators
+	const largeThreshold = 3.0
+	const smallThreshold = 0.5
+
+	// Time needed for noticeable size change (per generation)
+	const generationsPerMillion = 50_000 // Rough estimate
+	generations := float64(config.Years) / 1_000_000 * generationsPerMillion
+
+	sizeMultiplier := 1.0
+
+	if species.Size > largeThreshold {
+		// Dwarfism: larger the animal, more resource-limited
+		// Scarcity increases size reduction
+		scarcity := 1 - config.ResourceDensity
+		dwarfismRate := 0.001 * scarcity * (species.Size / largeThreshold)
+
+		// More generations = more reduction
+		reduction := dwarfismRate * generations
+		sizeMultiplier = math.Exp(-reduction)
+
+		// Cap at 30% of original size (pygmy elephants were ~0.1m tall)
+		if sizeMultiplier < 0.3 {
+			sizeMultiplier = 0.3
+		}
+	} else if species.Size < smallThreshold {
+		// Gigantism: small animals get larger without predators
+		gigantismRate := 0.0005 * config.ResourceDensity
+		increase := gigantismRate * generations
+		sizeMultiplier = 1 + increase
+
+		// Cap at 300% of original size
+		if sizeMultiplier > 3.0 {
+			sizeMultiplier = 3.0
+		}
+	}
+
+	return sizeMultiplier
+}
