@@ -463,3 +463,48 @@ func SampleConcentration(deposit *MineralDeposit, sampleX, sampleY float64) floa
 
 	return deposit.Concentration * falloff
 }
+
+// TinFormationContext holds parameters for tin deposit generation
+type TinFormationContext struct {
+	HasGranite     bool    // Granitic intrusion present
+	HasSedimentary bool    // Sedimentary contact zone
+	Temperature    float64 // Hydrothermal temperature
+}
+
+// GenerateTinDeposits creates cassiterite (tin ore) deposits at granite-sedimentary contacts.
+// Tin commonly co-occurs with copper in hydrothermal systems (important for Bronze Age).
+func GenerateTinDeposits(ctx TinFormationContext, copperLocations []Point) []*MineralDeposit {
+	// Tin requires granite-sedimentary contact and hydrothermal activity
+	if !ctx.HasGranite || !ctx.HasSedimentary || ctx.Temperature < 300 {
+		return nil
+	}
+
+	deposits := make([]*MineralDeposit, 0)
+
+	// Create tin deposits near copper locations (co-location for bronze production)
+	for i, copperLoc := range copperLocations {
+		// Cassiterite (tin ore) deposit
+		tinDeposit := &MineralDeposit{
+			DepositID: uuid.New(),
+			MineralType: MineralType{
+				Name:          "Cassiterite",
+				FormationType: FormationIgneous,
+				BaseValue:     30, // Tin is valuable for bronze
+			},
+			FormationType: FormationIgneous,
+			Location: geography.Point{
+				X: copperLoc.X + float64(i%3-1)*10, // Slight offset from copper
+				Y: copperLoc.Y + float64(i%2)*10,
+			},
+			Quantity:      200 + i*50,
+			Concentration: 0.6,
+			VeinSize:      VeinSizeSmall,
+		}
+		deposits = append(deposits, tinDeposit)
+	}
+
+	if len(deposits) == 0 {
+		return nil
+	}
+	return deposits
+}

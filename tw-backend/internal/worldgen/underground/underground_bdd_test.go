@@ -73,9 +73,25 @@ func TestBDD_Strata_Composition(t *testing.T) {
 
 	for _, sc := range scenarios {
 		t.Run(sc.name, func(t *testing.T) {
-			// Strata generation based on context not yet implemented
-			t.Logf("Strata composition requires GenerateStrataForContext function")
-			assert.Fail(t, "Strata composition based on context not yet implemented")
+			ctx := underground.StrataContext{
+				IsVolcanic: sc.isVolcanic,
+				IsAncient:  sc.isAncient,
+			}
+
+			strata := underground.GenerateStrataForContext(ctx)
+
+			require.Greater(t, len(strata), 0, "Should generate at least one layer")
+
+			// Find the primary rock layer (not soil)
+			var primaryMaterial string
+			for _, layer := range strata {
+				if layer.Material != "soil" {
+					primaryMaterial = layer.Material
+					break
+				}
+			}
+			assert.Equal(t, sc.expectMaterial, primaryMaterial,
+				"Primary material should match geological context")
 		})
 	}
 }
@@ -149,8 +165,28 @@ func TestBDD_Oil_Formation(t *testing.T) {
 //
 //	AND Should require tool strength >= rock hardness
 func TestBDD_Mining_HardnessRequirement(t *testing.T) {
-	t.Log("Mining hardness checks require CalculateMiningSpeed function")
-	assert.Fail(t, "Mining hardness requirement not yet implemented")
+	// Stone pick has max hardness 4
+	stonePick := underground.StandardTools["stone_pick"]
+
+	// Granite has hardness 7.5
+	graniteHardness := 7.5
+
+	// Iron pick has max hardness 6
+	ironPick := underground.StandardTools["iron_pick"]
+
+	// Calculate mining speeds
+	stoneSpeed := underground.CalculateMiningSpeed(stonePick, graniteHardness)
+	ironSpeed := underground.CalculateMiningSpeed(ironPick, graniteHardness)
+	ironOnLimestone := underground.CalculateMiningSpeed(ironPick, 4.0)
+
+	// Stone pick should fail on granite (hardness 7.5 > 4)
+	assert.Equal(t, 0.0, stoneSpeed, "Stone pick should not mine granite")
+
+	// Iron pick should also fail on granite (hardness 7.5 > 6)
+	assert.Equal(t, 0.0, ironSpeed, "Iron pick should not mine granite")
+
+	// Iron pick should work on limestone (hardness 4 <= 6)
+	assert.Greater(t, ironOnLimestone, 0.0, "Iron pick should mine limestone")
 }
 
 // -----------------------------------------------------------------------------

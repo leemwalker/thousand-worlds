@@ -197,8 +197,23 @@ func TestBDD_OreVein_Discovery(t *testing.T) {
 //
 //	AND Should be co-located with copper for bronze production
 func TestBDD_Tin_Formation(t *testing.T) {
-	t.Log("Tin-copper co-location requires specific geological context")
-	assert.Fail(t, "Tin formation not yet implemented")
+	ctx := minerals.TinFormationContext{
+		HasGranite:     true,
+		HasSedimentary: true,
+		Temperature:    400, // Hydrothermal temperature
+	}
+
+	// Copper locations where tin should co-occur
+	copperLocations := []minerals.Point{
+		{X: 100, Y: 100},
+		{X: 200, Y: 200},
+	}
+
+	deposits := minerals.GenerateTinDeposits(ctx, copperLocations)
+
+	require.NotNil(t, deposits, "Should generate tin deposits at granite-sedimentary contacts")
+	assert.GreaterOrEqual(t, len(deposits), len(copperLocations), "Should have at least one tin deposit per copper location")
+	assert.Equal(t, "Cassiterite", deposits[0].MineralType.Name, "Tin ore should be cassiterite")
 }
 
 // -----------------------------------------------------------------------------

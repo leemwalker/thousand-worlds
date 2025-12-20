@@ -297,3 +297,70 @@ func max(a, b int) int {
 	}
 	return b
 }
+
+// CalculateMiningSpeed returns the mining speed multiplier based on tool vs rock hardness.
+// Returns 0 if tool cannot mine the rock (hardness too high).
+// Returns speed from 0 to tool.Speed, scaled by hardness difference.
+func CalculateMiningSpeed(tool MiningTool, rockHardness float64) float64 {
+	if tool.MaxHardness < rockHardness {
+		return 0 // Cannot mine
+	}
+
+	// Speed scales with how much harder the tool is vs rock
+	hardnessAdvantage := tool.MaxHardness - rockHardness
+	baseFactor := hardnessAdvantage / tool.MaxHardness
+
+	// Minimum 10% speed if tool can mine at all
+	if baseFactor < 0.1 {
+		baseFactor = 0.1
+	}
+
+	return tool.Speed * baseFactor
+}
+
+// StrataContext provides parameters for generating appropriate strata
+type StrataContext struct {
+	IsVolcanic bool
+	IsAncient  bool
+	IsOceanic  bool
+	Elevation  float64
+}
+
+// GenerateStrataForContext creates geologically appropriate strata layers
+func GenerateStrataForContext(ctx StrataContext) []StrataLayer {
+	strata := []StrataLayer{}
+
+	if ctx.IsVolcanic {
+		// Volcanic regions: basalt and volcanic rock
+		strata = append(strata, StrataLayer{
+			TopZ: 0, BottomZ: -50, Material: "basalt", Hardness: 6.0, Porosity: 0.1,
+		})
+		strata = append(strata, StrataLayer{
+			TopZ: -50, BottomZ: -500, Material: "gabbro", Hardness: 7.0, Porosity: 0.05,
+		})
+	} else if ctx.IsAncient {
+		// Ancient cratons: granite and metamorphic basement
+		strata = append(strata, StrataLayer{
+			TopZ: 0, BottomZ: -30, Material: "soil", Hardness: 1.5, Porosity: 0.4,
+		})
+		strata = append(strata, StrataLayer{
+			TopZ: -30, BottomZ: -200, Material: "granite", Hardness: 7.5, Porosity: 0.01,
+		})
+		strata = append(strata, StrataLayer{
+			TopZ: -200, BottomZ: -5000, Material: "gneiss", Hardness: 8.0, Porosity: 0.005,
+		})
+	} else {
+		// Default: sedimentary basin
+		strata = append(strata, StrataLayer{
+			TopZ: 0, BottomZ: -20, Material: "soil", Hardness: 1.0, Porosity: 0.5,
+		})
+		strata = append(strata, StrataLayer{
+			TopZ: -20, BottomZ: -200, Material: "sandstone", Hardness: 4.0, Porosity: 0.2,
+		})
+		strata = append(strata, StrataLayer{
+			TopZ: -200, BottomZ: -800, Material: "limestone", Hardness: 4.0, Porosity: 0.25,
+		})
+	}
+
+	return strata
+}

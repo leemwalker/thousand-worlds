@@ -382,12 +382,54 @@ func CalculateRoofStability(cave *Cave, nodeID uuid.UUID) float64 {
 }
 
 // SimulateRockCycle transforms rock types over geological time.
-// RED STATE: Returns 0 - not yet implemented.
+// Metamorphism transforms sedimentary rocks under heat and pressure:
+// - Limestone → Marble
+// - Sandstone → Quartzite
+// - Shale → Slate
+// Returns the number of transformed strata.
 func SimulateRockCycle(columns *ColumnGrid, years int64, temperature, pressure float64) int {
-	// TODO: Implement rock cycle
-	// Sedimentary -> Metamorphic with heat/pressure
-	// Returns number of transformed strata
-	return 0
+	// Need significant time, heat, and pressure for metamorphism
+	// Typical metamorphism: 300-700°C, 100-1000 MPa, millions of years
+	if years < 1_000_000 || temperature < 300 || pressure < 100 {
+		return 0
+	}
+
+	transformed := 0
+	metamorphicMap := map[string]string{
+		"limestone": "marble",
+		"sandstone": "quartzite",
+		"shale":     "slate",
+		"mudstone":  "phyllite",
+	}
+
+	for _, col := range columns.AllColumns() {
+		if col == nil {
+			continue
+		}
+
+		for i := range col.Strata {
+			stratum := &col.Strata[i]
+
+			// Only deep strata undergo metamorphism (depth > 500m)
+			if stratum.TopZ > -500 {
+				continue
+			}
+
+			// Check if material can metamorphose
+			newMaterial, canTransform := metamorphicMap[stratum.Material]
+			if !canTransform {
+				continue
+			}
+
+			// Transform the rock
+			stratum.Material = newMaterial
+			stratum.Hardness += 2.0 // Metamorphic rocks are harder
+			stratum.Porosity *= 0.1 // Much less porous
+			transformed++
+		}
+	}
+
+	return transformed
 }
 
 // SimulateBurrowCreation allows creatures to create tunnels.
