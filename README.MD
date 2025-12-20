@@ -225,6 +225,14 @@ World ticker and time management:
 - Weather simulation (evaporation, wind patterns, precipitation)
 - Flora/fauna evolution with environmental pressures
 
+**Underground System** (`internal/worldgen/underground/`):
+- **Column Grid**: Per-coordinate 3D underground data
+- **Strata**: Geological layers (soil, limestone, granite, basalt) with hardness/porosity
+- **Cave Formation**: Limestone dissolution simulating karst cave development
+- **Magma Chambers**: Tectonic boundary integration with lava tube formation
+- **Fossil/Oil**: Organic deposit transformation (reality÷10 timeline)
+- **Mining**: Tool-based extraction with hardness requirements
+
 ### Database Schema
 
 **Event Store:**

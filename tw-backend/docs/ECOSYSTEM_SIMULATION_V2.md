@@ -308,6 +308,111 @@ func applySolarLuminosityEffects(luminosity float64) {
 
 ---
 
+### 2.5 Underground System
+
+**✅ IMPLEMENTED** (`internal/worldgen/underground/`)
+
+The underground system provides 3D subsurface data for mining, caves, fossils, and geological features.
+
+#### Core Types
+
+| Type | Description |
+|------|-------------|
+| `WorldColumn` | Per-coordinate underground data (surface, bedrock, strata, voids, resources, magma) |
+| `StrataLayer` | Geological layer with material, hardness (0-10), porosity (0-1), age |
+| `VoidSpace` | Underground void (cave, tunnel, burrow) with vertical extent |
+| `Deposit` | Resource or fossil with depth, quantity, organic origin |
+| `Cave` | Cave network with nodes (chambers) and passages |
+| `MagmaChamber` | Magma reservoir with temperature, pressure, viscosity |
+
+#### Strata by World Composition
+
+```go
+// Composition: "volcanic", "continental", "oceanic", "ancient"
+switch composition {
+case "volcanic":   // basalt → gabbro → mantle
+case "oceanic":    // limestone → chalk → granite (high cave potential)
+case "ancient":    // sandstone → schist → granite (mineral rich)
+case "continental": // soil → sedimentary → limestone → granite → basalt
+}
+```
+
+#### Cave Formation (Limestone Dissolution)
+
+Caves form organically through chemical dissolution:
+
+```go
+// Dissolution rate depends on:
+// 1. Rainfall (high = more carbonic acid)
+// 2. Porosity (limestone ~0.3, granite ~0.05)
+// 3. Time elapsed (caves form over 100K+ years)
+effectiveRate := baseRate * rainfall * porosity * CO2Factor * years
+
+if effectiveRate > threshold {
+    cave := createCaveInStratum(col, stratum)
+    RegisterCaveInGrid(grid, cave)
+}
+```
+
+#### Magma Chamber Behavior
+
+Magma chambers integrate with tectonic boundaries:
+
+| Boundary Type | Chamber Probability | Notes |
+|---------------|-------------------|-------|
+| Convergent | 3%/1000y | Subduction zones |
+| Divergent | 2%/1000y | Mid-ocean ridges |
+| Transform | 0.5%/1000y | Rare volcanism |
+
+```go
+// Eruption when pressure >= 80 (60 for volcanic worlds)
+if chamber.Pressure >= config.EruptionThreshold {
+    chamber.Pressure *= 0.3  // Pressure relief
+    chamber.Volume *= 0.5    // Volume loss
+    // 70% chance of lava tube formation
+    if rand.Float64() < 0.7 {
+        lavaTube := createLavaTube(column, chamber)
+    }
+}
+```
+
+#### Fossil/Oil Formation (Reality ÷ 10)
+
+Organic deposits transform through burial and time:
+
+```
+Timeline (accelerated):
+remains (death) → mineralizing (1K years, 10m burial)
+             → fossil (100K years) or coal (plants)
+             → oil (5M years, 3km depth, >100°C, organic-rich species)
+```
+
+**Oil-producing species**: fish, whale, plankton, algae, dinosaur, mammoth
+
+#### Mining Mechanics
+
+Tool-based extraction with hardness requirements:
+
+| Tool | Max Hardness | Depth Limit |
+|------|--------------|-------------|
+| Bare Hands | 1 | 5m |
+| Wooden Pick | 2 | 50m |
+| Stone Pick | 4 | 200m |
+| Iron Pick | 6 | ∞ |
+| Diamond Pick | 10 | ∞ |
+
+```go
+// Mine returns success, resource found, void created
+result := Mine(column, depth, tool, createTunnel)
+
+// Burrows for creatures (hardness <= 3 required)
+burrow, err := CreateBurrow(column, ownerID, entrance, depth, chambers)
+```
+
+**Coverage**: 85.8% (53 unit tests + 3 integration tests)
+
+---
+
 ## 3. Species & Traits
 
 ### 3.1 Trait System
