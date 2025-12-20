@@ -16,6 +16,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/sync/errgroup"
 
 	"tw-backend/cmd/game-server/api"
 	"tw-backend/cmd/game-server/websocket"
@@ -233,39 +234,56 @@ func main() {
 	// Create and start the Hub
 	hub := websocket.NewHub(gameProcessor)
 	gameProcessor.SetHub(hub)
-	go hub.Run(ctx)
-
-	// Start combat tick loop
-	go func() {
-		ticker := time.NewTicker(100 * time.Millisecond) // 100ms combat tick
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				gameProcessor.Tick(100 * time.Millisecond)
-			}
-		}
-	}()
 
 	// Create health check handler
 	healthHandler := api.NewHealthHandler()
 
-	// Update connected users count periodically
-	go func() {
+	// =========================================================================
+	// Background Services with errgroup
+	// =========================================================================
+	// Use errgroup for structured concurrency - if any goroutine returns an
+	// error, all others are cancelled via the derived context.
+	eg, egCtx := errgroup.WithContext(ctx)
+
+	// Background service: WebSocket Hub
+	eg.Go(func() error {
+		log.Info().Msg("Starting WebSocket hub...")
+		hub.Run(egCtx)
+		return nil // Hub.Run handles its own shutdown gracefully
+	})
+
+	// Background service: Combat tick loop
+	eg.Go(func() error {
+		log.Info().Msg("Starting combat tick loop...")
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-egCtx.Done():
+				log.Info().Msg("Combat tick loop stopped")
+				return nil
+			case <-ticker.C:
+				gameProcessor.Tick(100 * time.Millisecond)
+			}
+		}
+	})
+
+	// Background service: Connected users count updater
+	eg.Go(func() error {
+		log.Info().Msg("Starting connected users monitor...")
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
-			case <-ctx.Done():
-				return
+			case <-egCtx.Done():
+				log.Info().Msg("Connected users monitor stopped")
+				return nil
 			case <-ticker.C:
 				count := int64(hub.GetClientCount())
 				healthHandler.SetConnectedUsers(count)
 			}
 		}
-	}()
+	})
 
 	// Initialize DescriptionGenerator
 
