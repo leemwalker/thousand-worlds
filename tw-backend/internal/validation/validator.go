@@ -204,11 +204,17 @@ func (v *Validator) ValidateIntRange(value int, fieldName string, min, max int) 
 	return nil
 }
 
-// SanitizeString removes dangerous characters and trims whitespace
+// SanitizeString removes dangerous characters, strips HTML/JS tags, and trims whitespace.
+// This helps prevent Stored XSS attacks when user input might be rendered.
 func (v *Validator) SanitizeString(input string) string {
-	// Remove null bytes and control characters (except space)
+	// Step 1: Strip HTML/script tags to prevent XSS
+	// Matches <tag>, </tag>, <tag attr="...">, etc.
+	htmlTagPattern := regexp.MustCompile(`<[^>]*>`)
+	sanitized := htmlTagPattern.ReplaceAllString(input, "")
+
+	// Step 2: Remove null bytes and control characters (except space)
 	var result strings.Builder
-	for _, r := range input {
+	for _, r := range sanitized {
 		if r >= 32 || r == '\t' || r == '\n' {
 			// Allow printable characters plus tab and newline
 			if r < 127 || r > 159 { // Exclude extended control chars

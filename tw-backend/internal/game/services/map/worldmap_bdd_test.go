@@ -1,4 +1,4 @@
-package gamemap
+package gamemap_test
 
 import "testing"
 
@@ -22,6 +22,7 @@ func TestBDD_WorldMap_RegionAggregation(t *testing.T) {
 	// assert region.DominantBiome == "grassland" // Most common
 	// assert region.AvgElevation == average(tiles.elevations)
 }
+
 // -----------------------------------------------------------------------------
 // Scenario: Coordinate Mapping & Spherical Wrapping
 // -----------------------------------------------------------------------------
@@ -29,29 +30,29 @@ func TestBDD_WorldMap_RegionAggregation(t *testing.T) {
 // When: Coordinates are mapped to a Grid
 // Then: Points exceeding bounds should wrap (Pac-Man effect)
 //
-//  AND Points within bounds should scale linearly
+//	AND Points within bounds should scale linearly
 func TestBDD_WorldMap_CoordinateMapping(t *testing.T) {
-    t.Skip("BDD stub: implement spherical mapping")
-    
-    scenarios := []struct {
-        name     string
-        worldX   float64
-        expectedGridX int // Relative to grid width
-    }{
-        {"Center", 500.0, 50},   // Middle of world -> Middle of grid
-        {"West Edge", 0.0, 0},   // Left edge
-        {"East Edge", 1000.0, 100}, // Right edge (or 0 depending on 0-index logic)
-        {"Wrapped East", 1100.0, 10}, // Wrapped around to start
-        {"Wrapped West", -100.0, 90}, // Wrapped around to end
-    }
+	t.Skip("BDD stub: implement spherical mapping")
 
-    for _, sc := range scenarios {
-        t.Run(sc.name, func(t *testing.T) {
-            // Pseudocode:
-            // gridX, _ := mapper.WorldToGrid(sc.worldX, ...)
-            // assert.Equal(t, sc.expectedGridX, gridX)
-        })
-    }
+	scenarios := []struct {
+		name          string
+		worldX        float64
+		expectedGridX int // Relative to grid width
+	}{
+		{"Center", 500.0, 50},        // Middle of world -> Middle of grid
+		{"West Edge", 0.0, 0},        // Left edge
+		{"East Edge", 1000.0, 100},   // Right edge (or 0 depending on 0-index logic)
+		{"Wrapped East", 1100.0, 10}, // Wrapped around to start
+		{"Wrapped West", -100.0, 90}, // Wrapped around to end
+	}
+
+	for _, sc := range scenarios {
+		t.Run(sc.name, func(t *testing.T) {
+			// Pseudocode:
+			// gridX, _ := mapper.WorldToGrid(sc.worldX, ...)
+			// assert.Equal(t, sc.expectedGridX, gridX)
+		})
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -61,14 +62,14 @@ func TestBDD_WorldMap_CoordinateMapping(t *testing.T) {
 // When: GetWorldMapData is called a second time
 // Then: The cached result should be returned
 //
-//  AND The heavy aggregation logic should NOT run again
+//	AND The heavy aggregation logic should NOT run again
 func TestBDD_WorldMap_Caching(t *testing.T) {
-    t.Skip("BDD stub: implement caching")
-    // Pseudocode:
-    // service.GetWorldMapData(ctx, char, 64) // First call (Miss)
-    // start := time.Now()
-    // service.GetWorldMapData(ctx, char, 64) // Second call (Hit)
-    // assert time.Since(start) < 1*time.Millisecond
+	t.Skip("BDD stub: implement caching")
+	// Pseudocode:
+	// service.GetWorldMapData(ctx, char, 64) // First call (Miss)
+	// start := time.Now()
+	// service.GetWorldMapData(ctx, char, 64) // Second call (Hit)
+	// assert time.Since(start) < 1*time.Millisecond
 }
 
 // -----------------------------------------------------------------------------
@@ -78,14 +79,14 @@ func TestBDD_WorldMap_Caching(t *testing.T) {
 // When: GetWorldMapData is called
 // Then: A graceful error or "Generating..." placeholder should be returned
 //
-//  AND The server should NOT panic
+//	AND The server should NOT panic
 func TestBDD_WorldMap_UninitializedState(t *testing.T) {
-    t.Skip("BDD stub: implement nil checks")
-    // Pseudocode:
-    // emptyWorldService := ...
-    // data, err := emptyWorldService.GetWorldMapData(...)
-    // assert err == ErrWorldGenerating
-    // assert data.Status == "PENDING"
+	t.Skip("BDD stub: implement nil checks")
+	// Pseudocode:
+	// emptyWorldService := ...
+	// data, err := emptyWorldService.GetWorldMapData(...)
+	// assert err == ErrWorldGenerating
+	// assert data.Status == "PENDING"
 }
 
 // -----------------------------------------------------------------------------
@@ -95,13 +96,13 @@ func TestBDD_WorldMap_UninitializedState(t *testing.T) {
 // When: Aggregated into a single Map Cell
 // Then: Sub-region should be split into multiple Map Cells
 func TestBDD_WorldMap_BiomeWeighting(t *testing.T) {
-    t.Skip("BDD stub: define aggregation rules")
-    // Pseudocode:
-    // mixedRegion := []Biome{Ocean, Ocean, Mountain, Forest}
-    // cells := service.Aggregate(mixedRegion)
-    // assert len(cells) == 2
-    // assert cells[0].Type == Ocean
-    // assert cells[1].Type == Land
+	t.Skip("BDD stub: define aggregation rules")
+	// Pseudocode:
+	// mixedRegion := []Biome{Ocean, Ocean, Mountain, Forest}
+	// cells := service.Aggregate(mixedRegion)
+	// assert len(cells) == 2
+	// assert cells[0].Type == Ocean
+	// assert cells[1].Type == Land
 }
 
 // -----------------------------------------------------------------------------
@@ -111,14 +112,14 @@ func TestBDD_WorldMap_BiomeWeighting(t *testing.T) {
 // When: Requested with a square grid size (e.g., 64)
 // Then: The resulting map data should respect the world's aspect ratio
 //
-//  OR The grid dimensions returned should be adapted (e.g., 64x32)
+//	OR The grid dimensions returned should be adapted (e.g., 64x32)
 func TestBDD_WorldMap_AspectRatio(t *testing.T) {
-    t.Skip("BDD stub: implement aspect ratio handling")
-    // Pseudocode:
-    // world := MockWorld{Width: 2000, Height: 1000}
-    // data, _ := service.GetWorldMapData(ctx, world, 64)
-    // assert data.Rows == 32
-    // assert data.Cols == 64
+	t.Skip("BDD stub: implement aspect ratio handling")
+	// Pseudocode:
+	// world := MockWorld{Width: 2000, Height: 1000}
+	// data, _ := service.GetWorldMapData(ctx, world, 64)
+	// assert data.Rows == 32
+	// assert data.Cols == 64
 }
 
 // -----------------------------------------------------------------------------

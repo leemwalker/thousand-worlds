@@ -1,4 +1,4 @@
-package orchestrator
+package orchestrator_test
 
 import "testing"
 
@@ -13,30 +13,30 @@ import "testing"
 // When: MapToParams is called
 // Then: The returned parameters should match expected dimensions and plate counts
 func TestBDD_Orchestrator_ConfigMapping(t *testing.T) {
-    t.Skip("BDD stub: implement config mapping")
-    
-    // Define the table of scenarios
-    scenarios := []struct {
-        name           string
-        sizeInput      string
-        expectedSize   int // assuming square
-        expectedPlates int
-    }{
-        {"Small Planet", "small", 500, 3},
-        {"Medium Planet", "medium", 1000, 6},
-        {"Large Planet", "large", 2500, 8},
-        {"Invalid Default", "gigantic", 1000, 6}, // Test default fallback
-    }
+	t.Skip("BDD stub: implement config mapping")
 
-    for _, sc := range scenarios {
-        t.Run(sc.name, func(t *testing.T) {
-            // Pseudocode:
-            // config := mockWorldConfig{planetSize: sc.sizeInput}
-            // params, _ := mapper.MapToParams(config)
-            // assert params.Width == sc.expectedSize
-            // assert params.PlateCount == sc.expectedPlates
-        })
-    }
+	// Define the table of scenarios
+	scenarios := []struct {
+		name           string
+		sizeInput      string
+		expectedSize   int // assuming square
+		expectedPlates int
+	}{
+		{"Small Planet", "small", 500, 3},
+		{"Medium Planet", "medium", 1000, 6},
+		{"Large Planet", "large", 2500, 8},
+		{"Invalid Default", "gigantic", 1000, 6}, // Test default fallback
+	}
+
+	for _, sc := range scenarios {
+		t.Run(sc.name, func(t *testing.T) {
+			// Pseudocode:
+			// config := mockWorldConfig{planetSize: sc.sizeInput}
+			// params, _ := mapper.MapToParams(config)
+			// assert params.Width == sc.expectedSize
+			// assert params.PlateCount == sc.expectedPlates
+		})
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -46,15 +46,15 @@ func TestBDD_Orchestrator_ConfigMapping(t *testing.T) {
 // When: GenerateWorld is called twice with identical configs
 // Then: The resulting Heightmaps, Biomes, and Resources must be identical
 func TestBDD_Orchestrator_Determinism(t *testing.T) {
-    t.Skip("BDD stub: implement seeding logic")
-    // Pseudocode:
-    // config := WorldConfig{Seed: 12345}
-    
-    // worldA, _ := service.GenerateWorld(ctx, id1, config)
-    // worldB, _ := service.GenerateWorld(ctx, id2, config)
-    
-    // assert DeepEqual(worldA.Geography.Heightmap, worldB.Geography.Heightmap)
-    // assert DeepEqual(worldA.Minerals, worldB.Minerals)
+	t.Skip("BDD stub: implement seeding logic")
+	// Pseudocode:
+	// config := WorldConfig{Seed: 12345}
+
+	// worldA, _ := service.GenerateWorld(ctx, id1, config)
+	// worldB, _ := service.GenerateWorld(ctx, id2, config)
+
+	// assert DeepEqual(worldA.Geography.Heightmap, worldB.Geography.Heightmap)
+	// assert DeepEqual(worldA.Minerals, worldB.Minerals)
 }
 
 // -----------------------------------------------------------------------------
@@ -64,16 +64,16 @@ func TestBDD_Orchestrator_Determinism(t *testing.T) {
 // When: GenerateWorld is called
 // Then: Execution should halt immediately
 //
-//  AND An error "context canceled" should be returned
-//  AND No heavy computation (e.g., erosion) should have occurred
+//	AND An error "context canceled" should be returned
+//	AND No heavy computation (e.g., erosion) should have occurred
 func TestBDD_Orchestrator_ContextCancellation(t *testing.T) {
-    t.Skip("BDD stub: implement context awareness")
-    // Pseudocode:
-    // ctx, cancel := context.WithCancel(context.Background())
-    // cancel() // Cancel immediately
-    
-    // _, err := service.GenerateWorld(ctx, id, config)
-    // assert ErrorIs(err, context.Canceled)
+	t.Skip("BDD stub: implement context awareness")
+	// Pseudocode:
+	// ctx, cancel := context.WithCancel(context.Background())
+	// cancel() // Cancel immediately
+
+	// _, err := service.GenerateWorld(ctx, id, config)
+	// assert ErrorIs(err, context.Canceled)
 }
 
 // -----------------------------------------------------------------------------
@@ -83,17 +83,17 @@ func TestBDD_Orchestrator_ContextCancellation(t *testing.T) {
 // When: GenerateWorld is called
 // Then: The process should abort
 //
-//  AND The error should be wrapped/propagated to the caller
-//  AND The world should NOT be saved as "Ready"
+//	AND The error should be wrapped/propagated to the caller
+//	AND The world should NOT be saved as "Ready"
 func TestBDD_Orchestrator_PipelineFailure(t *testing.T) {
-    t.Skip("BDD stub: implement error handling")
-    // Pseudocode:
-    // mockGeo := NewMockGeographyService()
-    // mockGeo.On("Generate").Return(errors.New("sim failed"))
-    // service := NewService(mockGeo, ...)
-    
-    // _, err := service.GenerateWorld(ctx, id, config)
-    // assert ErrorContains(err, "sim failed")
+	t.Skip("BDD stub: implement error handling")
+	// Pseudocode:
+	// mockGeo := NewMockGeographyService()
+	// mockGeo.On("Generate").Return(errors.New("sim failed"))
+	// service := NewService(mockGeo, ...)
+
+	// _, err := service.GenerateWorld(ctx, id, config)
+	// assert ErrorContains(err, "sim failed")
 }
 
 // -----------------------------------------------------------------------------
@@ -157,7 +157,6 @@ func TestBDD_Orchestrator_SpeciesIntegration(t *testing.T) {
 // Given: Config with only_geology flag
 // When: GenerateWorld runs
 // Then: Life simulation should be skipped
-//
 func TestBDD_Orchestrator_OnlyGeologyFlag(t *testing.T) {
 	t.Skip("BDD stub: implement only_geology flag")
 	// Pseudocode:
@@ -187,11 +186,11 @@ func TestBDD_Orchestrator_LandWaterParsing(t *testing.T) {
 // When: Parsed
 // Then: Safe defaults should be applied
 func TestBDD_Orchestrator_LandWaterParsing_EdgeCases(t *testing.T) {
-    t.Skip("BDD stub: implement robust parsing")
-    // Pseudocode:
-    // assert parse("150% land") == 1.0 (Cap at 100%)
-    // assert parse("-20% land") == 0.1 (Min clamp)
-    // assert parse("") == 0.3 (Default)
+	t.Skip("BDD stub: implement robust parsing")
+	// Pseudocode:
+	// assert parse("150% land") == 1.0 (Cap at 100%)
+	// assert parse("-20% land") == 0.1 (Min clamp)
+	// assert parse("") == 0.3 (Default)
 }
 
 // -----------------------------------------------------------------------------

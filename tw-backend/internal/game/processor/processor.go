@@ -136,8 +136,11 @@ func (p *GameProcessor) OnClientConnected(ctx context.Context, client websocket.
 func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	log.Printf("[PROCESSOR] ProcessCommand called with Text='%s', Action='%s'", cmd.Text, cmd.Action)
 
-	// Validate raw command text if provided
+	// Sanitize and validate raw command text if provided
 	if cmd.Text != "" {
+		// First sanitize the input to remove HTML/JS tags and dangerous characters
+		cmd.Text = p.validator.SanitizeString(cmd.Text)
+
 		if err := p.validator.ValidateCommandText(cmd.Text); err != nil {
 			return fmt.Errorf("invalid command: %w", err)
 		}

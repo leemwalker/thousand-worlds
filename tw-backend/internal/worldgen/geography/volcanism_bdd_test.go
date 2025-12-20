@@ -1,6 +1,8 @@
-package geography
+package geography_test
 
 import "testing"
+
+// testSeed is defined in tectonics_bdd_test.go for this package
 
 // =============================================================================
 // BDD Test Stubs: Volcanism

@@ -1,4 +1,4 @@
-package processor
+package processor_test
 
 import "testing"
 
@@ -30,29 +30,29 @@ func TestBDD_WorldSimulate_Basic(t *testing.T) {
 // When: Simulation is configured/run
 // Then: The internal configuration should match expected state
 func TestBDD_WorldSimulate_Flags(t *testing.T) {
-    t.Skip("BDD stub: implement flag parsing")
-    
-    scenarios := []struct {
-        command         string
-        expectGeology   bool
-        expectLife      bool
-        expectDiseases  bool
-        expectWaterLvl  float64 // -1 for default
-    }{
-        {"world simulate 100", true, true, true, -1}, // Default
-        {"world simulate 100 --only-geology", true, false, false, -1},
-        {"world simulate 100 --only-life", false, true, true, -1},
-        {"world simulate 100 --no-diseases", true, true, false, -1},
-        {"world simulate 100 --water-level 0.9", true, true, true, 0.9},
-    }
+	t.Skip("BDD stub: implement flag parsing")
 
-    for _, sc := range scenarios {
-        t.Run(sc.command, func(t *testing.T) {
-            // config := parseCommand(sc.command)
-            // assert.Equal(t, sc.expectGeology, config.RunGeology)
-            // assert.Equal(t, sc.expectLife, config.RunLife)
-        })
-    }
+	scenarios := []struct {
+		command        string
+		expectGeology  bool
+		expectLife     bool
+		expectDiseases bool
+		expectWaterLvl float64 // -1 for default
+	}{
+		{"world simulate 100", true, true, true, -1}, // Default
+		{"world simulate 100 --only-geology", true, false, false, -1},
+		{"world simulate 100 --only-life", false, true, true, -1},
+		{"world simulate 100 --no-diseases", true, true, false, -1},
+		{"world simulate 100 --water-level 0.9", true, true, true, 0.9},
+	}
+
+	for _, sc := range scenarios {
+		t.Run(sc.command, func(t *testing.T) {
+			// config := parseCommand(sc.command)
+			// assert.Equal(t, sc.expectGeology, config.RunGeology)
+			// assert.Equal(t, sc.expectLife, config.RunLife)
+		})
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -129,16 +129,16 @@ func TestBDD_WorldSimulate_PopulationDynamics(t *testing.T) {
 // When: The simulation runs
 // Then: The client should receive periodic "progress" messages
 //
-//  AND A final "complete" message at the end
+//	AND A final "complete" message at the end
 func TestBDD_WorldSimulate_ProgressFeedback(t *testing.T) {
-    t.Skip("BDD stub: implement progress callbacks")
-    // Pseudocode:
-    // client := mockWS()
-    // processor.handleWorldSimulate(ctx, client, "1000000")
-    
-    // assert len(client.Messages) >= 3 
-    // assert client.Messages[0].Type == "progress" (e.g. "25% complete")
-    // assert client.LastMessage().Type == "complete"
+	t.Skip("BDD stub: implement progress callbacks")
+	// Pseudocode:
+	// client := mockWS()
+	// processor.handleWorldSimulate(ctx, client, "1000000")
+
+	// assert len(client.Messages) >= 3
+	// assert client.Messages[0].Type == "progress" (e.g. "25% complete")
+	// assert client.LastMessage().Type == "complete"
 }
 
 // -----------------------------------------------------------------------------
@@ -148,18 +148,18 @@ func TestBDD_WorldSimulate_ProgressFeedback(t *testing.T) {
 // When: The context is cancelled (client disconnect)
 // Then: The simulation loop should exit immediately
 //
-//  AND No further world updates should be committed
+//	AND No further world updates should be committed
 func TestBDD_WorldSimulate_Cancellation(t *testing.T) {
-    t.Skip("BDD stub: implement context check in sim loop")
-    // Pseudocode:
-    // ctx, cancel := context.WithCancel(context.Background())
-    // go processor.handleWorldSimulate(ctx, client, "1000000000") // Huge number
-    
-    // time.Sleep(10 * time.Millisecond)
-    // cancel()
-    
-    // time.Sleep(100 * time.Millisecond)
-    // assert simulation.IsRunning == false
+	t.Skip("BDD stub: implement context check in sim loop")
+	// Pseudocode:
+	// ctx, cancel := context.WithCancel(context.Background())
+	// go processor.handleWorldSimulate(ctx, client, "1000000000") // Huge number
+
+	// time.Sleep(10 * time.Millisecond)
+	// cancel()
+
+	// time.Sleep(100 * time.Millisecond)
+	// assert simulation.IsRunning == false
 }
 
 // -----------------------------------------------------------------------------
@@ -169,12 +169,12 @@ func TestBDD_WorldSimulate_Cancellation(t *testing.T) {
 // When: Command is issued
 // Then: An error message should be returned
 //
-//  AND The server should NOT attempt to run it
+//	AND The server should NOT attempt to run it
 func TestBDD_WorldSimulate_InputBounds(t *testing.T) {
-    t.Skip("BDD stub: implement max year caps")
-    // Pseudocode:
-    // assert error "Invalid duration" for "world simulate -100"
-    // assert error "Duration too long" for "world simulate 100000000000"
+	t.Skip("BDD stub: implement max year caps")
+	// Pseudocode:
+	// assert error "Invalid duration" for "world simulate -100"
+	// assert error "Duration too long" for "world simulate 100000000000"
 }
 
 // -----------------------------------------------------------------------------
@@ -184,10 +184,10 @@ func TestBDD_WorldSimulate_InputBounds(t *testing.T) {
 // When: 5 epochs have passed
 // Then: A snapshot of the world state should be saved to DB/Disk
 func TestBDD_WorldSimulate_Checkpointing(t *testing.T) {
-    t.Skip("BDD stub: implement intermediate saves")
-    // Pseudocode:
-    // sim.Run(epochs: 10, checkpointEvery: 5)
-    // assert db.CountSnapshots(worldID) == 2
+	t.Skip("BDD stub: implement intermediate saves")
+	// Pseudocode:
+	// sim.Run(epochs: 10, checkpointEvery: 5)
+	// assert db.CountSnapshots(worldID) == 2
 }
 
 // -----------------------------------------------------------------------------
@@ -197,10 +197,9 @@ func TestBDD_WorldSimulate_Checkpointing(t *testing.T) {
 // When: A "meteor" event is triggered manually or via simulation
 // Then: Biodiversity count should drop significantly
 func TestBDD_WorldSimulate_ExtinctionEvent(t *testing.T) {
-    t.Skip("BDD stub: implement disaster events")
-    // Pseudocode:
-    // sim.TriggerEvent("meteor_impact")
-    // sim.Tick()
-    // assert currentSpeciesCount < initialSpeciesCount * 0.5
+	t.Skip("BDD stub: implement disaster events")
+	// Pseudocode:
+	// sim.TriggerEvent("meteor_impact")
+	// sim.Tick()
+	// assert currentSpeciesCount < initialSpeciesCount * 0.5
 }
-

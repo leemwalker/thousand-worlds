@@ -1,6 +1,10 @@
-package geography
+package geography_test
 
 import "testing"
+
+// Fixed seed for deterministic test results across runs.
+// All BDD tests should use this seed when generating world data.
+const testSeed int64 = 42
 
 // =============================================================================
 // BDD Test Stubs: Tectonics

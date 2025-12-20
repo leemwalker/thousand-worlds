@@ -66,6 +66,17 @@ func LoadFromFile(path string) (*CombatConfig, error) {
 	return cfg, nil
 }
 
+// LoadFromEnvOrFile loads combat configuration, checking the COMBAT_CONFIG_PATH
+// environment variable first. If not set, uses the provided defaultPath.
+// This enables flexible deployment across different environments (Docker, CI/CD, local dev).
+func LoadFromEnvOrFile(defaultPath string) (*CombatConfig, error) {
+	path := os.Getenv("COMBAT_CONFIG_PATH")
+	if path == "" {
+		path = defaultPath
+	}
+	return LoadFromFile(path)
+}
+
 // Reload reloads the configuration from the specified file path.
 // Thread-safe for use with SIGHUP handlers.
 func (c *CombatConfig) Reload(path string) error {

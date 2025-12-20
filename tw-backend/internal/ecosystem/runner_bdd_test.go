@@ -1,6 +1,10 @@
-package ecosystem
+package ecosystem_test
 
-import "testing"
+import (
+	"testing"
+
+	"tw-backend/internal/ecosystem"
+)
 
 // =============================================================================
 // BDD Test Stubs: Simulation Runner
@@ -17,15 +21,15 @@ func TestBDD_Runner_StateTransitions(t *testing.T) {
 
 	scenarios := []struct {
 		name          string
-		initialState  RunnerState
-		action        func(r *SimulationRunner)
-		expectedState RunnerState
+		initialState  ecosystem.RunnerState
+		action        func(r *ecosystem.SimulationRunner)
+		expectedState ecosystem.RunnerState
 		expectError   bool
 	}{
-		{"Idle to Running", RunnerIdle, func(r *SimulationRunner) { r.Start(0) }, RunnerRunning, false},
-		{"Running to Paused", RunnerRunning, func(r *SimulationRunner) { r.Pause() }, RunnerPaused, false},
-		{"Paused to Running", RunnerPaused, func(r *SimulationRunner) { r.Resume() }, RunnerRunning, false},
-		{"Idle to Paused", RunnerIdle, func(r *SimulationRunner) { r.Pause() }, RunnerIdle, true}, // Invalid
+		{"Idle to Running", ecosystem.RunnerIdle, func(r *ecosystem.SimulationRunner) { r.Start(0) }, ecosystem.RunnerRunning, false},
+		{"Running to Paused", ecosystem.RunnerRunning, func(r *ecosystem.SimulationRunner) { r.Pause() }, ecosystem.RunnerPaused, false},
+		{"Paused to Running", ecosystem.RunnerPaused, func(r *ecosystem.SimulationRunner) { r.Resume() }, ecosystem.RunnerRunning, false},
+		{"Idle to Paused", ecosystem.RunnerIdle, func(r *ecosystem.SimulationRunner) { r.Pause() }, ecosystem.RunnerIdle, true}, // Invalid
 	}
 
 	for _, sc := range scenarios {

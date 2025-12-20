@@ -275,6 +275,12 @@ func TestSanitizeString(t *testing.T) {
 		{"remove null bytes", "hello\x00world", "helloworld"},
 		{"remove control chars", "hello\x07world", "helloworld"},
 		{"preserve apostrophe", "wizard's staff", "wizard's staff"},
+		// XSS prevention tests
+		{"strip script tags", "<script>alert('xss')</script>", "alert('xss')"},
+		{"strip img onerror", `<img src=x onerror="alert('xss')">`, ""},
+		{"strip nested tags", "<div><span>text</span></div>", "text"},
+		{"strip self-closing", "hello<br/>world", "helloworld"},
+		{"strip malformed tag", "hello<script>world</script>", "helloworld"},
 	}
 
 	for _, tt := range tests {

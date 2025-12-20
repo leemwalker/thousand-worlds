@@ -1,4 +1,4 @@
-package evolution
+package evolution_test
 
 import "testing"
 

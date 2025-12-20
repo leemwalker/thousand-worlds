@@ -1,4 +1,4 @@
-package underground
+package underground_test
 
 import "testing"
 

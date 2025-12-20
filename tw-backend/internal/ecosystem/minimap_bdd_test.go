@@ -1,4 +1,4 @@
-package ecosystem
+package ecosystem_test
 
 import "testing"
 
@@ -13,28 +13,28 @@ import "testing"
 // When: Visual style is resolved
 // Then: The highest priority visual layer should be returned
 func TestBDD_Minimap_VisualResolution(t *testing.T) {
-    t.Skip("BDD stub: implement visual priority")
-    
-    scenarios := []struct {
-        name            string
-        biome           string
-        elevation       float64
-        catastrophe     string
-        expectedEmoji   string
-        expectedClass   string // CSS/Tailwind class
-    }{
-        {"Deep Ocean", "ocean", -2000, "", "🌊", "bg-blue-900"},
-        {"Mountain Peak", "alpine", 5000, "", "🏔️", "text-gray-100"},
-        {"Active Volcano", "alpine", 2000, "volcano", "🌋", "animate-pulse"}, // Catastrophe overrides Biome
-        {"Flooded Land", "grassland", 50, "flood_basalt", "🔥", "bg-red-500"},
-    }
+	t.Skip("BDD stub: implement visual priority")
 
-    for _, sc := range scenarios {
-        t.Run(sc.name, func(t *testing.T) {
-            // cell := NewMinimapCell(sc.biome, sc.elevation, sc.catastrophe)
-            // assert.Equal(t, sc.expectedEmoji, cell.RenderEmoji())
-        })
-    }
+	scenarios := []struct {
+		name          string
+		biome         string
+		elevation     float64
+		catastrophe   string
+		expectedEmoji string
+		expectedClass string // CSS/Tailwind class
+	}{
+		{"Deep Ocean", "ocean", -2000, "", "🌊", "bg-blue-900"},
+		{"Mountain Peak", "alpine", 5000, "", "🏔️", "text-gray-100"},
+		{"Active Volcano", "alpine", 2000, "volcano", "🌋", "animate-pulse"}, // Catastrophe overrides Biome
+		{"Flooded Land", "grassland", 50, "flood_basalt", "🔥", "bg-red-500"},
+	}
+
+	for _, sc := range scenarios {
+		t.Run(sc.name, func(t *testing.T) {
+			// cell := NewMinimapCell(sc.biome, sc.elevation, sc.catastrophe)
+			// assert.Equal(t, sc.expectedEmoji, cell.RenderEmoji())
+		})
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -111,19 +111,19 @@ func TestBDD_Minimap_CellCreation(t *testing.T) {
 // When: Player moves North to [10, 11]
 // Then: The landmark should shift from the "North" cell to the "Center" cell
 func TestBDD_Minimap_MovementShift(t *testing.T) {
-    t.Skip("BDD stub: implement grid centering")
-    // Pseudocode:
-    // world := MockWorldWithLandmarkAt(10, 11, "Tower")
-    // player := &Character{X: 10, Y: 10}
-    
-    // Step 1: Initial Look
-    // grid1 := service.GenerateMinimap(player, radius: 1)
-    // assert grid1.GetCell(0, 1).Content == "Tower" // 0,1 is North relative to center
-    
-    // Step 2: Move
-    // player.Y = 11
-    // grid2 := service.GenerateMinimap(player, radius: 1)
-    // assert grid2.GetCell(0, 0).Content == "Tower" // 0,0 is now the Center
+	t.Skip("BDD stub: implement grid centering")
+	// Pseudocode:
+	// world := MockWorldWithLandmarkAt(10, 11, "Tower")
+	// player := &Character{X: 10, Y: 10}
+
+	// Step 1: Initial Look
+	// grid1 := service.GenerateMinimap(player, radius: 1)
+	// assert grid1.GetCell(0, 1).Content == "Tower" // 0,1 is North relative to center
+
+	// Step 2: Move
+	// player.Y = 11
+	// grid2 := service.GenerateMinimap(player, radius: 1)
+	// assert grid2.GetCell(0, 0).Content == "Tower" // 0,0 is now the Center
 }
 
 // -----------------------------------------------------------------------------
@@ -133,14 +133,14 @@ func TestBDD_Minimap_MovementShift(t *testing.T) {
 // When: Minimap is generated with radius 2
 // Then: The Eastern-most cells should map to x=0 and x=1
 func TestBDD_Minimap_SphericalWrapping(t *testing.T) {
-    t.Skip("BDD stub: implement spherical adjacency")
-    // Pseudocode:
-    // player := &Character{X: 99, Y: 50}
-    // grid := service.GenerateMinimap(player, radius: 2)
-    
-    // // Expected grid X coords: [97, 98, 99, 0, 1]
-    // eastCell := grid.GetRelativeCell(2, 0) // 2 units East
-    // assert eastCell.WorldX == 1
+	t.Skip("BDD stub: implement spherical adjacency")
+	// Pseudocode:
+	// player := &Character{X: 99, Y: 50}
+	// grid := service.GenerateMinimap(player, radius: 2)
+
+	// // Expected grid X coords: [97, 98, 99, 0, 1]
+	// eastCell := grid.GetRelativeCell(2, 0) // 2 units East
+	// assert eastCell.WorldX == 1
 }
 
 // -----------------------------------------------------------------------------
@@ -150,13 +150,13 @@ func TestBDD_Minimap_SphericalWrapping(t *testing.T) {
 // When: Serialized to JSON for the client
 // Then: The payload should be optimized (e.g., using arrays of strings/ints, not heavy objects)
 //
-//  AND It should not exceed a reasonable byte size (e.g., 2KB)
+//	AND It should not exceed a reasonable byte size (e.g., 2KB)
 func TestBDD_Minimap_Serialization(t *testing.T) {
-    t.Skip("BDD stub: check JSON footprint")
-    // Pseudocode:
-    // grid := service.GenerateFullGrid()
-    // payload, _ := json.Marshal(grid)
-    // assert len(payload) < 2048 
+	t.Skip("BDD stub: check JSON footprint")
+	// Pseudocode:
+	// grid := service.GenerateFullGrid()
+	// payload, _ := json.Marshal(grid)
+	// assert len(payload) < 2048
 }
 
 // -----------------------------------------------------------------------------
@@ -166,13 +166,13 @@ func TestBDD_Minimap_Serialization(t *testing.T) {
 // When: Player receives "Blinded" status effect (reducing perception to 0)
 // Then: The *next* render request should downgrade to ASCII or "Fog"
 func TestBDD_Minimap_StatusEffectImpact(t *testing.T) {
-    t.Skip("BDD stub: integration with status effects")
-    // Pseudocode:
-    // player.Perception = 10
-    // view1 := service.Render(player)
-    // assert view1.Mode == "HighRes"
-    
-    // player.AddEffect("blind")
-    // view2 := service.Render(player)
-    // assert view2.Mode == "ASCII" || view2.Mode == "Obscured"
+	t.Skip("BDD stub: integration with status effects")
+	// Pseudocode:
+	// player.Perception = 10
+	// view1 := service.Render(player)
+	// assert view1.Mode == "HighRes"
+
+	// player.AddEffect("blind")
+	// view2 := service.Render(player)
+	// assert view2.Mode == "ASCII" || view2.Mode == "Obscured"
 }
