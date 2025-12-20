@@ -7,64 +7,34 @@ import "testing"
 // =============================================================================
 
 // -----------------------------------------------------------------------------
-// Scenario: State Transition - Idle to Running
+// Scenario: Runner State Machine Transitions (Table-Driven)
 // -----------------------------------------------------------------------------
-// Given: Runner in idle state
-// When: Start() is called
-// Then: State should transition to running
-//
-//	AND Tick loop should begin
-//	AND Current year should advance
-func TestBDD_Runner_IdleToRunning(t *testing.T) {
-	t.Skip("BDD stub: implement idle→running transition")
-	// Pseudocode:
-	// runner := NewSimulationRunner(config, nil, nil)
-	// runner.InitializePopulationSimulator(seed)
-	// assert runner.GetState() == RunnerIdle
-	// runner.Start(0)
-	// time.Sleep(50 * time.Millisecond)
-	// assert runner.GetState() == RunnerRunning
-	// assert runner.GetCurrentYear() > 0
-}
+// Given: A runner in a specific initial state
+// When: A transition method (Start, Pause, Stop) is called
+// Then: The state should update correctly OR return an error if invalid
+func TestBDD_Runner_StateTransitions(t *testing.T) {
+    t.Skip("BDD stub: implement state machine")
+    
+    scenarios := []struct {
+        name          string
+        initialState  RunnerState
+        action        func(r *Runner) error
+        expectedState RunnerState
+        expectError   bool
+    }{
+        {"Idle to Running", RunnerIdle, func(r *Runner) error { return r.Start(0) }, RunnerRunning, false},
+        {"Running to Paused", RunnerRunning, func(r *Runner) error { return r.Pause() }, RunnerPaused, false},
+        {"Paused to Running", RunnerPaused, func(r *Runner) error { return r.Resume() }, RunnerRunning, false},
+        {"Idle to Paused", RunnerIdle, func(r *Runner) error { return r.Pause() }, RunnerIdle, true}, // Invalid
+    }
 
-// -----------------------------------------------------------------------------
-// Scenario: State Transition - Running to Paused
-// -----------------------------------------------------------------------------
-// Given: Runner in running state
-// When: Pause() is called
-// Then: State should transition to paused
-//
-//	AND Simulation should stop advancing
-//	AND State should persist to storage
-func TestBDD_Runner_RunningToPaused(t *testing.T) {
-	t.Skip("BDD stub: implement running→paused transition")
-	// Pseudocode:
-	// runner.Start(0)
-	// time.Sleep(50 * time.Millisecond)
-	// yearBefore := runner.GetCurrentYear()
-	// runner.Pause()
-	// assert runner.GetState() == RunnerPaused
-	// time.Sleep(50 * time.Millisecond)
-	// assert runner.GetCurrentYear() == yearBefore // No advancement
-}
-
-// -----------------------------------------------------------------------------
-// Scenario: State Transition - Paused to Running
-// -----------------------------------------------------------------------------
-// Given: Runner in paused state
-// When: Resume() is called
-// Then: State should transition back to running
-//
-//	AND Simulation should continue from paused year
-func TestBDD_Runner_PausedToRunning(t *testing.T) {
-	t.Skip("BDD stub: implement paused→running transition")
-	// Pseudocode:
-	// runner.Pause()
-	// yearPaused := runner.GetCurrentYear()
-	// runner.Resume()
-	// assert runner.GetState() == RunnerRunning
-	// time.Sleep(50 * time.Millisecond)
-	// assert runner.GetCurrentYear() > yearPaused
+    for _, sc := range scenarios {
+        t.Run(sc.name, func(t *testing.T) {
+            // runner := NewMockRunner(sc.initialState)
+            // err := sc.action(runner)
+            // assert.Equal(t, sc.expectedState, runner.State())
+        })
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -84,66 +54,6 @@ func TestBDD_Runner_SnapshotInterval(t *testing.T) {
 	// snapshots := runner.GetSnapshots()
 	// assert len(snapshots) >= 9
 	// assert snapshots[0].Year == 10
-}
-
-// -----------------------------------------------------------------------------
-// Scenario: Turning Point Trigger - Species Count Exceeds Threshold
-// -----------------------------------------------------------------------------
-// Given: Species count exceeds threshold
-// When: TurningPointManager checks conditions
-// Then: Turning point should trigger
-//
-//	AND Simulation should pause (if PauseOnTurning)
-//	AND Handler should be called
-func TestBDD_Runner_TurningPointTrigger_SpeciesCount(t *testing.T) {
-	t.Skip("BDD stub: implement turning point trigger")
-	// Pseudocode:
-	// config := SimulationConfig{PauseOnTurning: true}
-	// runner := NewSimulationRunner(config, nil, nil)
-	// tpm := runner.GetTurningPointManager()
-	// tp := tpm.CheckForTurningPoint(500_000, speciesCount: 100, extinctions: 50, nil, "")
-	// assert tp != nil
-	// assert runner.GetState() == RunnerPaused
-}
-
-// -----------------------------------------------------------------------------
-// Scenario: Turning Point Trigger - Major Extinction Event
-// -----------------------------------------------------------------------------
-// Given: Major extinction event
-// When: TurningPointManager checks conditions
-// Then: Turning point should trigger
-//
-//	AND Simulation should pause (if PauseOnTurning)
-//	AND Handler should be called
-func TestBDD_Runner_TurningPointTrigger_MajorExtinction(t *testing.T) {
-	t.Skip("BDD stub: implement turning point trigger")
-	// Pseudocode:
-	// config := SimulationConfig{PauseOnTurning: true}
-	// runner := NewSimulationRunner(config, nil, nil)
-	// tpm := runner.GetTurningPointManager()
-	// tp := tpm.CheckForTurningPoint(500_000, speciesCount: 75, extinctions: 50, nil, "")
-	// assert tp != nil
-	// assert runner.GetState() == RunnerPaused
-}
-
-// -----------------------------------------------------------------------------
-// Scenario: Turning Point Trigger - One Million Years Has Passed
-// -----------------------------------------------------------------------------
-// Given: One million years have passed
-// When: TurningPointManager checks conditions
-// Then: Turning point should trigger
-//
-//	AND Simulation should pause (if PauseOnTurning)
-//	AND Handler should be called
-func TestBDD_Runner_TurningPointTrigger_OneMillionYears(t *testing.T) {
-	t.Skip("BDD stub: implement turning point trigger")
-	// Pseudocode:
-	// config := SimulationConfig{PauseOnTurning: true}
-	// runner := NewSimulationRunner(config, nil, nil)
-	// tpm := runner.GetTurningPointManager()
-	// tp := tpm.CheckForTurningPoint(1_000_000)
-	// assert tp != nil
-	// assert runner.GetState() == RunnerPaused
 }
 
 // -----------------------------------------------------------------------------
@@ -207,3 +117,101 @@ func TestBDD_Runner_EventBroadcast(t *testing.T) {
 	// assert receivedEvent.Year == 1000
 	// assert receivedEvent.Type == "speciation"
 }
+
+// -----------------------------------------------------------------------------
+// Scenario: Deterministic Tick Execution
+// -----------------------------------------------------------------------------
+// Given: A runner configured for Manual Stepping (Test Mode)
+// When: Step(5) is called
+// Then: Exactly 5 simulation years/ticks should process
+//
+//  AND No more, no less
+func TestBDD_Runner_DeterministicStepping(t *testing.T) {
+    t.Skip("BDD stub: implement manual stepping")
+    // Pseudocode:
+    // runner := NewTestRunner() // Manual clock
+    // startYear := runner.CurrentYear
+    // runner.Step(5) 
+    // assert runner.CurrentYear == startYear + 5
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Concurrent Control Access
+// -----------------------------------------------------------------------------
+// Given: A running simulation loop
+// When: Speed is changed and Status is queried from multiple goroutines
+// Then: The application should NOT panic
+//
+//  AND The runner should eventually reach the target state
+func TestBDD_Runner_ConcurrencySafety(t *testing.T) {
+    t.Skip("BDD stub: run with -race")
+    // Pseudocode:
+    // runner.Start(0)
+    // wg := sync.WaitGroup{}
+    // for i := 0; i < 100; i++ {
+    //     go runner.SetSpeed(SpeedFast)
+    //     go runner.GetStatus()
+    //     go runner.Pause()
+    //     go runner.Resume()
+    // }
+    // wg.Wait()
+    // runner.Stop()
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Panic Recovery in Simulation Loop
+// -----------------------------------------------------------------------------
+// Given: A simulation strategy that forces a panic (e.g., div by zero)
+// When: The runner executes a tick
+// Then: The panic should be recovered
+//
+//  AND The runner should enter RunnerError/Paused state
+//  AND The error should be logged
+func TestBDD_Runner_PanicRecovery(t *testing.T) {
+    t.Skip("BDD stub: implement defer/recover")
+    // Pseudocode:
+    // badStrategy := func() { panic("oops") }
+    // runner.SetStrategy(badStrategy)
+    // runner.Start(0)
+    // assert runner.State() == RunnerError
+    // assert runner.LastError() == "oops"
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Dynamic Configuration Update
+// -----------------------------------------------------------------------------
+// Given: A running simulation with SnapshotInterval = 100
+// When: UpdateConfig is called with SnapshotInterval = 10
+// Then: The next snapshot should trigger based on the new interval
+func TestBDD_Runner_HotConfigUpdate(t *testing.T) {
+    t.Skip("BDD stub: implement config hotswap")
+    // Pseudocode:
+    // runner.Config.SnapshotInterval = 100
+    // runner.Step(50) // No snapshot
+    // runner.UpdateConfig(Interval: 10)
+    // runner.Step(10) // Should snapshot now
+    // assert snapshotCreated == true
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Turning Point Triggers (Table-Driven)
+// -----------------------------------------------------------------------------
+// Given: Various world states (High Pop, Extinction, Time passed)
+// When: CheckForTurningPoint is evaluated
+// Then: The correct Turning Point Event should be returned
+func TestBDD_Runner_TurningPoints(t *testing.T) {
+    t.Skip("BDD stub: implement turning point rules")
+    
+    scenarios := []struct {
+        name        string
+        stats       WorldStats // Pop, Year, etc
+        expectEvent bool
+        expectType  string
+    }{
+        {"Standard Year", WorldStats{Year: 100}, false, ""},
+        {"Million Year Mark", WorldStats{Year: 1_000_000}, true, "EpochChange"},
+        {"Mass Extinction", WorldStats{ExtinctionRate: 0.9}, true, "ExtinctionEvent"},
+    }
+    // Loop and assert
+}
+

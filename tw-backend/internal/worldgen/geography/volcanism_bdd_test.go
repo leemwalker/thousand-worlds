@@ -7,21 +7,27 @@ import "testing"
 // =============================================================================
 
 // -----------------------------------------------------------------------------
-// Scenario: Subduction Zone Volcanism
+// Scenario: Magma Viscosity and Eruption Style
 // -----------------------------------------------------------------------------
-// Given: Oceanic plate subducting under continental plate
-// When: Subduction reaches sufficient depth (100+ km)
-// Then: Volcanic arc should form on overriding plate
+// Given: Magma with specific silica content
+// When: Eruption occurs
+// Then: Viscosity and Explosivity should match chemical composition
 //
-//	AND Andesitic volcanism should dominate
-//	AND Eruption probability increases with subduction angle
-func TestBDD_SubductionZone_VolcanicArc(t *testing.T) {
-	t.Skip("BDD stub: implement subduction volcanism")
-	// Pseudocode:
-	// boundary := TectonicBoundary{Type: Convergent, SubductionDepth: 150}
-	// volcanism := SimulateVolcanism(boundary, 1_000_000) // 1M years
-	// assert volcanism.ArcFormed == true
-	// assert volcanism.DominantType == "andesitic"
+//  AND Felsic (High Silica) -> Explosive (Ash/Pyroclastic)
+//  AND Mafic (Low Silica) -> Effusive (Lava Flows)
+func TestBDD_Volcanism_EruptionStyle(t *testing.T) {
+    t.Skip("BDD stub: implement viscosity mechanics")
+    
+    scenarios := []struct {
+        magmaType string
+        expectedStyle string
+        expectedRisk  string
+    }{
+        {"rhyolite", "explosive", "pyroclastic_flow"}, // Supervolcanoes
+        {"andesite", "mixed", "lahar"},                // Stratovolcanoes
+        {"basalt", "effusive", "lava_flow"},           // Shield Volcanoes
+    }
+    // Loop and verify
 }
 
 // -----------------------------------------------------------------------------
@@ -118,3 +124,95 @@ func TestBDD_VolcanicWorld_FrequentEruptions(t *testing.T) {
 	// volcanoWorld.SimulateGeology(1_000_000, 0)
 	// assert volcanoWorld.EruptionCount > continentalWorld.EruptionCount * 5
 }
+
+// -----------------------------------------------------------------------------
+// Scenario: Tephra Weathering to Fertile Soil
+// -----------------------------------------------------------------------------
+// Given: A region covered in volcanic ash (Tephra)
+// When: Time passes (e.g., 1000 years)
+// Then: The soil fertility rating should increase significantly
+//
+//  AND Farming yields in this region should eventually exceed non-volcanic regions
+func TestBDD_Volcanism_SoilFertility(t *testing.T) {
+    t.Skip("BDD stub: implement pedogenesis")
+    // Pseudocode:
+    // tile := Tile{Biome: "plain", Fertility: 0.5}
+    // Erupt(tile, "ash_fall")
+    // SimulateWeathering(tile, years: 500)
+    
+    // assert tile.Fertility > 0.8 // High fertility (Andisols)
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Supervolcano Eruption (Caldera Formation)
+// -----------------------------------------------------------------------------
+// Given: A massive magma chamber (> 1000km³)
+// When: A VEI 8 eruption occurs
+// Then: The mountain peak should be destroyed
+//
+//  AND A depression (Caldera) should form at the site
+//  AND The local biome should be wiped out (Ash wasteland)
+func TestBDD_Volcanism_CalderaCollapse(t *testing.T) {
+    t.Skip("BDD stub: implement terrain deformation")
+    // Pseudocode:
+    // peak := Heightmap{Elevation: 3000}
+    // SuperEruption(peak)
+    
+    // assert peak.Elevation < 1500 // Collapsed
+    // assert peak.Shape == "basin"
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Terrain Burial (Ash/Lava Accumulation)
+// -----------------------------------------------------------------------------
+// Given: A valley with elevation 100m containing a forest
+// When: A significant eruption dumps 50m of material
+// Then: The new elevation should be 150m
+//
+//  AND The original contents should be marked as "Buried" in the geological record
+func TestBDD_Volcanism_TerrainBurial(t *testing.T) {
+    t.Skip("BDD stub: implement stratigraphy")
+    // Pseudocode:
+    // tile.Features.Add("Forest")
+    // ApplyDeposit(tile, material: "tuff", depth: 20)
+    
+    // assert tile.SurfaceFeatures.Contains("Forest") == false
+    // assert tile.UndergroundFeatures.Contains("Forest") == true
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Volcanic Island Subsidence (Atoll Formation)
+// -----------------------------------------------------------------------------
+// Given: An extinct volcanic island in warm tropical waters
+// When: The ocean crust cools and subsides over millions of years
+// Then: The central peak should sink below sea level
+//
+//  AND A ring of coral reef (Atoll) should remain at the surface
+func TestBDD_Volcanism_AtollFormation(t *testing.T) {
+    t.Skip("BDD stub: implement island subsidence")
+    // Pseudocode:
+    // island := Island{Type: "volcanic", Elevation: 100, HasReef: true}
+    // SimulateSubsidence(island, years: 5_000_000)
+    
+    // assert island.Elevation < 0 // Sunk
+    // assert island.Reef.Elevation == 0 // Kept up with sea level
+    // assert island.Shape == "ring"
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Planetary Outgassing (Greenhouse Effect)
+// -----------------------------------------------------------------------------
+// Given: A global simulation with low CO2
+// When: A period of high volcanic activity occurs
+// Then: Atmospheric CO2 should rise
+//
+//  AND Global temperature should increase
+func TestBDD_Volcanism_ClimateFeedback(t *testing.T) {
+    t.Skip("BDD stub: implement carbon cycle")
+    // Pseudocode:
+    // atmosphere.CO2 = 200ppm
+    // TriggerEra(HighVolcanism)
+    // assert atmosphere.CO2 > 300ppm
+    // assert globalTemp.Increased()
+}
+

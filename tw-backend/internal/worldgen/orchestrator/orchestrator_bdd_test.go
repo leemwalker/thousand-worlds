@@ -7,59 +7,93 @@ import "testing"
 // =============================================================================
 
 // -----------------------------------------------------------------------------
-// Scenario: Config to Params Mapping - Small Planet
+// Scenario: Config to Params Mapping (Table-Driven BDD)
 // -----------------------------------------------------------------------------
-// Given: World config with planet size "small"
+// Given: Various world configuration inputs
 // When: MapToParams is called
-// Then: Dimensions should be 500x500
-//
-//	AND Plate count should be 3
-func TestBDD_Orchestrator_ConfigMapping_SmallPlanet(t *testing.T) {
-	t.Skip("BDD stub: implement config mapping")
-	// Pseudocode:
-	// config := mockWorldConfig{planetSize: "small"}
-	// params, err := mapper.MapToParams(config)
-	// assert err == nil
-	// assert params.Width == 500
-	// assert params.Height == 500
-	// assert params.PlateCount == 3
+// Then: The returned parameters should match expected dimensions and plate counts
+func TestBDD_Orchestrator_ConfigMapping(t *testing.T) {
+    t.Skip("BDD stub: implement config mapping")
+    
+    // Define the table of scenarios
+    scenarios := []struct {
+        name           string
+        sizeInput      string
+        expectedSize   int // assuming square
+        expectedPlates int
+    }{
+        {"Small Planet", "small", 500, 3},
+        {"Medium Planet", "medium", 1000, 6},
+        {"Large Planet", "large", 2500, 8},
+        {"Invalid Default", "gigantic", 1000, 6}, // Test default fallback
+    }
+
+    for _, sc := range scenarios {
+        t.Run(sc.name, func(t *testing.T) {
+            // Pseudocode:
+            // config := mockWorldConfig{planetSize: sc.sizeInput}
+            // params, _ := mapper.MapToParams(config)
+            // assert params.Width == sc.expectedSize
+            // assert params.PlateCount == sc.expectedPlates
+        })
+    }
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Config to Params Mapping - Medium Planet
+// Scenario: Deterministic Generation
 // -----------------------------------------------------------------------------
-// Given: World config with planet size "medium"
-// When: MapToParams is called
-// Then: Dimensions should be 1000x1000
-//
-//	AND Plate count should be 6
-func TestBDD_Orchestrator_ConfigMapping_MediumPlanet(t *testing.T) {
-	t.Skip("BDD stub: implement config mapping")
-	// Pseudocode:
-	// config := mockWorldConfig{planetSize: "medium"}
-	// params, err := mapper.MapToParams(config)
-	// assert err == nil
-	// assert params.Width == 1000
-	// assert params.Height == 1000
-	// assert params.PlateCount == 6
+// Given: A specific seed (e.g., 12345)
+// When: GenerateWorld is called twice with identical configs
+// Then: The resulting Heightmaps, Biomes, and Resources must be identical
+func TestBDD_Orchestrator_Determinism(t *testing.T) {
+    t.Skip("BDD stub: implement seeding logic")
+    // Pseudocode:
+    // config := WorldConfig{Seed: 12345}
+    
+    // worldA, _ := service.GenerateWorld(ctx, id1, config)
+    // worldB, _ := service.GenerateWorld(ctx, id2, config)
+    
+    // assert DeepEqual(worldA.Geography.Heightmap, worldB.Geography.Heightmap)
+    // assert DeepEqual(worldA.Minerals, worldB.Minerals)
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Config to Params Mapping - Large Planet
+// Scenario: Context Cancellation
 // -----------------------------------------------------------------------------
-// Given: World config with planet size "large"
-// When: MapToParams is called
-// Then: Dimensions should be 2500x2500
+// Given: A context that is cancelled immediately
+// When: GenerateWorld is called
+// Then: Execution should halt immediately
 //
-//	AND Plate count should be 8
-func TestBDD_Orchestrator_ConfigMapping_LargePlanet(t *testing.T) {
-	t.Skip("BDD stub: implement large planet mapping")
-	// Pseudocode:
-	// config := mockWorldConfig{planetSize: "large"}
-	// params, _ := mapper.MapToParams(config)
-	// assert params.Width == 2500
-	// assert params.Height == 2500
-	// assert params.PlateCount == 8
+//  AND An error "context canceled" should be returned
+//  AND No heavy computation (e.g., erosion) should have occurred
+func TestBDD_Orchestrator_ContextCancellation(t *testing.T) {
+    t.Skip("BDD stub: implement context awareness")
+    // Pseudocode:
+    // ctx, cancel := context.WithCancel(context.Background())
+    // cancel() // Cancel immediately
+    
+    // _, err := service.GenerateWorld(ctx, id, config)
+    // assert ErrorIs(err, context.Canceled)
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Pipeline Failure Handling
+// -----------------------------------------------------------------------------
+// Given: A Geography service that returns an error
+// When: GenerateWorld is called
+// Then: The process should abort
+//
+//  AND The error should be wrapped/propagated to the caller
+//  AND The world should NOT be saved as "Ready"
+func TestBDD_Orchestrator_PipelineFailure(t *testing.T) {
+    t.Skip("BDD stub: implement error handling")
+    // Pseudocode:
+    // mockGeo := NewMockGeographyService()
+    // mockGeo.On("Generate").Return(errors.New("sim failed"))
+    // service := NewService(mockGeo, ...)
+    
+    // _, err := service.GenerateWorld(ctx, id, config)
+    // assert ErrorContains(err, "sim failed")
 }
 
 // -----------------------------------------------------------------------------
@@ -144,6 +178,20 @@ func TestBDD_Orchestrator_LandWaterParsing(t *testing.T) {
 	// assert parseLandWaterRatio("70% land, 30% water") == 0.7
 	// assert parseLandWaterRatio("30% land") == 0.3
 	// assert parseLandWaterRatio("mostly water") == 0.3 // Default
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Land/Water Ratio Edge Cases
+// -----------------------------------------------------------------------------
+// Given: Invalid or extreme land/water input strings
+// When: Parsed
+// Then: Safe defaults should be applied
+func TestBDD_Orchestrator_LandWaterParsing_EdgeCases(t *testing.T) {
+    t.Skip("BDD stub: implement robust parsing")
+    // Pseudocode:
+    // assert parse("150% land") == 1.0 (Cap at 100%)
+    // assert parse("-20% land") == 0.1 (Min clamp)
+    // assert parse("") == 0.3 (Default)
 }
 
 // -----------------------------------------------------------------------------

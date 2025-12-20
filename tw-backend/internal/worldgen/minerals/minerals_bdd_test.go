@@ -24,6 +24,7 @@ func TestBDD_BandedIron_OxygenPrecipitation(t *testing.T) {
 	// deposits := GenerateBIFDeposits(oceanLocations, oxygenSpike)
 	// assert len(deposits) > 0
 	// assert deposits[0].Type == "iron"
+	// assert containsLayer(deposit, "chert") && containsLayer(deposit, "hematite")
 }
 
 // -----------------------------------------------------------------------------
@@ -149,3 +150,109 @@ func TestBDD_Magic_CrystallineMatrix(t *testing.T) {
 	// assert matrix != nil
 	// assert matrix.SpellAmplification > 1.5
 }
+
+// -----------------------------------------------------------------------------
+// Scenario: Tin Formation (Granitic Intrusions)
+// -----------------------------------------------------------------------------
+// Given: Felsic magma cooling slowly (Granite formation)
+// When: Fractional crystallization occurs
+// Then: Cassiterite (Tin Ore) should concentrate in pegmatites or greisen
+//
+//  AND Tin deposits should be rare compared to Copper
+func TestBDD_Tin_GraniticIntrusions(t *testing.T) {
+    t.Skip("BDD stub: implement tin formation")
+    // Pseudocode:
+    // geology := Region{MagmaType: Felsic, CoolingRate: Slow}
+    // deposits := GenerateIntrusiveDeposits(geology)
+    // assert HasMineral(deposits, "cassiterite")
+    // assert MineralRarity("cassiterite") > MineralRarity("copper")
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Tool Stone Formation (Flint & Obsidian)
+// -----------------------------------------------------------------------------
+// Given: Specific geological conditions (Sedimentary Chalk OR Rapid Volcanic Cooling)
+// When: Mineral generation runs
+// Then: Flint nodules should appear in Chalk layers
+//
+//  AND Obsidian should appear near felsic volcanoes
+func TestBDD_StoneAge_ToolResources(t *testing.T) {
+    t.Skip("BDD stub: implement tool stones")
+    // Pseudocode:
+    // chalkBed := Layer{Type: "sedimentary_chalk"}
+    // volcano := Layer{Type: "volcanic_surface", Cooling: "instant"}
+    
+    // assert ContainsResource(chalkBed, "flint")
+    // assert ContainsResource(volcano, "obsidian")
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Coal Seam Formation (Carboniferous)
+// -----------------------------------------------------------------------------
+// Given: Ancient tropical swamp biome with high biomass
+// When: Tectonic subsidence buries the organic matter (preventing decay)
+// Then: Peat should transform into Coal over millions of years
+//
+//  AND Depth of burial determines quality (Lignite -> Bituminous -> Anthracite)
+func TestBDD_FossilFuels_CoalFormation(t *testing.T) {
+    t.Skip("BDD stub: implement coalification")
+    // Pseudocode:
+    // swamp := Biome{Type: Swamp, Biomass: 10000}
+    // burial := TectonicEvent{Type: Subsidence, Years: 50_000_000, Pressure: High}
+    // deposit := SimulateCoalification(swamp, burial)
+    
+    // assert deposit.Type == "coal"
+    // assert deposit.Quality == "anthracite" // Long time + high pressure
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Evaporite Formation (Salt/Gypsum)
+// -----------------------------------------------------------------------------
+// Given: Restricted basin with seawater inflow
+// When: Climate is arid (Evaporation > Precipitation)
+// Then: Water evaporates, leaving Halite (Salt) and Gypsum
+//
+//  AND Deposits should be vast horizontal sheets
+func TestBDD_Evaporites_SaltFormation(t *testing.T) {
+    t.Skip("BDD stub: implement evaporite sequence")
+    // Pseudocode:
+    // basin := Basin{Restricted: true, Salinity: 3.5}
+    // climate := Climate{EvaporationRate: 10, PrecipRate: 1}
+    // deposit := SimulateEvaporation(basin, climate)
+    
+    // assert deposit.Contains("halite")
+    // assert deposit.Volume is massive
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Saltpeter Formation (Gunpowder Component)
+// -----------------------------------------------------------------------------
+// Given: Cave systems with organic accumulation (guano) OR Arid nitrogen-rich soils
+// When: Time passes
+// Then: Niter deposits should accumulate
+func TestBDD_Strategic_Saltpeter(t *testing.T) {
+    t.Skip("BDD stub: implement niter formation")
+    // Pseudocode:
+    // cave := Cave{Inhabitants: "bats", Age: 10_000}
+    // resources := GenerateCaveResources(cave)
+    // assert Contains(resources, "saltpeter")
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Ore Grade/Purity Variation
+// -----------------------------------------------------------------------------
+// Given: A mineral deposit generation
+// When: The deposit is created
+// Then: It should have a "Grade" (percentage of useful material)
+//
+//  AND High-grade ores should be rarer than low-grade ores
+func TestBDD_Mechanics_OreGrade(t *testing.T) {
+    t.Skip("BDD stub: implement ore grading")
+    // Pseudocode:
+    // lowGrade := GenerateDeposit("iron", QualityLow) // 20%
+    // highGrade := GenerateDeposit("iron", QualityHigh) // 60%
+    
+    // assert Yield(lowGrade, 100kg_rock) == 20kg_iron
+    // assert Yield(highGrade, 100kg_rock) == 60kg_iron
+}
+

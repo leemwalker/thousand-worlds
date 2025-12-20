@@ -24,52 +24,35 @@ func TestBDD_WorldSimulate_Basic(t *testing.T) {
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Flag - Only Geology
+// Scenario: Simulation Flags (Table-Driven)
 // -----------------------------------------------------------------------------
-// Given: "world simulate 1000000 --only-geology" command
-// When: Simulation runs
-// Then: Terrain should evolve (plates, erosion, volcanism)
-//
-//	AND Life simulation should be skipped
-//	AND No species should be created
-func TestBDD_WorldSimulate_OnlyGeology(t *testing.T) {
-	t.Skip("BDD stub: implement --only-geology flag")
-	// Pseudocode:
-	// processor.handleWorldSimulate(ctx, client, "1000000 --only-geology")
-	// assert sim.Species == nil || len(sim.Species) == 0
-	// assert sim.Geology.YearsSimulated == 1000000
-}
+// Given: Various command strings with flags
+// When: Simulation is configured/run
+// Then: The internal configuration should match expected state
+func TestBDD_WorldSimulate_Flags(t *testing.T) {
+    t.Skip("BDD stub: implement flag parsing")
+    
+    scenarios := []struct {
+        command         string
+        expectGeology   bool
+        expectLife      bool
+        expectDiseases  bool
+        expectWaterLvl  float64 // -1 for default
+    }{
+        {"world simulate 100", true, true, true, -1}, // Default
+        {"world simulate 100 --only-geology", true, false, false, -1},
+        {"world simulate 100 --only-life", false, true, true, -1},
+        {"world simulate 100 --no-diseases", true, true, false, -1},
+        {"world simulate 100 --water-level 0.9", true, true, true, 0.9},
+    }
 
-// -----------------------------------------------------------------------------
-// Scenario: Flag - Only Life
-// -----------------------------------------------------------------------------
-// Given: "world simulate 1000000 --only-life" command
-// When: Simulation runs
-// Then: Species should evolve
-//
-//	AND Active geological events should be skipped
-//	AND Static terrain remains usable for biomes
-func TestBDD_WorldSimulate_OnlyLife(t *testing.T) {
-	t.Skip("BDD stub: implement --only-life flag")
-	// Pseudocode:
-	// processor.handleWorldSimulate(ctx, client, "1000000 --only-life")
-	// assert len(sim.Species) > 0
-	// assert sim.Geology.EruptionCount == 0 // No active geology
-}
-
-// -----------------------------------------------------------------------------
-// Scenario: Flag - No Diseases
-// -----------------------------------------------------------------------------
-// Given: "world simulate 1000000 --no-diseases" command
-// When: Simulation runs with life
-// Then: Pathogen systems should be disabled
-//
-//	AND Disease-related deaths should be zero
-func TestBDD_WorldSimulate_NoDiseases(t *testing.T) {
-	t.Skip("BDD stub: implement --no-diseases flag")
-	// Pseudocode:
-	// processor.handleWorldSimulate(ctx, client, "1000000 --no-diseases")
-	// assert pathogenService.Disabled == true
+    for _, sc := range scenarios {
+        t.Run(sc.command, func(t *testing.T) {
+            // config := parseCommand(sc.command)
+            // assert.Equal(t, sc.expectGeology, config.RunGeology)
+            // assert.Equal(t, sc.expectLife, config.RunLife)
+        })
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -85,22 +68,6 @@ func TestBDD_WorldSimulate_EpochLabel(t *testing.T) {
 	// Pseudocode:
 	// processor.handleWorldSimulate(ctx, client, "100000000 --epoch Jurassic")
 	// assert client.ReceivedMessage contains "Jurassic"
-}
-
-// -----------------------------------------------------------------------------
-// Scenario: Water Level Override
-// -----------------------------------------------------------------------------
-// Given: "world simulate 1000000 --water-level 0.8" command
-// When: Simulation runs
-// Then: Sea level should be set to 80% (mostly ocean)
-//
-//	AND Land percentage should be ~20%
-func TestBDD_WorldSimulate_WaterLevel(t *testing.T) {
-	t.Skip("BDD stub: implement --water-level flag")
-	// Pseudocode:
-	// processor.handleWorldSimulate(ctx, client, "1000000 --water-level 0.8")
-	// stats := geology.GetStats()
-	// assert stats.LandPercent < 30
 }
 
 // -----------------------------------------------------------------------------
@@ -154,3 +121,86 @@ func TestBDD_WorldSimulate_PopulationDynamics(t *testing.T) {
 	// finalSpecies := len(sim.Species)
 	// assert finalSpecies != initialSpecies
 }
+
+// -----------------------------------------------------------------------------
+// Scenario: Progress Reporting via WebSocket
+// -----------------------------------------------------------------------------
+// Given: A long simulation (e.g., 5 seconds of work)
+// When: The simulation runs
+// Then: The client should receive periodic "progress" messages
+//
+//  AND A final "complete" message at the end
+func TestBDD_WorldSimulate_ProgressFeedback(t *testing.T) {
+    t.Skip("BDD stub: implement progress callbacks")
+    // Pseudocode:
+    // client := mockWS()
+    // processor.handleWorldSimulate(ctx, client, "1000000")
+    
+    // assert len(client.Messages) >= 3 
+    // assert client.Messages[0].Type == "progress" (e.g. "25% complete")
+    // assert client.LastMessage().Type == "complete"
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Simulation Cancellation
+// -----------------------------------------------------------------------------
+// Given: A running simulation
+// When: The context is cancelled (client disconnect)
+// Then: The simulation loop should exit immediately
+//
+//  AND No further world updates should be committed
+func TestBDD_WorldSimulate_Cancellation(t *testing.T) {
+    t.Skip("BDD stub: implement context check in sim loop")
+    // Pseudocode:
+    // ctx, cancel := context.WithCancel(context.Background())
+    // go processor.handleWorldSimulate(ctx, client, "1000000000") // Huge number
+    
+    // time.Sleep(10 * time.Millisecond)
+    // cancel()
+    
+    // time.Sleep(100 * time.Millisecond)
+    // assert simulation.IsRunning == false
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Input Validation & Bounds
+// -----------------------------------------------------------------------------
+// Given: Invalid timeframes (negative, zero, or exceeding max cap)
+// When: Command is issued
+// Then: An error message should be returned
+//
+//  AND The server should NOT attempt to run it
+func TestBDD_WorldSimulate_InputBounds(t *testing.T) {
+    t.Skip("BDD stub: implement max year caps")
+    // Pseudocode:
+    // assert error "Invalid duration" for "world simulate -100"
+    // assert error "Duration too long" for "world simulate 100000000000"
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Simulation Checkpointing
+// -----------------------------------------------------------------------------
+// Given: A simulation configured to run for 10 epochs
+// When: 5 epochs have passed
+// Then: A snapshot of the world state should be saved to DB/Disk
+func TestBDD_WorldSimulate_Checkpointing(t *testing.T) {
+    t.Skip("BDD stub: implement intermediate saves")
+    // Pseudocode:
+    // sim.Run(epochs: 10, checkpointEvery: 5)
+    // assert db.CountSnapshots(worldID) == 2
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Mass Extinction Event
+// -----------------------------------------------------------------------------
+// Given: A thriving ecosystem
+// When: A "meteor" event is triggered manually or via simulation
+// Then: Biodiversity count should drop significantly
+func TestBDD_WorldSimulate_ExtinctionEvent(t *testing.T) {
+    t.Skip("BDD stub: implement disaster events")
+    // Pseudocode:
+    // sim.TriggerEvent("meteor_impact")
+    // sim.Tick()
+    // assert currentSpeciesCount < initialSpeciesCount * 0.5
+}
+

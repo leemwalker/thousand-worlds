@@ -156,25 +156,136 @@ func TestBDD_OceanicCrust_Layers(t *testing.T) {
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Earthquake Types - Seismic Activity
+// Scenario: Seismic Profile by Boundary (Table-Driven)
 // -----------------------------------------------------------------------------
-// Given: Various plate boundary types (Convergent, Divergent, Transform)
-// When: Tectonic stress accumulates and releases over simulation steps
-// Then: Convergent boundaries should produce high-magnitude (megathrust) earthquakes
-//	AND Transform boundaries should produce frequent shallow strike-slip events
-//	AND Divergent boundaries should produce lower-magnitude, shallow events
-func TestBDD_Earthquakes_SeismicActivity(t *testing.T) {
-	t.Skip("BDD stub: implement earthquake generation by boundary type")
-	// Pseudocode:
-	// convBoundary := Boundary{Type: BoundaryConvergent, Stress: 0.9}
-	// transBoundary := Boundary{Type: BoundaryTransform, Stress: 0.7}
-	// divBoundary := Boundary{Type: BoundaryDivergent, Stress: 0.3}
-	//
-	// convEvents := convBoundary.GenerateSeismicEvents()
-	// transEvents := transBoundary.GenerateSeismicEvents()
-	//
-	// assert convEvents.MaxMagnitude() >= 8.0 // Megathrust potential
-	// assert transEvents.Frequency() > convEvents.Frequency()
-	// assert divBoundary.GenerateSeismicEvents().MaxMagnitude() < 6.5
+// Given: Different tectonic boundary interactions
+// When: Stress releases (Earthquake)
+// Then: The focal depth and max magnitude should match geological physics
+func TestBDD_Tectonics_SeismicProfiles(t *testing.T) {
+	t.Skip("BDD stub: implement seismic physics")
+
+	scenarios := []struct {
+		boundaryType  string
+		expectedDepth string // "Shallow", "Intermediate", "Deep"
+		maxMagnitude  float64
+	}{
+		{"divergent_ridge", "Shallow", 6.5},            // Thin crust, hot rock
+		{"transform_fault", "Shallow", 8.0},            // San Andreas style
+		{"subduction_zone", "Deep", 9.5},               // Megathrust + Benioff zone
+		{"continental_collision", "Intermediate", 8.5}, // Himalayas
+	}
+	_ = scenarios // For BDD stub - will be used when implemented
 }
 
+// -----------------------------------------------------------------------------
+// Scenario: Tsunami Generation - Underwater Megathrust
+// -----------------------------------------------------------------------------
+// Given: A convergent boundary (subduction zone) in an oceanic region
+// When: A high-magnitude earthquake (M > 7.5) occurs
+// Then: A tsunami wave should be generated
+//
+//	AND wave height should be proportional to vertical displacement
+//	AND coastal regions within range should be flagged for impact
+func TestBDD_Tsunami_Generation(t *testing.T) {
+	t.Skip("BDD stub: implement tsunami generation from seismic events")
+	// Pseudocode:
+	// boundary := Boundary{Type: BoundaryConvergent, Submerged: true}
+	// event := boundary.TriggerEarthquake(8.5) // Megathrust event
+	// tsunami := GenerateTsunami(event, waterDepth)
+	//
+	// assert tsunami.InitialWaveHeight > 2.0
+	// assert tsunami.TravelVelocity > 500 // km/h in deep ocean
+	// assert len(tsunami.AffectedCoasts) > 0
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Isostatic Adjustment (Glacial Rebound)
+// -----------------------------------------------------------------------------
+// Given: A continent covered by a massive ice sheet (load)
+// When: The Ice Age ends and ice melts
+// Then: The crust elevation should slowly rise over ticks (Rebound)
+//
+//	AND Relative sea level should drop in that region
+func TestBDD_Tectonics_Isostasy(t *testing.T) {
+	t.Skip("BDD stub: implement crustal buoyancy")
+	// Pseudocode:
+	// tile := Tile{Elevation: 100, IceLoad: 5000} // Compressed
+	// tile.IceLoad = 0
+
+	// sim.Run(years: 5000)
+
+	// assert tile.Elevation > 100 // Rebounded
+	// assert tile.IsostaticState == "uplifting"
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Exotic Terrane Accretion
+// -----------------------------------------------------------------------------
+// Given: A continental plate moving West and an island arc moving East
+// When: They collide (subduction consumes the ocean between)
+// Then: The island arc should not subduct but "suture" onto the continent
+//
+//	AND The continent's edge should gain a new geological province (Terrane)
+func TestBDD_Tectonics_TerraneAccretion(t *testing.T) {
+	t.Skip("BDD stub: implement accretionary wedges")
+	// Pseudocode:
+	// continent := Plate{Mass: Huge}
+	// islandArc := Plate{Mass: Small, Composition: "volcanic"}
+
+	// SimulateCollision(continent, islandArc)
+
+	// assert continent.ContainsTerrane(islandArc.ID)
+	// assert continent.WesternEdge.Geology != continent.Core.Geology
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Crustal Extension (Horst and Graben)
+// -----------------------------------------------------------------------------
+// Given: A continental region undergoing tensile stress (pulling apart)
+// When: The crust thins and faults
+// Then: Parallel mountain ranges and valleys should form
+//
+//	AND Valleys should drop in elevation (Subsidence)
+func TestBDD_Tectonics_Extension(t *testing.T) {
+	t.Skip("BDD stub: implement normal faulting")
+	// Pseudocode:
+	// region := Region{Stress: Tension}
+	// SimulateTectonics(region)
+
+	// assert region.Topography == "alternating_ridge_valley"
+	// assert region.CrustThickness < originalThickness
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: The Wilson Cycle Integration
+// -----------------------------------------------------------------------------
+// Given: A stable supercontinent
+// When: Simulation runs for 500M years
+// Then: It should Rift (Open Ocean) -> Spread -> Subduct -> Collide
+//
+//	AND The final state should be a new mountain belt (suture zone)
+func TestBDD_Tectonics_WilsonCycle(t *testing.T) {
+	t.Skip("BDD stub: long-term tectonic loop")
+	// Pseudocode:
+	// history := RunLongSimulation(500_000_000)
+	// assert history.HasEvent("Rifting")
+	// assert history.HasEvent("OceanFloorSpreading")
+	// assert history.HasEvent("Orogeny") // Mountain building
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Orogenic Collapse (Mountain Limits)
+// -----------------------------------------------------------------------------
+// Given: A mountain range exceeding maximum crustal support height (> 8800m)
+// When: Gravity acts over geological time
+// Then: The range should spread laterally and lower in height
+//
+//	AND "Normal faults" should appear at the high peaks (gravitational collapse)
+func TestBDD_Tectonics_MountainLimits(t *testing.T) {
+	t.Skip("BDD stub: implement gravitational potential limits")
+	// Pseudocode:
+	// peak := Mountain{Height: 10000} // Unrealistic on Earth
+	// sim.TickGeology()
+	// assert peak.Height < 9000
+	// assert peak.Faulting == "extensional" // Spreading out
+}
