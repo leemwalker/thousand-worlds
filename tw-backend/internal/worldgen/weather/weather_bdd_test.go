@@ -88,17 +88,17 @@ func TestBDD_ENSO_Oscillations(t *testing.T) {
 // When: Time advances to Month 6 (June)
 // Then: Northern latitude (45°) should be Summer (Warm)
 //
-//  AND Southern latitude (-45°) should be Winter (Cold)
+//	AND Southern latitude (-45°) should be Winter (Cold)
 func TestBDD_Weather_Hemispheres(t *testing.T) {
-    t.Skip("BDD stub: implement axial tilt logic")
-    // Pseudocode:
-    // northCell := GetCellAt(lat: 45)
-    // southCell := GetCellAt(lat: -45)
-    // weather.SetMonth(June)
-    
-    // assert northCell.Temp > southCell.Temp + 20
-    // assert northCell.Season == Summer
-    // assert southCell.Season == Winter
+	t.Skip("BDD stub: implement axial tilt logic")
+	// Pseudocode:
+	// northCell := GetCellAt(lat: 45)
+	// southCell := GetCellAt(lat: -45)
+	// weather.SetMonth(June)
+
+	// assert northCell.Temp > southCell.Temp + 20
+	// assert northCell.Season == Summer
+	// assert southCell.Season == Winter
 }
 
 // -----------------------------------------------------------------------------
@@ -125,20 +125,20 @@ func TestBDD_WeatherState_Transitions(t *testing.T) {
 // When: Weather events are evaluated
 // Then: The correct disaster entity should spawn
 func TestBDD_Weather_Disasters(t *testing.T) {
-    t.Skip("BDD stub: implement disaster factory")
-    
-    scenarios := []struct {
-        name      string
-        temp      float64
-        humidity  float64
-        windSpeed float64
-        expected  string // "hurricane", "blizzard", "sandstorm"
-    }{
-        {"Tropical Cyclone", 28.0, 0.9, 100.0, "hurricane"},
-        {"Polar Vortex", -30.0, 0.5, 80.0, "blizzard"},
-        {"Arid Storm", 40.0, 0.1, 60.0, "sandstorm"},
-    }
-    // Loop and assert
+	t.Skip("BDD stub: implement disaster factory")
+
+	scenarios := []struct {
+		name      string
+		temp      float64
+		humidity  float64
+		windSpeed float64
+		expected  string // "hurricane", "blizzard", "sandstorm"
+	}{
+		{"Tropical Cyclone", 28.0, 0.9, 100.0, "hurricane"},
+		{"Polar Vortex", -30.0, 0.5, 80.0, "blizzard"},
+		{"Arid Storm", 40.0, 0.1, 60.0, "sandstorm"},
+	}
+	_ = scenarios // For BDD stub - will be used when implemented
 }
 
 // -----------------------------------------------------------------------------
@@ -165,15 +165,15 @@ func TestBDD_Precipitation_SnowVsRain(t *testing.T) {
 // When: Simulation runs for a full year
 // Then: Total moisture (Atmosphere + Ground + Ocean) should remain roughly constant
 //
-//  AND Ocean should lose water to atmosphere (Evaporation)
-//  AND Land should gain water from atmosphere (Precipitation)
+//	AND Ocean should lose water to atmosphere (Evaporation)
+//	AND Land should gain water from atmosphere (Precipitation)
 func TestBDD_Weather_WaterCycle(t *testing.T) {
-    t.Skip("BDD stub: check conservation of mass")
-    // Pseudocode:
-    // initialMass := measureTotalWater()
-    // sim.RunYears(1)
-    // finalMass := measureTotalWater()
-    // assert.InDelta(initialMass, finalMass, 0.1) // Allow slight variance
+	t.Skip("BDD stub: check conservation of mass")
+	// Pseudocode:
+	// initialMass := measureTotalWater()
+	// sim.RunYears(1)
+	// finalMass := measureTotalWater()
+	// assert.InDelta(initialMass, finalMass, 0.1) // Allow slight variance
 }
 
 // -----------------------------------------------------------------------------
@@ -183,17 +183,17 @@ func TestBDD_Weather_WaterCycle(t *testing.T) {
 // When: One tick processes
 // Then: The moisture should shift to [1, 10]
 //
-//  AND If at map edge [MaxX, 10], should appear at [0, 10] (Wrapping)
+//	AND If at map edge [MaxX, 10], should appear at [0, 10] (Wrapping)
 func TestBDD_Weather_WindAdvection(t *testing.T) {
-    t.Skip("BDD stub: implement fluid dynamics")
-    // Pseudocode:
-    // grid.SetWind(DirectionEast, Speed: 1)
-    // grid.SetMoisture(0, 10, 1.0) // 100% humidity at x=0
-    
-    // weather.Tick()
-    
-    // assert grid.GetMoisture(1, 10) > 0.8
-    // assert grid.GetMoisture(0, 10) < 0.2 // Moved away
+	t.Skip("BDD stub: implement fluid dynamics")
+	// Pseudocode:
+	// grid.SetWind(DirectionEast, Speed: 1)
+	// grid.SetMoisture(0, 10, 1.0) // 100% humidity at x=0
+
+	// weather.Tick()
+
+	// assert grid.GetMoisture(1, 10) > 0.8
+	// assert grid.GetMoisture(0, 10) < 0.2 // Moved away
 }
 
 // -----------------------------------------------------------------------------
@@ -203,17 +203,17 @@ func TestBDD_Weather_WindAdvection(t *testing.T) {
 // When: Simulation runs for several years
 // Then: Local humidity should increase (Transpiration)
 //
-//  AND Local temperature range should stabilize (Moderating effect)
+//	AND Local temperature range should stabilize (Moderating effect)
 func TestBDD_Weather_BiomeFeedback(t *testing.T) {
-    t.Skip("BDD stub: implement transpiration")
-    // Pseudocode:
-    // cell := SetupCell(Desert)
-    // initialHum := cell.Humidity
-    // cell.ForceBiome(Rainforest)
-    
-    // sim.RunYears(5)
-    
-    // assert cell.Humidity > initialHum
+	t.Skip("BDD stub: implement transpiration")
+	// Pseudocode:
+	// cell := SetupCell(Desert)
+	// initialHum := cell.Humidity
+	// cell.ForceBiome(Rainforest)
+
+	// sim.RunYears(5)
+
+	// assert cell.Humidity > initialHum
 }
 
 // -----------------------------------------------------------------------------
@@ -223,13 +223,12 @@ func TestBDD_Weather_BiomeFeedback(t *testing.T) {
 // When: Moving to an adjacent mountain peak (elevation 3000m)
 // Then: Temperature should drop by approx 6°C per 1000m (Adiabatic lapse)
 func TestBDD_Weather_LapseRate(t *testing.T) {
-    t.Skip("BDD stub: implement standard atmosphere model")
-    // Pseudocode:
-    // baseTemp := 20.0
-    // peakElev := 3000.0
-    // expectedTemp := baseTemp - (peakElev/1000 * 6.5) // ~0.5°C
-    
-    // result := weather.CalculateTemp(lat, peakElev)
-    // assert.InDelta(expectedTemp, result, 1.0)
-}
+	t.Skip("BDD stub: implement standard atmosphere model")
+	// Pseudocode:
+	// baseTemp := 20.0
+	// peakElev := 3000.0
+	// expectedTemp := baseTemp - (peakElev/1000 * 6.5) // ~0.5°C
 
+	// result := weather.CalculateTemp(lat, peakElev)
+	// assert.InDelta(expectedTemp, result, 1.0)
+}

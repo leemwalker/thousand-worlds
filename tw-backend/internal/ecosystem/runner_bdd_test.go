@@ -13,28 +13,28 @@ import "testing"
 // When: A transition method (Start, Pause, Stop) is called
 // Then: The state should update correctly OR return an error if invalid
 func TestBDD_Runner_StateTransitions(t *testing.T) {
-    t.Skip("BDD stub: implement state machine")
-    
-    scenarios := []struct {
-        name          string
-        initialState  RunnerState
-        action        func(r *Runner) error
-        expectedState RunnerState
-        expectError   bool
-    }{
-        {"Idle to Running", RunnerIdle, func(r *Runner) error { return r.Start(0) }, RunnerRunning, false},
-        {"Running to Paused", RunnerRunning, func(r *Runner) error { return r.Pause() }, RunnerPaused, false},
-        {"Paused to Running", RunnerPaused, func(r *Runner) error { return r.Resume() }, RunnerRunning, false},
-        {"Idle to Paused", RunnerIdle, func(r *Runner) error { return r.Pause() }, RunnerIdle, true}, // Invalid
-    }
+	t.Skip("BDD stub: implement state machine")
 
-    for _, sc := range scenarios {
-        t.Run(sc.name, func(t *testing.T) {
-            // runner := NewMockRunner(sc.initialState)
-            // err := sc.action(runner)
-            // assert.Equal(t, sc.expectedState, runner.State())
-        })
-    }
+	scenarios := []struct {
+		name          string
+		initialState  RunnerState
+		action        func(r *SimulationRunner)
+		expectedState RunnerState
+		expectError   bool
+	}{
+		{"Idle to Running", RunnerIdle, func(r *SimulationRunner) { r.Start(0) }, RunnerRunning, false},
+		{"Running to Paused", RunnerRunning, func(r *SimulationRunner) { r.Pause() }, RunnerPaused, false},
+		{"Paused to Running", RunnerPaused, func(r *SimulationRunner) { r.Resume() }, RunnerRunning, false},
+		{"Idle to Paused", RunnerIdle, func(r *SimulationRunner) { r.Pause() }, RunnerIdle, true}, // Invalid
+	}
+
+	for _, sc := range scenarios {
+		t.Run(sc.name, func(t *testing.T) {
+			// runner := NewMockRunner(sc.initialState)
+			// err := sc.action(runner)
+			// assert.Equal(t, sc.expectedState, runner.State())
+		})
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -125,14 +125,14 @@ func TestBDD_Runner_EventBroadcast(t *testing.T) {
 // When: Step(5) is called
 // Then: Exactly 5 simulation years/ticks should process
 //
-//  AND No more, no less
+//	AND No more, no less
 func TestBDD_Runner_DeterministicStepping(t *testing.T) {
-    t.Skip("BDD stub: implement manual stepping")
-    // Pseudocode:
-    // runner := NewTestRunner() // Manual clock
-    // startYear := runner.CurrentYear
-    // runner.Step(5) 
-    // assert runner.CurrentYear == startYear + 5
+	t.Skip("BDD stub: implement manual stepping")
+	// Pseudocode:
+	// runner := NewTestRunner() // Manual clock
+	// startYear := runner.CurrentYear
+	// runner.Step(5)
+	// assert runner.CurrentYear == startYear + 5
 }
 
 // -----------------------------------------------------------------------------
@@ -142,20 +142,20 @@ func TestBDD_Runner_DeterministicStepping(t *testing.T) {
 // When: Speed is changed and Status is queried from multiple goroutines
 // Then: The application should NOT panic
 //
-//  AND The runner should eventually reach the target state
+//	AND The runner should eventually reach the target state
 func TestBDD_Runner_ConcurrencySafety(t *testing.T) {
-    t.Skip("BDD stub: run with -race")
-    // Pseudocode:
-    // runner.Start(0)
-    // wg := sync.WaitGroup{}
-    // for i := 0; i < 100; i++ {
-    //     go runner.SetSpeed(SpeedFast)
-    //     go runner.GetStatus()
-    //     go runner.Pause()
-    //     go runner.Resume()
-    // }
-    // wg.Wait()
-    // runner.Stop()
+	t.Skip("BDD stub: run with -race")
+	// Pseudocode:
+	// runner.Start(0)
+	// wg := sync.WaitGroup{}
+	// for i := 0; i < 100; i++ {
+	//     go runner.SetSpeed(SpeedFast)
+	//     go runner.GetStatus()
+	//     go runner.Pause()
+	//     go runner.Resume()
+	// }
+	// wg.Wait()
+	// runner.Stop()
 }
 
 // -----------------------------------------------------------------------------
@@ -165,16 +165,16 @@ func TestBDD_Runner_ConcurrencySafety(t *testing.T) {
 // When: The runner executes a tick
 // Then: The panic should be recovered
 //
-//  AND The runner should enter RunnerError/Paused state
-//  AND The error should be logged
+//	AND The runner should enter RunnerError/Paused state
+//	AND The error should be logged
 func TestBDD_Runner_PanicRecovery(t *testing.T) {
-    t.Skip("BDD stub: implement defer/recover")
-    // Pseudocode:
-    // badStrategy := func() { panic("oops") }
-    // runner.SetStrategy(badStrategy)
-    // runner.Start(0)
-    // assert runner.State() == RunnerError
-    // assert runner.LastError() == "oops"
+	t.Skip("BDD stub: implement defer/recover")
+	// Pseudocode:
+	// badStrategy := func() { panic("oops") }
+	// runner.SetStrategy(badStrategy)
+	// runner.Start(0)
+	// assert runner.State() == RunnerError
+	// assert runner.LastError() == "oops"
 }
 
 // -----------------------------------------------------------------------------
@@ -184,13 +184,13 @@ func TestBDD_Runner_PanicRecovery(t *testing.T) {
 // When: UpdateConfig is called with SnapshotInterval = 10
 // Then: The next snapshot should trigger based on the new interval
 func TestBDD_Runner_HotConfigUpdate(t *testing.T) {
-    t.Skip("BDD stub: implement config hotswap")
-    // Pseudocode:
-    // runner.Config.SnapshotInterval = 100
-    // runner.Step(50) // No snapshot
-    // runner.UpdateConfig(Interval: 10)
-    // runner.Step(10) // Should snapshot now
-    // assert snapshotCreated == true
+	t.Skip("BDD stub: implement config hotswap")
+	// Pseudocode:
+	// runner.Config.SnapshotInterval = 100
+	// runner.Step(50) // No snapshot
+	// runner.UpdateConfig(Interval: 10)
+	// runner.Step(10) // Should snapshot now
+	// assert snapshotCreated == true
 }
 
 // -----------------------------------------------------------------------------
@@ -200,18 +200,19 @@ func TestBDD_Runner_HotConfigUpdate(t *testing.T) {
 // When: CheckForTurningPoint is evaluated
 // Then: The correct Turning Point Event should be returned
 func TestBDD_Runner_TurningPoints(t *testing.T) {
-    t.Skip("BDD stub: implement turning point rules")
-    
-    scenarios := []struct {
-        name        string
-        stats       WorldStats // Pop, Year, etc
-        expectEvent bool
-        expectType  string
-    }{
-        {"Standard Year", WorldStats{Year: 100}, false, ""},
-        {"Million Year Mark", WorldStats{Year: 1_000_000}, true, "EpochChange"},
-        {"Mass Extinction", WorldStats{ExtinctionRate: 0.9}, true, "ExtinctionEvent"},
-    }
-    // Loop and assert
-}
+	t.Skip("BDD stub: implement turning point rules")
 
+	scenarios := []struct {
+		name        string
+		year        int64
+		extinctRate float64
+		expectEvent bool
+		expectType  string
+	}{
+		{"Standard Year", 100, 0.0, false, ""},
+		{"Million Year Mark", 1_000_000, 0.0, true, "EpochChange"},
+		{"Mass Extinction", 0, 0.9, true, "ExtinctionEvent"},
+	}
+	_ = scenarios // For BDD stub - will be used when implemented
+	// Loop and assert
+}

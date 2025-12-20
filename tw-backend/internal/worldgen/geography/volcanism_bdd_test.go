@@ -13,21 +13,21 @@ import "testing"
 // When: Eruption occurs
 // Then: Viscosity and Explosivity should match chemical composition
 //
-//  AND Felsic (High Silica) -> Explosive (Ash/Pyroclastic)
-//  AND Mafic (Low Silica) -> Effusive (Lava Flows)
+//	AND Felsic (High Silica) -> Explosive (Ash/Pyroclastic)
+//	AND Mafic (Low Silica) -> Effusive (Lava Flows)
 func TestBDD_Volcanism_EruptionStyle(t *testing.T) {
-    t.Skip("BDD stub: implement viscosity mechanics")
-    
-    scenarios := []struct {
-        magmaType string
-        expectedStyle string
-        expectedRisk  string
-    }{
-        {"rhyolite", "explosive", "pyroclastic_flow"}, // Supervolcanoes
-        {"andesite", "mixed", "lahar"},                // Stratovolcanoes
-        {"basalt", "effusive", "lava_flow"},           // Shield Volcanoes
-    }
-    // Loop and verify
+	t.Skip("BDD stub: implement viscosity mechanics")
+
+	scenarios := []struct {
+		magmaType     string
+		expectedStyle string
+		expectedRisk  string
+	}{
+		{"rhyolite", "explosive", "pyroclastic_flow"}, // Supervolcanoes
+		{"andesite", "mixed", "lahar"},                // Stratovolcanoes
+		{"basalt", "effusive", "lava_flow"},           // Shield Volcanoes
+	}
+	_ = scenarios // For BDD stub - will be used when implemented
 }
 
 // -----------------------------------------------------------------------------
@@ -132,15 +132,15 @@ func TestBDD_VolcanicWorld_FrequentEruptions(t *testing.T) {
 // When: Time passes (e.g., 1000 years)
 // Then: The soil fertility rating should increase significantly
 //
-//  AND Farming yields in this region should eventually exceed non-volcanic regions
+//	AND Farming yields in this region should eventually exceed non-volcanic regions
 func TestBDD_Volcanism_SoilFertility(t *testing.T) {
-    t.Skip("BDD stub: implement pedogenesis")
-    // Pseudocode:
-    // tile := Tile{Biome: "plain", Fertility: 0.5}
-    // Erupt(tile, "ash_fall")
-    // SimulateWeathering(tile, years: 500)
-    
-    // assert tile.Fertility > 0.8 // High fertility (Andisols)
+	t.Skip("BDD stub: implement pedogenesis")
+	// Pseudocode:
+	// tile := Tile{Biome: "plain", Fertility: 0.5}
+	// Erupt(tile, "ash_fall")
+	// SimulateWeathering(tile, years: 500)
+
+	// assert tile.Fertility > 0.8 // High fertility (Andisols)
 }
 
 // -----------------------------------------------------------------------------
@@ -150,16 +150,16 @@ func TestBDD_Volcanism_SoilFertility(t *testing.T) {
 // When: A VEI 8 eruption occurs
 // Then: The mountain peak should be destroyed
 //
-//  AND A depression (Caldera) should form at the site
-//  AND The local biome should be wiped out (Ash wasteland)
+//	AND A depression (Caldera) should form at the site
+//	AND The local biome should be wiped out (Ash wasteland)
 func TestBDD_Volcanism_CalderaCollapse(t *testing.T) {
-    t.Skip("BDD stub: implement terrain deformation")
-    // Pseudocode:
-    // peak := Heightmap{Elevation: 3000}
-    // SuperEruption(peak)
-    
-    // assert peak.Elevation < 1500 // Collapsed
-    // assert peak.Shape == "basin"
+	t.Skip("BDD stub: implement terrain deformation")
+	// Pseudocode:
+	// peak := Heightmap{Elevation: 3000}
+	// SuperEruption(peak)
+
+	// assert peak.Elevation < 1500 // Collapsed
+	// assert peak.Shape == "basin"
 }
 
 // -----------------------------------------------------------------------------
@@ -169,15 +169,15 @@ func TestBDD_Volcanism_CalderaCollapse(t *testing.T) {
 // When: A significant eruption dumps 50m of material
 // Then: The new elevation should be 150m
 //
-//  AND The original contents should be marked as "Buried" in the geological record
+//	AND The original contents should be marked as "Buried" in the geological record
 func TestBDD_Volcanism_TerrainBurial(t *testing.T) {
-    t.Skip("BDD stub: implement stratigraphy")
-    // Pseudocode:
-    // tile.Features.Add("Forest")
-    // ApplyDeposit(tile, material: "tuff", depth: 20)
-    
-    // assert tile.SurfaceFeatures.Contains("Forest") == false
-    // assert tile.UndergroundFeatures.Contains("Forest") == true
+	t.Skip("BDD stub: implement stratigraphy")
+	// Pseudocode:
+	// tile.Features.Add("Forest")
+	// ApplyDeposit(tile, material: "tuff", depth: 20)
+
+	// assert tile.SurfaceFeatures.Contains("Forest") == false
+	// assert tile.UndergroundFeatures.Contains("Forest") == true
 }
 
 // -----------------------------------------------------------------------------
@@ -187,16 +187,16 @@ func TestBDD_Volcanism_TerrainBurial(t *testing.T) {
 // When: The ocean crust cools and subsides over millions of years
 // Then: The central peak should sink below sea level
 //
-//  AND A ring of coral reef (Atoll) should remain at the surface
+//	AND A ring of coral reef (Atoll) should remain at the surface
 func TestBDD_Volcanism_AtollFormation(t *testing.T) {
-    t.Skip("BDD stub: implement island subsidence")
-    // Pseudocode:
-    // island := Island{Type: "volcanic", Elevation: 100, HasReef: true}
-    // SimulateSubsidence(island, years: 5_000_000)
-    
-    // assert island.Elevation < 0 // Sunk
-    // assert island.Reef.Elevation == 0 // Kept up with sea level
-    // assert island.Shape == "ring"
+	t.Skip("BDD stub: implement island subsidence")
+	// Pseudocode:
+	// island := Island{Type: "volcanic", Elevation: 100, HasReef: true}
+	// SimulateSubsidence(island, years: 5_000_000)
+
+	// assert island.Elevation < 0 // Sunk
+	// assert island.Reef.Elevation == 0 // Kept up with sea level
+	// assert island.Shape == "ring"
 }
 
 // -----------------------------------------------------------------------------
@@ -206,13 +206,12 @@ func TestBDD_Volcanism_AtollFormation(t *testing.T) {
 // When: A period of high volcanic activity occurs
 // Then: Atmospheric CO2 should rise
 //
-//  AND Global temperature should increase
+//	AND Global temperature should increase
 func TestBDD_Volcanism_ClimateFeedback(t *testing.T) {
-    t.Skip("BDD stub: implement carbon cycle")
-    // Pseudocode:
-    // atmosphere.CO2 = 200ppm
-    // TriggerEra(HighVolcanism)
-    // assert atmosphere.CO2 > 300ppm
-    // assert globalTemp.Increased()
+	t.Skip("BDD stub: implement carbon cycle")
+	// Pseudocode:
+	// atmosphere.CO2 = 200ppm
+	// TriggerEra(HighVolcanism)
+	// assert atmosphere.CO2 > 300ppm
+	// assert globalTemp.Increased()
 }
-
