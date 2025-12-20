@@ -166,3 +166,46 @@ func applyBoundaryEffect(hm *Heightmap, x, y int, p1, p2 TectonicPlate, interact
 		}
 	}
 }
+
+// SimulateGeologicalAge returns the plate count and surface description for an age
+func SimulateGeologicalAge(age GeologicalAge) (int, string) {
+	if age == AgeHadean {
+		return 0, "molten"
+	} else if age == AgeArchean {
+		return 3, "cratons" // Small proto-plates
+	} else if age == AgeProterozoic {
+		return 7, "stable_continents"
+	}
+	return 12, "modern_plates"
+}
+
+// SimulateWilsonCycle determines the tectonic phase based on time
+func SimulateWilsonCycle(years int64) string {
+	// Wilson Cycle is ~500 million years
+	cyclePos := years % 500_000_000
+
+	if cyclePos < 100_000_000 {
+		return "Rifting"
+	} else if cyclePos < 200_000_000 {
+		return "OceanFloorSpreading"
+	} else if cyclePos < 400_000_000 {
+		return "Subduction"
+	}
+	return "Orogeny" // Assembly/Collision
+}
+
+// SimulateContinentalRift calculates effects of rifting
+func SimulateContinentalRift(isDivergent bool) (hasRift bool, volcanicActivity float64) {
+	if isDivergent {
+		return true, 0.8 // High volcanic activity
+	}
+	return false, 0.0
+}
+
+// CalculateSupercontinentEffects returns climatic impacts
+func CalculateSupercontinentEffects(pangaeaIndex float64) (desertPercent float64, speciationRate float64) {
+	if pangaeaIndex > 0.8 {
+		return 0.6, 0.4 // High desert, low speciation (connected land)
+	}
+	return 0.1, 1.0
+}

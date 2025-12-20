@@ -112,3 +112,40 @@ type WorldMap struct {
 	Biomes    []Biome
 	Rivers    [][]Point // List of river paths
 }
+
+// -----------------------------------------------------------------------------
+// Phase 2: Tectonics & Physics Types
+// -----------------------------------------------------------------------------
+
+// GeologicalAge represents the major eons of planetary development
+type GeologicalAge string
+
+const (
+	AgeHadean      GeologicalAge = "Hadean"      // Molten surface, no stable crust
+	AgeArchean     GeologicalAge = "Archean"     // First cratons, high volcanic activity
+	AgeProterozoic GeologicalAge = "Proterozoic" // Stable continents, oxygenation
+	AgePhanerozoic GeologicalAge = "Phanerozoic" // Modern plate tectonics
+)
+
+// SeismicEvent represents an earthquake
+type SeismicEvent struct {
+	Epicenter    Point
+	Magnitude    float64 // Richter scale
+	Depth        string  // "Shallow", "Intermediate", "Deep"
+	BoundaryType BoundaryType
+}
+
+// Tsunami represents a seismically generated sea wave
+type Tsunami struct {
+	OriginLocation    Point
+	InitialWaveHeight float64 // meters
+	TravelVelocity    float64 // km/h
+	AffectedCoasts    []Point // Locations impacted
+}
+
+// Crust represents the lithospheric composition of a location
+type Crust struct {
+	Thickness float64  // meters
+	Layers    []string // e.g., "sediment", "granite", "basalt"
+	IsOceanic bool
+}
