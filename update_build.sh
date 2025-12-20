@@ -1,7 +1,7 @@
 #!/bin/bash
 # Quick update and rebuild script for development
 
-set -e
+set -euo pipefail
 
 echo "=== Thousand Worlds Update & Build ==="
 
@@ -9,6 +9,12 @@ echo "=== Thousand Worlds Update & Build ==="
 echo "Pulling latest code..."
 cd /home/walker/git/thousand-worlds
 git pull
+
+# Install frontend dependencies (for new packages like Zod)
+echo "Installing frontend dependencies..."
+cd tw-frontend
+npm install --legacy-peer-deps
+cd ..
 
 # Rebuild game server and frontend (clear build cache first)
 echo "Clearing Docker build cache..."
