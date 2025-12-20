@@ -48,6 +48,16 @@ export default defineConfig({
         navigationTimeout: 30000,
     },
 
+    /* Visual comparison settings for toHaveScreenshot */
+    expect: {
+        /* Golden master snapshot directory */
+        toHaveScreenshot: {
+            maxDiffPixelRatio: 0.05, // 5% max diff for CI stability
+        },
+        /* Timeout for expect assertions */
+        timeout: 10000,
+    },
+
     /* Configure projects for major browsers and devices */
     projects: [
         {
