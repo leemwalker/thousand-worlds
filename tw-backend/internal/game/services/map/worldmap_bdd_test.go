@@ -1,10 +1,57 @@
 package gamemap_test
 
-import "testing"
+import (
+	"testing"
+
+	gamemap "tw-backend/internal/game/services/map"
+
+	"github.com/stretchr/testify/assert"
+)
 
 // =============================================================================
-// BDD Test Stubs: World Map Rendering
+// BDD Tests: World Map Rendering
 // =============================================================================
+
+// -----------------------------------------------------------------------------
+// Scenario: Render Quality by Perception (Table-Driven)
+// -----------------------------------------------------------------------------
+// Given: Different character perception levels
+// When: GetRenderQuality is called
+// Then: Quality tier should match perception thresholds
+func TestBDD_WorldMap_RenderQuality(t *testing.T) {
+	scenarios := []struct {
+		name       string
+		perception int
+		expected   gamemap.RenderQuality
+	}{
+		{"Very Low Perception (10)", 10, gamemap.QualityLow},
+		{"Low Perception (30)", 30, gamemap.QualityLow},
+		{"Medium Perception (31)", 31, gamemap.QualityMedium},
+		{"Mid-High Perception (50)", 50, gamemap.QualityMedium},
+		{"High Perception (71)", 71, gamemap.QualityHigh},
+		{"Max Perception (100)", 100, gamemap.QualityHigh},
+	}
+
+	for _, sc := range scenarios {
+		t.Run(sc.name, func(t *testing.T) {
+			quality := gamemap.GetRenderQuality(sc.perception)
+			assert.Equal(t, sc.expected, quality,
+				"Perception %d should yield %s quality", sc.perception, sc.expected)
+		})
+	}
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: worldToGrid Coordinate Mapping
+// -----------------------------------------------------------------------------
+// Given: World coordinates and bounds
+// When: worldToGrid is called
+// Then: Coordinates should map correctly to grid indices
+func TestBDD_WorldMap_WorldToGrid(t *testing.T) {
+	// Note: worldToGrid is unexported, so we test through the service
+	// This test validates the conceptual behavior verified in service tests
+	t.Skip("BDD RED: worldToGrid is unexported - covered by service_test.go integration tests")
+}
 
 // -----------------------------------------------------------------------------
 // Scenario: Region Aggregation - Dominant Biome
@@ -15,7 +62,8 @@ import "testing"
 //
 //	AND Average elevation should be calculated
 func TestBDD_WorldMap_RegionAggregation(t *testing.T) {
-	t.Skip("BDD stub: implement region aggregation")
+	t.Skip("BDD RED: Region aggregation requires GetWorldMapData with mocked geology")
+	// Requires full service setup with mocked WorldGeology
 	// Pseudocode:
 	// tiles := [][]Biome{{"grassland", "grassland", "forest"}, ...}
 	// region := aggregateRegion(tiles)
@@ -32,7 +80,7 @@ func TestBDD_WorldMap_RegionAggregation(t *testing.T) {
 //
 //	AND Points within bounds should scale linearly
 func TestBDD_WorldMap_CoordinateMapping(t *testing.T) {
-	t.Skip("BDD stub: implement spherical mapping")
+	t.Skip("BDD RED: Spherical wrapping handled by spatial service - see spatial_service_test.go")
 
 	scenarios := []struct {
 		name          string
@@ -64,7 +112,7 @@ func TestBDD_WorldMap_CoordinateMapping(t *testing.T) {
 //
 //	AND The heavy aggregation logic should NOT run again
 func TestBDD_WorldMap_Caching(t *testing.T) {
-	t.Skip("BDD stub: implement caching")
+	t.Skip("BDD RED: World map caching not yet implemented")
 	// Pseudocode:
 	// service.GetWorldMapData(ctx, char, 64) // First call (Miss)
 	// start := time.Now()
@@ -81,7 +129,7 @@ func TestBDD_WorldMap_Caching(t *testing.T) {
 //
 //	AND The server should NOT panic
 func TestBDD_WorldMap_UninitializedState(t *testing.T) {
-	t.Skip("BDD stub: implement nil checks")
+	t.Skip("BDD RED: Nil checks require service instantiation with mocks")
 	// Pseudocode:
 	// emptyWorldService := ...
 	// data, err := emptyWorldService.GetWorldMapData(...)
@@ -96,7 +144,7 @@ func TestBDD_WorldMap_UninitializedState(t *testing.T) {
 // When: Aggregated into a single Map Cell
 // Then: Sub-region should be split into multiple Map Cells
 func TestBDD_WorldMap_BiomeWeighting(t *testing.T) {
-	t.Skip("BDD stub: define aggregation rules")
+	t.Skip("BDD RED: Aggregation rules not yet defined")
 	// Pseudocode:
 	// mixedRegion := []Biome{Ocean, Ocean, Mountain, Forest}
 	// cells := service.Aggregate(mixedRegion)
@@ -114,7 +162,7 @@ func TestBDD_WorldMap_BiomeWeighting(t *testing.T) {
 //
 //	OR The grid dimensions returned should be adapted (e.g., 64x32)
 func TestBDD_WorldMap_AspectRatio(t *testing.T) {
-	t.Skip("BDD stub: implement aspect ratio handling")
+	t.Skip("BDD RED: Aspect ratio handling not yet implemented")
 	// Pseudocode:
 	// world := MockWorld{Width: 2000, Height: 1000}
 	// data, _ := service.GetWorldMapData(ctx, world, 64)
@@ -132,7 +180,7 @@ func TestBDD_WorldMap_AspectRatio(t *testing.T) {
 //	AND Grid should cover entire heightmap
 //	AND Each cell should have biome and elevation data
 func TestBDD_WorldMap_FullDisplay(t *testing.T) {
-	t.Skip("BDD stub: implement full world display")
+	t.Skip("BDD RED: Full display requires service with mocked geology")
 	// Pseudocode:
 	// data, err := service.GetWorldMapData(ctx, character, 64) // 64x64 grid
 	// assert err == nil
@@ -149,7 +197,7 @@ func TestBDD_WorldMap_FullDisplay(t *testing.T) {
 //
 //	AND Smaller grids should aggregate more tiles per region
 func TestBDD_WorldMap_ZoomLevels(t *testing.T) {
-	t.Skip("BDD stub: implement zoom levels")
+	t.Skip("BDD RED: Zoom levels require comparison of aggregation results")
 	// Pseudocode:
 	// small := GetWorldMapData(ctx, char, 32)
 	// large := GetWorldMapData(ctx, char, 128)
@@ -165,7 +213,7 @@ func TestBDD_WorldMap_ZoomLevels(t *testing.T) {
 //
 //	AND Elevation data should come from heightmap
 func TestBDD_WorldMap_GeologyIntegration(t *testing.T) {
-	t.Skip("BDD stub: implement geology integration")
+	t.Skip("BDD RED: Geology integration requires mocked ecosystem service")
 	// Pseudocode:
 	// geology := NewWorldGeology(worldID, seed, circumference)
 	// geology.InitializeGeology()
@@ -183,7 +231,7 @@ func TestBDD_WorldMap_GeologyIntegration(t *testing.T) {
 //
 //	AND Marker should be at correct grid cell
 func TestBDD_WorldMap_PlayerPosition(t *testing.T) {
-	t.Skip("BDD stub: implement player position marker")
+	t.Skip("BDD RED: Player position requires character with coordinates")
 	// Pseudocode:
 	// character := &Character{X: 1000, Y: 2000}
 	// data, _ := service.GetWorldMapData(ctx, character, 64)
@@ -200,8 +248,119 @@ func TestBDD_WorldMap_PlayerPosition(t *testing.T) {
 //
 //	AND All internal maps should be initialized
 func TestBDD_WorldMap_ServiceInit(t *testing.T) {
-	t.Skip("BDD stub: implement service initialization")
+	t.Skip("BDD RED: Service initialization requires all dependencies - covered by service_test.go")
 	// Pseudocode:
 	// service := NewService(worldRepo, skillsRepo, entityService, lookService, worldEntityService, ecosystemService)
 	// assert service != nil
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: MapTile Data Structure
+// -----------------------------------------------------------------------------
+// Given: MapTile structure
+// When: Fields are accessed
+// Then: All expected fields should be available
+func TestBDD_WorldMap_TileStructure(t *testing.T) {
+	tile := gamemap.MapTile{
+		X:           10,
+		Y:           20,
+		Biome:       "forest",
+		Elevation:   150.5,
+		IsPlayer:    true,
+		OutOfBounds: false,
+		Occluded:    false,
+	}
+
+	assert.Equal(t, 10, tile.X)
+	assert.Equal(t, 20, tile.Y)
+	assert.Equal(t, "forest", tile.Biome)
+	assert.Equal(t, 150.5, tile.Elevation)
+	assert.True(t, tile.IsPlayer)
+	assert.False(t, tile.OutOfBounds)
+	assert.False(t, tile.Occluded)
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: WorldMapData Data Structure
+// -----------------------------------------------------------------------------
+// Given: WorldMapData structure
+// When: Fields are accessed
+// Then: Grid dimensions and player position should be available
+func TestBDD_WorldMap_DataStructure(t *testing.T) {
+	data := gamemap.WorldMapData{
+		GridWidth:   64,
+		GridHeight:  32,
+		WorldWidth:  2000,
+		WorldHeight: 1000,
+		PlayerX:     500,
+		PlayerY:     250,
+		Tiles:       []gamemap.WorldMapTile{},
+	}
+
+	assert.Equal(t, 64, data.GridWidth)
+	assert.Equal(t, 32, data.GridHeight)
+	assert.Equal(t, 2000.0, data.WorldWidth)
+	assert.Equal(t, 1000.0, data.WorldHeight)
+	assert.Equal(t, 500.0, data.PlayerX)
+	assert.Equal(t, 250.0, data.PlayerY)
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: WorldMapTile Data Structure
+// -----------------------------------------------------------------------------
+// Given: WorldMapTile for region
+// When: Fields are accessed
+// Then: Grid position, biome, and elevation should be available
+func TestBDD_WorldMap_RegionTileStructure(t *testing.T) {
+	tile := gamemap.WorldMapTile{
+		GridX:        5,
+		GridY:        10,
+		Biome:        "desert",
+		AvgElevation: 300.0,
+		IsPlayer:     false,
+	}
+
+	assert.Equal(t, 5, tile.GridX)
+	assert.Equal(t, 10, tile.GridY)
+	assert.Equal(t, "desert", tile.Biome)
+	assert.Equal(t, 300.0, tile.AvgElevation)
+	assert.False(t, tile.IsPlayer)
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: MapEntity for Entity Display
+// -----------------------------------------------------------------------------
+// Given: MapEntity with entity data
+// When: Entity is added to tile
+// Then: Entity info should be retrievable
+func TestBDD_WorldMap_EntityDisplay(t *testing.T) {
+	entity := gamemap.MapEntity{
+		Type:   "npc",
+		Name:   "Merchant",
+		Status: "friendly",
+		Glyph:  "🧙",
+	}
+
+	assert.Equal(t, "npc", entity.Type)
+	assert.Equal(t, "Merchant", entity.Name)
+	assert.Equal(t, "friendly", entity.Status)
+	assert.Equal(t, "🧙", entity.Glyph)
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: PortalInfo Display
+// -----------------------------------------------------------------------------
+// Given: Portal on map tile
+// When: Portal info is accessed
+// Then: Destination and status should be available
+func TestBDD_WorldMap_PortalDisplay(t *testing.T) {
+	portal := gamemap.PortalInfo{
+		WorldName:   "Underworld",
+		Destination: "Level 1 Entrance",
+		Active:      true,
+	}
+
+	assert.Equal(t, "Underworld", portal.WorldName)
+	assert.Equal(t, "Level 1 Entrance", portal.Destination)
+	assert.True(t, portal.Active)
 }

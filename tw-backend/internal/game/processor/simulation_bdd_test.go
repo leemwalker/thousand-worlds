@@ -1,10 +1,14 @@
 package processor_test
 
-import "testing"
+import (
+	"testing"
+)
 
 // =============================================================================
-// BDD Test Stubs: World Simulate Command
+// BDD Tests: World Simulate Command
 // =============================================================================
+// Note: Most of these tests require full GameProcessor setup with mocked dependencies.
+// They are marked as skipped stubs to document expected behavior for TDD implementation.
 
 // -----------------------------------------------------------------------------
 // Scenario: Basic Simulation
@@ -16,7 +20,7 @@ import "testing"
 //	AND Geology should evolve (erosion, tectonics)
 //	AND Biomes should update
 func TestBDD_WorldSimulate_Basic(t *testing.T) {
-	t.Skip("BDD stub: implement basic world simulate")
+	t.Skip("BDD RED: Requires full GameProcessor setup with mocked websocket client")
 	// Pseudocode:
 	// client := mockWebSocketClient()
 	// processor.handleWorldSimulate(ctx, client, "1000000")
@@ -30,7 +34,7 @@ func TestBDD_WorldSimulate_Basic(t *testing.T) {
 // When: Simulation is configured/run
 // Then: The internal configuration should match expected state
 func TestBDD_WorldSimulate_Flags(t *testing.T) {
-	t.Skip("BDD stub: implement flag parsing")
+	t.Skip("BDD RED: Flag parsing requires command string parsing - see parseSimulationArgs")
 
 	scenarios := []struct {
 		command        string
@@ -64,7 +68,7 @@ func TestBDD_WorldSimulate_Flags(t *testing.T) {
 //
 //	AND Dinosaurs species should be present amongst lifeforms
 func TestBDD_WorldSimulate_EpochLabel(t *testing.T) {
-	t.Skip("BDD stub: implement --epoch flag")
+	t.Skip("BDD RED: --epoch flag not yet implemented")
 	// Pseudocode:
 	// processor.handleWorldSimulate(ctx, client, "100000000 --epoch Jurassic")
 	// assert client.ReceivedMessage contains "Jurassic"
@@ -79,7 +83,7 @@ func TestBDD_WorldSimulate_EpochLabel(t *testing.T) {
 //
 //	AND Geology-only with Hadean epoch label
 func TestBDD_WorldSimulate_CombinedFlags(t *testing.T) {
-	t.Skip("BDD stub: implement combined flags")
+	t.Skip("BDD RED: Combined flag parsing not yet tested")
 	// Pseudocode:
 	// processor.handleWorldSimulate(ctx, client, "1000000 --only-geology --epoch Hadean")
 	// assert sim.Species == nil
@@ -95,7 +99,7 @@ func TestBDD_WorldSimulate_CombinedFlags(t *testing.T) {
 //
 //	AND Weather states should transition realistically
 func TestBDD_WorldSimulate_WeatherUpdates(t *testing.T) {
-	t.Skip("BDD stub: implement weather per tick")
+	t.Skip("BDD RED: Weather integration in simulation loop not yet verified")
 	// Pseudocode:
 	// For each tick:
 	//   season := getSeasonFromYear(currentYear)
@@ -113,7 +117,7 @@ func TestBDD_WorldSimulate_WeatherUpdates(t *testing.T) {
 //	AND Predation, reproduction, metabolism should occur
 //	AND Species may speciate or go extinct
 func TestBDD_WorldSimulate_PopulationDynamics(t *testing.T) {
-	t.Skip("BDD stub: implement population dynamics")
+	t.Skip("BDD RED: Population dynamics verified in runner_bdd_test.go")
 	// Pseudocode:
 	// initialSpecies := len(sim.Species)
 	// processor.handleWorldSimulate(ctx, client, "10000000")
@@ -131,7 +135,7 @@ func TestBDD_WorldSimulate_PopulationDynamics(t *testing.T) {
 //
 //	AND A final "complete" message at the end
 func TestBDD_WorldSimulate_ProgressFeedback(t *testing.T) {
-	t.Skip("BDD stub: implement progress callbacks")
+	t.Skip("BDD RED: Progress callbacks require mocked websocket client")
 	// Pseudocode:
 	// client := mockWS()
 	// processor.handleWorldSimulate(ctx, client, "1000000")
@@ -150,7 +154,7 @@ func TestBDD_WorldSimulate_ProgressFeedback(t *testing.T) {
 //
 //	AND No further world updates should be committed
 func TestBDD_WorldSimulate_Cancellation(t *testing.T) {
-	t.Skip("BDD stub: implement context check in sim loop")
+	t.Skip("BDD RED: Context cancellation tested in runner_bdd_test.go")
 	// Pseudocode:
 	// ctx, cancel := context.WithCancel(context.Background())
 	// go processor.handleWorldSimulate(ctx, client, "1000000000") // Huge number
@@ -171,7 +175,7 @@ func TestBDD_WorldSimulate_Cancellation(t *testing.T) {
 //
 //	AND The server should NOT attempt to run it
 func TestBDD_WorldSimulate_InputBounds(t *testing.T) {
-	t.Skip("BDD stub: implement max year caps")
+	t.Skip("BDD RED: Input validation requires GameProcessor test setup")
 	// Pseudocode:
 	// assert error "Invalid duration" for "world simulate -100"
 	// assert error "Duration too long" for "world simulate 100000000000"
@@ -184,7 +188,7 @@ func TestBDD_WorldSimulate_InputBounds(t *testing.T) {
 // When: 5 epochs have passed
 // Then: A snapshot of the world state should be saved to DB/Disk
 func TestBDD_WorldSimulate_Checkpointing(t *testing.T) {
-	t.Skip("BDD stub: implement intermediate saves")
+	t.Skip("BDD RED: Checkpointing verified in runner_bdd_test.go via snapshots")
 	// Pseudocode:
 	// sim.Run(epochs: 10, checkpointEvery: 5)
 	// assert db.CountSnapshots(worldID) == 2
@@ -197,7 +201,7 @@ func TestBDD_WorldSimulate_Checkpointing(t *testing.T) {
 // When: A "meteor" event is triggered manually or via simulation
 // Then: Biodiversity count should drop significantly
 func TestBDD_WorldSimulate_ExtinctionEvent(t *testing.T) {
-	t.Skip("BDD stub: implement disaster events")
+	t.Skip("BDD RED: Extinction events not yet testable at processor level")
 	// Pseudocode:
 	// sim.TriggerEvent("meteor_impact")
 	// sim.Tick()
