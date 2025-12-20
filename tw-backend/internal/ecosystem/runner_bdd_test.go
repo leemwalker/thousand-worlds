@@ -101,7 +101,7 @@ func TestBDD_Runner_TurningPointTrigger_SpeciesCount(t *testing.T) {
 	// config := SimulationConfig{PauseOnTurning: true}
 	// runner := NewSimulationRunner(config, nil, nil)
 	// tpm := runner.GetTurningPointManager()
-	// tp := tpm.CheckForTurningPoint(1_000_000, speciesCount: 100, extinctions: 50, nil, "")
+	// tp := tpm.CheckForTurningPoint(500_000, speciesCount: 100, extinctions: 50, nil, "")
 	// assert tp != nil
 	// assert runner.GetState() == RunnerPaused
 }
@@ -121,7 +121,27 @@ func TestBDD_Runner_TurningPointTrigger_MajorExtinction(t *testing.T) {
 	// config := SimulationConfig{PauseOnTurning: true}
 	// runner := NewSimulationRunner(config, nil, nil)
 	// tpm := runner.GetTurningPointManager()
-	// tp := tpm.CheckForTurningPoint(1_000_000, speciesCount: 100, extinctions: 50, nil, "")
+	// tp := tpm.CheckForTurningPoint(500_000, speciesCount: 75, extinctions: 50, nil, "")
+	// assert tp != nil
+	// assert runner.GetState() == RunnerPaused
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Turning Point Trigger - One Million Years Has Passed
+// -----------------------------------------------------------------------------
+// Given: One million years have passed
+// When: TurningPointManager checks conditions
+// Then: Turning point should trigger
+//
+//	AND Simulation should pause (if PauseOnTurning)
+//	AND Handler should be called
+func TestBDD_Runner_TurningPointTrigger_OneMillionYears(t *testing.T) {
+	t.Skip("BDD stub: implement turning point trigger")
+	// Pseudocode:
+	// config := SimulationConfig{PauseOnTurning: true}
+	// runner := NewSimulationRunner(config, nil, nil)
+	// tpm := runner.GetTurningPointManager()
+	// tp := tpm.CheckForTurningPoint(1_000_000)
 	// assert tp != nil
 	// assert runner.GetState() == RunnerPaused
 }

@@ -3,6 +3,7 @@ import { commandQueue } from './command-queue';
 import { mapStore } from '$lib/stores/map';
 import { gameStore } from '$lib/stores/game';
 import type { ServerMessage, ClientMessage, GameCommand, GameOutputMessage } from '$lib/types/websocket';
+import { validateServerMessage } from '$lib/types/schemas';
 
 export class GameWebSocket {
     private ws: WebSocket | null = null;
@@ -72,7 +73,16 @@ export class GameWebSocket {
 
                     for (const part of parts) {
                         try {
-                            const message: ServerMessage = JSON.parse(part);
+                            const parsed = JSON.parse(part);
+
+                            // Validate message structure with Zod (logs warnings, doesn't block)
+                            const validation = validateServerMessage(parsed);
+                            if (!validation.valid) {
+                                // Log but continue processing - defensive coding
+                                console.warn('[WebSocket] Message failed validation, processing anyway');
+                            }
+
+                            const message: ServerMessage = parsed;
                             // console.log('[WebSocket] Message received:', message.type); 
                             this.handleMessage(message);
                         } catch (e) {

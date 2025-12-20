@@ -154,3 +154,27 @@ func TestBDD_OceanicCrust_Layers(t *testing.T) {
 	// assert col.TotalThickness() >= 7000 // 7km
 	// assert col.CavePotential() > 0.7
 }
+
+// -----------------------------------------------------------------------------
+// Scenario: Earthquake Types - Seismic Activity
+// -----------------------------------------------------------------------------
+// Given: Various plate boundary types (Convergent, Divergent, Transform)
+// When: Tectonic stress accumulates and releases over simulation steps
+// Then: Convergent boundaries should produce high-magnitude (megathrust) earthquakes
+//	AND Transform boundaries should produce frequent shallow strike-slip events
+//	AND Divergent boundaries should produce lower-magnitude, shallow events
+func TestBDD_Earthquakes_SeismicActivity(t *testing.T) {
+	t.Skip("BDD stub: implement earthquake generation by boundary type")
+	// Pseudocode:
+	// convBoundary := Boundary{Type: BoundaryConvergent, Stress: 0.9}
+	// transBoundary := Boundary{Type: BoundaryTransform, Stress: 0.7}
+	// divBoundary := Boundary{Type: BoundaryDivergent, Stress: 0.3}
+	//
+	// convEvents := convBoundary.GenerateSeismicEvents()
+	// transEvents := transBoundary.GenerateSeismicEvents()
+	//
+	// assert convEvents.MaxMagnitude() >= 8.0 // Megathrust potential
+	// assert transEvents.Frequency() > convEvents.Frequency()
+	// assert divBoundary.GenerateSeismicEvents().MaxMagnitude() < 6.5
+}
+
