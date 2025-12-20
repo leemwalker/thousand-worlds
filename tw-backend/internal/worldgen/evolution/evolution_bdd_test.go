@@ -160,20 +160,20 @@ func TestBDD_SolarEvolution_BiosphereStress(t *testing.T) {
 // When: Specific mutation operators are applied
 // Then: The resulting code should reflect the specific change type
 func TestBDD_Genetics_MutationTypes(t *testing.T) {
-    t.Skip("BDD stub: implement mutation operators")
-    
-    scenarios := []struct {
-        name          string
-        operator      string // Point, Insertion, Deletion, Duplication
-        mutationRate  float64
-        expectLength  int // 0 = same, 1 = longer, -1 = shorter
-    }{
-        {"Point Mutation", "point", 1.0, 0},        // ATCG -> ACCG (Same length)
-        {"Insertion", "insertion", 1.0, 1},         // ATCG -> ATCCG (Longer)
-        {"Deletion", "deletion", 1.0, -1},          // ATCG -> ACG (Shorter)
-        {"Duplication", "duplication", 1.0, 1},     // Gene doubling
-    }
-    // Loop and assert
+	t.Skip("BDD stub: implement mutation operators")
+
+	scenarios := []struct {
+		name         string
+		operator     string // Point, Insertion, Deletion, Duplication
+		mutationRate float64
+		expectLength int // 0 = same, 1 = longer, -1 = shorter
+	}{
+		{"Point Mutation", "point", 1.0, 0},    // ATCG -> ACCG (Same length)
+		{"Insertion", "insertion", 1.0, 1},     // ATCG -> ATCCG (Longer)
+		{"Deletion", "deletion", 1.0, -1},      // ATCG -> ACG (Shorter)
+		{"Duplication", "duplication", 1.0, 1}, // Gene doubling
+	}
+	_ = scenarios // For BDD stub - will be used when implemented
 }
 
 // -----------------------------------------------------------------------------
@@ -183,21 +183,21 @@ func TestBDD_Genetics_MutationTypes(t *testing.T) {
 // When: Prey evolves "Speed" trait to escape
 // Then: Predators should subsequently evolve "Speed" or "Ambush" to compensate
 //
-//  AND Both populations should oscillate rather than one wiping out the other
+//	AND Both populations should oscillate rather than one wiping out the other
 func TestBDD_CoEvolution_RedQueen(t *testing.T) {
-    t.Skip("BDD stub: implement dynamic selection pressure")
-    // Pseudocode:
-    // prey := Species{Speed: 10}
-    // predator := Species{Speed: 11} // Slight advantage
-    
-    // sim.Run(generations: 100)
-    
-    // updatedPrey := sim.GetDescendant(prey.ID)
-    // updatedPred := sim.GetDescendant(predator.ID)
-    
-    // assert updatedPrey.Speed > 10
-    // assert updatedPred.Speed > 11
-    // assert updatedPred.Speed > updatedPrey.Speed // Balance maintained
+	t.Skip("BDD stub: implement dynamic selection pressure")
+	// Pseudocode:
+	// prey := Species{Speed: 10}
+	// predator := Species{Speed: 11} // Slight advantage
+
+	// sim.Run(generations: 100)
+
+	// updatedPrey := sim.GetDescendant(prey.ID)
+	// updatedPred := sim.GetDescendant(predator.ID)
+
+	// assert updatedPrey.Speed > 10
+	// assert updatedPred.Speed > 11
+	// assert updatedPred.Speed > updatedPrey.Speed // Balance maintained
 }
 
 // -----------------------------------------------------------------------------
@@ -207,13 +207,13 @@ func TestBDD_CoEvolution_RedQueen(t *testing.T) {
 // When: No selective pressure is applied (neutral traits)
 // Then: Allele frequencies should fluctuate randomly
 //
-//  AND Eventually one allele should fixate (reach 100%) purely by chance
+//	AND Eventually one allele should fixate (reach 100%) purely by chance
 func TestBDD_Evolution_GeneticDrift(t *testing.T) {
-    t.Skip("BDD stub: implement random sampling")
-    // Pseudocode:
-    // pop := CreateSmallPopulation(size: 10, traitRatio: 0.5)
-    // sim.Run(generations: 50, selection: None)
-    // assert pop.Ratio != 0.5 // Should have drifted
+	t.Skip("BDD stub: implement random sampling")
+	// Pseudocode:
+	// pop := CreateSmallPopulation(size: 10, traitRatio: 0.5)
+	// sim.Run(generations: 50, selection: None)
+	// assert pop.Ratio != 0.5 // Should have drifted
 }
 
 // -----------------------------------------------------------------------------
@@ -223,14 +223,14 @@ func TestBDD_Evolution_GeneticDrift(t *testing.T) {
 // When: Plant biomass is depleted below recovery threshold
 // Then: Herbivore population should crash (starvation)
 //
-//  AND Plant biomass should eventually recover (predator-prey cycles)
+//	AND Plant biomass should eventually recover (predator-prey cycles)
 func TestBDD_Ecosystem_TrophicCollapse(t *testing.T) {
-    t.Skip("BDD stub: implement carrying capacity feedback")
-    // Pseudocode:
-    // sim.BoostSpecies("rabbit", efficiency: 5.0)
-    // sim.RunYears(100)
-    // assert sim.History.Biomass["flora"].Min < threshold
-    // assert sim.History.Populations["rabbit"].HasCrashed()
+	t.Skip("BDD stub: implement carrying capacity feedback")
+	// Pseudocode:
+	// sim.BoostSpecies("rabbit", efficiency: 5.0)
+	// sim.RunYears(100)
+	// assert sim.History.Biomass["flora"].Min < threshold
+	// assert sim.History.Populations["rabbit"].HasCrashed()
 }
 
 // -----------------------------------------------------------------------------
@@ -240,16 +240,16 @@ func TestBDD_Ecosystem_TrophicCollapse(t *testing.T) {
 // When: Environmental pressure requires complex problem solving (e.g., Ice Age)
 // Then: "Tool Use" trait should appear
 //
-//  AND Sapience flag should eventually trigger
+//	AND Sapience flag should eventually trigger
 func TestBDD_Evolution_SapienceEmergence(t *testing.T) {
-    t.Skip("BDD stub: implement intelligence thresholds")
-    // Pseudocode:
-    // apes := Species{Social: High, Intelligence: 0.8, Hands: True}
-    // sim.ApplyPressure(Condition: "ScarceResources")
-    // sim.Run(generations: 1000)
-    // desc := sim.GetDescendant(apes.ID)
-    // assert desc.Traits.Has("ToolUse")
-    // assert desc.IsSapient == true
+	t.Skip("BDD stub: implement intelligence thresholds")
+	// Pseudocode:
+	// apes := Species{Social: High, Intelligence: 0.8, Hands: True}
+	// sim.ApplyPressure(Condition: "ScarceResources")
+	// sim.Run(generations: 1000)
+	// desc := sim.GetDescendant(apes.ID)
+	// assert desc.Traits.Has("ToolUse")
+	// assert desc.IsSapient == true
 }
 
 // -----------------------------------------------------------------------------
@@ -259,11 +259,11 @@ func TestBDD_Evolution_SapienceEmergence(t *testing.T) {
 // When: Mass increases by factor of 8 (2x height)
 // Then: Bone strength/Leg cross-section must increase disproportionately
 //
-//  AND If strength < mass requirements, the species should go extinct or stop growing
+//	AND If strength < mass requirements, the species should go extinct or stop growing
 func TestBDD_Physics_SquareCubeLaw(t *testing.T) {
-    t.Skip("BDD stub: implement biomechanics constraints")
-    // Pseudocode:
-    // titan := Species{Size: 20.0, BoneDensity: Normal} // Too big for normal bones
-    // fitness := CalculateFitness(titan, GravityNormal)
-    // assert fitness < 0.1 // Collapses under own weight
+	t.Skip("BDD stub: implement biomechanics constraints")
+	// Pseudocode:
+	// titan := Species{Size: 20.0, BoneDensity: Normal} // Too big for normal bones
+	// fitness := CalculateFitness(titan, GravityNormal)
+	// assert fitness < 0.1 // Collapses under own weight
 }
