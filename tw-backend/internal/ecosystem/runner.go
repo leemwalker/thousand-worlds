@@ -338,9 +338,47 @@ type SimulationStats struct {
 	SnapshotCount   int           `json:"snapshot_count"`
 }
 
+// UpdateConfig updates the simulation configuration
+func (sr *SimulationRunner) UpdateConfig(config SimulationConfig) error {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+	sr.config = config
+	return nil
+}
+
+// Step advances the simulation by a specific number of ticks manually
+// Useful for testing and deterministic execution
+func (sr *SimulationRunner) Step(ticks int) error {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+
+	// Use current speed, or default to Normal if paused/zero
+	speed := sr.config.Speed
+	if speed == SpeedPaused {
+		speed = SpeedNormal
+	}
+
+	for i := 0; i < ticks; i++ {
+		if err := sr.tickLocked(int64(speed)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // runLoop is the main simulation loop
 func (sr *SimulationRunner) runLoop() {
 	defer sr.wg.Done()
+
+	// Panic Recovery
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("Recovered from panic in runLoop: %v\n", r)
+			sr.mu.Lock()
+			sr.state = RunnerError
+			sr.mu.Unlock()
+		}
+	}()
 
 	ticker := time.NewTicker(sr.config.TickInterval)
 	defer ticker.Stop()
@@ -381,11 +419,15 @@ func (sr *SimulationRunner) runLoop() {
 	}
 }
 
-// tick advances the simulation by the specified years
+// tick advances the simulation by the specified years (thread-safe wrapper)
 func (sr *SimulationRunner) tick(yearsToAdvance int64) error {
 	sr.mu.Lock()
 	defer sr.mu.Unlock()
+	return sr.tickLocked(yearsToAdvance)
+}
 
+// tickLocked performs the actual simulation step (assumes lock held)
+func (sr *SimulationRunner) tickLocked(yearsToAdvance int64) error {
 	// Run V2 Simulation Step(s)
 	// We run years one by one to ensure proper granularity of events
 	for i := int64(0); i < yearsToAdvance; i++ {

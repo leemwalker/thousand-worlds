@@ -245,8 +245,16 @@ func TestBDD_RockCycle_Metamorphism(t *testing.T) {
 //
 //	AND Node should have magical properties
 func TestBDD_LeyLine_Nodes(t *testing.T) {
-	t.Log("Ley line node formation requires magical system integration")
-	assert.Fail(t, "Ley line nodes not yet implemented")
+	grid := underground.NewColumnGrid(20, 20)
+
+	// Generate ley line nodes with high magic level
+	nodes := underground.GenerateLeyLineNodes(grid, 0.5, 42)
+
+	assert.Greater(t, len(nodes), 0, "Should generate at least one ley line node")
+	if len(nodes) > 0 {
+		assert.Greater(t, nodes[0].Power, 0.0, "Node should have positive power")
+		assert.Greater(t, nodes[0].Connections, 0, "Node should have connections")
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -258,8 +266,17 @@ func TestBDD_LeyLine_Nodes(t *testing.T) {
 //
 //	AND New layers should be on top of existing
 func TestBDD_Sediment_Deposition(t *testing.T) {
-	t.Log("Sedimentary deposition requires erosion/deposition simulation")
-	assert.Fail(t, "Sedimentary deposition not yet implemented")
+	grid := underground.NewColumnGrid(10, 10)
+	col := grid.Get(5, 5)
+	require.NotNil(t, col, "Column should exist")
+
+	initialLayerCount := len(col.Strata)
+
+	// Simulate sediment deposition: 0.001m/year for 10000 years = 10m of sediment
+	thickness := underground.SimulateSedimentDeposition(grid, 0.001, 10000)
+
+	assert.Equal(t, 10.0, thickness, "Should deposit 10m of sediment")
+	assert.Greater(t, len(col.Strata), initialLayerCount, "Should add new strata layers")
 }
 
 // -----------------------------------------------------------------------------
@@ -293,8 +310,23 @@ func TestBDD_Aquifer_Puncture(t *testing.T) {
 //
 //	AND Cave passages may collapse or open
 func TestBDD_Tectonic_Faulting(t *testing.T) {
-	t.Log("Tectonic faulting requires fault simulation")
-	assert.Fail(t, "Tectonic faulting not yet implemented")
+	grid := underground.NewColumnGrid(10, 10)
+
+	// Get a column to track before/after
+	col := grid.Get(7, 5)
+	require.NotNil(t, col, "Column should exist")
+
+	// Add a stratum to track displacement
+	col.Strata = []underground.StrataLayer{
+		{TopZ: 0, BottomZ: -50, Material: "granite", Hardness: 7.0, Porosity: 0.1},
+	}
+	initialTopZ := col.Strata[0].TopZ
+
+	// Simulate fault at x=5 with 10m slip
+	affected := underground.SimulateFaulting(grid, 5, 10.0)
+
+	assert.Greater(t, affected, 0, "Should affect at least one column")
+	assert.Equal(t, initialTopZ+10.0, col.Strata[0].TopZ, "Strata should be shifted by slip amount")
 }
 
 // -----------------------------------------------------------------------------
@@ -306,8 +338,21 @@ func TestBDD_Tectonic_Faulting(t *testing.T) {
 //
 //	AND Should contain crystal minerals
 func TestBDD_Geode_Formation(t *testing.T) {
-	t.Log("Geode formation requires volcanic void + crystallization")
-	assert.Fail(t, "Geode formation not yet implemented")
+	grid := underground.NewColumnGrid(10, 10)
+	col := grid.Get(5, 5)
+	require.NotNil(t, col, "Column should exist")
+
+	// Setup volcanic conditions with fluid
+	col.Strata = []underground.StrataLayer{
+		{TopZ: 0, BottomZ: -100, Material: "basalt", Hardness: 6.0, Porosity: 0.3},
+	}
+
+	geodes := underground.GenerateGeodes(grid, 42)
+
+	assert.Greater(t, len(geodes), 0, "Should generate at least one geode")
+	if len(geodes) > 0 {
+		assert.NotEmpty(t, string(geodes[0].Type), "Geode should have a type")
+	}
 }
 
 // -----------------------------------------------------------------------------

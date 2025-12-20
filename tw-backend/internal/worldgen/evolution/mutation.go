@@ -149,3 +149,74 @@ func ApplyMutationsToPopulation(species []*Species) []*Species {
 
 	return newSpecies
 }
+
+// MutationOperator defines the type of genetic mutation
+type MutationOperator string
+
+const (
+	MutationPoint       MutationOperator = "point"
+	MutationInsertion   MutationOperator = "insertion"
+	MutationDeletion    MutationOperator = "deletion"
+	MutationDuplication MutationOperator = "duplication"
+)
+
+// ApplyMutationOperator applies a specific mutation type to a genome string.
+// Returns the mutated genome.
+// - Point: substitutes a single nucleotide (same length)
+// - Insertion: adds a nucleotide (length + 1)
+// - Deletion: removes a nucleotide (length - 1)
+// - Duplication: duplicates a gene segment (length increases)
+func ApplyMutationOperator(genome string, operator MutationOperator, position int, seed int64) string {
+	if len(genome) == 0 {
+		return genome
+	}
+
+	rng := rand.New(rand.NewSource(seed))
+	nucleotides := []byte("ATCG")
+
+	// Ensure position is within bounds
+	if position < 0 || position >= len(genome) {
+		position = rng.Intn(len(genome))
+	}
+
+	switch operator {
+	case MutationPoint:
+		// Substitute one nucleotide with a different one
+		genomeBytes := []byte(genome)
+		current := genomeBytes[position]
+		var newNuc byte
+		for {
+			newNuc = nucleotides[rng.Intn(4)]
+			if newNuc != current {
+				break
+			}
+		}
+		genomeBytes[position] = newNuc
+		return string(genomeBytes)
+
+	case MutationInsertion:
+		// Insert a random nucleotide at position
+		newNuc := nucleotides[rng.Intn(4)]
+		return genome[:position] + string(newNuc) + genome[position:]
+
+	case MutationDeletion:
+		// Remove the nucleotide at position
+		if len(genome) <= 1 {
+			return "" // Can't delete from single nucleotide
+		}
+		return genome[:position] + genome[position+1:]
+
+	case MutationDuplication:
+		// Duplicate a segment (3-5 nucleotides) at position
+		segLen := 3 + rng.Intn(3)
+		endPos := position + segLen
+		if endPos > len(genome) {
+			endPos = len(genome)
+		}
+		segment := genome[position:endPos]
+		return genome[:endPos] + segment + genome[endPos:]
+
+	default:
+		return genome
+	}
+}

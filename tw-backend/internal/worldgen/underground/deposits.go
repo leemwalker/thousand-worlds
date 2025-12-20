@@ -225,3 +225,175 @@ func (col *WorldColumn) GetOil() []Deposit {
 func (col *WorldColumn) GetCoal() []Deposit {
 	return col.GetDepositByType(DepositCoal)
 }
+
+// SimulateSedimentDeposition accumulates sediment layers on a grid over time.
+// Given a delta deposition rate and time period, new sedimentary strata form.
+// Returns the total sediment thickness deposited.
+func SimulateSedimentDeposition(grid *ColumnGrid, deltaDeposit float64, years int64) float64 {
+	// Calculate total thickness: rate * time
+	totalThickness := deltaDeposit * float64(years)
+
+	// Apply to all columns
+	for _, col := range grid.AllColumns() {
+		// Create new sediment layer on top
+		newLayer := StrataLayer{
+			TopZ:     col.Surface,
+			BottomZ:  col.Surface - totalThickness,
+			Material: "sediment",
+			Hardness: 2.0, // Soft sediment
+			Age:      0,   // Freshly deposited
+			Porosity: 0.4, // High porosity for fresh sediment
+		}
+
+		// Add layer to strata (push down existing layers conceptually)
+		if len(col.Strata) > 0 {
+			col.Strata = append([]StrataLayer{newLayer}, col.Strata...)
+		} else {
+			col.Strata = []StrataLayer{newLayer}
+		}
+	}
+
+	return totalThickness
+}
+
+// GeodeType represents different geode varieties
+type GeodeType string
+
+const (
+	GeodeAmethyst   GeodeType = "amethyst"
+	GeodeQuartz     GeodeType = "quartz"
+	GeodeAgate      GeodeType = "agate"
+	GeodeChalcedony GeodeType = "chalcedony"
+)
+
+// Geode represents a crystal-filled void
+type Geode struct {
+	ID       uuid.UUID
+	Type     GeodeType
+	Location Vector3
+	Radius   float64
+	Quality  float64 // 0-1, crystal quality
+}
+
+// GenerateGeodes creates geodes in volcanic strata with fluid-filled voids.
+// Geodes form when mineral-rich water slowly crystallizes inside gas bubbles.
+func GenerateGeodes(grid *ColumnGrid, seed int64) []Geode {
+	geodes := make([]Geode, 0)
+	rng := rand.New(rand.NewSource(seed))
+
+	for _, col := range grid.AllColumns() {
+		// Check if column has volcanic material
+		hasVolcanic := false
+		for _, layer := range col.Strata {
+			if layer.Material == "basalt" || layer.Material == "volcanic" {
+				hasVolcanic = true
+				break
+			}
+		}
+
+		if !hasVolcanic {
+			continue
+		}
+
+		// Check for fluid conditions (porosity > 0.2)
+		hasFluid := false
+		for _, layer := range col.Strata {
+			if layer.Porosity > 0.2 {
+				hasFluid = true
+				break
+			}
+		}
+
+		if !hasFluid {
+			continue
+		}
+
+		// Generate geodes based on conditions
+		numGeodes := 1 + rng.Intn(3)
+		for i := 0; i < numGeodes; i++ {
+			geodeTypes := []GeodeType{GeodeAmethyst, GeodeQuartz, GeodeAgate, GeodeChalcedony}
+			geode := Geode{
+				ID:       uuid.New(),
+				Type:     geodeTypes[rng.Intn(len(geodeTypes))],
+				Location: Vector3{X: float64(col.X), Y: float64(col.Y), Z: col.Surface - 10 - rng.Float64()*50},
+				Radius:   0.1 + rng.Float64()*0.5,
+				Quality:  0.3 + rng.Float64()*0.7,
+			}
+			geodes = append(geodes, geode)
+		}
+	}
+
+	return geodes
+}
+
+// SimulateFaulting shifts strata layers at a fault location by a slip amount.
+// This simulates earthquake-induced vertical displacement.
+// Returns the number of affected columns.
+func SimulateFaulting(grid *ColumnGrid, faultX int, slip float64) int {
+	affected := 0
+
+	for _, col := range grid.AllColumns() {
+		// Apply fault to columns at or beyond fault line
+		if col.X >= faultX {
+			// Shift all strata by slip amount
+			for i := range col.Strata {
+				col.Strata[i].TopZ += slip
+				col.Strata[i].BottomZ += slip
+			}
+			col.Surface += slip
+			affected++
+		}
+	}
+
+	return affected
+}
+
+// LeyLineNode represents a point where magical ley lines intersect underground
+type LeyLineNode struct {
+	ID          uuid.UUID
+	Location    Vector3
+	Power       float64 // Magical energy level (0-100)
+	Connections int     // Number of ley lines meeting here
+}
+
+// GenerateLeyLineNodes creates magical nodes at underground intersection points.
+// Nodes form where multiple ley lines cross, accumulating magical energy.
+func GenerateLeyLineNodes(grid *ColumnGrid, magicLevel float64, seed int64) []LeyLineNode {
+	nodes := make([]LeyLineNode, 0)
+
+	// Only generate nodes if magic level is sufficient
+	if magicLevel < 0.1 {
+		return nodes
+	}
+
+	rng := rand.New(rand.NewSource(seed))
+
+	// Generate nodes based on grid intersection patterns
+	gridWidth := grid.Width
+	gridHeight := grid.Height
+
+	// Create nodes at regular intervals, adjusted by magic level
+	interval := int(10 / (magicLevel + 0.1))
+	if interval < 1 {
+		interval = 1
+	}
+
+	for x := interval; x < gridWidth; x += interval {
+		for y := interval; y < gridHeight; y += interval {
+			col := grid.Get(x, y)
+			if col == nil {
+				continue
+			}
+
+			node := LeyLineNode{
+				ID:          uuid.New(),
+				Location:    Vector3{X: float64(x), Y: float64(y), Z: col.Surface - 50 - rng.Float64()*100},
+				Power:       magicLevel * (50 + rng.Float64()*50),
+				Connections: 2 + rng.Intn(4),
+			}
+			nodes = append(nodes, node)
+		}
+	}
+
+	return nodes
+}

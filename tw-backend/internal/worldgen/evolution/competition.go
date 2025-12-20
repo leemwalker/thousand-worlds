@@ -2,6 +2,7 @@ package evolution
 
 import (
 	"math"
+	"math/rand"
 )
 
 // CalculateIntraspecificCompetition calculates competition within a species
@@ -133,4 +134,60 @@ func CalculateInterspecificCompetition(
 	}
 
 	return competitionFitness
+}
+
+// CoEvolutionResult contains the outcome of a co-evolutionary interaction
+type CoEvolutionResult struct {
+	PredatorSpeedChange float64
+	PreySpeedChange     float64
+	Iterations          int
+}
+
+// SimulateCoEvolution simulates an evolutionary arms race between predator and prey.
+// If predator speed > prey speed, prey is under selection pressure to increase speed.
+// If prey escapes too often, predator is under pressure to increase speed.
+// Returns the changes to both species over the simulated period.
+func SimulateCoEvolution(predator *Species, prey *Species, generations int, seed int64) CoEvolutionResult {
+	result := CoEvolutionResult{
+		Iterations: generations,
+	}
+
+	if predator == nil || prey == nil || generations <= 0 {
+		return result
+	}
+
+	rng := rand.New(rand.NewSource(seed))
+
+	predSpeed := predator.Speed
+	preySpeed := prey.Speed
+
+	for gen := 0; gen < generations; gen++ {
+		// Arms race dynamics
+		if predSpeed > preySpeed {
+			// Predator catches prey easily - prey under pressure to speed up
+			speedUpAmount := (predSpeed - preySpeed) * 0.1 * (0.5 + rng.Float64())
+			preySpeed += speedUpAmount
+		} else {
+			// Prey often escapes - predator under pressure to speed up or adapt
+			speedUpAmount := (preySpeed - predSpeed) * 0.1 * (0.5 + rng.Float64())
+			predSpeed += speedUpAmount
+		}
+
+		// Small random mutations
+		predSpeed += (rng.Float64() - 0.5) * 0.1
+		preySpeed += (rng.Float64() - 0.5) * 0.1
+
+		// Minimum speed bounds
+		if predSpeed < 0.5 {
+			predSpeed = 0.5
+		}
+		if preySpeed < 0.5 {
+			preySpeed = 0.5
+		}
+	}
+
+	result.PredatorSpeedChange = predSpeed - predator.Speed
+	result.PreySpeedChange = preySpeed - prey.Speed
+
+	return result
 }

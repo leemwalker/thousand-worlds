@@ -89,12 +89,13 @@ func TestBDD_AdaptiveRadiation_DarwinFinches(t *testing.T) {
 	}
 
 	// Islands with different food sources would cause speciation
-	// This test documents the gap - radiation not yet implemented
-	_ = ancestor
-	t.Log("Adaptive radiation requires SimulateRadiation function - not yet implemented")
+	niches := []string{"seed-eating", "insect-eating", "nectar-feeding", "cactus-feeding"}
 
-	// Will fail once we add assertions against a stub
-	assert.Fail(t, "Adaptive radiation not yet implemented - SimulateRadiation function needed")
+	// Simulate adaptive radiation
+	newSpeciesCount := evolution.SimulateAdaptiveRadiation(ancestor, niches, 0.8, 42)
+
+	assert.Greater(t, newSpeciesCount, 0, "Should produce at least one new species")
+	assert.GreaterOrEqual(t, newSpeciesCount, len(niches)/2, "Should fill multiple niches")
 }
 
 // -----------------------------------------------------------------------------
@@ -106,10 +107,18 @@ func TestBDD_AdaptiveRadiation_DarwinFinches(t *testing.T) {
 //
 //	AND Eyes, wings, echolocation should appear multiple times
 func TestBDD_ConvergentEvolution_SimilarTraits(t *testing.T) {
-	// Test that flight evolves in bats and birds independently
-	// This documents the gap - convergent evolution not yet implemented
-	t.Log("Convergent evolution requires trait pressure simulation - not yet implemented")
-	assert.Fail(t, "Convergent evolution not yet implemented")
+	// Create unrelated species with similar traits (high speed)
+	species := []*evolution.Species{
+		{SpeciesID: uuid.New(), Name: "Cheetah", Type: evolution.SpeciesCarnivore, Speed: 15.0},
+		{SpeciesID: uuid.New(), Name: "Pronghorn", Type: evolution.SpeciesHerbivore, Speed: 12.0},
+		{SpeciesID: uuid.New(), Name: "Slow Turtle", Type: evolution.SpeciesHerbivore, Speed: 0.5},
+	}
+
+	// Detect convergent traits
+	traits := evolution.DetectConvergentEvolution(species, "grassland")
+
+	assert.Greater(t, len(traits), 0, "Should detect convergent traits")
+	assert.Equal(t, "High Speed", traits[0].TraitName, "Should detect speed convergence")
 }
 
 // -----------------------------------------------------------------------------
@@ -208,11 +217,21 @@ func TestBDD_Genetics_MutationTypes(t *testing.T) {
 		{"Duplication", "duplication", 1}, // Gene doubling
 	}
 
+	baseGenome := "ATCGATCGATCG" // 12 base pairs
+
 	for _, sc := range scenarios {
 		t.Run(sc.name, func(t *testing.T) {
-			// Mutation operators not yet implemented
-			t.Logf("%s requires ApplyMutationOperator function", sc.name)
-			assert.Fail(t, "Mutation operator %s not yet implemented", sc.operator)
+			mutated := evolution.ApplyMutationOperator(baseGenome, evolution.MutationOperator(sc.operator), 5, 42)
+
+			switch sc.expectLength {
+			case 0:
+				assert.Equal(t, len(baseGenome), len(mutated), "Point mutation should preserve length")
+				assert.NotEqual(t, baseGenome, mutated, "Point mutation should change genome")
+			case 1:
+				assert.Greater(t, len(mutated), len(baseGenome), "Insertion/Duplication should increase length")
+			case -1:
+				assert.Less(t, len(mutated), len(baseGenome), "Deletion should decrease length")
+			}
 		})
 	}
 }
@@ -241,10 +260,13 @@ func TestBDD_CoEvolution_RedQueen(t *testing.T) {
 		Population: 500,
 	}
 
-	_ = predator
-	_ = prey
-	t.Log("Co-evolution requires SimulateArmsRace function - not yet implemented")
-	assert.Fail(t, "Co-evolutionary arms race not yet implemented")
+	// Simulate co-evolution over 100 generations
+	result := evolution.SimulateCoEvolution(predator, prey, 100, 42)
+
+	// Prey should speed up to escape predators
+	assert.Greater(t, result.PreySpeedChange, 0.0, "Prey should evolve faster speed")
+	// Arms race should produce changes in both
+	assert.NotEqual(t, 0.0, result.PredatorSpeedChange+result.PreySpeedChange, "Arms race should cause changes")
 }
 
 // -----------------------------------------------------------------------------
@@ -256,8 +278,20 @@ func TestBDD_CoEvolution_RedQueen(t *testing.T) {
 //
 //	AND Eventually one allele should fixate (reach 100%) purely by chance
 func TestBDD_Evolution_GeneticDrift(t *testing.T) {
-	t.Log("Genetic drift requires SimulateNeutralDrift function - not yet implemented")
-	assert.Fail(t, "Genetic drift not yet implemented")
+	// Start with 50% Red, 50% Blue alleles
+	alleles := []evolution.AlleleFrequency{
+		{Allele: "Red", Frequency: 0.5},
+		{Allele: "Blue", Frequency: 0.5},
+	}
+
+	// Small population (N=10) over 50 generations
+	result := evolution.SimulateGeneticDrift(alleles, 10, 50, 42)
+
+	require.Len(t, result, 2, "Should still have two alleles")
+
+	// Frequencies should have changed from initial 50/50
+	changed := result[0].Frequency != 0.5 || result[1].Frequency != 0.5
+	assert.True(t, changed, "Allele frequencies should fluctuate due to drift")
 }
 
 // -----------------------------------------------------------------------------

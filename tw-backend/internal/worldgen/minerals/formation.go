@@ -508,3 +508,117 @@ func GenerateTinDeposits(ctx TinFormationContext, copperLocations []Point) []*Mi
 	}
 	return deposits
 }
+
+// SaltpeterFormationContext holds parameters for saltpeter generation
+type SaltpeterFormationContext struct {
+	HasCaves      bool    // Cave environment present
+	HasDesert     bool    // Desert soil conditions
+	OrganicMatter float64 // Organic source (bat guano, etc.) 0-1
+}
+
+// GenerateSaltpeterDeposits creates potassium nitrate deposits for gunpowder.
+// Saltpeter forms in caves (bat guano) or arid soils with nitrogen fixation.
+func GenerateSaltpeterDeposits(ctx SaltpeterFormationContext) []*MineralDeposit {
+	// Saltpeter requires either cave with organic matter or desert conditions
+	if !ctx.HasCaves && !ctx.HasDesert {
+		return nil
+	}
+	if ctx.OrganicMatter < 0.1 && !ctx.HasDesert {
+		return nil
+	}
+
+	deposits := make([]*MineralDeposit, 0)
+
+	if ctx.HasCaves && ctx.OrganicMatter > 0.1 {
+		// Cave saltpeter from bat guano - higher quality
+		deposit := &MineralDeposit{
+			DepositID: uuid.New(),
+			MineralType: MineralType{
+				Name:          "Saltpeter",
+				FormationType: FormationSedimentary,
+				BaseValue:     15,
+			},
+			FormationType: FormationSedimentary,
+			Quantity:      int(ctx.OrganicMatter * 500),
+			Concentration: ctx.OrganicMatter,
+			VeinSize:      VeinSizeSmall,
+			Depth:         0, // Surface of cave floor
+		}
+		deposits = append(deposits, deposit)
+	}
+
+	if ctx.HasDesert {
+		// Desert saltpeter - lower concentration but larger areas
+		deposit := &MineralDeposit{
+			DepositID: uuid.New(),
+			MineralType: MineralType{
+				Name:          "Saltpeter",
+				FormationType: FormationSedimentary,
+				BaseValue:     10,
+			},
+			FormationType: FormationSedimentary,
+			Quantity:      300,
+			Concentration: 0.3,
+			VeinSize:      VeinSizeMedium,
+			Depth:         0,
+		}
+		deposits = append(deposits, deposit)
+	}
+
+	return deposits
+}
+
+// ManaCrystalFormationContext holds parameters for magical crystal generation
+type ManaCrystalFormationContext struct {
+	LeyLineStrength float64 // Magical energy level (0-1)
+	IsIntersection  bool    // Multiple ley lines cross here
+	Depth           float64 // Underground depth
+}
+
+// GenerateManaCrystals creates magical crystals at ley line locations.
+// Crystal potency depends on ley line strength and intersection multiplier.
+func GenerateManaCrystals(ctx ManaCrystalFormationContext) []*MineralDeposit {
+	// Requires minimum magical energy level
+	if ctx.LeyLineStrength < 0.1 {
+		return nil
+	}
+
+	deposits := make([]*MineralDeposit, 0)
+
+	// Calculate crystal potency based on ley line strength
+	potency := ctx.LeyLineStrength
+	if ctx.IsIntersection {
+		potency *= 2.0 // Intersections amplify magical energy
+	}
+	if potency > 1.0 {
+		potency = 1.0
+	}
+
+	// Determine crystal type based on potency
+	var crystalName string
+	switch {
+	case potency >= 0.8:
+		crystalName = "Greater Mana Crystal"
+	case potency >= 0.5:
+		crystalName = "Mana Crystal"
+	default:
+		crystalName = "Minor Mana Crystal"
+	}
+
+	deposit := &MineralDeposit{
+		DepositID: uuid.New(),
+		MineralType: MineralType{
+			Name:          crystalName,
+			FormationType: FormationMetamorphic, // Magically transformed
+			BaseValue:     int(potency * 100),
+		},
+		FormationType: FormationMetamorphic,
+		Quantity:      int(potency*10) + 1,
+		Concentration: potency,
+		VeinSize:      VeinSizeSmall,
+		Depth:         ctx.Depth,
+	}
+	deposits = append(deposits, deposit)
+
+	return deposits
+}

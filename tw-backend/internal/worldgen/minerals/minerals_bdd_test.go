@@ -298,8 +298,17 @@ func TestBDD_Evaporite_Formation(t *testing.T) {
 //
 //	AND Required for gunpowder tech advance
 func TestBDD_Saltpeter_Formation(t *testing.T) {
-	t.Log("Saltpeter formation requires cave/desert detection")
-	assert.Fail(t, "Saltpeter formation not yet implemented")
+	ctx := minerals.SaltpeterFormationContext{
+		HasCaves:      true,
+		HasDesert:     false,
+		OrganicMatter: 0.6, // High organic content (bat guano)
+	}
+
+	deposits := minerals.GenerateSaltpeterDeposits(ctx)
+
+	require.NotNil(t, deposits, "Should generate saltpeter deposits")
+	assert.Greater(t, len(deposits), 0, "Should have at least one deposit")
+	assert.Equal(t, "Saltpeter", deposits[0].MineralType.Name, "Should be saltpeter mineral")
 }
 
 // -----------------------------------------------------------------------------
@@ -337,6 +346,15 @@ func TestBDD_OreGrade_Variation(t *testing.T) {
 //
 //	AND Crystal potency should depend on ley line strength
 func TestBDD_ManaCrystal_Formation(t *testing.T) {
-	t.Log("Mana crystal requires ley line integration")
-	assert.Fail(t, "Mana crystal formation not yet implemented")
+	ctx := minerals.ManaCrystalFormationContext{
+		LeyLineStrength: 0.7,
+		IsIntersection:  true,
+		Depth:           100,
+	}
+
+	deposits := minerals.GenerateManaCrystals(ctx)
+
+	require.NotNil(t, deposits, "Should generate mana crystals")
+	assert.Greater(t, len(deposits), 0, "Should have at least one crystal")
+	assert.Contains(t, deposits[0].MineralType.Name, "Mana Crystal", "Should be a mana crystal")
 }
