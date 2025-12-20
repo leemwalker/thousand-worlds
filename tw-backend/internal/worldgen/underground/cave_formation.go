@@ -252,12 +252,49 @@ func SimulateOilFormation(columns *ColumnGrid, years int64) []*Deposit {
 }
 
 // CalculateRoofStability assesses cave roof collapse probability.
-// RED STATE: Returns 0 - not yet implemented.
+// Depends on span (radius), height, and rock type.
+// Returns 0.0 (unstable) to 1.0 (stable).
 func CalculateRoofStability(cave *Cave, nodeID uuid.UUID) float64 {
-	// TODO: Implement stability calculation
-	// Depends on span, rock type, and support pillars
-	// Returns 0.0 (unstable) to 1.0 (stable)
-	return 0
+	// Find the node in the cave
+	var targetNode *CaveNode
+	for i := range cave.Nodes {
+		if cave.Nodes[i].ID == nodeID {
+			targetNode = &cave.Nodes[i]
+			break
+		}
+	}
+
+	if targetNode == nil {
+		return 0.0
+	}
+
+	// Stability decreases with larger spans and heights
+	// Based on rock mechanics: unsupported spans > 10m become unstable
+	// Max safe span is roughly 10m for limestone/granite
+
+	// Span factor: larger span = less stable
+	maxSafeSpan := 10.0                                 // meters
+	spanFactor := maxSafeSpan / (targetNode.Radius + 1) // +1 to avoid division by zero
+	if spanFactor > 1.0 {
+		spanFactor = 1.0
+	}
+
+	// Height factor: taller chambers are less stable
+	maxSafeHeight := 10.0 // meters
+	heightFactor := maxSafeHeight / (targetNode.Height + 1)
+	if heightFactor > 1.0 {
+		heightFactor = 1.0
+	}
+
+	// Combined stability (geometric mean)
+	stability := math.Sqrt(spanFactor * heightFactor)
+
+	// Ensure minimum positive value
+	if stability < 0.01 {
+		stability = 0.01
+	}
+
+	return stability
 }
 
 // SimulateRockCycle transforms rock types over geological time.
@@ -270,17 +307,59 @@ func SimulateRockCycle(columns *ColumnGrid, years int64, temperature, pressure f
 }
 
 // SimulateBurrowCreation allows creatures to create tunnels.
-// RED STATE: Returns nil - not yet implemented.
+// Checks tool strength against material hardness.
 func SimulateBurrowCreation(col *WorldColumn, depth float64, toolStrength float64) *VoidSpace {
-	// TODO: Implement burrow creation
-	// Should check tool strength vs rock hardness
-	return nil
+	if col == nil {
+		return nil
+	}
+
+	// Find the stratum at the given depth
+	for _, stratum := range col.Strata {
+		if depth >= stratum.BottomZ && depth <= stratum.TopZ {
+			// Check if tool is strong enough to dig
+			if toolStrength >= stratum.Hardness {
+				// Create burrow void
+				return &VoidSpace{
+					VoidID:   uuid.New(),
+					MinZ:     depth - 1.0, // 2m tall burrow
+					MaxZ:     depth + 1.0,
+					VoidType: "burrow",
+				}
+			}
+			// Tool not strong enough for this rock
+			return nil
+		}
+	}
+
+	// No stratum at this depth - assume air/void, burrow succeeds
+	return &VoidSpace{
+		VoidID:   uuid.New(),
+		MinZ:     depth - 1.0,
+		MaxZ:     depth + 1.0,
+		VoidType: "burrow",
+	}
 }
 
 // PunctureAquifer simulates breaching an underground water source.
-// RED STATE: Returns 0 - not yet implemented.
+// Returns water flow rate based on porosity of surrounding rock.
 func PunctureAquifer(col *WorldColumn, depth float64) float64 {
-	// TODO: Implement aquifer puncture
-	// Should return water flow rate based on porosity
-	return 0
+	if col == nil {
+		return 0.0
+	}
+
+	// Find the stratum at the given depth
+	for _, stratum := range col.Strata {
+		if depth >= stratum.BottomZ && depth <= stratum.TopZ {
+			// Water flow rate depends on porosity
+			// Porosity 0.0 = no flow, 1.0 = maximum flow
+			// Base flow rate is 100 liters/minute, scaled by porosity
+			baseFlowRate := 100.0 // liters per minute
+			flowRate := baseFlowRate * stratum.Porosity
+
+			return flowRate
+		}
+	}
+
+	// No stratum at depth - return small default flow
+	return 10.0 // Small trickle
 }

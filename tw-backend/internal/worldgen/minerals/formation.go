@@ -96,48 +96,161 @@ type Point struct {
 
 // GenerateBIFDeposits generates Banded Iron Formation deposits at ancient oceanic locations.
 // BIF forms when rising O2 precipitates dissolved iron (Great Oxygenation Event).
-// RED STATE: Returns nil - not yet implemented.
+// Requires oxygenSpike > 0.05 threshold — the Great Oxygenation Event.
 func GenerateBIFDeposits(oceanLocations []Point, oxygenSpike float64) []*MineralDeposit {
-	// TODO: Implement BIF formation
-	// Higher oxygenSpike should create more deposits
-	// Deposits should contain alternating chert and hematite layers
-	return nil
+	// Threshold: oxygen spike must be significant to trigger iron precipitation
+	const oxygenThreshold = 0.05
+	if oxygenSpike <= oxygenThreshold || len(oceanLocations) == 0 {
+		return nil
+	}
+
+	deposits := make([]*MineralDeposit, 0, len(oceanLocations))
+
+	for _, loc := range oceanLocations {
+		// Create BIF deposit at this ocean location
+		deposit := &MineralDeposit{
+			DepositID: uuid.New(),
+			MineralType: MineralType{
+				Name:          "Iron",
+				FormationType: FormationSedimentary,
+			},
+			FormationType: FormationSedimentary,
+			Location: geography.Point{
+				X: loc.X,
+				Y: loc.Y,
+			},
+			Quantity:      int(oxygenSpike * 10000), // Scale with oxygen level
+			Concentration: oxygenSpike,
+			VeinSize:      VeinSizeLarge,
+		}
+		deposits = append(deposits, deposit)
+	}
+
+	return deposits
 }
 
 // GeneratePlacerDeposits generates alluvial deposits along river paths.
 // Gold and heavy minerals accumulate at river bends through erosion.
-// RED STATE: Returns nil - not yet implemented.
 func GeneratePlacerDeposits(riverPaths [][]Point, mineralType string, erosionRate float64) []*MineralDeposit {
-	// TODO: Implement placer formation
-	// Deposits should form at bend in river paths
-	// Concentration should increase downstream
-	return nil
+	if len(riverPaths) == 0 || erosionRate <= 0 {
+		return nil
+	}
+
+	deposits := make([]*MineralDeposit, 0)
+
+	for _, path := range riverPaths {
+		// Find bends in the river (points where direction changes significantly)
+		// For simplicity, treat every 2nd-3rd point as a potential bend site
+		for i := 1; i < len(path)-1; i++ {
+			loc := path[i]
+
+			// Create placer deposit at bend
+			deposit := &MineralDeposit{
+				DepositID: uuid.New(),
+				MineralType: MineralType{
+					Name:          mineralType,
+					FormationType: FormationSedimentary,
+				},
+				FormationType: FormationSedimentary,
+				Location: geography.Point{
+					X: loc.X,
+					Y: loc.Y,
+				},
+				Quantity:      int(erosionRate * float64(i+1) * 100), // Increases downstream
+				Concentration: erosionRate * float64(i+1) / float64(len(path)),
+				VeinSize:      VeinSizeSmall,
+			}
+			deposits = append(deposits, deposit)
+		}
+	}
+
+	if len(deposits) == 0 {
+		return nil
+	}
+	return deposits
 }
 
 // GenerateHydrothermalDeposits creates sulfide deposits at ocean ridges.
-// RED STATE: Returns nil - not yet implemented.
 func GenerateHydrothermalDeposits(ridgeLocations []Point) []*MineralDeposit {
-	// TODO: Implement hydrothermal vent deposits
-	// Should contain copper, zinc, and gold
-	return nil
+	if len(ridgeLocations) == 0 {
+		return nil
+	}
+
+	deposits := make([]*MineralDeposit, 0, len(ridgeLocations))
+
+	// Hydrothermal minerals: copper, zinc, gold
+	mineralTypes := []string{"Copper", "Zinc", "Gold"}
+
+	for i, loc := range ridgeLocations {
+		// Cycle through mineral types for each vent location
+		mineralName := mineralTypes[i%len(mineralTypes)]
+
+		deposit := &MineralDeposit{
+			DepositID: uuid.New(),
+			MineralType: MineralType{
+				Name:          mineralName,
+				FormationType: FormationIgneous,
+			},
+			FormationType: FormationIgneous,
+			Location: geography.Point{
+				X: loc.X,
+				Y: loc.Y,
+			},
+			Quantity:      500 + (i * 100), // Varying quantities
+			Concentration: 0.6 + float64(i)*0.1,
+			VeinSize:      VeinSizeMedium,
+		}
+		deposits = append(deposits, deposit)
+	}
+
+	return deposits
 }
 
 // GenerateKimberlitePipe creates diamond-bearing volcanic pipes.
 // Only forms in ancient cratons with deep mantle eruptions.
-// RED STATE: Returns nil - not yet implemented.
+// Requirements: craton > 2.5B years old, depth > 150km
 func GenerateKimberlitePipe(cratonAge float64, depth float64) *MineralDeposit {
-	// TODO: Implement kimberlite pipe formation
-	// Craton must be > 2.5B years old
-	// Depth must be > 150km for diamond stability
-	return nil
+	// Kimberlite conditions:
+	// 1. Craton must be ancient (> 2.5 billion years)
+	// 2. Eruption must be from deep mantle (> 150 km for diamond stability)
+	const minCratonAge = 2.5 // Billion years
+	const minDepth = 150.0   // km
+
+	if cratonAge < minCratonAge || depth < minDepth {
+		return nil
+	}
+
+	return &MineralDeposit{
+		DepositID: uuid.New(),
+		MineralType: MineralType{
+			Name:          "Diamond",
+			FormationType: FormationIgneous,
+			Hardness:      10.0, // Diamonds are hardest
+		},
+		FormationType: FormationIgneous,
+		Depth:         depth,
+		Quantity:      int((cratonAge - minCratonAge) * (depth - minDepth) * 10),
+		Concentration: cratonAge / 5.0, // Older = richer
+		VeinSize:      VeinSizeMedium,
+		GeologicalAge: cratonAge,
+	}
 }
 
 // ExtractResource extracts minerals from a deposit, reducing its quantity.
-// Returns the amount actually extracted.
-// RED STATE: Returns 0 - not yet implemented.
+// Returns the amount actually extracted (capped at available quantity).
 func ExtractResource(deposit *MineralDeposit, amount int) int {
-	// TODO: Implement extraction logic
-	// Should respect tool hardness requirements
-	// Should reduce deposit.Quantity
-	return 0
+	if deposit == nil || amount <= 0 {
+		return 0
+	}
+
+	// Extract only what's available
+	extracted := amount
+	if extracted > deposit.Quantity {
+		extracted = deposit.Quantity
+	}
+
+	// Reduce deposit quantity
+	deposit.Quantity -= extracted
+
+	return extracted
 }

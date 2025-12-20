@@ -2,6 +2,7 @@ package processor
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 
 	"tw-backend/cmd/game-server/websocket"
@@ -239,9 +240,93 @@ type SimulationConfig struct {
 }
 
 // ParseSimulationArgs parses simulation command arguments into a config struct.
-// RED STATE: Returns nil - not yet implemented. Tests should fail.
+// Input format: "<years> [--flag] [--key value]..."
+// Supported flags:
+//   - --only-geology: Enable only geology simulation
+//   - --only-life: Enable only life simulation (includes diseases)
+//   - --no-diseases: Disable disease simulation
+//   - --water-level <value>: Set water level (e.g., "high", "90%")
+//   - --epoch <name>: Label the epoch (e.g., "Jurassic")
+//   - --goal <name>: Set simulation goal (e.g., "sapience")
 func ParseSimulationArgs(argsStr string) *SimulationConfig {
-	// TODO: Implement proper parsing
-	// This is intentionally returning nil to fail tests (TDD Red state)
-	return nil
+	argsStr = strings.TrimSpace(argsStr)
+	if argsStr == "" {
+		return nil
+	}
+
+	parts := strings.Fields(argsStr)
+	if len(parts) == 0 {
+		return nil
+	}
+
+	// Parse years (first argument)
+	yearsStr := parts[0]
+	years, err := parseYears(yearsStr)
+	if err != nil || years <= 0 {
+		return nil
+	}
+
+	// Cap years at 10 billion
+	const maxYears int64 = 10_000_000_000
+	if years > maxYears {
+		years = maxYears
+	}
+
+	// Initialize config with defaults
+	config := &SimulationConfig{
+		Years:            years,
+		SimulateGeology:  true,
+		SimulateLife:     true,
+		SimulateDiseases: true,
+	}
+
+	// Parse flags (remaining arguments)
+	for i := 1; i < len(parts); i++ {
+		arg := parts[i]
+
+		switch arg {
+		case "--only-geology":
+			config.SimulateGeology = true
+			config.SimulateLife = false
+			config.SimulateDiseases = false
+
+		case "--only-life":
+			config.SimulateGeology = false
+			config.SimulateLife = true
+			config.SimulateDiseases = true
+
+		case "--no-diseases":
+			config.SimulateDiseases = false
+
+		case "--water-level":
+			if i+1 < len(parts) {
+				i++
+				config.WaterLevel = parts[i]
+			}
+
+		case "--epoch":
+			if i+1 < len(parts) {
+				i++
+				config.Epoch = parts[i]
+			}
+
+		case "--goal":
+			if i+1 < len(parts) {
+				i++
+				config.Goal = parts[i]
+			}
+		}
+	}
+
+	return config
+}
+
+// parseYears converts a year string to int64, handling potential overflow
+func parseYears(s string) (int64, error) {
+	// Use ParseInt for proper int64 parsing
+	years, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return years, nil
 }
