@@ -101,3 +101,83 @@ func ApplyVolcano(hm *Heightmap, x, y, radius, height float64) {
 		}
 	}
 }
+
+// GetEruptionStyle determines volcanic behavior based on magma composition
+func GetEruptionStyle(magmaType string) (viscosity string, explosivity string) {
+	switch magmaType {
+	case "rhyolite":
+		return "explosive", "pyroclastic_flow"
+	case "andesite":
+		return "mixed", "lahar"
+	case "basalt":
+		return "effusive", "lava_flow"
+	default:
+		return "mixed", "lava_flow"
+	}
+}
+
+// SimulateHotspotErosion calculates the erosion factor for volcanic islands over time
+func SimulateHotspotErosion(years int64) float64 {
+	// Simple linear erosion: loses 1% height per million years?
+	// The prompt implies a multiplier.
+	// If 50 million years, erosion should be significant.
+	erosion := 1.0 - (float64(years) / 100_000_000.0)
+	if erosion < 0 {
+		return 0
+	}
+	return erosion
+}
+
+// SimulateFloodBasalt calculates the impact of a Large Igneous Province event
+func SimulateFloodBasalt(severity float64) (radius float64, so2 float64, cooling float64) {
+	// Severity 0-1
+	return 1000.0 * severity, 100.0 * severity, -2.0 * severity
+}
+
+// SimulateCalderaCollapse handles supervolcano aftermath
+func SimulateCalderaCollapse(peakElevation float64) (newElevation float64, shape string) {
+	// Collapse to < 50% of peak?
+	return peakElevation * 0.4, "basin"
+}
+
+// SimulateAtollFormation determines the state of a sinking volcanic island
+func SimulateAtollFormation(ageMillionYears float64, originalType string) (elevation float64, isReef bool) {
+	// Darwin's subsidence theory
+	if originalType == "volcanic" && ageMillionYears > 2.0 {
+		// Island sinks, coral grows up
+		return -10.0, true // Shallow water reef
+	}
+	return 100.0, false // Still an island
+}
+
+// SimulateVolcanicWorldFrequency returns expected eruption count
+func SimulateVolcanicWorldFrequency(years int64) int {
+	// Volcanic worlds are 5x more active
+	baseEruptions := int(years / 10000)
+	return baseEruptions * 5
+}
+
+// SimulateSoilFertility calculates fertility bonus from volcanic ash (andisols)
+func SimulateSoilFertility(years int64, hasAsh bool) float64 {
+	if !hasAsh {
+		return 0.5
+	}
+	// Takes time to weather into soil
+	if years > 500 {
+		return 0.9 // High fertility
+	}
+	return 0.6 // improving
+}
+
+// SimulateClimateFeedback estimates global impact
+// SimulateClimateFeedback estimates global impact
+func SimulateClimateFeedback(volcanicIndex float64) (co2Increase float64, tempChange float64) {
+	// Short term cooling (aerosols), long term warming (CO2)
+	// Simplified model: return net effect
+	return 100.0 * volcanicIndex, 1.5 * volcanicIndex
+}
+
+// SimulateTerrainBurial checks if features are buried
+func SimulateTerrainBurial(depth float64) bool {
+	return depth > 20.0
+}

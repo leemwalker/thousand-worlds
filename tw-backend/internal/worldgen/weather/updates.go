@@ -102,3 +102,11 @@ func GetDiurnalTemperatureDelta(currentTime time.Time) float64 {
 
 	return delta
 }
+
+// SimulateTranspiration calculates humidity bonus from vegetation
+func SimulateTranspiration(biome string) float64 {
+	if biome == "Rainforest" || biome == "Forest" {
+		return 0.2 // 20% humidity boost
+	}
+	return 0.0
+}

@@ -78,3 +78,35 @@ func normalizeDirection(direction float64) float64 {
 	}
 	return direction
 }
+
+// SimulateHadleyCells returns pressure system based on latitude
+func SimulateHadleyCells(latitude float64) PressureSystem {
+	// Simple model: Low at equator (rising air), High at 30 (descending)
+	absLat := math.Abs(latitude)
+	if absLat < 10 {
+		return PressureLow
+	}
+	if absLat > 25 && absLat < 35 {
+		return PressureHigh
+	}
+	return PressureLow // Default/Variable
+}
+
+// SimulateMonsoons calculates monsoon effect
+func SimulateMonsoons(season Season, isLand bool) (windDir string, precipMultiplier float64) {
+	if season == SeasonSummer && isLand {
+		// Ocean heating slower than land -> Low pressure over land -> Wind blows onshore
+		return "Onshore", 3.0 // High precip
+	}
+	return "Normal", 1.0
+}
+
+// SimulateAdvection moves moisture eastward (simplified)
+func SimulateAdvection(gridWidth int, currentX int, moisture float64) (newX int, transportedMoisture float64) {
+	// Move 1 cell East
+	newX = currentX + 1
+	if newX >= gridWidth {
+		newX = 0 // Wrap
+	}
+	return newX, moisture
+}
