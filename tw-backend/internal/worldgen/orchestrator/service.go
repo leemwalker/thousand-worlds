@@ -178,16 +178,46 @@ func (s *GeneratorService) mapToGeographyCells(geoMap *geography.WorldMap, param
 	return cells
 }
 
-// generateMinerals distributes mineral deposits (stub for now)
+// generateMinerals distributes mineral deposits based on geology
 func (s *GeneratorService) generateMinerals(params *GenerationParams, geoMap *geography.WorldMap) ([]minerals.MineralDeposit, error) {
-	// For now, return empty mineral deposits
-	// Full implementation would use minerals subsystem with geological formation
-	return []minerals.MineralDeposit{}, nil
+	deposits := []minerals.MineralDeposit{}
+
+	// Generate hydrothermal deposits at plate boundaries
+	ridgePoints := []minerals.Point{}
+	for _, plate := range geoMap.Plates {
+		for _, point := range plate.BoundaryPoints {
+			ridgePoints = append(ridgePoints, minerals.Point{X: point.X, Y: point.Y})
+		}
+	}
+	hydro := minerals.GenerateHydrothermalDeposits(ridgePoints)
+	for _, d := range hydro {
+		deposits = append(deposits, *d)
+	}
+
+	// Generate tool stone deposits
+	tools := minerals.GenerateToolStoneDeposits(true, true)
+	for _, d := range tools {
+		deposits = append(deposits, *d)
+	}
+
+	return deposits, nil
 }
 
-// generateSpecies creates flora and fauna (stub for now)
+// generateSpecies creates flora and fauna based on biomes
 func (s *GeneratorService) generateSpecies(params *GenerationParams, geoMap *geography.WorldMap) ([]*evolution.Species, error) {
-	// For now, return empty species list
-	// Full implementation would use evolution subsystem with species templates
-	return []*evolution.Species{}, nil
+	// Collect unique biome names
+	biomeSet := make(map[string]bool)
+	for _, biome := range geoMap.Biomes {
+		biomeSet[string(biome.Type)] = true
+	}
+
+	biomes := []string{}
+	for b := range biomeSet {
+		biomes = append(biomes, b)
+	}
+
+	// Generate species based on biome diversity
+	species := evolution.GenerateInitialSpecies(biomes)
+
+	return species, nil
 }

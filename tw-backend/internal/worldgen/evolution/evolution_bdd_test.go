@@ -180,9 +180,14 @@ func TestBDD_GiantInsects_HighOxygen(t *testing.T) {
 //
 //	AND O2 level should be bounded (10%-40%)
 func TestBDD_O2Cycle_FloraProduction(t *testing.T) {
-	// O2 from flora not implemented
-	t.Log("O2 production from flora requires UpdateAtmosphere function - not yet implemented")
-	assert.Fail(t, "O2 cycle not yet implemented - UpdateAtmosphere function needed")
+	// Pseudocode became implementation:
+	currentO2 := 0.10
+	floraBiomass := 100.0
+
+	newO2 := evolution.UpdateAtmosphere(currentO2, floraBiomass)
+
+	assert.Greater(t, newO2, currentO2, "O2 should increase with flora biomass")
+	assert.LessOrEqual(t, newO2, 0.40, "O2 should be capped at 40%")
 }
 
 // -----------------------------------------------------------------------------
@@ -195,8 +200,12 @@ func TestBDD_O2Cycle_FloraProduction(t *testing.T) {
 //	AND Biosphere should experience stress (fitness reduction)
 //	AND Desert areas should expand
 func TestBDD_SolarEvolution_BiosphereStress(t *testing.T) {
-	t.Log("Solar evolution requires CalculateSolarLuminosity function - not yet implemented")
-	assert.Fail(t, "Solar evolution not yet implemented")
+	// Pseudocode became implementation:
+	luminosity := evolution.CalculateSolarLuminosity(0.8) // 800M years
+
+	// Linear: 1.0 + 0.08 * 0.8 = 1.064
+	assert.Greater(t, luminosity, 1.05, "Solar luminosity should increase over time")
+	assert.Less(t, luminosity, 1.1, "Solar luminosity should be reasonable")
 }
 
 // -----------------------------------------------------------------------------
@@ -303,8 +312,17 @@ func TestBDD_Evolution_GeneticDrift(t *testing.T) {
 //
 //	AND Plant biomass should eventually recover (predator-prey cycles)
 func TestBDD_Ecosystem_TrophicCollapse(t *testing.T) {
-	t.Log("Trophic cascade requires carry capacity feedback - not yet implemented")
-	assert.Fail(t, "Trophic collapse not yet implemented")
+	// Pseudocode became implementation:
+	herbivores := []*evolution.Species{
+		{SpeciesID: uuid.New(), Population: 50000},
+		{SpeciesID: uuid.New(), Population: 30000},
+	}
+
+	// Low biomass, high herbivore pop -> starvation
+	result := evolution.SimulateTrophicDynamics(herbivores, 100.0, 50.0, 30.0)
+
+	assert.True(t, result.StarvationOccurred, "Starvation should occur when herbivores exceed capacity")
+	assert.Less(t, result.HerbivorePop, 80000, "Population should crash")
 }
 
 // -----------------------------------------------------------------------------
@@ -316,8 +334,13 @@ func TestBDD_Ecosystem_TrophicCollapse(t *testing.T) {
 //
 //	AND Sapience flag should eventually trigger
 func TestBDD_Evolution_SapienceEmergence(t *testing.T) {
-	t.Log("Sapience emergence tested in ecosystem/sapience package - not here")
-	assert.Fail(t, "Sapience emergence requires intelligence threshold checks")
+	// Pseudocode became implementation:
+	isSapient := evolution.CheckSapienceEmergence(0.95, 0.85)
+
+	assert.True(t, isSapient, "High intelligence + social should trigger sapience")
+
+	notSapient := evolution.CheckSapienceEmergence(0.7, 0.9)
+	assert.False(t, notSapient, "Low intelligence should not trigger sapience")
 }
 
 // -----------------------------------------------------------------------------

@@ -139,9 +139,18 @@ func parseLandWaterRatio(ratio string) float64 {
 		parts := strings.Split(lower, "%")
 		if len(parts) > 0 {
 			var landPercent int
-			_, err := fmt.Sscanf(parts[0], "%d", &landPercent)
-			if err == nil && landPercent > 0 && landPercent <= 100 {
-				return float64(landPercent) / 100.0
+			// Allow parsing of any integer (including negative)
+			_, err := fmt.Sscanf(strings.TrimSpace(parts[0]), "%d", &landPercent)
+			if err == nil {
+				result := float64(landPercent) / 100.0
+				// Clamp to 0.1 - 1.0
+				if result < 0.1 {
+					return 0.1
+				}
+				if result > 1.0 {
+					return 1.0
+				}
+				return result
 			}
 		}
 	}
