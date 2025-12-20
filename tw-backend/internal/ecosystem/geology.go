@@ -276,6 +276,92 @@ func (g *WorldGeology) simulateCaveFormation(yearsElapsed int64) {
 	g.Caves = append(g.Caves, newCaves...)
 }
 
+// simulateMagmaChambers processes magma chamber evolution and tectonic volcanism
+func (g *WorldGeology) simulateMagmaChambers(yearsElapsed int64) {
+	if g.Columns == nil || len(g.Plates) == 0 {
+		return
+	}
+
+	// Extract tectonic boundaries from plate data
+	plateCentroids := make([]underground.Vector3, len(g.Plates))
+	plateMovements := make([]underground.Vector3, len(g.Plates))
+	for i, plate := range g.Plates {
+		plateCentroids[i] = underground.Vector3{
+			X: plate.Centroid.X,
+			Y: plate.Centroid.Y,
+			Z: 0,
+		}
+		plateMovements[i] = underground.Vector3{
+			X: plate.MovementVector.X,
+			Y: plate.MovementVector.Y,
+			Z: 0,
+		}
+	}
+
+	boundaries := underground.GetTectonicBoundaries(
+		g.Heightmap.Width,
+		g.Heightmap.Height,
+		plateCentroids,
+		plateMovements,
+	)
+
+	// Get existing magma chambers from columns
+	chambers := g.collectMagmaChambers()
+
+	config := underground.DefaultMagmaConfig()
+	// Adjust for composition
+	if g.Composition == "volcanic" {
+		config.EruptionThreshold = 60 // More frequent eruptions
+		config.LavaTubeFormationProb = 0.9
+	}
+
+	// Run magma simulation
+	erupted, newTubes, _ := underground.SimulateMagmaChambers(
+		g.Columns,
+		chambers,
+		boundaries,
+		yearsElapsed,
+		g.Seed+g.TotalYearsSimulated,
+		config,
+	)
+
+	// Handle eruptions - apply surface effects
+	for _, chamber := range erupted {
+		x, y := int(chamber.Center.X), int(chamber.Center.Y)
+		if x >= 0 && x < g.Heightmap.Width && y >= 0 && y < g.Heightmap.Height {
+			// Apply volcano to surface
+			height := 500 + g.rng.Float64()*1500 // 500-2000m
+			radius := 2.0 + g.rng.Float64()*3.0
+			geography.ApplyVolcano(g.Heightmap, float64(x), float64(y), radius, height)
+		}
+	}
+
+	// Register new lava tubes as caves
+	g.Caves = append(g.Caves, newTubes...)
+}
+
+// collectMagmaChambers gathers magma chambers from column data
+func (g *WorldGeology) collectMagmaChambers() []*underground.MagmaChamber {
+	chambers := []*underground.MagmaChamber{}
+
+	for _, col := range g.Columns.AllColumns() {
+		if col.Magma != nil {
+			chambers = append(chambers, &underground.MagmaChamber{
+				Center: underground.Vector3{
+					X: float64(col.X),
+					Y: float64(col.Y),
+					Z: (col.Magma.TopZ + col.Magma.BottomZ) / 2,
+				},
+				Temperature: col.Magma.Temperature,
+				Pressure:    col.Magma.Pressure,
+				Viscosity:   col.Magma.Viscosity,
+			})
+		}
+	}
+
+	return chambers
+}
+
 // SimulateGeology advances geological processes over time
 // yearsElapsed is the number of years to simulate
 // globalTempMod is the current global temperature offset (e.g. from volcanic winter)
@@ -323,6 +409,11 @@ func (g *WorldGeology) SimulateGeology(yearsElapsed int64, globalTempMod float64
 	// Caves form through limestone dissolution by water
 	if yearsElapsed >= 100_000 && g.Columns != nil {
 		g.simulateCaveFormation(yearsElapsed)
+	}
+
+	// Simulate magma chambers and tectonic volcanism
+	if yearsElapsed >= 10_000 && g.Columns != nil {
+		g.simulateMagmaChambers(yearsElapsed)
 	}
 
 	// Regenerate dynamic features
