@@ -362,6 +362,44 @@ func (g *WorldGeology) collectMagmaChambers() []*underground.MagmaChamber {
 	return chambers
 }
 
+// simulateDepositEvolution processes organic deposit transformation
+func (g *WorldGeology) simulateDepositEvolution(yearsElapsed int64) {
+	if g.Columns == nil {
+		return
+	}
+
+	// Build rainfall map from biomes for sedimentation calculation
+	rainfall := make([]float64, len(g.Biomes))
+	for i, biome := range g.Biomes {
+		switch biome.Type {
+		case "rainforest", "swamp":
+			rainfall[i] = 1.0
+		case "grassland", "savanna":
+			rainfall[i] = 0.6
+		case "forest", "taiga":
+			rainfall[i] = 0.7
+		case "tundra":
+			rainfall[i] = 0.3
+		case "desert":
+			rainfall[i] = 0.1
+		case "ocean", "beach":
+			rainfall[i] = 0.8
+		default:
+			rainfall[i] = 0.5
+		}
+	}
+
+	config := underground.DefaultDepositConfig()
+
+	underground.SimulateDepositEvolution(
+		g.Columns,
+		g.TotalYearsSimulated,
+		config,
+		rainfall,
+		g.Seed+g.TotalYearsSimulated,
+	)
+}
+
 // SimulateGeology advances geological processes over time
 // yearsElapsed is the number of years to simulate
 // globalTempMod is the current global temperature offset (e.g. from volcanic winter)
@@ -414,6 +452,11 @@ func (g *WorldGeology) SimulateGeology(yearsElapsed int64, globalTempMod float64
 	// Simulate magma chambers and tectonic volcanism
 	if yearsElapsed >= 10_000 && g.Columns != nil {
 		g.simulateMagmaChambers(yearsElapsed)
+	}
+
+	// Simulate organic deposit evolution (sedimentation and transformation)
+	if yearsElapsed >= 1_000 && g.Columns != nil {
+		g.simulateDepositEvolution(yearsElapsed)
 	}
 
 	// Regenerate dynamic features
