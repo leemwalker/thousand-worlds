@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"sync"
 	"tw-backend/internal/worldgen/geography"
+	"tw-backend/internal/worldgen/underground"
 
 	"github.com/google/uuid"
 )
@@ -21,6 +22,11 @@ type WorldGeology struct {
 	Heightmap *geography.Heightmap
 	Plates    []geography.TectonicPlate
 	SeaLevel  float64 // meters (0 = baseline, positive = higher sea level)
+
+	// Underground data (Phase 3)
+	Columns     *underground.ColumnGrid // Per-column underground data
+	Caves       []*underground.Cave     // Cave networks
+	Composition string                  // "volcanic", "continental", "oceanic", "ancient"
 
 	// Dynamic geographic features
 	Hotspots []geography.Point // Fixed mantle plume locations
@@ -51,14 +57,24 @@ type GeologyStats struct {
 }
 
 // NewWorldGeology creates a new geology manager for a world
+// composition: "volcanic", "continental", "oceanic", or "ancient"
 func NewWorldGeology(worldID uuid.UUID, seed int64, circumferenceMeters float64) *WorldGeology {
 	return &WorldGeology{
 		WorldID:       worldID,
 		Seed:          seed,
 		Circumference: circumferenceMeters,
-		SeaLevel:      0, // Baseline sea level
+		SeaLevel:      0,             // Baseline sea level
+		Composition:   "continental", // Default composition
 		rng:           rand.New(rand.NewSource(seed)),
 	}
+}
+
+// SetComposition sets the world's geological composition.
+// Valid values: "volcanic", "continental", "oceanic", "ancient"
+func (g *WorldGeology) SetComposition(composition string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.Composition = composition
 }
 
 // InitializeGeology creates the baseline terrain from scratch
@@ -124,6 +140,86 @@ func (g *WorldGeology) InitializeGeology() {
 
 	// Initialize biomes with default temp (0 offset)
 	g.Biomes = geography.AssignBiomes(g.Heightmap, g.SeaLevel, g.Seed, 0.0)
+
+	// Initialize underground column grid (Phase 3)
+	g.initializeColumns(width, height)
+}
+
+// initializeColumns creates the underground column grid and generates strata
+func (g *WorldGeology) initializeColumns(width, height int) {
+	g.Columns = underground.NewColumnGrid(width, height)
+	g.Caves = []*underground.Cave{}
+
+	// Initialize each column with surface from heightmap and strata based on composition
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			col := g.Columns.Get(x, y)
+			surface := g.Heightmap.Get(x, y)
+			col.Surface = surface
+
+			// Generate strata based on world composition
+			g.generateStrata(col, surface)
+
+			// Add magma layer at hotspots
+			for _, hotspot := range g.Hotspots {
+				dist := math.Sqrt(math.Pow(float64(x)-hotspot.X, 2) + math.Pow(float64(y)-hotspot.Y, 2))
+				if dist < 5 { // Within hotspot radius
+					col.Magma = &underground.MagmaInfo{
+						TopZ:        surface - 1000,
+						BottomZ:     surface - 5000,
+						Temperature: 1500,
+						Pressure:    100,
+						Viscosity:   0.5,
+					}
+				}
+			}
+		}
+	}
+}
+
+// generateStrata creates geological layers for a column based on composition
+func (g *WorldGeology) generateStrata(col *underground.WorldColumn, surface float64) {
+	bedrock := col.Bedrock
+
+	switch g.Composition {
+	case "volcanic":
+		// Volcanic worlds: basalt dominant, frequent lava tubes
+		col.AddStratum("soil", surface, surface-5, 2, 0, 0.4)
+		col.AddStratum("basalt", surface-5, surface-200, 6, 1000, 0.1)
+		col.AddStratum("gabbro", surface-200, surface-2000, 7, 100000, 0.05)
+		col.AddStratum("mantle", surface-2000, bedrock, 9, 1000000, 0.01)
+
+	case "oceanic":
+		// Oceanic worlds: limestone rich, extensive caves
+		if surface < g.SeaLevel {
+			// Underwater: thick limestone from marine deposits
+			col.AddStratum("sediment", surface, surface-20, 2, 100, 0.5)
+			col.AddStratum("limestone", surface-20, surface-500, 4, 10000, 0.3)
+			col.AddStratum("chalk", surface-500, surface-1000, 3, 50000, 0.2)
+			col.AddStratum("granite", surface-1000, bedrock, 8, 500000, 0.05)
+		} else {
+			// Coastal land
+			col.AddStratum("soil", surface, surface-10, 2, 0, 0.4)
+			col.AddStratum("limestone", surface-10, surface-300, 4, 10000, 0.3)
+			col.AddStratum("granite", surface-300, bedrock, 8, 500000, 0.05)
+		}
+
+	case "ancient":
+		// Ancient worlds: deep erosion, mineral-rich, extensive caves
+		col.AddStratum("soil", surface, surface-15, 2, 0, 0.4)
+		col.AddStratum("sandstone", surface-15, surface-100, 4, 100000, 0.25)
+		col.AddStratum("limestone", surface-100, surface-400, 5, 500000, 0.3)
+		col.AddStratum("schist", surface-400, surface-1500, 6, 1000000, 0.1)
+		col.AddStratum("granite", surface-1500, bedrock, 9, 2000000, 0.02)
+
+	default: // "continental"
+		// Continental: balanced mix
+		col.AddStratum("soil", surface, surface-10, 2, 0, 0.4)
+		col.AddStratum("sedimentary", surface-10, surface-100, 4, 10000, 0.2)
+		col.AddStratum("limestone", surface-100, surface-300, 5, 100000, 0.25)
+		col.AddStratum("granite", surface-300, surface-2000, 8, 500000, 0.05)
+		col.AddStratum("basalt", surface-2000, bedrock, 7, 1000000, 0.03)
+	}
 }
 
 // SimulateGeology advances geological processes over time
