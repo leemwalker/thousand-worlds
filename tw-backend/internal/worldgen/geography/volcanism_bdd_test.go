@@ -4,7 +4,9 @@ import (
 	"testing"
 
 	"tw-backend/internal/worldgen/geography"
+	"tw-backend/internal/worldgen/underground"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -204,14 +206,44 @@ func TestBDD_FloodBasalt_DeccanTraps(t *testing.T) {
 //	AND Tube should be registered as VoidSpace
 //	AND Tube hardness should be high (basalt: 7)
 func TestBDD_LavaTube_Formation(t *testing.T) {
-	t.Skip("BDD RED: Lava tube formation not yet implemented")
-	// Pseudocode:
-	// chamber := MagmaChamber{Pressure: 85, Temperature: 1400}
-	// eruption := SimulateEruption(chamber, column)
-	// if eruption.LavaTubeFormed {
-	//     assert column.HasVoid("lava_tube")
-	//     assert column.Voids[0].VoidType == "lava_tube"
-	// }
+	// Create grid and magma chamber
+	grid := underground.NewColumnGrid(10, 10)
+
+	// Create a hot, high-pressure chamber that will erupt
+	chamber := &underground.MagmaChamber{
+		ID:          uuid.New(),
+		Center:      underground.Vector3{X: 5, Y: 5, Z: -500},
+		Volume:      10000,
+		Temperature: 1400,
+		Pressure:    85, // Above eruption threshold
+		Viscosity:   0.3,
+	}
+
+	// Config with high lava tube formation probability
+	config := underground.MagmaSimulationConfig{
+		EruptionThreshold:     80,
+		LavaTubeFormationProb: 0.99, // High probability for test
+		CoolingRatePerYear:    0.01,
+		MagmaChamberRadius:    20,
+	}
+
+	// Simulate eruption
+	erupted, newTubes, _ := underground.SimulateMagmaChambers(
+		grid,
+		[]*underground.MagmaChamber{chamber},
+		nil,
+		1000, // 1000 years
+		42,
+		config,
+	)
+
+	// Should have erupted (pressure was 85 > 80 threshold)
+	assert.GreaterOrEqual(t, len(erupted), 1, "Chamber should erupt at high pressure")
+	// With 99% probability, should have formed a lava tube
+	assert.Greater(t, len(newTubes), 0, "Should form lava tube during eruption")
+	if len(newTubes) > 0 {
+		assert.Equal(t, "lava_tube", newTubes[0].CaveType, "Should be lava tube type")
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -224,14 +256,40 @@ func TestBDD_LavaTube_Formation(t *testing.T) {
 //	AND Pressure should drop to 30% of pre-eruption
 //	AND Chamber volume should decrease by 50%
 func TestBDD_MagmaChamber_PressureEruption(t *testing.T) {
-	t.Skip("BDD RED: Pressure-based eruption not yet implemented")
-	// Pseudocode:
-	// chamber := MagmaChamber{Pressure: 79, Volume: 1000}
-	// chamber.AddPressure(5) // Push to 84
-	// erupted := SimulateMagmaChambers(grid, []*MagmaChamber{chamber}, boundaries, 1000, seed, config)
-	// assert len(erupted) == 1
-	// assert chamber.Pressure < 30
-	// assert chamber.Volume < 600
+	grid := underground.NewColumnGrid(10, 10)
+
+	// Chamber with pressure just below threshold
+	chamber := &underground.MagmaChamber{
+		ID:          uuid.New(),
+		Center:      underground.Vector3{X: 5, Y: 5, Z: -500},
+		Volume:      1000,
+		Temperature: 1400,
+		Pressure:    79, // Just below default threshold of 80
+		Viscosity:   0.3,
+	}
+
+	config := underground.DefaultMagmaConfig()
+	config.EruptionThreshold = 80
+
+	// Add pressure to trigger eruption
+	chamber.Pressure = 84 // Now above threshold
+
+	erupted, _, _ := underground.SimulateMagmaChambers(
+		grid,
+		[]*underground.MagmaChamber{chamber},
+		nil,
+		1000,
+		42,
+		config,
+	)
+
+	require.GreaterOrEqual(t, len(erupted), 1, "Should erupt when pressure >= threshold")
+
+	// Pressure should drop to 30% of pre-eruption
+	assert.Less(t, chamber.Pressure, 30.0, "Pressure should drop after eruption")
+
+	// Volume should decrease by 50%
+	assert.Less(t, chamber.Volume, 600.0, "Volume should decrease after eruption")
 }
 
 // -----------------------------------------------------------------------------
