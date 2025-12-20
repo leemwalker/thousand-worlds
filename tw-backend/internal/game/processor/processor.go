@@ -30,6 +30,7 @@ import (
 	"tw-backend/internal/player"
 	"tw-backend/internal/repository"
 	"tw-backend/internal/skills"
+	"tw-backend/internal/validation"
 	"tw-backend/internal/world/interview"
 	"tw-backend/internal/worldentity"
 	"tw-backend/internal/worldgen/weather"
@@ -59,6 +60,7 @@ type GameProcessor struct {
 	inventoryService   *inventory.Service
 	interactionService *interaction.Service
 	craftingService    *crafting.Service
+	validator          *validation.Validator
 
 	// WorldGeology stores geological state per world (worldID -> geology)
 	worldGeology map[uuid.UUID]*ecosystem.WorldGeology
@@ -111,6 +113,7 @@ func NewGameProcessor(
 		inventoryService:   inventoryService,
 		interactionService: interactionService,
 		craftingService:    craftingService,
+		validator:          validation.New(),
 		worldGeology:       make(map[uuid.UUID]*ecosystem.WorldGeology),
 		simSnapshotRepo:    simSnapshotRepo,
 		runnerStateRepo:    runnerStateRepo,
@@ -132,12 +135,16 @@ func (p *GameProcessor) OnClientConnected(ctx context.Context, client websocket.
 // ProcessCommand processes a game command from a client
 func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	log.Printf("[PROCESSOR] ProcessCommand called with Text='%s', Action='%s'", cmd.Text, cmd.Action)
-	// If Text field is provided, parse it into structured format
+
+	// Validate raw command text if provided
 	if cmd.Text != "" {
+		if err := p.validator.ValidateCommandText(cmd.Text); err != nil {
+			return fmt.Errorf("invalid command: %w", err)
+		}
 		parser := NewCommandParser()
 		parsedCmd := parser.ParseText(cmd.Text)
 		if parsedCmd == nil {
-			return fmt.Errorf("invalid command")
+			return fmt.Errorf("invalid command: failed to parse")
 		}
 		// Use parsed command for processing
 		cmd = parsedCmd

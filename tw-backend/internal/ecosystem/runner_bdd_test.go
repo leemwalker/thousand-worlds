@@ -87,7 +87,7 @@ func TestBDD_Runner_SnapshotInterval(t *testing.T) {
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Turning Point Trigger
+// Scenario: Turning Point Trigger - Species Count Exceeds Threshold
 // -----------------------------------------------------------------------------
 // Given: Species count exceeds threshold
 // When: TurningPointManager checks conditions
@@ -95,7 +95,27 @@ func TestBDD_Runner_SnapshotInterval(t *testing.T) {
 //
 //	AND Simulation should pause (if PauseOnTurning)
 //	AND Handler should be called
-func TestBDD_Runner_TurningPointTrigger(t *testing.T) {
+func TestBDD_Runner_TurningPointTrigger_SpeciesCount(t *testing.T) {
+	t.Skip("BDD stub: implement turning point trigger")
+	// Pseudocode:
+	// config := SimulationConfig{PauseOnTurning: true}
+	// runner := NewSimulationRunner(config, nil, nil)
+	// tpm := runner.GetTurningPointManager()
+	// tp := tpm.CheckForTurningPoint(1_000_000, speciesCount: 100, extinctions: 50, nil, "")
+	// assert tp != nil
+	// assert runner.GetState() == RunnerPaused
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Turning Point Trigger - Major Extinction Event
+// -----------------------------------------------------------------------------
+// Given: Major extinction event
+// When: TurningPointManager checks conditions
+// Then: Turning point should trigger
+//
+//	AND Simulation should pause (if PauseOnTurning)
+//	AND Handler should be called
+func TestBDD_Runner_TurningPointTrigger_MajorExtinction(t *testing.T) {
 	t.Skip("BDD stub: implement turning point trigger")
 	// Pseudocode:
 	// config := SimulationConfig{PauseOnTurning: true}

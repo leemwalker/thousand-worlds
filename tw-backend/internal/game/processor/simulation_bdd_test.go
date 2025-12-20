@@ -79,7 +79,7 @@ func TestBDD_WorldSimulate_NoDiseases(t *testing.T) {
 // When: Simulation completes
 // Then: Time period should be labeled "Jurassic"
 //
-//	AND Label should appear in output
+//	AND Dinosaurs species should be present amongst lifeforms
 func TestBDD_WorldSimulate_EpochLabel(t *testing.T) {
 	t.Skip("BDD stub: implement --epoch flag")
 	// Pseudocode:

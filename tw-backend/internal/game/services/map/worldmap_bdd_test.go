@@ -9,9 +9,9 @@ import "testing"
 // -----------------------------------------------------------------------------
 // Scenario: Region Aggregation - Dominant Biome
 // -----------------------------------------------------------------------------
-// Given: World map grid with multiple tiles per region
-// When: Region aggregation occurs
-// Then: Most common biome in region should be selected
+// Given: World map with multiple biomes per sub-region
+// When: Sub-region aggregation occurs
+// Then: Most common biome in sub-region should be selected
 //
 //	AND Average elevation should be calculated
 func TestBDD_WorldMap_RegionAggregation(t *testing.T) {
@@ -24,7 +24,7 @@ func TestBDD_WorldMap_RegionAggregation(t *testing.T) {
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Grid Coordinate Mapping - World to Heightmap
+// Scenario: Sub-Region Grid Coordinate Mapping - World to Heightmap
 // -----------------------------------------------------------------------------
 // Given: Large spherical world (circumference 17M meters)
 // When: World coordinates are mapped to heightmap grid
@@ -107,23 +107,6 @@ func TestBDD_WorldMap_PlayerPosition(t *testing.T) {
 	// data, _ := service.GetWorldMapData(ctx, character, 64)
 	// assert data.PlayerGridX >= 0
 	// assert data.PlayerGridY >= 0
-}
-
-// -----------------------------------------------------------------------------
-// Scenario: Explored/Unexplored Regions
-// -----------------------------------------------------------------------------
-// Given: Player has explored only part of the world
-// When: World map is displayed
-// Then: Unexplored regions should be distinct (fog of war)
-//
-//	AND Explored regions should show full detail
-func TestBDD_WorldMap_FogOfWar(t *testing.T) {
-	t.Skip("BDD stub: implement fog of war")
-	// Pseudocode:
-	// character.ExploredRegions = map[int]bool{0: true, 1: true}
-	// data, _ := service.GetWorldMapData(ctx, character, 64)
-	// assert data.Regions[0].Explored == true
-	// assert data.Regions[50].Explored == false
 }
 
 // -----------------------------------------------------------------------------

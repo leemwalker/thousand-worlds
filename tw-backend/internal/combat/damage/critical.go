@@ -13,8 +13,10 @@ type CriticalResult struct {
 // cunning: attribute value
 // isHeavyAttack: boolean
 func CalculateCritical(roll int, cunning int, isHeavyAttack bool) CriticalResult {
-	// Critical Failure: Natural 1-5
-	if roll <= 5 {
+	cfg := GetConfig()
+
+	// Critical Failure: Natural 1-5 (configurable)
+	if roll <= cfg.GetCriticalFailureThreshold() {
 		return CriticalResult{
 			IsCriticalFailure: true,
 			Multiplier:        0.0,
@@ -22,25 +24,24 @@ func CalculateCritical(roll int, cunning int, isHeavyAttack bool) CriticalResult
 		}
 	}
 
-	// Critical Hit Base Threshold: 95+
-	threshold := 95
+	// Critical Hit Base Threshold (configurable)
+	threshold := cfg.GetCriticalHitBaseThreshold()
 
-	// Cunning Bonus: +(Cunning / 50)%
-	// Example: Cunning 50 -> +1% chance -> threshold 94
-	// Example: Cunning 100 -> +2% chance -> threshold 93
-	cunningBonus := cunning / 50
+	// Cunning Bonus: +(Cunning / divisor)%
+	// Example: Cunning 50, Divisor 50 -> +1% chance -> threshold -1
+	cunningBonus := cunning / cfg.GetCunningBonusDivisor()
 	threshold -= cunningBonus
 
-	// Heavy Attack Bonus: +5% chance -> threshold -5
+	// Heavy Attack Bonus (configurable)
 	if isHeavyAttack {
-		threshold -= 5
+		threshold -= cfg.GetHeavyAttackBonus()
 	}
 
 	if roll >= threshold {
 		return CriticalResult{
 			IsCritical:  true,
-			Multiplier:  2.0,
-			IgnoreArmor: 0.5, // Ignore 50% of armor
+			Multiplier:  cfg.GetCriticalMultiplier(),
+			IgnoreArmor: cfg.GetCriticalIgnoreArmor(),
 		}
 	}
 

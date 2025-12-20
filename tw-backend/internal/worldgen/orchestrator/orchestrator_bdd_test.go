@@ -11,7 +11,7 @@ import "testing"
 // -----------------------------------------------------------------------------
 // Given: World config with planet size "small"
 // When: MapToParams is called
-// Then: Dimensions should be 100x100
+// Then: Dimensions should be 500x500
 //
 //	AND Plate count should be 3
 func TestBDD_Orchestrator_ConfigMapping_SmallPlanet(t *testing.T) {
@@ -20,9 +20,28 @@ func TestBDD_Orchestrator_ConfigMapping_SmallPlanet(t *testing.T) {
 	// config := mockWorldConfig{planetSize: "small"}
 	// params, err := mapper.MapToParams(config)
 	// assert err == nil
-	// assert params.Width == 100
-	// assert params.Height == 100
+	// assert params.Width == 500
+	// assert params.Height == 500
 	// assert params.PlateCount == 3
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Config to Params Mapping - Medium Planet
+// -----------------------------------------------------------------------------
+// Given: World config with planet size "medium"
+// When: MapToParams is called
+// Then: Dimensions should be 1000x1000
+//
+//	AND Plate count should be 6
+func TestBDD_Orchestrator_ConfigMapping_MediumPlanet(t *testing.T) {
+	t.Skip("BDD stub: implement config mapping")
+	// Pseudocode:
+	// config := mockWorldConfig{planetSize: "medium"}
+	// params, err := mapper.MapToParams(config)
+	// assert err == nil
+	// assert params.Width == 1000
+	// assert params.Height == 1000
+	// assert params.PlateCount == 6
 }
 
 // -----------------------------------------------------------------------------
@@ -30,7 +49,7 @@ func TestBDD_Orchestrator_ConfigMapping_SmallPlanet(t *testing.T) {
 // -----------------------------------------------------------------------------
 // Given: World config with planet size "large"
 // When: MapToParams is called
-// Then: Dimensions should be 500x500
+// Then: Dimensions should be 2500x2500
 //
 //	AND Plate count should be 8
 func TestBDD_Orchestrator_ConfigMapping_LargePlanet(t *testing.T) {
@@ -38,8 +57,8 @@ func TestBDD_Orchestrator_ConfigMapping_LargePlanet(t *testing.T) {
 	// Pseudocode:
 	// config := mockWorldConfig{planetSize: "large"}
 	// params, _ := mapper.MapToParams(config)
-	// assert params.Width == 500
-	// assert params.Height == 500
+	// assert params.Width == 2500
+	// assert params.Height == 2500
 	// assert params.PlateCount == 8
 }
 
@@ -105,7 +124,6 @@ func TestBDD_Orchestrator_SpeciesIntegration(t *testing.T) {
 // When: GenerateWorld runs
 // Then: Life simulation should be skipped
 //
-//	AND Weather should be minimal/static
 func TestBDD_Orchestrator_OnlyGeologyFlag(t *testing.T) {
 	t.Skip("BDD stub: implement only_geology flag")
 	// Pseudocode:
