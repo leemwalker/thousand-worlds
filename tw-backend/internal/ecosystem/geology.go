@@ -222,6 +222,60 @@ func (g *WorldGeology) generateStrata(col *underground.WorldColumn, surface floa
 	}
 }
 
+// simulateCaveFormation generates caves through limestone dissolution
+// Called during SimulateGeology every 100,000+ years
+func (g *WorldGeology) simulateCaveFormation(yearsElapsed int64) {
+	if g.Columns == nil {
+		return
+	}
+
+	// Build rainfall array from biomes (moisture affects dissolution)
+	rainfall := make([]float64, len(g.Biomes))
+	for i, biome := range g.Biomes {
+		// Estimate rainfall from biome type
+		switch biome.Type {
+		case "rainforest", "swamp":
+			rainfall[i] = 1.0
+		case "grassland", "savanna":
+			rainfall[i] = 0.6
+		case "forest", "taiga":
+			rainfall[i] = 0.7
+		case "tundra":
+			rainfall[i] = 0.3
+		case "desert", "volcanic":
+			rainfall[i] = 0.1
+		case "ocean", "beach":
+			rainfall[i] = 0.8
+		default:
+			rainfall[i] = 0.5
+		}
+	}
+
+	// Configure cave formation
+	config := underground.DefaultCaveConfig()
+	// Adjust based on composition
+	switch g.Composition {
+	case "oceanic":
+		config.DissolutionRate *= 2.0 // More limestone = faster caves
+	case "ancient":
+		config.DissolutionRate *= 3.0 // Very old = extensive caves
+	case "volcanic":
+		config.DissolutionRate *= 0.5 // Less limestone
+	}
+
+	// Run cave formation simulation
+	newCaves := underground.SimulateCaveFormation(
+		g.Columns,
+		rainfall,
+		yearsElapsed,
+		g.Seed+g.TotalYearsSimulated,
+		config,
+	)
+
+	// Register new caves
+	g.Caves = append(g.Caves, newCaves...)
+}
+
 // SimulateGeology advances geological processes over time
 // yearsElapsed is the number of years to simulate
 // globalTempMod is the current global temperature offset (e.g. from volcanic winter)
@@ -264,6 +318,12 @@ func (g *WorldGeology) SimulateGeology(yearsElapsed int64, globalTempMod float64
 
 	// Apply hotspot activity
 	g.applyHotspotActivity(float64(yearsElapsed))
+
+	// Simulate cave formation (every 100,000 years for efficiency)
+	// Caves form through limestone dissolution by water
+	if yearsElapsed >= 100_000 && g.Columns != nil {
+		g.simulateCaveFormation(yearsElapsed)
+	}
 
 	// Regenerate dynamic features
 	// Rivers and biomes change as terrain evolves
