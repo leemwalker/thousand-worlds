@@ -145,7 +145,7 @@ func TestBDD_Volcanism_AdditiveElevation(t *testing.T) {
 //	AND Felsic (High Silica) -> Explosive (Ash/Pyroclastic)
 //	AND Mafic (Low Silica) -> Effusive (Lava Flows)
 func TestBDD_Volcanism_EruptionStyle(t *testing.T) {
-	t.Skip("BDD RED: Viscosity mechanics not yet implemented")
+	assert.Fail(t, "BDD RED: Viscosity mechanics not yet implemented")
 
 	scenarios := []struct {
 		magmaType     string
@@ -169,7 +169,7 @@ func TestBDD_Volcanism_EruptionStyle(t *testing.T) {
 //	AND Oldest island should be most eroded
 //	AND Active volcano should be at current hotspot position
 func TestBDD_Hotspot_IslandChain(t *testing.T) {
-	t.Skip("BDD RED: Time-based hotspot erosion not yet implemented")
+	assert.Fail(t, "BDD RED: Time-based hotspot erosion not yet implemented")
 	// Pseudocode:
 	// hotspot := Point{X: 100, Y: 100}
 	// plate := TectonicPlate{MovementVector: {-1, 0}} // Moving west
@@ -188,7 +188,7 @@ func TestBDD_Hotspot_IslandChain(t *testing.T) {
 //	AND Atmospheric SO2 should spike
 //	AND Global temperature should decrease (volcanic winter)
 func TestBDD_FloodBasalt_DeccanTraps(t *testing.T) {
-	t.Skip("BDD RED: Flood basalt mechanics not yet implemented")
+	assert.Fail(t, "BDD RED: Flood basalt mechanics not yet implemented")
 	// Pseudocode:
 	// event := GeologicalEvent{Type: EventFloodBasalt, Severity: 0.7}
 	// result := ApplyEvent(geology, event)
@@ -302,7 +302,7 @@ func TestBDD_MagmaChamber_PressureEruption(t *testing.T) {
 //	AND Lava tube network should be extensive
 //	AND Surface should show basalt dominance
 func TestBDD_VolcanicWorld_FrequentEruptions(t *testing.T) {
-	t.Skip("BDD RED: Volcanic world eruption frequency not yet implemented")
+	assert.Fail(t, "BDD RED: Volcanic world eruption frequency not yet implemented")
 	// Pseudocode:
 	// volcanoWorld := NewWorldGeology(worldID, seed, circumference)
 	// volcanoWorld.SetComposition("volcanic")
@@ -319,7 +319,7 @@ func TestBDD_VolcanicWorld_FrequentEruptions(t *testing.T) {
 //
 //	AND Farming yields in this region should eventually exceed non-volcanic regions
 func TestBDD_Volcanism_SoilFertility(t *testing.T) {
-	t.Skip("BDD RED: Pedogenesis not yet implemented")
+	assert.Fail(t, "BDD RED: Pedogenesis not yet implemented")
 	// Pseudocode:
 	// tile := Tile{Biome: "plain", Fertility: 0.5}
 	// Erupt(tile, "ash_fall")
@@ -338,7 +338,7 @@ func TestBDD_Volcanism_SoilFertility(t *testing.T) {
 //	AND A depression (Caldera) should form at the site
 //	AND The local biome should be wiped out (Ash wasteland)
 func TestBDD_Volcanism_CalderaCollapse(t *testing.T) {
-	t.Skip("BDD RED: Terrain deformation not yet implemented")
+	assert.Fail(t, "BDD RED: Terrain deformation not yet implemented")
 	// Pseudocode:
 	// peak := Heightmap{Elevation: 3000}
 	// SuperEruption(peak)
@@ -356,7 +356,7 @@ func TestBDD_Volcanism_CalderaCollapse(t *testing.T) {
 //
 //	AND The original contents should be marked as "Buried" in the geological record
 func TestBDD_Volcanism_TerrainBurial(t *testing.T) {
-	t.Skip("BDD RED: Stratigraphy not yet implemented")
+	assert.Fail(t, "BDD RED: Stratigraphy not yet implemented")
 	// Pseudocode:
 	// tile.Features.Add("Forest")
 	// ApplyDeposit(tile, material: "tuff", depth: 20)
@@ -374,7 +374,7 @@ func TestBDD_Volcanism_TerrainBurial(t *testing.T) {
 //
 //	AND A ring of coral reef (Atoll) should remain at the surface
 func TestBDD_Volcanism_AtollFormation(t *testing.T) {
-	t.Skip("BDD RED: Island subsidence not yet implemented")
+	assert.Fail(t, "BDD RED: Island subsidence not yet implemented")
 	// Pseudocode:
 	// island := Island{Type: "volcanic", Elevation: 100, HasReef: true}
 	// SimulateSubsidence(island, years: 5_000_000)
@@ -393,7 +393,7 @@ func TestBDD_Volcanism_AtollFormation(t *testing.T) {
 //
 //	AND Global temperature should increase
 func TestBDD_Volcanism_ClimateFeedback(t *testing.T) {
-	t.Skip("BDD RED: Carbon cycle not yet implemented")
+	assert.Fail(t, "BDD RED: Carbon cycle not yet implemented")
 	// Pseudocode:
 	// atmosphere.CO2 = 200ppm
 	// TriggerEra(HighVolcanism)

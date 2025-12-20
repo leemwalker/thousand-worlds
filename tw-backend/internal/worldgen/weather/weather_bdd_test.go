@@ -241,7 +241,7 @@ func TestBDD_Weather_WindPatterns(t *testing.T) {
 //	AND Descending air at ~30° latitude should create high pressure
 //	AND Trade winds should blow toward equator
 func TestBDD_HadleyCells_EquatorialCirculation(t *testing.T) {
-	t.Skip("BDD RED: Hadley cell simulation not yet implemented - requires pressure field tracking")
+	assert.Fail(t, "BDD RED: Hadley cell simulation not yet implemented - requires pressure field tracking")
 	// Pseudocode:
 	// cells := GenerateGeographyCells(width, height, heightmap)
 	// equatorCells := filterByLatitude(cells, 0, 5) // Near equator
@@ -259,7 +259,7 @@ func TestBDD_HadleyCells_EquatorialCirculation(t *testing.T) {
 //
 //	AND Precipitation should increase dramatically over land
 func TestBDD_Monsoons_LandSeaDifferential(t *testing.T) {
-	t.Skip("BDD RED: Monsoon mechanics not yet implemented")
+	assert.Fail(t, "BDD RED: Monsoon mechanics not yet implemented")
 	// Pseudocode:
 	// continent := Region{Type: "land", Area: 10000}
 	// ocean := Region{Type: "ocean"}
@@ -278,7 +278,7 @@ func TestBDD_Monsoons_LandSeaDifferential(t *testing.T) {
 //
 //	AND Leeward side should be arid (rain shadow)
 func TestBDD_RainShadow_Orographic(t *testing.T) {
-	t.Skip("BDD RED: Rain shadow not yet implemented - requires upwind cell tracking")
+	assert.Fail(t, "BDD RED: Rain shadow not yet implemented - requires upwind cell tracking")
 	// Pseudocode:
 	// mountain := HeightmapRegion{Elevation: 3000}
 	// windward := RegionUpwind(mountain)
@@ -297,7 +297,7 @@ func TestBDD_RainShadow_Orographic(t *testing.T) {
 //	AND South American west coast receives unusual rainfall
 //	AND Western Pacific experiences drought
 func TestBDD_ENSO_Oscillations(t *testing.T) {
-	t.Skip("BDD RED: ENSO dynamics not yet implemented")
+	assert.Fail(t, "BDD RED: ENSO dynamics not yet implemented")
 	// Pseudocode:
 	// pacific := OceanBasin{Name: "Pacific"}
 	// elNino := ENSOState{TradeWindStrength: 0.3}
@@ -315,7 +315,7 @@ func TestBDD_ENSO_Oscillations(t *testing.T) {
 //
 //	AND Southern latitude (-45°) should be Winter (Cold)
 func TestBDD_Weather_Hemispheres(t *testing.T) {
-	t.Skip("BDD RED: Axial tilt logic not yet implemented - seasons are uniform currently")
+	assert.Fail(t, "BDD RED: Axial tilt logic not yet implemented - seasons are uniform currently")
 	// Pseudocode:
 	// northCell := GetCellAt(lat: 45)
 	// southCell := GetCellAt(lat: -45)
@@ -356,7 +356,7 @@ func TestBDD_WeatherState_Transitions(t *testing.T) {
 // When: Weather events are evaluated
 // Then: The correct disaster entity should spawn
 func TestBDD_Weather_Disasters(t *testing.T) {
-	t.Skip("BDD RED: Disaster factory not yet implemented")
+	assert.Fail(t, "BDD RED: Disaster factory not yet implemented")
 
 	scenarios := []struct {
 		name      string
@@ -401,7 +401,7 @@ func TestBDD_Precipitation_SnowVsRain(t *testing.T) {
 //	AND Ocean should lose water to atmosphere (Evaporation)
 //	AND Land should gain water from atmosphere (Precipitation)
 func TestBDD_Weather_WaterCycle(t *testing.T) {
-	t.Skip("BDD RED: Conservation of mass check not yet implemented")
+	assert.Fail(t, "BDD RED: Conservation of mass check not yet implemented")
 	// Pseudocode:
 	// initialMass := measureTotalWater()
 	// sim.RunYears(1)
@@ -418,7 +418,7 @@ func TestBDD_Weather_WaterCycle(t *testing.T) {
 //
 //	AND If at map edge [MaxX, 10], should appear at [0, 10] (Wrapping)
 func TestBDD_Weather_WindAdvection(t *testing.T) {
-	t.Skip("BDD RED: Fluid dynamics not yet implemented")
+	assert.Fail(t, "BDD RED: Fluid dynamics not yet implemented")
 	// Pseudocode:
 	// grid.SetWind(DirectionEast, Speed: 1)
 	// grid.SetMoisture(0, 10, 1.0) // 100% humidity at x=0
@@ -438,7 +438,7 @@ func TestBDD_Weather_WindAdvection(t *testing.T) {
 //
 //	AND Local temperature range should stabilize (Moderating effect)
 func TestBDD_Weather_BiomeFeedback(t *testing.T) {
-	t.Skip("BDD RED: Transpiration not yet implemented")
+	assert.Fail(t, "BDD RED: Transpiration not yet implemented")
 	// Pseudocode:
 	// cell := SetupCell(Desert)
 	// initialHum := cell.Humidity

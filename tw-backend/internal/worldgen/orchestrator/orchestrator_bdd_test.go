@@ -179,7 +179,7 @@ func TestBDD_Orchestrator_ContextCancellation(t *testing.T) {
 //	AND The error should be wrapped/propagated to the caller
 //	AND The world should NOT be saved as "Ready"
 func TestBDD_Orchestrator_PipelineFailure(t *testing.T) {
-	t.Skip("BDD RED: Pipeline failure injection requires dependency injection refactor - see interfaces.go proposal")
+	assert.Fail(t, "BDD RED: Pipeline failure injection requires dependency injection refactor - see interfaces.go proposal")
 
 	// Pseudocode for when DI is implemented:
 	// mockGeo := NewMockGeographyService()

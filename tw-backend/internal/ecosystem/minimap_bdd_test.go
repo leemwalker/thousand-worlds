@@ -215,7 +215,7 @@ func TestBDD_Minimap_BatchStructure(t *testing.T) {
 //
 //	AND Occluded tiles should render darker
 func TestBDD_Minimap_LineOfSight_Occlusion(t *testing.T) {
-	t.Skip("BDD RED: Horizon culling is in gamemap.Service.computeOcclusion - see service_test.go")
+	assert.Fail(t, "BDD RED: Horizon culling is in gamemap.Service.computeOcclusion - see service_test.go")
 	// Pseudocode:
 	// grid := [][]*MapTile{{playerTile, hillTile, behindHillTile}}
 	// computeOcclusion(grid, radius, playerAlt: 100, stride: 1)
@@ -231,7 +231,7 @@ func TestBDD_Minimap_LineOfSight_Occlusion(t *testing.T) {
 //
 //	AND Details should be visible at greater distance
 func TestBDD_Minimap_PerceptionRendering_High(t *testing.T) {
-	t.Skip("BDD RED: Perception-based rendering in gamemap.GetRenderQuality - see worldmap tests")
+	assert.Fail(t, "BDD RED: Perception-based rendering in gamemap.GetRenderQuality - see worldmap tests")
 	// Pseudocode:
 	// player := Character{Perception: 0.9}
 	// rendering := getRenderingMode(player)
@@ -246,7 +246,7 @@ func TestBDD_Minimap_PerceptionRendering_High(t *testing.T) {
 // When: Player moves North to [10, 11]
 // Then: The landmark should shift from the "North" cell to the "Center" cell
 func TestBDD_Minimap_MovementShift(t *testing.T) {
-	t.Skip("BDD RED: Grid centering requires full service integration test")
+	assert.Fail(t, "BDD RED: Grid centering requires full service integration test")
 	// Pseudocode:
 	// world := MockWorldWithLandmarkAt(10, 11, "Tower")
 	// player := &Character{X: 10, Y: 10}
@@ -268,7 +268,7 @@ func TestBDD_Minimap_MovementShift(t *testing.T) {
 // When: Minimap is generated with radius 2
 // Then: The Eastern-most cells should map to x=0 and x=1
 func TestBDD_Minimap_SphericalWrapping(t *testing.T) {
-	t.Skip("BDD RED: Spherical wrapping in spatial service - see spatial_service_test.go")
+	assert.Fail(t, "BDD RED: Spherical wrapping in spatial service - see spatial_service_test.go")
 	// Pseudocode:
 	// player := &Character{X: 99, Y: 50}
 	// grid := service.GenerateMinimap(player, radius: 2)
@@ -285,7 +285,7 @@ func TestBDD_Minimap_SphericalWrapping(t *testing.T) {
 // When: Player receives "Blinded" status effect (reducing perception to 0)
 // Then: The *next* render request should downgrade to ASCII or "Fog"
 func TestBDD_Minimap_StatusEffectImpact(t *testing.T) {
-	t.Skip("BDD RED: Integration with status effects not yet implemented")
+	assert.Fail(t, "BDD RED: Integration with status effects not yet implemented")
 	// Pseudocode:
 	// player.Perception = 10
 	// view1 := service.Render(player)

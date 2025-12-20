@@ -50,7 +50,7 @@ func TestBDD_WorldMap_RenderQuality(t *testing.T) {
 func TestBDD_WorldMap_WorldToGrid(t *testing.T) {
 	// Note: worldToGrid is unexported, so we test through the service
 	// This test validates the conceptual behavior verified in service tests
-	t.Skip("BDD RED: worldToGrid is unexported - covered by service_test.go integration tests")
+	assert.Fail(t, "BDD RED: worldToGrid is unexported - covered by service_test.go integration tests")
 }
 
 // -----------------------------------------------------------------------------
@@ -62,7 +62,7 @@ func TestBDD_WorldMap_WorldToGrid(t *testing.T) {
 //
 //	AND Average elevation should be calculated
 func TestBDD_WorldMap_RegionAggregation(t *testing.T) {
-	t.Skip("BDD RED: Region aggregation requires GetWorldMapData with mocked geology")
+	assert.Fail(t, "BDD RED: Region aggregation requires GetWorldMapData with mocked geology")
 	// Requires full service setup with mocked WorldGeology
 	// Pseudocode:
 	// tiles := [][]Biome{{"grassland", "grassland", "forest"}, ...}
@@ -80,7 +80,7 @@ func TestBDD_WorldMap_RegionAggregation(t *testing.T) {
 //
 //	AND Points within bounds should scale linearly
 func TestBDD_WorldMap_CoordinateMapping(t *testing.T) {
-	t.Skip("BDD RED: Spherical wrapping handled by spatial service - see spatial_service_test.go")
+	assert.Fail(t, "BDD RED: Spherical wrapping handled by spatial service - see spatial_service_test.go")
 
 	scenarios := []struct {
 		name          string
@@ -112,7 +112,7 @@ func TestBDD_WorldMap_CoordinateMapping(t *testing.T) {
 //
 //	AND The heavy aggregation logic should NOT run again
 func TestBDD_WorldMap_Caching(t *testing.T) {
-	t.Skip("BDD RED: World map caching not yet implemented")
+	assert.Fail(t, "BDD RED: World map caching not yet implemented")
 	// Pseudocode:
 	// service.GetWorldMapData(ctx, char, 64) // First call (Miss)
 	// start := time.Now()
@@ -129,7 +129,7 @@ func TestBDD_WorldMap_Caching(t *testing.T) {
 //
 //	AND The server should NOT panic
 func TestBDD_WorldMap_UninitializedState(t *testing.T) {
-	t.Skip("BDD RED: Nil checks require service instantiation with mocks")
+	assert.Fail(t, "BDD RED: Nil checks require service instantiation with mocks")
 	// Pseudocode:
 	// emptyWorldService := ...
 	// data, err := emptyWorldService.GetWorldMapData(...)
@@ -144,7 +144,7 @@ func TestBDD_WorldMap_UninitializedState(t *testing.T) {
 // When: Aggregated into a single Map Cell
 // Then: Sub-region should be split into multiple Map Cells
 func TestBDD_WorldMap_BiomeWeighting(t *testing.T) {
-	t.Skip("BDD RED: Aggregation rules not yet defined")
+	assert.Fail(t, "BDD RED: Aggregation rules not yet defined")
 	// Pseudocode:
 	// mixedRegion := []Biome{Ocean, Ocean, Mountain, Forest}
 	// cells := service.Aggregate(mixedRegion)
@@ -162,7 +162,7 @@ func TestBDD_WorldMap_BiomeWeighting(t *testing.T) {
 //
 //	OR The grid dimensions returned should be adapted (e.g., 64x32)
 func TestBDD_WorldMap_AspectRatio(t *testing.T) {
-	t.Skip("BDD RED: Aspect ratio handling not yet implemented")
+	assert.Fail(t, "BDD RED: Aspect ratio handling not yet implemented")
 	// Pseudocode:
 	// world := MockWorld{Width: 2000, Height: 1000}
 	// data, _ := service.GetWorldMapData(ctx, world, 64)
@@ -180,7 +180,7 @@ func TestBDD_WorldMap_AspectRatio(t *testing.T) {
 //	AND Grid should cover entire heightmap
 //	AND Each cell should have biome and elevation data
 func TestBDD_WorldMap_FullDisplay(t *testing.T) {
-	t.Skip("BDD RED: Full display requires service with mocked geology")
+	assert.Fail(t, "BDD RED: Full display requires service with mocked geology")
 	// Pseudocode:
 	// data, err := service.GetWorldMapData(ctx, character, 64) // 64x64 grid
 	// assert err == nil
@@ -197,7 +197,7 @@ func TestBDD_WorldMap_FullDisplay(t *testing.T) {
 //
 //	AND Smaller grids should aggregate more tiles per region
 func TestBDD_WorldMap_ZoomLevels(t *testing.T) {
-	t.Skip("BDD RED: Zoom levels require comparison of aggregation results")
+	assert.Fail(t, "BDD RED: Zoom levels require comparison of aggregation results")
 	// Pseudocode:
 	// small := GetWorldMapData(ctx, char, 32)
 	// large := GetWorldMapData(ctx, char, 128)
@@ -213,7 +213,7 @@ func TestBDD_WorldMap_ZoomLevels(t *testing.T) {
 //
 //	AND Elevation data should come from heightmap
 func TestBDD_WorldMap_GeologyIntegration(t *testing.T) {
-	t.Skip("BDD RED: Geology integration requires mocked ecosystem service")
+	assert.Fail(t, "BDD RED: Geology integration requires mocked ecosystem service")
 	// Pseudocode:
 	// geology := NewWorldGeology(worldID, seed, circumference)
 	// geology.InitializeGeology()
@@ -231,7 +231,7 @@ func TestBDD_WorldMap_GeologyIntegration(t *testing.T) {
 //
 //	AND Marker should be at correct grid cell
 func TestBDD_WorldMap_PlayerPosition(t *testing.T) {
-	t.Skip("BDD RED: Player position requires character with coordinates")
+	assert.Fail(t, "BDD RED: Player position requires character with coordinates")
 	// Pseudocode:
 	// character := &Character{X: 1000, Y: 2000}
 	// data, _ := service.GetWorldMapData(ctx, character, 64)
@@ -248,7 +248,7 @@ func TestBDD_WorldMap_PlayerPosition(t *testing.T) {
 //
 //	AND All internal maps should be initialized
 func TestBDD_WorldMap_ServiceInit(t *testing.T) {
-	t.Skip("BDD RED: Service initialization requires all dependencies - covered by service_test.go")
+	assert.Fail(t, "BDD RED: Service initialization requires all dependencies - covered by service_test.go")
 	// Pseudocode:
 	// service := NewService(worldRepo, skillsRepo, entityService, lookService, worldEntityService, ecosystemService)
 	// assert service != nil

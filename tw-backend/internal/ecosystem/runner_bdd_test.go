@@ -373,7 +373,7 @@ func TestBDD_Runner_SnapshotInterval(t *testing.T) {
 // When: Speed changed to SpeedFast (100 years/tick)
 // Then: Advancement rate should increase
 func TestBDD_Runner_SpeedChange_Effect(t *testing.T) {
-	t.Skip("BDD RED: Time-based speed comparison requires deterministic clock")
+	assert.Fail(t, "BDD RED: Time-based speed comparison requires deterministic clock")
 	// Pseudocode:
 	// runner.SetSpeed(SpeedNormal)
 	// time.Sleep(100 * time.Millisecond)
@@ -394,7 +394,7 @@ func TestBDD_Runner_SpeedChange_Effect(t *testing.T) {
 //
 //	AND State should be recoverable on restart
 func TestBDD_Runner_PersistenceOnStop(t *testing.T) {
-	t.Skip("BDD RED: Persistence test requires database setup - see runner_test.go for full test")
+	assert.Fail(t, "BDD RED: Persistence test requires database setup - see runner_test.go for full test")
 	// Pseudocode:
 	// repo := NewSimulationSnapshotRepository(db)
 	// runner := NewSimulationRunner(config, repo, nil)
@@ -417,7 +417,7 @@ func TestBDD_Runner_PersistenceOnStop(t *testing.T) {
 //
 //	AND No more, no less
 func TestBDD_Runner_DeterministicStepping(t *testing.T) {
-	t.Skip("BDD RED: Manual stepping not yet implemented - requires Step() method")
+	assert.Fail(t, "BDD RED: Manual stepping not yet implemented - requires Step() method")
 	// Pseudocode:
 	// runner := NewTestRunner() // Manual clock
 	// startYear := runner.CurrentYear
@@ -435,7 +435,7 @@ func TestBDD_Runner_DeterministicStepping(t *testing.T) {
 //	AND The runner should enter RunnerError/Paused state
 //	AND The error should be logged
 func TestBDD_Runner_PanicRecovery(t *testing.T) {
-	t.Skip("BDD RED: Panic recovery not yet implemented in runLoop")
+	assert.Fail(t, "BDD RED: Panic recovery not yet implemented in runLoop")
 	// Pseudocode:
 	// badStrategy := func() { panic("oops") }
 	// runner.SetStrategy(badStrategy)
@@ -451,7 +451,7 @@ func TestBDD_Runner_PanicRecovery(t *testing.T) {
 // When: UpdateConfig is called with SnapshotInterval = 10
 // Then: The next snapshot should trigger based on the new interval
 func TestBDD_Runner_HotConfigUpdate(t *testing.T) {
-	t.Skip("BDD RED: Hot config update not yet implemented")
+	assert.Fail(t, "BDD RED: Hot config update not yet implemented")
 	// Pseudocode:
 	// runner.Config.SnapshotInterval = 100
 	// runner.Step(50) // No snapshot
@@ -467,7 +467,7 @@ func TestBDD_Runner_HotConfigUpdate(t *testing.T) {
 // When: CheckForTurningPoint is evaluated
 // Then: The correct Turning Point Event should be returned
 func TestBDD_Runner_TurningPoints(t *testing.T) {
-	t.Skip("BDD RED: Turning point unit testing requires isolated manager - see turning_point_test.go")
+	assert.Fail(t, "BDD RED: Turning point unit testing requires isolated manager - see turning_point_test.go")
 
 	scenarios := []struct {
 		name        string

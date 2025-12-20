@@ -262,7 +262,7 @@ func TestBDD_Tectonics_DivergentRidge(t *testing.T) {
 //	AND plate count should be 0 or undefined
 //	AND heightmap should show uniform low elevation
 func TestBDD_Hadean_NoStableCrust(t *testing.T) {
-	t.Skip("BDD RED: Hadean era simulation not yet implemented - requires GeologicalAge parameter")
+	assert.Fail(t, "BDD RED: Hadean era simulation not yet implemented - requires GeologicalAge parameter")
 	// Pseudocode:
 	// params := GenerationParams{GeologicalAge: "hadean", PlateCount: 0}
 	// world := GenerateWorld(params)
@@ -280,7 +280,7 @@ func TestBDD_Hadean_NoStableCrust(t *testing.T) {
 //	AND ocean coverage should be > 90%
 //	AND plate count should be 1-3 proto-plates
 func TestBDD_Archean_FirstCratons(t *testing.T) {
-	t.Skip("BDD RED: Archean craton formation not yet implemented")
+	assert.Fail(t, "BDD RED: Archean craton formation not yet implemented")
 	// Pseudocode:
 	// plates := GeneratePlates(3, width, height, seed)
 	// assert len(plates) >= 1
@@ -297,7 +297,7 @@ func TestBDD_Archean_FirstCratons(t *testing.T) {
 //	AND continental fragmentation should approach 0.0
 //	AND interior deserts should expand (> 50% of land)
 func TestBDD_Pangaea_SupercontinentFormation(t *testing.T) {
-	t.Skip("BDD RED: Supercontinent assembly not yet implemented")
+	assert.Fail(t, "BDD RED: Supercontinent assembly not yet implemented")
 	// Pseudocode:
 	// config := ContinentalConfiguration{PangaeaIndex: 0.9}
 	// effects := config.calculateClimaticEffects()
@@ -315,7 +315,7 @@ func TestBDD_Pangaea_SupercontinentFormation(t *testing.T) {
 //	AND volcanic activity should increase at rift zone
 //	AND sea level should rise (new mid-ocean ridge displaces water)
 func TestBDD_Atlantic_ContinentalRift(t *testing.T) {
-	t.Skip("BDD RED: Continental rifting not yet implemented")
+	assert.Fail(t, "BDD RED: Continental rifting not yet implemented")
 	// Pseudocode:
 	// plates := []TectonicPlate{continental1, continental2}
 	// boundaries := SimulateTectonics(plates, width, height)
@@ -378,7 +378,7 @@ func TestBDD_Himalaya_ContinentalCollision(t *testing.T) {
 //	AND genetic drift rate should increase
 //	AND large animals should face size penalty (island dwarfism)
 func TestBDD_Fragmentation_SpeciationRate(t *testing.T) {
-	t.Skip("BDD RED: Fragmentation → speciation effects not yet implemented")
+	assert.Fail(t, "BDD RED: Fragmentation → speciation effects not yet implemented")
 	// Pseudocode:
 	// config := ContinentalConfiguration{FragmentationIndex: 0.8}
 	// effects := ApplyContinentalEffects(config, population)
@@ -396,7 +396,7 @@ func TestBDD_Fragmentation_SpeciationRate(t *testing.T) {
 //	AND Moho discontinuity should be present
 //	AND Layer sequence: sedimentary → granite → basalt → mantle
 func TestBDD_ContinentalCrust_Layers(t *testing.T) {
-	t.Skip("BDD RED: Continental crust layer generation not yet implemented in tectonics")
+	assert.Fail(t, "BDD RED: Continental crust layer generation not yet implemented in tectonics")
 	// This belongs in underground module
 	// Pseudocode:
 	// col := WorldColumn{Composition: "continental"}
@@ -417,7 +417,7 @@ func TestBDD_ContinentalCrust_Layers(t *testing.T) {
 //	AND Layer sequence: sediment → basalt → gabbro → mantle
 //	AND High cave potential in limestone zones
 func TestBDD_OceanicCrust_Layers(t *testing.T) {
-	t.Skip("BDD RED: Oceanic crust layer generation not yet implemented in tectonics")
+	assert.Fail(t, "BDD RED: Oceanic crust layer generation not yet implemented in tectonics")
 	// Pseudocode:
 	// col := WorldColumn{Composition: "oceanic"}
 	// generateStrata(col, surfaceElevation)
@@ -432,7 +432,7 @@ func TestBDD_OceanicCrust_Layers(t *testing.T) {
 // When: Stress releases (Earthquake)
 // Then: The focal depth and max magnitude should match geological physics
 func TestBDD_Tectonics_SeismicProfiles(t *testing.T) {
-	t.Skip("BDD RED: Seismic physics not yet implemented")
+	assert.Fail(t, "BDD RED: Seismic physics not yet implemented")
 
 	scenarios := []struct {
 		boundaryType  string
@@ -457,7 +457,7 @@ func TestBDD_Tectonics_SeismicProfiles(t *testing.T) {
 //	AND wave height should be proportional to vertical displacement
 //	AND coastal regions within range should be flagged for impact
 func TestBDD_Tsunami_Generation(t *testing.T) {
-	t.Skip("BDD RED: Tsunami generation from seismic events not yet implemented")
+	assert.Fail(t, "BDD RED: Tsunami generation from seismic events not yet implemented")
 	// Pseudocode:
 	// boundary := Boundary{Type: BoundaryConvergent, Submerged: true}
 	// event := boundary.TriggerEarthquake(8.5) // Megathrust event
@@ -477,7 +477,7 @@ func TestBDD_Tsunami_Generation(t *testing.T) {
 //
 //	AND Relative sea level should drop in that region
 func TestBDD_Tectonics_Isostasy(t *testing.T) {
-	t.Skip("BDD RED: Crustal buoyancy not yet implemented")
+	assert.Fail(t, "BDD RED: Crustal buoyancy not yet implemented")
 	// Pseudocode:
 	// tile := Tile{Elevation: 100, IceLoad: 5000} // Compressed
 	// tile.IceLoad = 0
@@ -497,7 +497,7 @@ func TestBDD_Tectonics_Isostasy(t *testing.T) {
 //
 //	AND The continent's edge should gain a new geological province (Terrane)
 func TestBDD_Tectonics_TerraneAccretion(t *testing.T) {
-	t.Skip("BDD RED: Accretionary wedges not yet implemented")
+	assert.Fail(t, "BDD RED: Accretionary wedges not yet implemented")
 	// Pseudocode:
 	// continent := Plate{Mass: Huge}
 	// islandArc := Plate{Mass: Small, Composition: "volcanic"}
@@ -517,7 +517,7 @@ func TestBDD_Tectonics_TerraneAccretion(t *testing.T) {
 //
 //	AND Valleys should drop in elevation (Subsidence)
 func TestBDD_Tectonics_Extension(t *testing.T) {
-	t.Skip("BDD RED: Normal faulting not yet implemented")
+	assert.Fail(t, "BDD RED: Normal faulting not yet implemented")
 	// Pseudocode:
 	// region := Region{Stress: Tension}
 	// SimulateTectonics(region)
@@ -535,7 +535,7 @@ func TestBDD_Tectonics_Extension(t *testing.T) {
 //
 //	AND The final state should be a new mountain belt (suture zone)
 func TestBDD_Tectonics_WilsonCycle(t *testing.T) {
-	t.Skip("BDD RED: Long-term tectonic loop not yet implemented")
+	assert.Fail(t, "BDD RED: Long-term tectonic loop not yet implemented")
 	// Pseudocode:
 	// history := RunLongSimulation(500_000_000)
 	// assert history.HasEvent("Rifting")
@@ -552,7 +552,7 @@ func TestBDD_Tectonics_WilsonCycle(t *testing.T) {
 //
 //	AND "Normal faults" should appear at the high peaks (gravitational collapse)
 func TestBDD_Tectonics_MountainLimits(t *testing.T) {
-	t.Skip("BDD RED: Gravitational potential limits not yet implemented")
+	assert.Fail(t, "BDD RED: Gravitational potential limits not yet implemented")
 	// Pseudocode:
 	// peak := Mountain{Height: 10000} // Unrealistic on Earth
 	// sim.TickGeology()
