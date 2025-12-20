@@ -6,9 +6,17 @@
  * 
  * WARNING: Keep in sync with Go struct definitions.
  * If backend changes, update these schemas accordingly.
+ * 
+ * Performance Note: Full validation can be CPU-intensive on mobile devices.
+ * Set DEBUG_VALIDATION=false in production for envelope-only validation.
  */
 
 import { z } from 'zod';
+
+// --- Validation Mode ---
+// In development: full schema validation for all message types
+// In production: lightweight envelope-only validation for performance
+const DEBUG_VALIDATION = import.meta.env.DEV || import.meta.env.VITE_DEBUG_VALIDATION === 'true';
 
 // --- Base Schemas ---
 
@@ -86,6 +94,12 @@ export const ServerMessageSchema = z.object({
     data: z.any(), // Specific data validated per type
 });
 
+// Lightweight envelope schema for production - validates structure only
+const EnvelopeSchema = z.object({
+    type: z.string(),
+    data: z.any(),
+});
+
 // --- Validation Helper ---
 
 export type ValidationResult = {
@@ -96,9 +110,23 @@ export type ValidationResult = {
 
 /**
  * Validates a server message and returns typed result.
+ * 
+ * In DEBUG mode (development): Full schema validation for all message types.
+ * In PRODUCTION mode: Lightweight envelope-only validation for performance.
+ * 
  * Logs warnings for invalid messages but doesn't throw.
  */
 export function validateServerMessage(message: unknown): ValidationResult {
+    // Production mode: lightweight envelope-only validation
+    if (!DEBUG_VALIDATION) {
+        const envelope = EnvelopeSchema.safeParse(message);
+        if (!envelope.success) {
+            return { valid: false, errors: ['Invalid message envelope'] };
+        }
+        return { valid: true, data: message };
+    }
+
+    // Development mode: full schema validation
     const result = ServerMessageSchema.safeParse(message);
 
     if (!result.success) {
@@ -145,3 +173,4 @@ export function validateServerMessage(message: unknown): ValidationResult {
 
     return { valid: true, data: msg };
 }
+
