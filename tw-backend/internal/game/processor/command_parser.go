@@ -226,3 +226,22 @@ func (p *CommandParser) cleanTarget(target string) string {
 
 	return strings.TrimSpace(target)
 }
+
+// SimulationConfig holds parsed simulation command arguments
+type SimulationConfig struct {
+	Years            int64
+	Epoch            string
+	Goal             string
+	WaterLevel       string
+	SimulateGeology  bool
+	SimulateLife     bool
+	SimulateDiseases bool
+}
+
+// ParseSimulationArgs parses simulation command arguments into a config struct.
+// RED STATE: Returns nil - not yet implemented. Tests should fail.
+func ParseSimulationArgs(argsStr string) *SimulationConfig {
+	// TODO: Implement proper parsing
+	// This is intentionally returning nil to fail tests (TDD Red state)
+	return nil
+}

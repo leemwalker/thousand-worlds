@@ -232,3 +232,55 @@ func distance3D(a, b Vector3) float64 {
 	dz := a.Z - b.Z
 	return math.Sqrt(dx*dx + dy*dy + dz*dz)
 }
+
+// SimulateFossilFormation buries organic matter and creates fossil deposits over time.
+// RED STATE: Returns 0 - not yet implemented.
+func SimulateFossilFormation(columns *ColumnGrid, deadOrganism Deposit, years int64) int {
+	// TODO: Implement fossilization
+	// Should check for proper burial conditions
+	// Fossils form over 10k+ years
+	return 0
+}
+
+// SimulateOilFormation converts ancient organic deposits into oil over geological time.
+// RED STATE: Returns nil - not yet implemented.
+func SimulateOilFormation(columns *ColumnGrid, years int64) []*Deposit {
+	// TODO: Implement oil formation
+	// Requires organic source, heat (depth), and cap rock
+	// Takes millions of years
+	return nil
+}
+
+// CalculateRoofStability assesses cave roof collapse probability.
+// RED STATE: Returns 0 - not yet implemented.
+func CalculateRoofStability(cave *Cave, nodeID uuid.UUID) float64 {
+	// TODO: Implement stability calculation
+	// Depends on span, rock type, and support pillars
+	// Returns 0.0 (unstable) to 1.0 (stable)
+	return 0
+}
+
+// SimulateRockCycle transforms rock types over geological time.
+// RED STATE: Returns 0 - not yet implemented.
+func SimulateRockCycle(columns *ColumnGrid, years int64, temperature, pressure float64) int {
+	// TODO: Implement rock cycle
+	// Sedimentary -> Metamorphic with heat/pressure
+	// Returns number of transformed strata
+	return 0
+}
+
+// SimulateBurrowCreation allows creatures to create tunnels.
+// RED STATE: Returns nil - not yet implemented.
+func SimulateBurrowCreation(col *WorldColumn, depth float64, toolStrength float64) *VoidSpace {
+	// TODO: Implement burrow creation
+	// Should check tool strength vs rock hardness
+	return nil
+}
+
+// PunctureAquifer simulates breaching an underground water source.
+// RED STATE: Returns 0 - not yet implemented.
+func PunctureAquifer(col *WorldColumn, depth float64) float64 {
+	// TODO: Implement aquifer puncture
+	// Should return water flow rate based on porosity
+	return 0
+}

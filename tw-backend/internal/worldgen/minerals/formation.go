@@ -88,3 +88,56 @@ func CalculateDepositDepth(mineralType MineralType, context *TectonicContext, ep
 
 	return depth
 }
+
+// Point represents a 2D coordinate (for placer deposit river locations)
+type Point struct {
+	X, Y float64
+}
+
+// GenerateBIFDeposits generates Banded Iron Formation deposits at ancient oceanic locations.
+// BIF forms when rising O2 precipitates dissolved iron (Great Oxygenation Event).
+// RED STATE: Returns nil - not yet implemented.
+func GenerateBIFDeposits(oceanLocations []Point, oxygenSpike float64) []*MineralDeposit {
+	// TODO: Implement BIF formation
+	// Higher oxygenSpike should create more deposits
+	// Deposits should contain alternating chert and hematite layers
+	return nil
+}
+
+// GeneratePlacerDeposits generates alluvial deposits along river paths.
+// Gold and heavy minerals accumulate at river bends through erosion.
+// RED STATE: Returns nil - not yet implemented.
+func GeneratePlacerDeposits(riverPaths [][]Point, mineralType string, erosionRate float64) []*MineralDeposit {
+	// TODO: Implement placer formation
+	// Deposits should form at bend in river paths
+	// Concentration should increase downstream
+	return nil
+}
+
+// GenerateHydrothermalDeposits creates sulfide deposits at ocean ridges.
+// RED STATE: Returns nil - not yet implemented.
+func GenerateHydrothermalDeposits(ridgeLocations []Point) []*MineralDeposit {
+	// TODO: Implement hydrothermal vent deposits
+	// Should contain copper, zinc, and gold
+	return nil
+}
+
+// GenerateKimberlitePipe creates diamond-bearing volcanic pipes.
+// Only forms in ancient cratons with deep mantle eruptions.
+// RED STATE: Returns nil - not yet implemented.
+func GenerateKimberlitePipe(cratonAge float64, depth float64) *MineralDeposit {
+	// TODO: Implement kimberlite pipe formation
+	// Craton must be > 2.5B years old
+	// Depth must be > 150km for diamond stability
+	return nil
+}
+
+// ExtractResource extracts minerals from a deposit, reducing its quantity.
+// Returns the amount actually extracted.
+// RED STATE: Returns 0 - not yet implemented.
+func ExtractResource(deposit *MineralDeposit, amount int) int {
+	// TODO: Implement extraction logic
+	// Should respect tool hardness requirements
+	// Should reduce deposit.Quantity
+	return 0
+}

@@ -129,3 +129,38 @@ func DetermineFavoredTraits(
 
 	return favored
 }
+
+// ExtinctionEvent represents a catastrophic event that affects species survival
+type ExtinctionEvent struct {
+	Type     string  // "asteroid", "volcano", "ice_age", etc.
+	Severity float64 // 0.0 to 1.0
+}
+
+// CalculateO2Effects returns the effects of atmospheric oxygen level on arthropod size limits.
+// Higher O2 allows larger arthropods (Carboniferous period).
+// RED STATE: Returns zero values - not yet implemented.
+func CalculateO2Effects(o2Level, co2Level float64) (maxArthropodSize float64, sizeMultiplier float64) {
+	// TODO: Implement O2-size relationship
+	// High O2 (35%+) should allow giant arthropods (size >= 3.0)
+	// Current O2 (21%) should limit to ~0.5
+	return 0, 0
+}
+
+// ApplyExtinctionEvent applies a mass extinction event to a set of species.
+// Returns the number of species that went extinct.
+// RED STATE: Returns 0 - not yet implemented.
+func ApplyExtinctionEvent(species []*Species, event ExtinctionEvent) int {
+	// TODO: Implement extinction logic
+	// Severity 0.9 should kill 75%+ of species
+	// Large animals (size > 5) suffer more
+	return 0
+}
+
+// SimulateCambrianExplosion simulates rapid diversification when O2 > 10%.
+// Returns the number of new species created.
+// RED STATE: Returns 0 - not yet implemented.
+func SimulateCambrianExplosion(species []*Species, o2Level float64, years int64) int {
+	// TODO: Implement Cambrian explosion
+	// Should increase species count 10x or more over 50M years
+	return 0
+}

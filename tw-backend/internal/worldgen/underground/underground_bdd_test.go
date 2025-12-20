@@ -1,283 +1,296 @@
 package underground_test
 
-import "testing"
+import (
+	"testing"
+
+	"tw-backend/internal/worldgen/underground"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
 
 // =============================================================================
-// BDD Test Stubs: Underground System
+// BDD Tests: Underground System
 // =============================================================================
+// These tests verify underground geological features including caves,
+// strata, fossils, and mining mechanics.
 
 // -----------------------------------------------------------------------------
-// Scenario: Karst Topography - Limestone Dissolution
+// Scenario: Karst Topography (Limestone Dissolution)
 // -----------------------------------------------------------------------------
-// Given: Limestone strata with porosity > 0.25
-// When: High rainfall (1.0) for 100,000 years
-// Then: Cave network should form
+// Given: Area with thick limestone strata
+// When: High rainfall + CO2 over millions of years
+// Then: Karst caves should form
 //
-//	AND Cave chambers should be interconnected
-//	AND Dissolution rate should follow CO2 + H2O → H2CO3 chemistry
+//	AND Caves should have connected chambers
 func TestBDD_Karst_LimestoneDissolution(t *testing.T) {
-	t.Skip("BDD stub: implement karst cave formation")
-	// Pseudocode:
-	// col := &WorldColumn{}
-	// col.AddStratum("limestone", surface-10, surface-300, 5, 100000, 0.3)
-	// rainfall := []float64{1.0} // High rainfall
-	// caves := SimulateCaveFormation(grid, rainfall, 100_000, seed, config)
-	// assert len(caves) > 0
-	// assert caves[0].NodesCount > 3
+	// Create column grid with limestone
+	grid := underground.NewColumnGrid(10, 10)
+	col := grid.Get(5, 5)
+	require.NotNil(t, col, "Column should exist")
+
+	// Add thick limestone layer
+	col.Strata = []underground.StrataLayer{
+		{TopZ: 0, BottomZ: -100, Material: "limestone", Hardness: 3.0, Porosity: 0.3},
+	}
+	col.Surface = 0
+
+	// Simulate with high rainfall
+	rainfall := make([]float64, 100)
+	for i := range rainfall {
+		rainfall[i] = 0.8 // High rainfall
+	}
+
+	config := underground.DefaultCaveConfig()
+	config.DissolutionRate = 0.01 // Increased for testing
+
+	caves := underground.SimulateCaveFormation(grid, rainfall, 1_000_000, 42, config)
+
+	assert.Greater(t, len(caves), 0, "Should form at least one karst cave")
+	if len(caves) > 0 {
+		assert.Equal(t, "karst", caves[0].CaveType, "Cave should be karst type")
+	}
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Strata by Composition - Volcanic
+// Scenario: Strata Composition (Table-Driven)
 // -----------------------------------------------------------------------------
-// Given: A volcanic world composition
-// When: Column strata are generated
-// Then: Layer sequence should be soil → basalt → gabbro → mantle
-//
-//	AND Porosity should be low (< 0.15)
-//	AND Cave potential should be minimal
-func TestBDD_Strata_VolcanicComposition(t *testing.T) {
-	t.Skip("BDD stub: implement volcanic strata generation")
-	// Pseudocode:
-	// col := &WorldColumn{}
-	// generateVolcanicStrata(col, surface)
-	// assert col.Strata[0].Material == "soil"
-	// assert col.Strata[1].Material == "basalt"
-	// assert col.Strata[2].Material == "gabbro"
-	// assert col.AveragePorosity() < 0.15
-}
+// Given: Various geological contexts
+// When: Strata are generated
+// Then: Layer composition should match expectations
+func TestBDD_Strata_Composition(t *testing.T) {
+	scenarios := []struct {
+		name           string
+		isVolcanic     bool
+		isAncient      bool
+		expectMaterial string // Expected primary material
+	}{
+		{"Volcanic region", true, false, "basalt"},
+		{"Ancient craton", false, true, "granite"},
+		{"Sedimentary basin", false, false, "sandstone"},
+	}
 
-// -----------------------------------------------------------------------------
-// Scenario: Strata by Composition - Ancient
-// -----------------------------------------------------------------------------
-// Given: An ancient world composition
-// When: Column strata are generated
-// Then: Layer sequence should include metamorphic (schist)
-//
-//	AND Mineral richness should be high
-//	AND Fossils should be at greater depths
-func TestBDD_Strata_AncientComposition(t *testing.T) {
-	t.Skip("BDD stub: implement ancient strata generation")
-	// Pseudocode:
-	// col := &WorldColumn{}
-	// generateAncientStrata(col, surface)
-	// assert containsMaterial(col.Strata, "schist")
-	// assert containsMaterial(col.Strata, "granite")
-	// assert col.MineralRichness() > 0.7
+	for _, sc := range scenarios {
+		t.Run(sc.name, func(t *testing.T) {
+			// Strata generation based on context not yet implemented
+			t.Logf("Strata composition requires GenerateStrataForContext function")
+			assert.Fail(t, "Strata composition based on context not yet implemented")
+		})
+	}
 }
 
 // -----------------------------------------------------------------------------
 // Scenario: Fossil Formation Timeline
 // -----------------------------------------------------------------------------
-// Given: Organic remains buried at 10m depth
-// When: 100,000 years pass
-// Then: Remains should transition: remains → mineralizing → fossil
+// Given: Dead organism buried in sediment
+// When: 10,000+ years pass with proper conditions
+// Then: Fossil deposit should form
 //
-//	AND Fossil should be discoverable
-//	AND Original species should be recorded
+//	AND Fossil should retain species info
 func TestBDD_Fossil_FormationTimeline(t *testing.T) {
-	t.Skip("BDD stub: implement fossil formation")
-	// Pseudocode:
-	// deposit := CreateOrganicDeposit(col, "dinosaur", 10, 100) // depth 10m
-	// SimulateDepositEvolution(grid, 100_000, config, rainfall, seed)
-	// assert deposit.Type == "fossil"
-	// assert deposit.Discovered == false
-	// assert deposit.Source.Species == "dinosaur"
+	grid := underground.NewColumnGrid(10, 10)
+	col := grid.Get(5, 5)
+	require.NotNil(t, col, "Column should exist")
+
+	// Create organic deposit representing dead organism
+	deadOrganism := underground.Deposit{
+		ID:       uuid.New(),
+		Type:     "organic",
+		DepthZ:   -10,
+		Quantity: 100,
+		Source: &underground.OrganicSource{
+			OriginalEntityID: uuid.New(),
+			Species:          "Trilobite",
+			DeathYear:        0,
+			BurialYear:       0,
+		},
+	}
+
+	fossilCount := underground.SimulateFossilFormation(grid, deadOrganism, 100_000)
+
+	assert.Greater(t, fossilCount, 0, "Should form at least one fossil deposit")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Oil Formation Timeline
+// Scenario: Oil Formation (Deep Burial + Heat)
 // -----------------------------------------------------------------------------
-// Given: Organic deposits buried at 3km depth
-// When: Temperature exceeds 100°C and 5M years pass
-// Then: Organic matter should transform to oil
+// Given: Ancient organic deposits (algae/plankton)
+// When: Buried deep with heat + cap rock
+// Then: Oil deposits should form
 //
-//	AND Only oil-producing species should qualify (fish, plankton, algae)
-func TestBDD_Oil_FormationTimeline(t *testing.T) {
-	t.Skip("BDD stub: implement oil formation")
-	// Pseudocode:
-	// deposit := CreateOrganicDeposit(col, "plankton", 3000, 1000) // 3km depth
-	// SimulateDepositEvolution(grid, 5_000_000, config, rainfall, seed)
-	// assert deposit.Type == "oil"
-	// Only fish, whale, plankton, algae, dinosaur, mammoth produce oil
+//	AND Oil should be trapped under impermeable layer
+func TestBDD_Oil_Formation(t *testing.T) {
+	grid := underground.NewColumnGrid(10, 10)
+	col := grid.Get(5, 5)
+	require.NotNil(t, col, "Column should exist")
+
+	// Setup organic source and cap rock
+	col.Strata = []underground.StrataLayer{
+		{TopZ: 0, BottomZ: -100, Material: "shale", Hardness: 4.0, Porosity: 0.05}, // Cap rock
+		{TopZ: -100, BottomZ: -500, Material: "sandstone", Hardness: 5.0, Porosity: 0.2},
+	}
+	col.Resources = []underground.Deposit{
+		{ID: uuid.New(), Type: "organic", DepthZ: -200, Quantity: 1000},
+	}
+
+	oilDeposits := underground.SimulateOilFormation(grid, 100_000_000) // 100M years
+
+	require.NotNil(t, oilDeposits, "Should generate oil deposits, not nil")
+	assert.Greater(t, len(oilDeposits), 0, "Should form at least one oil deposit")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Mining - Hardness Requirements
+// Scenario: Mining Hardness Requirement
 // -----------------------------------------------------------------------------
-// Given: Granite stratum (hardness 8)
-// When: Player attempts to mine with stone pick (max hardness 4)
-// Then: Mining should fail
+// Given: Rock with hardness 7 (granite)
+// When: Mining with tool strength 5
+// Then: Mining should fail or be extremely slow
 //
-//	AND Error should indicate tool too weak
+//	AND Should require tool strength >= rock hardness
 func TestBDD_Mining_HardnessRequirement(t *testing.T) {
-	t.Skip("BDD stub: implement mining hardness check")
-	// Pseudocode:
-	// col := &WorldColumn{}
-	// col.AddStratum("granite", surface-10, surface-100, 8, 1000000, 0.05)
-	// result := Mine(col, 50, StonePick, false)
-	// assert result.Success == false
-	// assert result.Error == "tool hardness insufficient"
+	t.Log("Mining hardness checks require CalculateMiningSpeed function")
+	assert.Fail(t, "Mining hardness requirement not yet implemented")
 }
 
 // -----------------------------------------------------------------------------
 // Scenario: Burrow Creation
 // -----------------------------------------------------------------------------
-// Given: Soft stratum (hardness <= 3)
-// When: Creature creates burrow with 3 chambers
-// Then: Burrow void should be registered
+// Given: Creature with digging ability
+// When: Creating tunnel in soft soil
+// Then: Void space should be created
 //
-//	AND Chambers should be at specified depths
-//	AND Owner ID should be recorded
+//	AND Should fail in rock without proper tools
 func TestBDD_Burrow_Creation(t *testing.T) {
-	t.Skip("BDD stub: implement burrow creation")
-	// Pseudocode:
-	// col := &WorldColumn{}
-	// col.AddStratum("soil", surface, surface-10, 2, 0, 0.4)
-	// burrow, err := CreateBurrow(col, ownerID, entrance, 5, 3)
-	// assert err == nil
-	// assert len(burrow.Chambers) == 3
-}
-
-// -----------------------------------------------------------------------------
-// Scenario: The Rock Cycle (Metamorphism)
-// -----------------------------------------------------------------------------
-// Given: A specific rock type subjected to Heat and Pressure
-// When: Metamorphism occurs
-// Then: It should transform into its metamorphic counterpart
-func TestBDD_Geology_RockCycle(t *testing.T) {
-	t.Skip("BDD stub: implement rock cycle lookup")
-
-	scenarios := []struct {
-		inputRock    string
-		heat         float64 // 0.0 - 1.0
-		pressure     float64 // 0.0 - 1.0
-		expectedRock string
-	}{
-		{"limestone", 0.5, 0.5, "marble"},
-		{"shale", 0.3, 0.3, "slate"},
-		{"slate", 0.6, 0.6, "schist"},
-		{"schist", 0.8, 0.8, "gneiss"},
-		{"sandstone", 0.5, 0.5, "quartzite"},
-		{"granite", 0.7, 0.4, "gneiss"}, // Orthogneiss
-		{"peat", 0.2, 0.2, "lignite"},   // Coal cycle
+	col := &underground.WorldColumn{
+		X: 5, Y: 5,
+		Surface: 0,
+		Strata: []underground.StrataLayer{
+			{TopZ: 0, BottomZ: -10, Material: "soil", Hardness: 1.0, Porosity: 0.5},
+		},
 	}
-	_ = scenarios // For BDD stub - will be used when implemented
+
+	// Creature attempts to burrow
+	burrow := underground.SimulateBurrowCreation(col, -5, 2.0) // Tool strength 2
+
+	require.NotNil(t, burrow, "Burrow should be created in soft soil")
+	assert.Equal(t, "burrow", burrow.VoidType, "Should be a burrow type void")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Magic - Ley Line Nodes
+// Scenario: Rock Cycle (Metamorphism)
 // -----------------------------------------------------------------------------
-// Given: A magic-enabled world
-// When: Underground is initialized
-// Then: Ley line nodes should spawn at power concentrations
+// Given: Sedimentary rock under high heat/pressure
+// When: Tectonic forces apply
+// Then: Rock should transform to metamorphic type
 //
-//	AND Mana veins should connect nodes
-//	AND Ethereal pockets may form at intersections
-func TestBDD_Magic_LeyLineNodes(t *testing.T) {
-	t.Skip("BDD stub: implement magical underground features")
-	// Pseudocode:
-	// config := UndergoundConfig{MagicEnabled: true, ManaLevel: 0.8}
-	// grid := InitializeMagicUnderground(width, height, config)
-	// leyNodes := grid.GetLeyLineNodes()
-	// assert len(leyNodes) > 0
-	// assert leyNodes[0].PowerLevel > 0.5
+//	AND Limestone -> Marble, Sandstone -> Quartzite
+func TestBDD_RockCycle_Metamorphism(t *testing.T) {
+	grid := underground.NewColumnGrid(10, 10)
+	col := grid.Get(5, 5)
+	require.NotNil(t, col, "Column should exist")
+
+	col.Strata = []underground.StrataLayer{
+		{TopZ: -500, BottomZ: -1000, Material: "limestone", Hardness: 3.0, Porosity: 0.2},
+	}
+
+	// Apply high temperature and pressure
+	transformed := underground.SimulateRockCycle(grid, 10_000_000, 600, 200) // 600°C, 200 MPa
+
+	assert.Greater(t, transformed, 0, "Should transform at least one stratum")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Sedimentary Deposition (Particle Sorting)
+// Scenario: Ley Line Nodes
 // -----------------------------------------------------------------------------
-// Given: A region acting as a deposition basin (e.g., river delta or ocean floor)
-// When: Sediment accumulates over time based on water energy
-// Then: Rock type should match particle size
+// Given: Underground intersection of ley lines
+// When: Magical energy accumulates
+// Then: Ley line node should form
 //
-//	AND Fast water -> Conglomerate/Breccia
-//	AND Slow water -> Sandstone
-//	AND Still water -> Shale/Siltstone
-func TestBDD_Geology_Sedimentation(t *testing.T) {
-	t.Skip("BDD stub: implement particle sorting")
-	// Pseudocode:
-	// delta := Environment{WaterSpeed: High}
-	// deepSea := Environment{WaterSpeed: Zero}
-
-	// layer1 := FormSedimentaryLayer(delta, time: 1000)
-	// assert layer1.Type == "conglomerate"
-
-	// layer2 := FormSedimentaryLayer(deepSea, time: 1000)
-	// assert layer2.Type == "shale"
+//	AND Node should have magical properties
+func TestBDD_LeyLine_Nodes(t *testing.T) {
+	t.Log("Ley line node formation requires magical system integration")
+	assert.Fail(t, "Ley line nodes not yet implemented")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Confined Aquifer Puncture
+// Scenario: Sedimentary Deposition
 // -----------------------------------------------------------------------------
-// Given: A porous Sandstone layer sandwiched between impermeable Shale layers
-// When: A player mines into the Sandstone
-// Then: A "Flash Flood" event should trigger
+// Given: River delta or lake bottom
+// When: Sediments accumulate over time
+// Then: New sedimentary strata should form
 //
-//	AND The tunnel should fill with water
-func TestBDD_Underground_Aquifer(t *testing.T) {
-	t.Skip("BDD stub: implement hydrology")
-	// Pseudocode:
-	// col := SetupStratigraphy("shale", "sandstone", "shale") // Sandstone is saturated
-	// col.Layers[1].WaterSaturation = 1.0
-
-	// event := Mine(col, depthOfSandstone)
-	// assert event.Type == "flood_start"
-	// assert event.WaterVolume > 1000
+//	AND New layers should be on top of existing
+func TestBDD_Sediment_Deposition(t *testing.T) {
+	t.Log("Sedimentary deposition requires erosion/deposition simulation")
+	assert.Fail(t, "Sedimentary deposition not yet implemented")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Tectonic Faulting (Layer Discontinuity)
+// Scenario: Aquifer Puncture
 // -----------------------------------------------------------------------------
-// Given: A continuous coal seam at depth 50m
-// When: A "Normal Fault" event occurs with a slip of 10m
-// Then: The seam should be offset
+// Given: Underground water table
+// When: Mining breaks through to aquifer
+// Then: Water should flood the mine
 //
-//	AND On one side of the fault, coal is at 50m; on the other, at 60m
-func TestBDD_Geology_FaultLines(t *testing.T) {
-	t.Skip("BDD stub: implement fault mechanics")
-	// Pseudocode:
-	// region := GenerateRegion(width: 100)
-	// region.AddLayer("coal", depth: 50)
-	// ApplyFault(region, x: 50, slip: 10, type: "normal")
+//	AND Flow rate should depend on porosity
+func TestBDD_Aquifer_Puncture(t *testing.T) {
+	col := &underground.WorldColumn{
+		X: 5, Y: 5,
+		Surface: 0,
+		Strata: []underground.StrataLayer{
+			{TopZ: 0, BottomZ: -50, Material: "sandstone", Hardness: 5.0, Porosity: 0.3},
+		},
+	}
 
-	// colLeft := region.GetColumn(49)
-	// colRight := region.GetColumn(51)
+	flowRate := underground.PunctureAquifer(col, -30)
 
-	// assert colLeft.GetLayer("coal").Depth == 50
-	// assert colRight.GetLayer("coal").Depth == 60 // The slip
+	assert.Greater(t, flowRate, 0.0, "Should return positive water flow rate")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Geode Formation in Volcanic Rock
+// Scenario: Tectonic Faulting
 // -----------------------------------------------------------------------------
-// Given: A Basalt layer formed with high gas content (vesicular)
-// When: Mineral-rich groundwater percolates for geological time
-// Then: Gas cavities should fill with crystals (Quartz/Amethyst)
+// Given: Strata layers at fault line
+// When: Earthquake occurs
+// Then: Layers should shift vertically
 //
-//	AND These should be distinct harvestable nodes
-func TestBDD_Minerals_Geodes(t *testing.T) {
-	t.Skip("BDD stub: implement secondary mineralization")
-	// Pseudocode:
-	// layer := Layer{Type: "basalt", Vesicularity: High}
-	// SimulateGroundwater(layer, minerals: "silica", time: 1M_years)
-
-	// geodes := layer.FindResources("geode")
-	// assert len(geodes) > 0
-	// assert geodes[0].Contains == "amethyst"
+//	AND Cave passages may collapse or open
+func TestBDD_Tectonic_Faulting(t *testing.T) {
+	t.Log("Tectonic faulting requires fault simulation")
+	assert.Fail(t, "Tectonic faulting not yet implemented")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Roof Stability and Collapse
+// Scenario: Geode Formation
 // -----------------------------------------------------------------------------
-// Given: A tunnel dug in loose Unconsolidated Sediment
-// When: No structural supports are placed within X ticks
-// Then: A "Cave In" event should trigger
+// Given: Volcanic void with mineral-rich water
+// When: Slow crystallization over millions of years
+// Then: Geode deposit should form
 //
-//	AND The tile should revert to "filled"
-func TestBDD_Mining_Stability(t *testing.T) {
-	t.Skip("BDD stub: implement physics engine")
-	// Pseudocode:
-	// tunnel := MineTunnel(Material: "gravel")
-	// sim.Tick(10)
-	// assert tunnel.HasCollapsed == true
+//	AND Should contain crystal minerals
+func TestBDD_Geode_Formation(t *testing.T) {
+	t.Log("Geode formation requires volcanic void + crystallization")
+	assert.Fail(t, "Geode formation not yet implemented")
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Roof Stability / Collapse
+// -----------------------------------------------------------------------------
+// Given: Cave with large unsupported span
+// When: Roof stability calculated
+// Then: Low stability areas should be identified
+//
+//	AND Collapse risk should increase with span
+func TestBDD_Roof_Stability(t *testing.T) {
+	cave := underground.NewCave("karst", 0)
+
+	// Add large chamber
+	largePos := underground.Vector3{X: 50, Y: 50, Z: -100}
+	nodeID := cave.AddNode(largePos, 30.0, 20.0) // Very large: 30m radius, 20m high
+
+	stability := underground.CalculateRoofStability(cave, nodeID)
+
+	assert.Greater(t, stability, 0.0, "Should return positive stability value")
+	assert.Less(t, stability, 0.5, "Large unsupported span should have low stability")
 }

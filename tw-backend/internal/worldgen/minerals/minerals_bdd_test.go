@@ -1,257 +1,269 @@
 package minerals_test
 
-import "testing"
+import (
+	"testing"
+
+	"tw-backend/internal/worldgen/minerals"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
 
 // =============================================================================
-// BDD Test Stubs: Minerals
+// BDD Tests: Mineral Formation and Mining
 // =============================================================================
+// These tests verify mineral deposit generation and resource extraction.
 
 // -----------------------------------------------------------------------------
-// Scenario: Banded Iron Formations
+// Scenario: Banded Iron Formation (Great Oxygenation Event)
 // -----------------------------------------------------------------------------
-// Given: Archean ocean with dissolved iron
-// When: Oxygen levels rise (Great Oxygenation Event)
-// Then: Iron precipitates as banded iron formations (BIF)
+// Given: Ancient ocean with rising O2 (oxygenSpike > 0.1)
+// When: BIF generation is triggered
+// Then: Iron deposits should form at ocean floor
 //
-//	AND BIF deposits should be at ancient oceanic locations
-//	AND Deposit quantity should correlate with oxygen spike
+//	AND Deposits should have alternating layers
 func TestBDD_BandedIron_OxygenPrecipitation(t *testing.T) {
-	t.Skip("BDD stub: implement banded iron formation")
-	// Pseudocode:
-	// atmo := Atmosphere{O2Level: 0.01}
-	// atmo.UpdateOxygen(floraBiomass: 1000, faunaBiomass: 0, volcanicActivity: 0)
-	// assert atmo.O2Level > 0.05
-	// deposits := GenerateBIFDeposits(oceanLocations, oxygenSpike)
-	// assert len(deposits) > 0
-	// assert deposits[0].Type == "iron"
-	// assert containsLayer(deposit, "chert") && containsLayer(deposit, "hematite")
+	oceanLocations := []minerals.Point{
+		{X: 100, Y: 200},
+		{X: 150, Y: 250},
+		{X: 200, Y: 300},
+	}
+
+	deposits := minerals.GenerateBIFDeposits(oceanLocations, 0.15)
+
+	require.NotNil(t, deposits, "BIF deposits should be generated, not nil")
+	assert.Greater(t, len(deposits), 0, "Should generate at least one deposit")
 }
 
 // -----------------------------------------------------------------------------
 // Scenario: Placer Deposits (Alluvial Gold)
 // -----------------------------------------------------------------------------
-// Given: Gold-bearing rock upstream
-// When: Erosion and river transport occur
+// Given: River system with gold-bearing source rocks
+// When: 10 million years of erosion occur
 // Then: Gold placer deposits should form at river bends
 //
-//	AND Deposit concentration should increase downstream
+//	AND Concentration should increase downstream
 func TestBDD_Placer_AlluvialGold(t *testing.T) {
-	t.Skip("BDD stub: implement placer deposit formation")
-	// Pseudocode:
-	// rivers := GenerateRivers(heightmap, seaLevel, seed)
-	// placers := GeneratePlacerDeposits(rivers, "gold", erosionRate)
-	// assert len(placers) > 0
-	// assert placers are near river paths
+	// River path with bends
+	riverPath := [][]minerals.Point{
+		{{X: 0, Y: 0}, {X: 10, Y: 5}, {X: 20, Y: 3}, {X: 30, Y: 8}},
+	}
+
+	deposits := minerals.GeneratePlacerDeposits(riverPath, "gold", 0.8)
+
+	require.NotNil(t, deposits, "Placer deposits should be generated, not nil")
+	assert.Greater(t, len(deposits), 0, "Should generate at least one placer deposit")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Hydrothermal Vents (Sulfide Chimneys)
+// Scenario: Hydrothermal Vents (Black Smokers)
 // -----------------------------------------------------------------------------
-// Given: Mid-ocean ridge (divergent boundary)
-// When: Magma heats seawater
-// Then: Sulfide mineral deposits should form
+// Given: Mid-ocean ridge with active volcanism
+// When: Hydrothermal deposit generation triggered
+// Then: Sulfide deposits should form near vents
 //
-//	AND Copper, zinc, and gold should precipitate
-//	AND Deposits should cluster at vent locations
-func TestBDD_Hydrothermal_SulfideChimneys(t *testing.T) {
-	t.Skip("BDD stub: implement hydrothermal vent deposits")
-	// Pseudocode:
-	// boundary := TectonicBoundary{Type: Divergent, IsOceanic: true}
-	// vents := GenerateHydrothermalVents(boundary)
-	// deposits := GenerateVentDeposits(vents)
-	// assert containsType(deposits, "copper")
-	// assert containsType(deposits, "zinc")
+//	AND Should contain copper, zinc, and gold
+func TestBDD_Hydrothermal_BlackSmoker(t *testing.T) {
+	ridgeLocations := []minerals.Point{
+		{X: 500, Y: 600},
+		{X: 510, Y: 610},
+	}
+
+	deposits := minerals.GenerateHydrothermalDeposits(ridgeLocations)
+
+	require.NotNil(t, deposits, "Hydrothermal deposits should be generated, not nil")
+	assert.Greater(t, len(deposits), 0, "Should generate at least one hydrothermal deposit")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Kimberlite Pipes (Diamond Formation)
+// Scenario: Kimberlite Pipe (Diamond Formation)
 // -----------------------------------------------------------------------------
-// Given: Ancient cratonic lithosphere (> 2.5B years)
-// When: Deep mantle eruption occurs (kimberlite)
-// Then: Diamond-bearing pipe should form
+// Given: Ancient craton (2.5+ billion years old)
+// When: Deep mantle eruption (150+ km depth)
+// Then: Diamond-bearing kimberlite pipe should form
 //
-//	AND Diamonds should only form under extreme pressure (> 150km depth)
-//	AND Pipe should punch through to surface rapidly
-func TestBDD_Kimberlite_DiamondPipes(t *testing.T) {
-	t.Skip("BDD stub: implement kimberlite pipe formation")
-	// Pseudocode:
-	// craton := ContinentalCrust{Age: 2_500_000_000}
-	// eruption := DeepMantleEruption(craton, depth: 200000)
-	// pipe := GenerateKimberlitePipe(eruption)
-	// assert pipe.ContainsDiamonds == true
-	// assert pipe.EruptionVelocity > 10 // km/hour (explosive)
+//	AND Diamonds should be present in deposit
+func TestBDD_Kimberlite_DiamondPipe(t *testing.T) {
+	cratonAge := 2.8 // Billion years old (old enough)
+	depth := 180.0   // km (deep enough for diamond stability)
+
+	deposit := minerals.GenerateKimberlitePipe(cratonAge, depth)
+
+	require.NotNil(t, deposit, "Kimberlite pipe should be generated, not nil")
+	assert.Equal(t, "Diamond", deposit.MineralType.Name, "Kimberlite pipe should contain diamonds")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Ore Vein Discovery
+// Scenario: Kimberlite Requirements (Table-Driven)
 // -----------------------------------------------------------------------------
-// Given: Iron ore vein at depth 50m
-// When: Player mines adjacent blocks
-// Then: Vein should be marked as discovered
+// Given: Various craton ages and eruption depths
+// When: Kimberlite generation attempted
+// Then: Only correct combinations should produce diamonds
+func TestBDD_Kimberlite_Requirements(t *testing.T) {
+	scenarios := []struct {
+		name       string
+		cratonAge  float64 // Billion years
+		depth      float64 // km
+		expectDest bool    // Should produce deposit
+	}{
+		{"Old craton, deep eruption", 2.8, 180, true},       // Should work
+		{"Young craton, deep eruption", 0.5, 180, false},    // Too young
+		{"Old craton, shallow eruption", 2.8, 100, false},   // Too shallow
+		{"Young craton, shallow eruption", 0.5, 100, false}, // Both wrong
+	}
+
+	for _, sc := range scenarios {
+		t.Run(sc.name, func(t *testing.T) {
+			deposit := minerals.GenerateKimberlitePipe(sc.cratonAge, sc.depth)
+
+			if sc.expectDest {
+				require.NotNil(t, deposit, "Should generate kimberlite pipe")
+			} else {
+				assert.Nil(t, deposit, "Should NOT generate kimberlite pipe")
+			}
+		})
+	}
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Mining Extraction - Basic
+// -----------------------------------------------------------------------------
+// Given: A discovered ore deposit with quantity 1000
+// When: Mine 100 units
+// Then: Deposit quantity should decrease to 900
 //
-//	AND Discovery should trigger notification
-func TestBDD_OreVein_Discovery(t *testing.T) {
-	t.Skip("BDD stub: implement ore discovery mechanics")
-	// Pseudocode:
-	// col := &WorldColumn{}
-	// col.AddResource("iron", 50, 1000)
-	// result := Mine(col, 48, IronPick, true)
-	// assert col.Resources[0].Discovered == true
+//	AND Return value should be 100 (amount mined)
+func TestBDD_Mining_Extraction(t *testing.T) {
+	deposit := &minerals.MineralDeposit{
+		Quantity: 1000,
+	}
+
+	extracted := minerals.ExtractResource(deposit, 100)
+
+	assert.Equal(t, 100, extracted, "Should extract requested amount")
+	assert.Equal(t, 900, deposit.Quantity, "Deposit quantity should be reduced")
 }
 
 // -----------------------------------------------------------------------------
 // Scenario: Mining Depletion
 // -----------------------------------------------------------------------------
-// Given: Coal deposit with quantity 500
-// When: Player mines 100 units
-// Then: Deposit quantity should decrease to 400
+// Given: A deposit with quantity 50
+// When: Attempt to mine 100 units
+// Then: Only 50 units should be extracted
 //
-//	AND When quantity reaches 0, deposit should be exhausted
+//	AND Deposit quantity should become 0
+//	AND Deposit should be marked depleted
 func TestBDD_Mining_Depletion(t *testing.T) {
-	t.Skip("BDD stub: implement deposit depletion")
-	// Pseudocode:
-	// deposit := Deposit{Type: "coal", Quantity: 500}
-	// extracted := ExtractResource(&deposit, 100)
-	// assert extracted == 100
-	// assert deposit.Quantity == 400
+	deposit := &minerals.MineralDeposit{
+		Quantity: 50,
+	}
+
+	extracted := minerals.ExtractResource(deposit, 100)
+
+	assert.Equal(t, 50, extracted, "Should only extract what's available")
+	assert.Equal(t, 0, deposit.Quantity, "Deposit should be empty")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Magic - Mana Vein Discovery
+// Scenario: Ore Vein Discovery
 // -----------------------------------------------------------------------------
-// Given: A magic-enabled world with mana veins
-// When: Player with magic affinity explores underground
-// Then: Mana veins should glow/pulse when nearby
+// Given: A survey in known mineral-rich area
+// When: Discovery rolls succeed
+// Then: Visible veins should be found first
 //
-//	AND High-affinity players should sense veins at greater distance
-func TestBDD_Magic_ManaVeinDiscovery(t *testing.T) {
-	t.Skip("BDD stub: implement mana vein mechanics")
-	// Pseudocode:
-	// vein := ManaVein{Energy: 1000, Depth: 100}
-	// player := Character{MagicAffinity: 0.8}
-	// detected := DetectManaVeins(player, col, radius)
-	// assert len(detected) > 0
-	// assert detected[0].DistanceVisible > 20 // High affinity
+//	AND Hidden veins require progressively deeper mining
+func TestBDD_OreVein_Discovery(t *testing.T) {
+	t.Log("Ore vein discovery requires DiscoverDeposits function - not yet implemented")
+	assert.Fail(t, "Ore discovery not yet implemented")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Crystalline Matrix Formation
+// Scenario: Tin Formation (Bronze Age Prerequisite)
 // -----------------------------------------------------------------------------
-// Given: Ley line intersection
-// When: Magical energy concentrates over time
-// Then: Crystalline matrix should form
+// Given: Granitic intrusion in sedimentary rocks
+// When: Hydrothermal fluids cool
+// Then: Cassiterite (tin ore) deposits should form
 //
-//	AND Matrix should amplify spells cast nearby
-func TestBDD_Magic_CrystallineMatrix(t *testing.T) {
-	t.Skip("BDD stub: implement crystalline matrix")
-	// Pseudocode:
-	// intersection := LeyLineIntersection{NodeCount: 3, EnergyLevel: 0.9}
-	// matrix := FormCrystallineMatrix(intersection, 100_000) // years
-	// assert matrix != nil
-	// assert matrix.SpellAmplification > 1.5
+//	AND Should be co-located with copper for bronze production
+func TestBDD_Tin_Formation(t *testing.T) {
+	t.Log("Tin-copper co-location requires specific geological context")
+	assert.Fail(t, "Tin formation not yet implemented")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Tin Formation (Granitic Intrusions)
+// Scenario: Tool Stone Formation (Obsidian/Flint)
 // -----------------------------------------------------------------------------
-// Given: Felsic magma cooling slowly (Granite formation)
-// When: Fractional crystallization occurs
-// Then: Cassiterite (Tin Ore) should concentrate in pegmatites or greisen
+// Given: Volcanic silica-rich flows OR chalk with flint nodules
+// When: Formation conditions met
+// Then: Tool stone deposits should form
 //
-//	AND Tin deposits should be rare compared to Copper
-func TestBDD_Tin_GraniticIntrusions(t *testing.T) {
-	t.Skip("BDD stub: implement tin formation")
-	// Pseudocode:
-	// geology := Region{MagmaType: Felsic, CoolingRate: Slow}
-	// deposits := GenerateIntrusiveDeposits(geology)
-	// assert HasMineral(deposits, "cassiterite")
-	// assert MineralRarity("cassiterite") > MineralRarity("copper")
+//	AND Should be high hardness (suitable for tools)
+func TestBDD_ToolStone_Formation(t *testing.T) {
+	t.Log("Tool stone formation requires GenerateToolStone function")
+	assert.Fail(t, "Tool stone formation not yet implemented")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Tool Stone Formation (Flint & Obsidian)
+// Scenario: Coal Seam Formation
 // -----------------------------------------------------------------------------
-// Given: Specific geological conditions (Sedimentary Chalk OR Rapid Volcanic Cooling)
-// When: Mineral generation runs
-// Then: Flint nodules should appear in Chalk layers
+// Given: Swampy forest biome (Carboniferous period)
+// When: Millions of years of burial and pressure
+// Then: Coal seams should form
 //
-//	AND Obsidian should appear near felsic volcanoes
-func TestBDD_StoneAge_ToolResources(t *testing.T) {
-	t.Skip("BDD stub: implement tool stones")
-	// Pseudocode:
-	// chalkBed := Layer{Type: "sedimentary_chalk"}
-	// volcano := Layer{Type: "volcanic_surface", Cooling: "instant"}
-
-	// assert ContainsResource(chalkBed, "flint")
-	// assert ContainsResource(volcano, "obsidian")
-}
-
-// -----------------------------------------------------------------------------
-// Scenario: Coal Seam Formation (Carboniferous)
-// -----------------------------------------------------------------------------
-// Given: Ancient tropical swamp biome with high biomass
-// When: Tectonic subsidence buries the organic matter (preventing decay)
-// Then: Peat should transform into Coal over millions of years
-//
-//	AND Depth of burial determines quality (Lignite -> Bituminous -> Anthracite)
-func TestBDD_FossilFuels_CoalFormation(t *testing.T) {
-	t.Skip("BDD stub: implement coalification")
-	// Pseudocode:
-	// swamp := Biome{Type: Swamp, Biomass: 10000}
-	// burial := TectonicEvent{Type: Subsidence, Years: 50_000_000, Pressure: High}
-	// deposit := SimulateCoalification(swamp, burial)
-
-	// assert deposit.Type == "coal"
-	// assert deposit.Quality == "anthracite" // Long time + high pressure
+//	AND Coal rank should increase with depth/age
+func TestBDD_Coal_Formation(t *testing.T) {
+	t.Log("Coal formation requires organic burial simulation")
+	assert.Fail(t, "Coal seam formation not yet implemented")
 }
 
 // -----------------------------------------------------------------------------
 // Scenario: Evaporite Formation (Salt/Gypsum)
 // -----------------------------------------------------------------------------
-// Given: Restricted basin with seawater inflow
-// When: Climate is arid (Evaporation > Precipitation)
-// Then: Water evaporates, leaving Halite (Salt) and Gypsum
+// Given: Shallow sea or lake in arid climate
+// When: Water evaporates over time
+// Then: Salt and gypsum deposits should form
 //
-//	AND Deposits should be vast horizontal sheets
-func TestBDD_Evaporites_SaltFormation(t *testing.T) {
-	t.Skip("BDD stub: implement evaporite sequence")
-	// Pseudocode:
-	// basin := Basin{Restricted: true, Salinity: 3.5}
-	// climate := Climate{EvaporationRate: 10, PrecipRate: 1}
-	// deposit := SimulateEvaporation(basin, climate)
-
-	// assert deposit.Contains("halite")
-	// assert deposit.Volume is massive
+//	AND Deposit layers should show evaporation sequence
+func TestBDD_Evaporite_Formation(t *testing.T) {
+	t.Log("Evaporite formation requires climate simulation")
+	assert.Fail(t, "Evaporite formation not yet implemented")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Saltpeter Formation (Gunpowder Component)
+// Scenario: Saltpeter Formation (Gunpowder Prerequisite)
 // -----------------------------------------------------------------------------
-// Given: Cave systems with organic accumulation (guano) OR Arid nitrogen-rich soils
-// When: Time passes
-// Then: Niter deposits should accumulate
-func TestBDD_Strategic_Saltpeter(t *testing.T) {
-	t.Skip("BDD stub: implement niter formation")
-	// Pseudocode:
-	// cave := Cave{Inhabitants: "bats", Age: 10_000}
-	// resources := GenerateCaveResources(cave)
-	// assert Contains(resources, "saltpeter")
+// Given: Cave environment with bat guano OR desert soils
+// When: Nitrogen-fixing conditions exist
+// Then: Saltpeter deposits should form
+//
+//	AND Required for gunpowder tech advance
+func TestBDD_Saltpeter_Formation(t *testing.T) {
+	t.Log("Saltpeter formation requires cave/desert detection")
+	assert.Fail(t, "Saltpeter formation not yet implemented")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Ore Grade/Purity Variation
+// Scenario: Ore Grade Variation
 // -----------------------------------------------------------------------------
-// Given: A mineral deposit generation
-// When: The deposit is created
-// Then: It should have a "Grade" (percentage of useful material)
+// Given: A large mineral deposit
+// When: Sampled at different points
+// Then: Concentration should vary (center richer)
 //
-//	AND High-grade ores should be rarer than low-grade ores
-func TestBDD_Mechanics_OreGrade(t *testing.T) {
-	t.Skip("BDD stub: implement ore grading")
-	// Pseudocode:
-	// lowGrade := GenerateDeposit("iron", QualityLow) // 20%
-	// highGrade := GenerateDeposit("iron", QualityHigh) // 60%
+//	AND Mining should follow richest veins first
+func TestBDD_OreGrade_Variation(t *testing.T) {
+	t.Log("Ore grade variation requires SampleConcentration function")
+	assert.Fail(t, "Ore grade variation not yet implemented")
+}
 
-	// assert Yield(lowGrade, 100kg_rock) == 20kg_iron
-	// assert Yield(highGrade, 100kg_rock) == 60kg_iron
+// -----------------------------------------------------------------------------
+// Scenario: Mana Crystal Formation (Magical Minerals)
+// -----------------------------------------------------------------------------
+// Given: Ley line intersection point
+// When: Magical energy accumulates
+// Then: Mana crystals should form
+//
+//	AND Crystal potency should depend on ley line strength
+func TestBDD_ManaCrystal_Formation(t *testing.T) {
+	t.Log("Mana crystal requires ley line integration")
+	assert.Fail(t, "Mana crystal formation not yet implemented")
 }

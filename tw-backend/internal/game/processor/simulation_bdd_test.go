@@ -2,59 +2,67 @@ package processor_test
 
 import (
 	"testing"
+
+	"tw-backend/internal/game/processor"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // =============================================================================
 // BDD Tests: World Simulate Command
 // =============================================================================
-// Note: Most of these tests require full GameProcessor setup with mocked dependencies.
-// They are marked as skipped stubs to document expected behavior for TDD implementation.
+// These tests verify simulation command parsing and configuration.
+// The full simulation integration is tested in runner_bdd_test.go.
 
 // -----------------------------------------------------------------------------
-// Scenario: Basic Simulation
+// Scenario: Basic Argument Parsing
 // -----------------------------------------------------------------------------
-// Given: World with initialized geology
-// When: "world simulate 1000000" command issued
-// Then: Simulation should run for 1 million years
-//
-//	AND Geology should evolve (erosion, tectonics)
-//	AND Biomes should update
-func TestBDD_WorldSimulate_Basic(t *testing.T) {
-	t.Skip("BDD RED: Requires full GameProcessor setup with mocked websocket client")
-	// Pseudocode:
-	// client := mockWebSocketClient()
-	// processor.handleWorldSimulate(ctx, client, "1000000")
-	// assert client.ReceivedMessage("Simulated 1,000,000 years")
+// Given: A simple simulation command string
+// When: ParseSimulationArgs is called
+// Then: Config should be populated with years
+func TestBDD_WorldSimulate_BasicParsing(t *testing.T) {
+	config := processor.ParseSimulationArgs("1000000")
+
+	require.NotNil(t, config, "ParseSimulationArgs should return a config, not nil")
+	assert.Equal(t, int64(1000000), config.Years, "Years should be parsed correctly")
+	assert.True(t, config.SimulateGeology, "Geology should be enabled by default")
+	assert.True(t, config.SimulateLife, "Life should be enabled by default")
+	assert.True(t, config.SimulateDiseases, "Diseases should be enabled by default")
 }
 
 // -----------------------------------------------------------------------------
 // Scenario: Simulation Flags (Table-Driven)
 // -----------------------------------------------------------------------------
 // Given: Various command strings with flags
-// When: Simulation is configured/run
-// Then: The internal configuration should match expected state
+// When: ParseSimulationArgs is called
+// Then: The config should match expected state
 func TestBDD_WorldSimulate_Flags(t *testing.T) {
-	t.Skip("BDD RED: Flag parsing requires command string parsing - see parseSimulationArgs")
-
 	scenarios := []struct {
-		command        string
-		expectGeology  bool
-		expectLife     bool
-		expectDiseases bool
-		expectWaterLvl float64 // -1 for default
+		name             string
+		command          string
+		expectGeology    bool
+		expectLife       bool
+		expectDiseases   bool
+		expectWaterLevel string
 	}{
-		{"world simulate 100", true, true, true, -1}, // Default
-		{"world simulate 100 --only-geology", true, false, false, -1},
-		{"world simulate 100 --only-life", false, true, true, -1},
-		{"world simulate 100 --no-diseases", true, true, false, -1},
-		{"world simulate 100 --water-level 0.9", true, true, true, 0.9},
+		{"Default flags", "100", true, true, true, ""},
+		{"Only geology", "100 --only-geology", true, false, false, ""},
+		{"Only life", "100 --only-life", false, true, true, ""},
+		{"No diseases", "100 --no-diseases", true, true, false, ""},
+		{"Water level high", "100 --water-level high", true, true, true, "high"},
+		{"Water level 90%", "100 --water-level 90%", true, true, true, "90%"},
 	}
 
 	for _, sc := range scenarios {
-		t.Run(sc.command, func(t *testing.T) {
-			// config := parseCommand(sc.command)
-			// assert.Equal(t, sc.expectGeology, config.RunGeology)
-			// assert.Equal(t, sc.expectLife, config.RunLife)
+		t.Run(sc.name, func(t *testing.T) {
+			config := processor.ParseSimulationArgs(sc.command)
+
+			require.NotNil(t, config, "ParseSimulationArgs should return a config")
+			assert.Equal(t, sc.expectGeology, config.SimulateGeology, "SimulateGeology mismatch")
+			assert.Equal(t, sc.expectLife, config.SimulateLife, "SimulateLife mismatch")
+			assert.Equal(t, sc.expectDiseases, config.SimulateDiseases, "SimulateDiseases mismatch")
+			assert.Equal(t, sc.expectWaterLevel, config.WaterLevel, "WaterLevel mismatch")
 		})
 	}
 }
@@ -62,148 +70,117 @@ func TestBDD_WorldSimulate_Flags(t *testing.T) {
 // -----------------------------------------------------------------------------
 // Scenario: Epoch Labeling
 // -----------------------------------------------------------------------------
-// Given: "world simulate 100000000 --epoch Jurassic" command
-// When: Simulation completes
-// Then: Time period should be labeled "Jurassic"
-//
-//	AND Dinosaurs species should be present amongst lifeforms
+// Given: Command with --epoch flag
+// When: ParseSimulationArgs is called
+// Then: Epoch should be captured in config
 func TestBDD_WorldSimulate_EpochLabel(t *testing.T) {
-	t.Skip("BDD RED: --epoch flag not yet implemented")
-	// Pseudocode:
-	// processor.handleWorldSimulate(ctx, client, "100000000 --epoch Jurassic")
-	// assert client.ReceivedMessage contains "Jurassic"
+	config := processor.ParseSimulationArgs("100000000 --epoch Jurassic")
+
+	require.NotNil(t, config, "ParseSimulationArgs should return a config")
+	assert.Equal(t, "Jurassic", config.Epoch, "Epoch should be parsed")
+	assert.Equal(t, int64(100000000), config.Years, "Years should be parsed")
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Goal Flag
+// -----------------------------------------------------------------------------
+// Given: Command with --goal flag
+// When: ParseSimulationArgs is called
+// Then: Goal should be captured in config
+func TestBDD_WorldSimulate_GoalFlag(t *testing.T) {
+	config := processor.ParseSimulationArgs("1000000 --goal sapience")
+
+	require.NotNil(t, config, "ParseSimulationArgs should return a config")
+	assert.Equal(t, "sapience", config.Goal, "Goal should be parsed")
 }
 
 // -----------------------------------------------------------------------------
 // Scenario: Combined Flags
 // -----------------------------------------------------------------------------
-// Given: "world simulate 1000000 --only-geology --epoch Hadean" command
-// When: Simulation runs
-// Then: Both flags should apply correctly
-//
-//	AND Geology-only with Hadean epoch label
+// Given: Command with multiple flags
+// When: ParseSimulationArgs is called
+// Then: All flags should be correctly parsed
 func TestBDD_WorldSimulate_CombinedFlags(t *testing.T) {
-	t.Skip("BDD RED: Combined flag parsing not yet tested")
-	// Pseudocode:
-	// processor.handleWorldSimulate(ctx, client, "1000000 --only-geology --epoch Hadean")
-	// assert sim.Species == nil
-	// assert client.ReceivedMessage contains "Hadean"
+	config := processor.ParseSimulationArgs("1000000 --only-geology --epoch Hadean")
+
+	require.NotNil(t, config, "ParseSimulationArgs should return a config")
+	assert.True(t, config.SimulateGeology, "Geology should be enabled")
+	assert.False(t, config.SimulateLife, "Life should be disabled with --only-geology")
+	assert.Equal(t, "Hadean", config.Epoch, "Epoch should be parsed")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Weather Updates Per Tick
+// Scenario: Input Validation - Negative Years
 // -----------------------------------------------------------------------------
-// Given: Simulation in progress
-// When: Each tick advances
-// Then: Weather should update based on season
-//
-//	AND Weather states should transition realistically
-func TestBDD_WorldSimulate_WeatherUpdates(t *testing.T) {
-	t.Skip("BDD RED: Weather integration in simulation loop not yet verified")
-	// Pseudocode:
-	// For each tick:
-	//   season := getSeasonFromYear(currentYear)
-	//   weather.UpdateWeather(cells, time, season)
-	// assert weatherUpdated == true
+// Given: Invalid negative year value
+// When: ParseSimulationArgs is called
+// Then: Should return nil (invalid input)
+func TestBDD_WorldSimulate_InvalidNegativeYears(t *testing.T) {
+	config := processor.ParseSimulationArgs("-100")
+
+	assert.Nil(t, config, "Negative years should return nil config")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Population Dynamics Integration
+// Scenario: Input Validation - Zero Years
 // -----------------------------------------------------------------------------
-// Given: Species exist in biomes
-// When: Simulation runs with life enabled
-// Then: Population dynamics should apply
-//
-//	AND Predation, reproduction, metabolism should occur
-//	AND Species may speciate or go extinct
-func TestBDD_WorldSimulate_PopulationDynamics(t *testing.T) {
-	t.Skip("BDD RED: Population dynamics verified in runner_bdd_test.go")
-	// Pseudocode:
-	// initialSpecies := len(sim.Species)
-	// processor.handleWorldSimulate(ctx, client, "10000000")
-	// // Some speciation/extinction should occur
-	// finalSpecies := len(sim.Species)
-	// assert finalSpecies != initialSpecies
+// Given: Zero year value
+// When: ParseSimulationArgs is called
+// Then: Should return nil (invalid input)
+func TestBDD_WorldSimulate_InvalidZeroYears(t *testing.T) {
+	config := processor.ParseSimulationArgs("0")
+
+	assert.Nil(t, config, "Zero years should return nil config")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Progress Reporting via WebSocket
+// Scenario: Input Validation - Non-Numeric Years
 // -----------------------------------------------------------------------------
-// Given: A long simulation (e.g., 5 seconds of work)
-// When: The simulation runs
-// Then: The client should receive periodic "progress" messages
-//
-//	AND A final "complete" message at the end
-func TestBDD_WorldSimulate_ProgressFeedback(t *testing.T) {
-	t.Skip("BDD RED: Progress callbacks require mocked websocket client")
-	// Pseudocode:
-	// client := mockWS()
-	// processor.handleWorldSimulate(ctx, client, "1000000")
+// Given: Non-numeric year value
+// When: ParseSimulationArgs is called
+// Then: Should return nil (invalid input)
+func TestBDD_WorldSimulate_InvalidNonNumeric(t *testing.T) {
+	config := processor.ParseSimulationArgs("abc")
 
-	// assert len(client.Messages) >= 3
-	// assert client.Messages[0].Type == "progress" (e.g. "25% complete")
-	// assert client.LastMessage().Type == "complete"
+	assert.Nil(t, config, "Non-numeric years should return nil config")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Simulation Cancellation
+// Scenario: Input Validation - Excessive Years
 // -----------------------------------------------------------------------------
-// Given: A running simulation
-// When: The context is cancelled (client disconnect)
-// Then: The simulation loop should exit immediately
-//
-//	AND No further world updates should be committed
-func TestBDD_WorldSimulate_Cancellation(t *testing.T) {
-	t.Skip("BDD RED: Context cancellation tested in runner_bdd_test.go")
-	// Pseudocode:
-	// ctx, cancel := context.WithCancel(context.Background())
-	// go processor.handleWorldSimulate(ctx, client, "1000000000") // Huge number
+// Given: Years exceeding max simulation cap (e.g., > 10 billion)
+// When: ParseSimulationArgs is called
+// Then: Should return nil or cap the value
+func TestBDD_WorldSimulate_ExcessiveYears(t *testing.T) {
+	config := processor.ParseSimulationArgs("100000000000") // 100 billion
 
-	// time.Sleep(10 * time.Millisecond)
-	// cancel()
-
-	// time.Sleep(100 * time.Millisecond)
-	// assert simulation.IsRunning == false
+	// Either nil or capped to max allowed
+	if config != nil {
+		assert.LessOrEqual(t, config.Years, int64(10_000_000_000),
+			"Years should be capped at 10 billion max")
+	}
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Input Validation & Bounds
+// Scenario: Empty Input
 // -----------------------------------------------------------------------------
-// Given: Invalid timeframes (negative, zero, or exceeding max cap)
-// When: Command is issued
-// Then: An error message should be returned
-//
-//	AND The server should NOT attempt to run it
-func TestBDD_WorldSimulate_InputBounds(t *testing.T) {
-	t.Skip("BDD RED: Input validation requires GameProcessor test setup")
-	// Pseudocode:
-	// assert error "Invalid duration" for "world simulate -100"
-	// assert error "Duration too long" for "world simulate 100000000000"
+// Given: Empty string input
+// When: ParseSimulationArgs is called
+// Then: Should return nil
+func TestBDD_WorldSimulate_EmptyInput(t *testing.T) {
+	config := processor.ParseSimulationArgs("")
+
+	assert.Nil(t, config, "Empty input should return nil config")
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Simulation Checkpointing
+// Scenario: Whitespace Only Input
 // -----------------------------------------------------------------------------
-// Given: A simulation configured to run for 10 epochs
-// When: 5 epochs have passed
-// Then: A snapshot of the world state should be saved to DB/Disk
-func TestBDD_WorldSimulate_Checkpointing(t *testing.T) {
-	t.Skip("BDD RED: Checkpointing verified in runner_bdd_test.go via snapshots")
-	// Pseudocode:
-	// sim.Run(epochs: 10, checkpointEvery: 5)
-	// assert db.CountSnapshots(worldID) == 2
-}
+// Given: Whitespace-only input
+// When: ParseSimulationArgs is called
+// Then: Should return nil
+func TestBDD_WorldSimulate_WhitespaceInput(t *testing.T) {
+	config := processor.ParseSimulationArgs("   ")
 
-// -----------------------------------------------------------------------------
-// Scenario: Mass Extinction Event
-// -----------------------------------------------------------------------------
-// Given: A thriving ecosystem
-// When: A "meteor" event is triggered manually or via simulation
-// Then: Biodiversity count should drop significantly
-func TestBDD_WorldSimulate_ExtinctionEvent(t *testing.T) {
-	t.Skip("BDD RED: Extinction events not yet testable at processor level")
-	// Pseudocode:
-	// sim.TriggerEvent("meteor_impact")
-	// sim.Tick()
-	// assert currentSpeciesCount < initialSpeciesCount * 0.5
+	assert.Nil(t, config, "Whitespace-only input should return nil config")
 }
