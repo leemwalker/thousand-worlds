@@ -72,18 +72,46 @@ const COLORS_RGB: Record<string, RGB> = {
     Default: hexToRgb('#333333')
 };
 
-// Gradient stops for hypsometric tinting (Deepest to Highest)
-const ELEVATION_STOPS = [
-    { el: -4000, color: hexToRgb('#0a1929') }, // Abyssal
-    { el: -2000, color: hexToRgb('#0d3a5c') },
-    { el: -200, color: hexToRgb('#1565c0') },
-    { el: 0, color: hexToRgb('#4fc3f7') }, // Shallow
-    { el: 200, color: hexToRgb('#66bb6a') }, // Lowland
-    { el: 500, color: hexToRgb('#aed581') },
-    { el: 1500, color: hexToRgb('#dce775') },
-    { el: 3000, color: hexToRgb('#a1887f') }, // Highland
-    { el: 5000, color: hexToRgb('#9e9e9e') }, // Mountain
-    { el: 8000, color: hexToRgb('#fafafa') }  // Peak
+// Earth's radius in meters - used as reference for ratio-based elevation scaling
+const EARTH_RADIUS_M = 6_371_000;
+
+// Earth-based reference elevation stops for hypsometric/bathymetric tinting
+// These are scaled by the world's radius ratio (worldRadius / EARTH_RADIUS_M)
+// 
+// Bathymetry (Below Sea Level):
+//   0 m: Coastline
+//   -200 m: Continental Shelf (Critical Break Point)
+//   -1,000 m: Upper Continental Slope
+//   -2,000 m: Lower Continental Slope  
+//   -4,000 m: Abyssal Plain (Deep ocean floor)
+//   -6,000 m: Deep Ocean Trenches
+//
+// Hypsometric (Above Sea Level):
+//   0 m: Sea Level (Coastline)
+//   100 m: Coastal Lowlands
+//   200 m: Limit of continental lowlands
+//   500 m: Transition to foothills/uplands
+//   1,000 m: Lower Mountain ranges
+//   2,000 m: Mid-Mountain ranges
+//   3,000 m: High Mountain ranges
+//   5,000 m: Very High Peaks
+const EARTH_ELEVATION_STOPS = [
+    // Bathymetry (Deepest to Sea Level)
+    { el: -6000, color: hexToRgb('#050d1a') }, // Deep Ocean Trenches (very dark blue/purple)
+    { el: -4000, color: hexToRgb('#0a1929') }, // Abyssal Plain (dark blue)
+    { el: -2000, color: hexToRgb('#0d3a5c') }, // Lower Continental Slope (medium-dark blue)
+    { el: -1000, color: hexToRgb('#115c8c') }, // Upper Continental Slope
+    { el: -200, color: hexToRgb('#1976d2') },  // Continental Shelf (transition to medium blue)
+    { el: 0, color: hexToRgb('#4fc3f7') },     // Coastline (light cyan)
+    // Hypsometric (Sea Level to Peaks)
+    { el: 100, color: hexToRgb('#2e7d32') },   // Coastal Lowlands (darker green)
+    { el: 200, color: hexToRgb('#66bb6a') },   // Continental Lowlands (lighter green/yellow-green)
+    { el: 500, color: hexToRgb('#c5e1a5') },   // Foothills/Uplands (yellow/beige)
+    { el: 1000, color: hexToRgb('#d7ccc8') },  // Lower Mountain ranges (light brown)
+    { el: 2000, color: hexToRgb('#a1887f') },  // Mid-Mountain ranges (medium brown)
+    { el: 3000, color: hexToRgb('#8d6e63') },  // High Mountain ranges (dark brown/reddish brown)
+    { el: 5000, color: hexToRgb('#9e9e9e') },  // Very High Peaks (grey/white start)
+    { el: 8848, color: hexToRgb('#fafafa') }   // Maximum (Everest height, pure white)
 ];
 
 // Symbols remain unchanged
@@ -120,6 +148,7 @@ export class MapRenderer {
     private viewMode: 'local' | 'atlas' = 'local';
     private cameraPos: Position = { x: 0, y: 0 };
     private worldSize: number = 2000; // Default fallback
+    private worldRadius: number = EARTH_RADIUS_M; // World radius in meters for elevation scaling
 
     // Offscreen buffers for Hybrid Rendering
     private nearBuffer: HTMLCanvasElement | null = null;
@@ -152,6 +181,11 @@ export class MapRenderer {
 
     setWorldSize(size: number) {
         this.worldSize = size;
+    }
+
+    setWorldRadius(radius: number) {
+        this.worldRadius = radius > 0 ? radius : EARTH_RADIUS_M;
+        this.dirty = true;
     }
 
     pan(dx: number, dy: number) {
@@ -713,25 +747,31 @@ export class MapRenderer {
     }
 
     private getHypsometricColorString(elevation: number): string {
-        // Find segments
-        for (let i = 0; i < ELEVATION_STOPS.length - 1; i++) {
-            const start = ELEVATION_STOPS[i];
-            const end = ELEVATION_STOPS[i + 1];
-            if (start && end && elevation >= start.el && elevation <= end.el) {
-                const t = (elevation - start.el) / (end.el - start.el);
+        // Scale elevation thresholds based on world radius ratio
+        // Smaller worlds have proportionally lower elevation ranges
+        const radiusRatio = this.worldRadius / EARTH_RADIUS_M;
+
+        // Find the color by interpolating between stops with scaled elevation thresholds
+        for (let i = 0; i < EARTH_ELEVATION_STOPS.length - 1; i++) {
+            const start = EARTH_ELEVATION_STOPS[i]!;
+            const end = EARTH_ELEVATION_STOPS[i + 1]!;
+            // Scale the elevation thresholds by the radius ratio
+            const scaledStartEl = start.el * radiusRatio;
+            const scaledEndEl = end.el * radiusRatio;
+
+            if (elevation >= scaledStartEl && elevation <= scaledEndEl) {
+                const t = (elevation - scaledStartEl) / (scaledEndEl - scaledStartEl);
                 return this.lerpRgbToString(start.color, end.color, t);
             }
         }
 
         // Fallback checks with strict assertion
-        const first = ELEVATION_STOPS[0];
-        const last = ELEVATION_STOPS[ELEVATION_STOPS.length - 1];
+        const first = EARTH_ELEVATION_STOPS[0]!;
+        const last = EARTH_ELEVATION_STOPS[EARTH_ELEVATION_STOPS.length - 1]!;
+        const scaledFirstEl = first.el * radiusRatio;
 
-        if (first && elevation < first.el) return this.rgbToString(first.color);
-        if (last) return this.rgbToString(last.color);
-
-        const defaultRgb = COLORS_RGB.Default || { r: 51, g: 51, b: 51 };
-        return this.rgbToString(defaultRgb);
+        if (elevation < scaledFirstEl) return this.rgbToString(first.color);
+        return this.rgbToString(last.color);
     }
 
     private lerpRgbToString(c1: RGB, c2: RGB, t: number): string {
