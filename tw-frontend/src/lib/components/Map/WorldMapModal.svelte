@@ -104,6 +104,10 @@
     function updateFromMinimap() {
         if (!renderer || !$mapStore.data) return;
 
+        console.log(
+            "[WorldMapModal] FALLBACK: Using minimap data (no world_map_data received)",
+        );
+
         const playerPos = {
             x: Math.round($mapStore.data.player_x),
             y: Math.round($mapStore.data.player_y),
@@ -137,6 +141,14 @@
     function handleSimMessage(msg: any) {
         // Handle world map data from backend (Issue 5)
         if (msg.type === "world_map_data") {
+            console.log("[WorldMapModal] Received world_map_data:", {
+                tiles: msg.data?.tiles?.length,
+                grid: `${msg.data?.grid_width}x${msg.data?.grid_height}`,
+                worldSize: `${msg.data?.world_width}x${msg.data?.world_height}`,
+                biomes: [
+                    ...new Set(msg.data?.tiles?.map((t: any) => t.biome) || []),
+                ].slice(0, 10),
+            });
             worldMapData = msg.data;
             loading = false;
             return;

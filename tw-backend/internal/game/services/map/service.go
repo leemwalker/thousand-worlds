@@ -162,6 +162,10 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 
 	log.Printf("[MAP] GetMapData: world=%s hasWorldData=%v hasGeology=%v quality=%s",
 		char.WorldID, hasWorldData, hasGeology, quality)
+	if hasGeology && geo.Heightmap != nil {
+		log.Printf("[MAP] GetMapData: geology has %d biomes, heightmap %dx%d",
+			len(geo.Biomes), geo.Heightmap.Width, geo.Heightmap.Height)
+	}
 
 	// Get world bounds for boundary checking
 	var minX, minY, maxX, maxY float64 = 0, 0, 10, 10 // Default lobby bounds
@@ -181,6 +185,9 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 			}
 		}
 	}
+
+	log.Printf("[MAP] GetMapData: bounds=(%.0f,%.0f)-(%.0f,%.0f), player=(%.0f,%.0f)",
+		minX, minY, maxX, maxY, char.PositionX, char.PositionY)
 
 	// Dynamic grid sizing based on altitude
 	// Use ODD grid sizes (2*radius + 1) for perfect centering on player
