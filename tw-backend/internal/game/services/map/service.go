@@ -486,10 +486,12 @@ func (s *Service) GetWorldMapData(ctx context.Context, char *auth.Character, gri
 	cacheKey := fmt.Sprintf("%s:%d", char.WorldID, gridSize)
 	if cached, ok := s.worldMapCache.Load(cacheKey); ok {
 		if data, ok := cached.(*WorldMapData); ok {
-			// Update player position in cached data (position can change)
-			data.PlayerX = char.PositionX
-			data.PlayerY = char.PositionY
-			return data, nil
+			// Copy-on-Read: Create shallow copy to avoid mutating shared cache.
+			// Tiles slice is read-only, so shallow copy is safe.
+			cachedCopy := *data
+			cachedCopy.PlayerX = char.PositionX
+			cachedCopy.PlayerY = char.PositionY
+			return &cachedCopy, nil
 		}
 	}
 

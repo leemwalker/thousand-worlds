@@ -230,8 +230,7 @@ func TestBDD_WorldMap_UninitializedState(t *testing.T) {
 // When: Aggregated into a single Map Cell
 // Then: Sub-region should be split into multiple Map Cells
 func TestBDD_WorldMap_BiomeWeighting(t *testing.T) {
-	// TODO: Biome weighting for mixed regions requires sub-region splitting logic
-	// This is a future enhancement to improve visual accuracy at low zoom levels
+	// TODO(BACKLOG): Feature BiomeWeighting not yet implemented
 	t.Skip("Biome weighting aggregation not yet implemented - future feature")
 }
 
@@ -242,8 +241,7 @@ func TestBDD_WorldMap_BiomeWeighting(t *testing.T) {
 // When: Requested with a square grid size (e.g., 64)
 // Then: The resulting map data should respect the world's aspect ratio
 func TestBDD_WorldMap_AspectRatio(t *testing.T) {
-	// TODO: Current implementation returns square grid regardless of world shape
-	// Future enhancement: adapt grid dimensions to world aspect ratio
+	// TODO(BACKLOG): Feature AspectRatio not yet implemented
 	t.Skip("Aspect ratio adaptation not yet implemented - future enhancement")
 }
 

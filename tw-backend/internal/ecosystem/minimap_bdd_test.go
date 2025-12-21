@@ -219,7 +219,7 @@ func TestBDD_Minimap_BatchStructure(t *testing.T) {
 // When: Player receives "Blinded" status effect (reducing perception to 0)
 // Then: The *next* render request should downgrade to ASCII or "Fog"
 func TestBDD_Minimap_StatusEffectImpact(t *testing.T) {
-	// Status effect integration is a future feature
+	// TODO(BACKLOG): Feature StatusEffectIntegration not yet implemented
 	t.Skip("Status effect integration not yet implemented - future feature")
 }
 
