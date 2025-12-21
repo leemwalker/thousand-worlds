@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"strings"
 	"sync"
 
 	"tw-backend/internal/auth"
@@ -516,20 +517,34 @@ func (s *Service) GetWorldMapData(ctx context.Context, char *auth.Character, gri
 		worldHeight = 1000
 	}
 
+	// Calculate grid dimensions respecting aspect ratio
+	// gridSize is the dimension for the smaller axis
+	// The larger axis is scaled proportionally
+	aspectRatio := worldWidth / worldHeight
+	gridCols := gridSize
+	gridRows := gridSize
+	if aspectRatio > 1.0 {
+		// World is wider than tall - more columns
+		gridCols = int(float64(gridSize) * aspectRatio)
+	} else if aspectRatio < 1.0 {
+		// World is taller than wide - more rows
+		gridRows = int(float64(gridSize) / aspectRatio)
+	}
+
 	// Calculate region size (world units per grid cell)
-	regionWidth := worldWidth / float64(gridSize)
-	regionHeight := worldHeight / float64(gridSize)
+	regionWidth := worldWidth / float64(gridCols)
+	regionHeight := worldHeight / float64(gridRows)
 
 	// Get geology data for biome lookup
 	geo := s.getWorldGeology(char.WorldID)
 
-	tiles := make([]WorldMapTile, 0, gridSize*gridSize)
+	tiles := make([]WorldMapTile, 0, gridCols*gridRows)
 	playerGridX := int(char.PositionX / regionWidth)
 	playerGridY := int(char.PositionY / regionHeight)
 
 	// Generate aggregated tiles
-	for gy := 0; gy < gridSize; gy++ {
-		for gx := 0; gx < gridSize; gx++ {
+	for gy := 0; gy < gridRows; gy++ {
+		for gx := 0; gx < gridCols; gx++ {
 			// Calculate center of this region in world coordinates
 			centerX := (float64(gx) + 0.5) * regionWidth
 			centerY := (float64(gy) + 0.5) * regionHeight
@@ -545,10 +560,26 @@ func (s *Service) GetWorldMapData(ctx context.Context, char *auth.Character, gri
 					hmX, hmY := worldToGrid(centerX, centerY, 0, 0, worldWidth, worldHeight, hm.Width, hm.Height)
 					if hmX >= 0 && hmX < hm.Width && hmY >= 0 && hmY < hm.Height {
 						elevation = hm.Get(hmX, hmY)
-						// Get biome from geo.Biomes array using linear index
-						idx := hmY*hm.Width + hmX
-						if idx >= 0 && idx < len(geo.Biomes) {
-							biome = string(geo.Biomes[idx].Type)
+
+						// Calculate sample radius for aggregation based on zoom level
+						// Higher zoom-out = larger regions to aggregate
+						sampleRadius := 0
+						if gridCols < hm.Width {
+							sampleRadius = hm.Width / gridCols / 2
+							if sampleRadius < 1 {
+								sampleRadius = 1
+							}
+						}
+
+						// Use weighted aggregation if zoomed out, else single point
+						if sampleRadius > 0 {
+							biome = aggregateRegionBiome(geo, hmX, hmY, sampleRadius)
+						} else {
+							// Direct lookup for 1:1 or zoomed in
+							idx := hmY*hm.Width + hmX
+							if idx >= 0 && idx < len(geo.Biomes) {
+								biome = string(geo.Biomes[idx].Type)
+							}
 						}
 					}
 				}
@@ -567,8 +598,8 @@ func (s *Service) GetWorldMapData(ctx context.Context, char *auth.Character, gri
 
 	result := &WorldMapData{
 		Tiles:       tiles,
-		GridWidth:   gridSize,
-		GridHeight:  gridSize,
+		GridWidth:   gridCols,
+		GridHeight:  gridRows,
 		WorldWidth:  worldWidth,
 		WorldHeight: worldHeight,
 		PlayerX:     char.PositionX,
@@ -581,4 +612,55 @@ func (s *Service) GetWorldMapData(ctx context.Context, char *auth.Character, gri
 	s.worldMapCache.Store(cacheKey, result)
 
 	return result, nil
+}
+
+// aggregateRegionBiome determines the dominant biome in a region with weighted voting
+// Water biomes get 1.5x weight to preserve coastlines during zoom-out
+// This prevents thin coastal strips from disappearing when the world is aggregated
+func aggregateRegionBiome(geo *ecosystem.WorldGeology, hmX, hmY, sampleRadius int) string {
+	if geo == nil || geo.Heightmap == nil {
+		return "default"
+	}
+
+	hm := geo.Heightmap
+	votes := make(map[string]float64)
+
+	// Sample all cells in the region
+	for dy := -sampleRadius; dy <= sampleRadius; dy++ {
+		for dx := -sampleRadius; dx <= sampleRadius; dx++ {
+			x := hmX + dx
+			y := hmY + dy
+
+			// Bounds check
+			if x < 0 || x >= hm.Width || y < 0 || y >= hm.Height {
+				continue
+			}
+
+			idx := y*hm.Width + x
+			if idx >= 0 && idx < len(geo.Biomes) {
+				biome := string(geo.Biomes[idx].Type)
+
+				// Water biomes get 1.5x weight to preserve coastlines
+				// Use case-insensitive comparison for biome type matching
+				weight := 1.0
+				biomeLower := strings.ToLower(biome)
+				if biomeLower == "ocean" {
+					weight = 1.5
+				}
+				votes[biome] += weight
+			}
+		}
+	}
+
+	// Find biome with highest weighted vote
+	maxVote := 0.0
+	dominant := "default"
+	for biome, vote := range votes {
+		if vote > maxVote {
+			maxVote = vote
+			dominant = biome
+		}
+	}
+
+	return dominant
 }

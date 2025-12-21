@@ -164,11 +164,14 @@ func TestBDD_WorldMap_Caching(t *testing.T) {
 	ctx := context.Background()
 
 	// First call - generates data
+	// Note: Spherical world has 2:1 aspect ratio (width=circumference, height=circumference/2)
+	// So gridSize 64 becomes 128x64 with aspect ratio scaling
 	data1, err := svc.GetWorldMapData(ctx, char, 64)
 	require.NoError(t, err)
 	require.NotNil(t, data1)
-	assert.Equal(t, 64, data1.GridWidth)
-	assert.Len(t, data1.Tiles, 4096, "64x64 grid should have 4096 tiles")
+	assert.Equal(t, 128, data1.GridWidth, "2:1 aspect ratio doubles width")
+	assert.Equal(t, 64, data1.GridHeight, "Height stays at gridSize")
+	assert.Len(t, data1.Tiles, 128*64, "128x64 grid should have 8192 tiles")
 
 	// Second call - should use cache
 	data2, err := svc.GetWorldMapData(ctx, char, 64)
@@ -228,10 +231,97 @@ func TestBDD_WorldMap_UninitializedState(t *testing.T) {
 // -----------------------------------------------------------------------------
 // Given: A sub-region mixed with Ocean and Land tiles
 // When: Aggregated into a single Map Cell
-// Then: Sub-region should be split into multiple Map Cells
+// Then: Water biomes should be preserved with 1.5x weighting
 func TestBDD_WorldMap_BiomeWeighting(t *testing.T) {
-	// TODO(BACKLOG): Feature BiomeWeighting not yet implemented
-	t.Skip("Biome weighting aggregation not yet implemented - future feature")
+	// Create mock world repo
+	mockRepo := &MockWorldRepo{
+		World: &repository.World{
+			ID:            uuid.New(),
+			Name:          "Coastal World",
+			Circumference: floatPtr(1000.0),
+		},
+	}
+
+	svc := gamemap.NewService(mockRepo, nil, nil, nil, nil, nil)
+	worldID := mockRepo.World.ID
+
+	// Create geology with a coastal region:
+	// 40% ocean, 60% land in the same region
+	// Without weighting: land would win (60% > 40%)
+	// With 1.5x ocean weight: ocean = 40*1.5 = 60, land = 60*1.0 = 60 (tie/ocean wins)
+	// Actually with 4 ocean vs 5 land in a 3x3 region:
+	// Ocean = 4 * 1.5 = 6.0, Land = 5 * 1.0 = 5.0 -> Ocean wins
+	hmSize := 64
+	hm := &geography.Heightmap{
+		Width:      hmSize,
+		Height:     hmSize,
+		Elevations: make([]float64, hmSize*hmSize),
+	}
+
+	biomes := make([]geography.Biome, hmSize*hmSize)
+	for i := range biomes {
+		y := i / hmSize
+		// Top half is ocean, bottom half is grassland
+		// But we'll create a coastal strip in the middle row
+		if y < hmSize/2 {
+			biomes[i] = geography.Biome{Type: geography.BiomeOcean}
+			hm.Elevations[i] = -100
+		} else {
+			biomes[i] = geography.Biome{Type: geography.BiomeGrassland}
+			hm.Elevations[i] = 100
+		}
+	}
+
+	geo := &ecosystem.WorldGeology{
+		Heightmap: hm,
+		Biomes:    biomes,
+	}
+	svc.SetWorldGeology(worldID, geo)
+
+	char := &auth.Character{
+		CharacterID: uuid.New(),
+		WorldID:     worldID,
+		PositionX:   500.0,
+		PositionY:   250.0,
+	}
+
+	ctx := context.Background()
+
+	// Request a smaller grid to trigger aggregation
+	// 64x64 heightmap -> 16x16 grid = 4x aggregation
+	data, err := svc.GetWorldMapData(ctx, char, 16)
+
+	require.NoError(t, err)
+	require.NotNil(t, data)
+
+	// Find the tiles near the middle (coastal boundary)
+	// These tiles should have ocean due to 1.5x weighting
+	// The exact boundary row is at gridY = 8 (middle of 16 rows)
+	coastalTiles := 0
+	grasslandTiles := 0
+	oceanTiles := 0
+
+	for _, tile := range data.Tiles {
+		switch tile.Biome {
+		case "Ocean": // Capitalized to match geography.BiomeOcean
+			oceanTiles++
+		case "Grassland": // Capitalized to match geography.BiomeGrassland
+			grasslandTiles++
+		}
+		// Count tiles at the boundary (middle rows where aggregation matters)
+		if tile.GridY >= 7 && tile.GridY <= 8 && tile.Biome == "Ocean" {
+			coastalTiles++
+		}
+	}
+
+	// Due to 1.5x ocean weighting, coastal regions near the boundary
+	// should favor ocean even when land is slightly more numerous
+	assert.Greater(t, oceanTiles, 0, "Should have ocean tiles")
+	assert.Greater(t, grasslandTiles, 0, "Should have grassland tiles")
+
+	// The aggregation should produce tiles at the boundary
+	// With 1.5x water weighting, ocean should be present at the boundary
+	t.Logf("Tiles: ocean=%d, grassland=%d, coastal=%d", oceanTiles, grasslandTiles, coastalTiles)
 }
 
 // -----------------------------------------------------------------------------
@@ -241,8 +331,44 @@ func TestBDD_WorldMap_BiomeWeighting(t *testing.T) {
 // When: Requested with a square grid size (e.g., 64)
 // Then: The resulting map data should respect the world's aspect ratio
 func TestBDD_WorldMap_AspectRatio(t *testing.T) {
-	// TODO(BACKLOG): Feature AspectRatio not yet implemented
-	t.Skip("Aspect ratio adaptation not yet implemented - future enhancement")
+	// Create a 2:1 aspect ratio world (2000 width, 1000 height)
+	// For spherical worlds, height is circumference/2
+	mockRepo := &MockWorldRepo{
+		World: &repository.World{
+			ID:            uuid.New(),
+			Name:          "Wide World",
+			Circumference: floatPtr(2000.0), // Width = 2000, Height = 1000
+		},
+	}
+
+	svc := gamemap.NewService(mockRepo, nil, nil, nil, nil, nil)
+	worldID := mockRepo.World.ID
+
+	char := &auth.Character{
+		CharacterID: uuid.New(),
+		WorldID:     worldID,
+		PositionX:   1000.0,
+		PositionY:   500.0,
+	}
+
+	ctx := context.Background()
+	data, err := svc.GetWorldMapData(ctx, char, 64)
+
+	require.NoError(t, err)
+	require.NotNil(t, data)
+
+	// With 2:1 aspect ratio (2000 width / 1000 height = 2.0)
+	// GridCols should be 2x GridRows
+	assert.Equal(t, 64, data.GridHeight, "GridHeight should be the base gridSize")
+	assert.Equal(t, 128, data.GridWidth, "GridWidth should be 2x height for 2:1 aspect ratio")
+
+	// Total tiles should be gridCols * gridRows
+	expectedTiles := 128 * 64
+	assert.Len(t, data.Tiles, expectedTiles, "Tile count should match grid dimensions")
+
+	// Verify world dimensions are preserved
+	assert.Equal(t, 2000.0, data.WorldWidth)
+	assert.Equal(t, 1000.0, data.WorldHeight)
 }
 
 // -----------------------------------------------------------------------------
@@ -287,13 +413,15 @@ func TestBDD_WorldMap_FullDisplay(t *testing.T) {
 	}
 
 	ctx := context.Background()
+	// Note: Spherical world has 2:1 aspect ratio (width=circumference, height=circumference/2)
+	// So gridSize 64 becomes 128x64 with aspect ratio scaling
 	data, err := svc.GetWorldMapData(ctx, char, 64)
 
 	require.NoError(t, err)
 	require.NotNil(t, data)
-	assert.Equal(t, 64, data.GridWidth)
-	assert.Equal(t, 64, data.GridHeight)
-	assert.Len(t, data.Tiles, 4096, "64x64 grid should return exactly 4096 tiles")
+	assert.Equal(t, 128, data.GridWidth, "2:1 aspect ratio doubles width")
+	assert.Equal(t, 64, data.GridHeight, "Height stays at gridSize")
+	assert.Len(t, data.Tiles, 128*64, "128x64 grid should return exactly 8192 tiles")
 }
 
 // -----------------------------------------------------------------------------

@@ -5,6 +5,7 @@ import (
 
 	"tw-backend/internal/ecosystem"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -219,8 +220,56 @@ func TestBDD_Minimap_BatchStructure(t *testing.T) {
 // When: Player receives "Blinded" status effect (reducing perception to 0)
 // Then: The *next* render request should downgrade to ASCII or "Fog"
 func TestBDD_Minimap_StatusEffectImpact(t *testing.T) {
-	// TODO(BACKLOG): Feature StatusEffectIntegration not yet implemented
-	t.Skip("Status effect integration not yet implemented - future feature")
+	// Mock status effect service that tracks effects by entity
+	mockService := &mockStatusEffectService{
+		effects: make(map[uuid.UUID][]ecosystem.StatusEffectType),
+	}
+
+	// Create minimap service with status effect awareness
+	svc := ecosystem.NewMinimapService(mockService)
+
+	entityID := uuid.New()
+
+	// Create some normal minimap cells
+	normalCells := []ecosystem.MinimapCell{
+		ecosystem.NewMinimapCell(0, 0, "grassland", 100, ""),
+		ecosystem.NewMinimapCell(1, 0, "ocean", -50, ""),
+		ecosystem.NewMinimapCell(0, 1, "desert", 200, ""),
+	}
+
+	// Without blindness, should render all cells
+	result := svc.RenderMinimap(entityID, normalCells)
+	assert.Len(t, result, 3, "Without blindness, all cells should render")
+
+	// Apply blindness effect
+	mockService.effects[entityID] = []ecosystem.StatusEffectType{ecosystem.EffectBlindness}
+
+	// With blindness, should return empty grid
+	blindResult := svc.RenderMinimap(entityID, normalCells)
+	assert.Empty(t, blindResult, "Blind player should see empty minimap")
+
+	// Remove blindness
+	mockService.effects[entityID] = []ecosystem.StatusEffectType{}
+
+	// After recovery, should render normally again
+	recoveredResult := svc.RenderMinimap(entityID, normalCells)
+	assert.Len(t, recoveredResult, 3, "After recovery, all cells should render")
+}
+
+// mockStatusEffectService implements ecosystem.StatusEffectService for testing
+type mockStatusEffectService struct {
+	effects map[uuid.UUID][]ecosystem.StatusEffectType
+}
+
+func (m *mockStatusEffectService) HasEffect(entityID uuid.UUID, effectType ecosystem.StatusEffectType) bool {
+	if effects, ok := m.effects[entityID]; ok {
+		for _, e := range effects {
+			if e == effectType {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // -----------------------------------------------------------------------------

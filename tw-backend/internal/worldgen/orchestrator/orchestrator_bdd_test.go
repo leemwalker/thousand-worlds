@@ -2,8 +2,10 @@ package orchestrator_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
+	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/orchestrator"
 
 	"github.com/google/uuid"
@@ -183,8 +185,37 @@ func TestBDD_Orchestrator_ContextCancellation(t *testing.T) {
 //	AND The error should be wrapped/propagated to the caller
 //	AND The world should NOT be saved as "Ready"
 func TestBDD_Orchestrator_PipelineFailure(t *testing.T) {
-	// TODO(ARCH): Requires refactoring Orchestrator to support Dependency Injection
-	t.Skip("Pipeline failure injection requires DI refactor - see interfaces.go proposal")
+	ctx := context.Background()
+
+	// Inject a failing geography generator
+	failingGeo := &mockFailingGeoGenerator{}
+	service := orchestrator.NewGeneratorService(
+		orchestrator.WithGeographyGenerator(failingGeo),
+	)
+
+	config := &mockWorldConfig{
+		planetSize:     "small",
+		landWaterRatio: "30% land",
+		climateRange:   "temperate",
+		geologicalAge:  "mature",
+	}
+
+	world, err := service.GenerateWorld(ctx, uuid.New(), config)
+
+	// Should return an error that wraps the geography failure
+	require.Error(t, err, "GenerateWorld should return error when geography fails")
+	assert.Nil(t, world, "World should be nil on failure")
+	assert.Contains(t, err.Error(), "geography",
+		"Error should indicate geography failure")
+	assert.Contains(t, err.Error(), "simulated geography failure",
+		"Error should be wrapped and propagate original message")
+}
+
+// mockFailingGeoGenerator implements orchestrator.GeographyGenerator for testing
+type mockFailingGeoGenerator struct{}
+
+func (m *mockFailingGeoGenerator) GenerateGeography(params *orchestrator.GenerationParams) (*geography.WorldMap, float64, error) {
+	return nil, 0, errors.New("simulated geography failure")
 }
 
 // -----------------------------------------------------------------------------

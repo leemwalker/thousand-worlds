@@ -156,7 +156,7 @@ func TestGenerateWorld(t *testing.T) {
 }
 
 func TestGenerateGeography(t *testing.T) {
-	service := NewGeneratorService()
+	geoGen := &DefaultGeographyGenerator{}
 
 	params := &GenerationParams{
 		Width:          100,
@@ -167,7 +167,7 @@ func TestGenerateGeography(t *testing.T) {
 		ErosionRate:    1.0,
 	}
 
-	geoMap, seaLevel, err := service.generateGeography(params)
+	geoMap, seaLevel, err := geoGen.GenerateGeography(params)
 	require.NoError(t, err)
 	require.NotNil(t, geoMap)
 

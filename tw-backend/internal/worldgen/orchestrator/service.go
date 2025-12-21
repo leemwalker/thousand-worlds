@@ -16,13 +16,29 @@ import (
 // GeneratorService orchestrates procedural world generation
 type GeneratorService struct {
 	mapper *ConfigMapper
+	geoGen GeographyGenerator
+}
+
+// Option configures the GeneratorService
+type Option func(*GeneratorService)
+
+// WithGeographyGenerator sets a custom geography generator (for testing)
+func WithGeographyGenerator(g GeographyGenerator) Option {
+	return func(s *GeneratorService) {
+		s.geoGen = g
+	}
 }
 
 // NewGeneratorService creates a new generator service
-func NewGeneratorService() *GeneratorService {
-	return &GeneratorService{
+func NewGeneratorService(opts ...Option) *GeneratorService {
+	s := &GeneratorService{
 		mapper: NewConfigMapper(),
+		geoGen: &DefaultGeographyGenerator{},
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 // GenerateWorld creates a complete procedurally generated world
@@ -64,7 +80,7 @@ func (s *GeneratorService) GenerateWorld(
 		params.LandWaterRatio = 1.0 - clamp(*params.SeaLevelOverride, 0.0, 1.0)
 	}
 
-	geoMap, seaLevel, err := s.generateGeography(params)
+	geoMap, seaLevel, err := s.geoGen.GenerateGeography(params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate geography: %w", err)
 	}
@@ -125,33 +141,6 @@ func (s *GeneratorService) GenerateWorld(
 	generated.Metadata.GenerationTime = time.Since(startTime)
 
 	return generated, nil
-}
-
-// generateGeography creates terrain using geographic subsystem
-func (s *GeneratorService) generateGeography(params *GenerationParams) (*geography.WorldMap, float64, error) {
-	// Generate tectonic plates
-	plates := geography.GeneratePlates(params.PlateCount, params.Width, params.Height, params.Seed)
-
-	// Generate heightmap from tectonic activity
-	heightmap := geography.GenerateHeightmap(params.Width, params.Height, plates, params.Seed, params.ErosionRate, params.RainfallFactor)
-
-	// Assign ocean/land based on desired ratio
-	seaLevel := geography.AssignOceanLand(heightmap, params.LandWaterRatio)
-
-	// Generate rivers
-	rivers := geography.GenerateRivers(heightmap, seaLevel, params.Seed)
-
-	// Assign biomes
-	biomes := geography.AssignBiomes(heightmap, seaLevel, params.Seed, 0.0)
-
-	worldMap := &geography.WorldMap{
-		Heightmap: heightmap,
-		Plates:    plates,
-		Biomes:    biomes,
-		Rivers:    rivers,
-	}
-
-	return worldMap, seaLevel, nil
 }
 
 // generateWeather creates weather patterns

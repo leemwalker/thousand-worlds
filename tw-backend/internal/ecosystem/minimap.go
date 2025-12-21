@@ -153,3 +153,56 @@ type MinimapBatch struct {
 	Year    int64         `json:"year"`
 	Cells   []MinimapCell `json:"cells"`
 }
+
+// =============================================================================
+// Status Effect Integration
+// =============================================================================
+
+// StatusEffectType defines perception-affecting status effect types
+type StatusEffectType string
+
+const (
+	// EffectBlindness prevents seeing any map content
+	EffectBlindness StatusEffectType = "blindness"
+	// EffectHallucination distorts map content (future feature)
+	EffectHallucination StatusEffectType = "hallucination"
+)
+
+// StatusEffectService checks for active perception-affecting status effects
+type StatusEffectService interface {
+	// HasEffect returns true if the entity has the specified effect active
+	HasEffect(entityID uuid.UUID, effectType StatusEffectType) bool
+}
+
+// MinimapService renders minimaps with status effect awareness
+type MinimapService struct {
+	statusEffects StatusEffectService
+}
+
+// NewMinimapService creates a new minimap service with optional status effect awareness
+func NewMinimapService(statusEffects StatusEffectService) *MinimapService {
+	return &MinimapService{
+		statusEffects: statusEffects,
+	}
+}
+
+// RenderMinimap applies status effect modifications to the minimap cells
+// If the entity has blindness, returns an empty slice
+// If the entity has hallucination, future feature will randomize biomes
+func (s *MinimapService) RenderMinimap(entityID uuid.UUID, cells []MinimapCell) []MinimapCell {
+	if s.statusEffects == nil {
+		return cells
+	}
+
+	// Check for blindness - return empty grid
+	if s.statusEffects.HasEffect(entityID, EffectBlindness) {
+		return []MinimapCell{}
+	}
+
+	// Check for hallucination - future feature would randomize biomes here
+	// if s.statusEffects.HasEffect(entityID, EffectHallucination) {
+	//     return s.hallucinateCells(cells)
+	// }
+
+	return cells
+}
