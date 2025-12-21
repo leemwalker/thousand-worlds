@@ -9,7 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"tw-backend/internal/ecosystem/pathogen"
 	"tw-backend/internal/ecosystem/population"
+	"tw-backend/internal/ecosystem/sapience"
 
 	"github.com/google/uuid"
 )
@@ -102,9 +104,12 @@ type SimulationRunner struct {
 	// Core V2 Simulation Engine
 	popSim *population.PopulationSimulator
 
-	// Persistence
-	snapshotRepo *SimulationSnapshotRepository
-	stateRepo    *RunnerStateRepository
+	// Subsystem Integrations (Phase 4)
+	diseaseSystem    *pathogen.DiseaseSystem
+	sapienceDetector *sapience.SapienceDetector
+	geology          *WorldGeology // Uses existing WorldGeology from this package
+	snapshotRepo     *SimulationSnapshotRepository
+	stateRepo        *RunnerStateRepository
 
 	// Handlers
 	tickHandler           TickHandler
@@ -165,6 +170,8 @@ func (sr *SimulationRunner) InitializePopulationSimulator(seed int64) {
 			sim.InitializeGeographicSystems(sr.config.WorldID, seed)
 			sr.popSim = sim
 			sr.currentYear = sim.CurrentYear
+			// Initialize subsystems (not persisted separately)
+			sr.initializeSubsystems(seed)
 			return
 		} else if err != nil {
 			fmt.Printf("Error loading snapshot: %v\n", err)
@@ -176,6 +183,21 @@ func (sr *SimulationRunner) InitializePopulationSimulator(seed int64) {
 	sr.popSim = population.NewPopulationSimulator(sr.config.WorldID, seed)
 	sr.popSim.InitializeGeographicSystems(sr.config.WorldID, seed)
 	sr.currentYear = 0
+
+	// Initialize subsystems
+	sr.initializeSubsystems(seed)
+}
+
+// initializeSubsystems sets up disease, sapience, and geology systems
+func (sr *SimulationRunner) initializeSubsystems(seed int64) {
+	// Initialize Disease System
+	sr.diseaseSystem = pathogen.NewDiseaseSystem(sr.config.WorldID, seed)
+
+	// Initialize Sapience Detector (magic disabled by default)
+	sr.sapienceDetector = sapience.NewSapienceDetector(sr.config.WorldID, false)
+
+	// Geology uses existing WorldGeology from this package
+	// (typically initialized separately or via worldgen)
 }
 
 // SetTickHandler sets the handler called for each tick
@@ -439,6 +461,9 @@ func (sr *SimulationRunner) tickLocked(yearsToAdvance int64) error {
 			sr.popSim.ApplyCoEvolution()
 			sr.popSim.ApplyGeneticDrift()
 			sr.popSim.ApplySexualSelection()
+
+			// Sapience Detection (every 1000 years)
+			sr.updateSapienceDetection()
 		}
 
 		// Speciation & Migration (every 10000 years)
@@ -454,6 +479,14 @@ func (sr *SimulationRunner) tickLocked(yearsToAdvance int64) error {
 				})
 			}
 			sr.popSim.ApplyMigrationCycle()
+
+			// Disease System Update (every 10000 years)
+			sr.updateDiseaseSystem()
+		}
+
+		// Geology Updates (every 100000 years)
+		if sr.popSim.CurrentYear%100000 == 0 {
+			sr.updateGeology(100000)
 		}
 
 		// Check for events logged by the simulator this year
@@ -698,4 +731,134 @@ func (sr *SimulationRunner) GetTurningPointManager() *TurningPointManager {
 // Helper to randomly pick an element (used by tests mostly)
 func pickRandom[T any](rng *rand.Rand, slice []T) T {
 	return slice[rng.Intn(len(slice))]
+}
+
+// =============================================================================
+// Phase 4: Subsystem Integration Methods
+// =============================================================================
+
+// updateDiseaseSystem simulates pathogen dynamics and outbreaks
+func (sr *SimulationRunner) updateDiseaseSystem() {
+	if sr.diseaseSystem == nil || sr.popSim == nil {
+		return
+	}
+
+	// Build species info map for disease system
+	speciesInfo := make(map[uuid.UUID]pathogen.SpeciesInfo)
+	for biomeID, biome := range sr.popSim.Biomes {
+		for speciesID, species := range biome.Species {
+			// Aggregate species info across biomes
+			info, exists := speciesInfo[speciesID]
+			if !exists {
+				info = pathogen.SpeciesInfo{
+					Population:        species.Count,
+					DiseaseResistance: float32(species.Traits.DiseaseResistance),
+					DietType:          string(species.Diet),
+					Density:           0.5, // Default density
+				}
+			} else {
+				info.Population += species.Count
+			}
+			speciesInfo[speciesID] = info
+			_ = biomeID // used in loop
+		}
+	}
+
+	// Update disease system
+	sr.diseaseSystem.Update(sr.popSim.CurrentYear, speciesInfo)
+
+	// Check for pandemics and broadcast events
+	pandemics := sr.diseaseSystem.GetPandemics()
+	for _, outbreak := range pandemics {
+		sr.broadcastEvent(RunnerEvent{
+			Year:        sr.popSim.CurrentYear,
+			Type:        "pandemic",
+			Description: fmt.Sprintf("Pandemic outbreak affecting species"),
+			SpeciesID:   &outbreak.SpeciesID,
+			Importance:  9,
+		})
+	}
+}
+
+// updateSapienceDetection checks for emerging sapience in species
+func (sr *SimulationRunner) updateSapienceDetection() {
+	if sr.sapienceDetector == nil || sr.popSim == nil {
+		return
+	}
+
+	// Evaluate all species for sapience potential
+	for _, biome := range sr.popSim.Biomes {
+		for speciesID, species := range biome.Species {
+			// Convert population traits to sapience traits (scale 0-10)
+			traits := sapience.SpeciesTraits{
+				Intelligence:  species.Traits.Intelligence * 10, // Convert 0-1 to 0-10
+				Social:        species.Traits.Social * 10,
+				ToolUse:       species.Traits.Intelligence * 5, // Approximate tool use from intelligence
+				Communication: species.Traits.Social * 8,       // Approximate from social
+				MagicAffinity: 0,                               // No magic by default
+				Population:    species.Count,
+				Generation:    species.Generation,
+			}
+
+			candidate := sr.sapienceDetector.Evaluate(
+				speciesID,
+				species.Name,
+				traits,
+				sr.popSim.CurrentYear,
+			)
+
+			// Broadcast sapience events
+			if candidate != nil && candidate.Level == sapience.SapienceSapient {
+				sr.broadcastEvent(RunnerEvent{
+					Year:        sr.popSim.CurrentYear,
+					Type:        "sapience",
+					Description: fmt.Sprintf("Species '%s' has achieved sapience!", species.Name),
+					SpeciesID:   &speciesID,
+					Importance:  10,
+				})
+			} else if candidate != nil && candidate.Level == sapience.SapienceProtoSapient {
+				sr.broadcastEvent(RunnerEvent{
+					Year:        sr.popSim.CurrentYear,
+					Type:        "proto_sapience",
+					Description: fmt.Sprintf("Species '%s' shows proto-sapient behavior", species.Name),
+					SpeciesID:   &speciesID,
+					Importance:  7,
+				})
+			}
+		}
+	}
+}
+
+// updateGeology simulates geological processes over time
+func (sr *SimulationRunner) updateGeology(yearsElapsed int64) {
+	if sr.geology == nil {
+		return
+	}
+
+	// Simulate geological processes
+	sr.geology.SimulateGeology(yearsElapsed, 0.0) // No temperature modifier
+
+	// Check for significant geological events
+	// (The WorldGeology system handles internal events)
+}
+
+// SetGeology allows external injection of geology system
+func (sr *SimulationRunner) SetGeology(geology *WorldGeology) {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+	sr.geology = geology
+}
+
+// GetDiseaseSystem returns the disease system for external access
+func (sr *SimulationRunner) GetDiseaseSystem() *pathogen.DiseaseSystem {
+	sr.mu.RLock()
+	defer sr.mu.RUnlock()
+	return sr.diseaseSystem
+}
+
+// GetSapienceDetector returns the sapience detector for external access
+func (sr *SimulationRunner) GetSapienceDetector() *sapience.SapienceDetector {
+	sr.mu.RLock()
+	defer sr.mu.RUnlock()
+	return sr.sapienceDetector
 }
