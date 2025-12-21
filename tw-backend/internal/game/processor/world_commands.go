@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"fmt"
+	"log"
 	"math"
 	"strconv"
 	"strings"
@@ -1043,6 +1044,14 @@ func (p *GameProcessor) handleWorldMap(ctx context.Context, client websocket.Gam
 		client.SendGameMessage("error", fmt.Sprintf("Failed to generate world map: %v", err), nil)
 		return nil
 	}
+
+	// Debug logging
+	sampleBiome := "none"
+	if len(mapData.Tiles) > 0 {
+		sampleBiome = mapData.Tiles[len(mapData.Tiles)/2].Biome
+	}
+	log.Printf("[WORLDMAP] Sending world_map_data: tiles=%d, grid=%dx%d, worldSize=%.0fx%.0f, sampleBiome=%s",
+		len(mapData.Tiles), mapData.GridWidth, mapData.GridHeight, mapData.WorldWidth, mapData.WorldHeight, sampleBiome)
 
 	// Convert to map[string]interface{} for JSON serialization
 	payload := map[string]interface{}{

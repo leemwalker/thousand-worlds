@@ -168,10 +168,15 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 	if s.worldRepo != nil {
 		world, err := s.worldRepo.GetWorld(ctx, char.WorldID)
 		if err == nil && world != nil {
-			if world.BoundsMin != nil {
+			// Check for spherical world first (has Circumference but no BoundsMin/Max)
+			if world.Circumference != nil && *world.Circumference > 0 {
+				// Spherical world: longitude wraps around, latitude is half
+				minX, minY = 0, 0
+				maxX = *world.Circumference
+				maxY = *world.Circumference / 2
+			} else if world.BoundsMin != nil && world.BoundsMax != nil {
+				// Bounded world
 				minX, minY = world.BoundsMin.X, world.BoundsMin.Y
-			}
-			if world.BoundsMax != nil {
 				maxX, maxY = world.BoundsMax.X, world.BoundsMax.Y
 			}
 		}
