@@ -2,6 +2,7 @@ package gamemap
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"math"
 	"sync"
@@ -37,6 +38,9 @@ type Service struct {
 	// Fallback geology data for biome rendering
 	worldGeologyMu sync.RWMutex
 	worldGeology   map[uuid.UUID]*ecosystem.WorldGeology
+
+	// Cache for world map data (key: "worldID:gridSize")
+	worldMapCache sync.Map
 }
 
 // NewService creates a new map service
@@ -478,6 +482,17 @@ func (s *Service) GetWorldMapData(ctx context.Context, char *auth.Character, gri
 		gridSize = 64 // Default to 64x64 grid
 	}
 
+	// Check cache first
+	cacheKey := fmt.Sprintf("%s:%d", char.WorldID, gridSize)
+	if cached, ok := s.worldMapCache.Load(cacheKey); ok {
+		if data, ok := cached.(*WorldMapData); ok {
+			// Update player position in cached data (position can change)
+			data.PlayerX = char.PositionX
+			data.PlayerY = char.PositionY
+			return data, nil
+		}
+	}
+
 	world, err := s.worldRepo.GetWorld(ctx, char.WorldID)
 	if err != nil {
 		return nil, err
@@ -548,7 +563,7 @@ func (s *Service) GetWorldMapData(ctx context.Context, char *auth.Character, gri
 		}
 	}
 
-	return &WorldMapData{
+	result := &WorldMapData{
 		Tiles:       tiles,
 		GridWidth:   gridSize,
 		GridHeight:  gridSize,
@@ -558,5 +573,10 @@ func (s *Service) GetWorldMapData(ctx context.Context, char *auth.Character, gri
 		PlayerY:     char.PositionY,
 		WorldID:     char.WorldID,
 		WorldName:   world.Name,
-	}, nil
+	}
+
+	// Store in cache
+	s.worldMapCache.Store(cacheKey, result)
+
+	return result, nil
 }

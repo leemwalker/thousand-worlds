@@ -206,53 +206,11 @@ func TestBDD_Minimap_BatchStructure(t *testing.T) {
 	assert.Equal(t, "grassland", batch.Cells[1].BiomeType)
 }
 
-// -----------------------------------------------------------------------------
-// Scenario: Line of Sight - Horizon Culling
-// -----------------------------------------------------------------------------
-// Given: Player at elevation 100m
-// When: Tile is behind higher elevation
-// Then: Tile should be marked as occluded
-//
-//	AND Occluded tiles should render darker
-func TestBDD_Minimap_LineOfSight_Occlusion(t *testing.T) {
-	// Horizon culling is implemented in gamemap.Service.computeOcclusion
-	t.Skip("Horizon culling implemented in gamemap.Service.computeOcclusion - see service_test.go")
-}
-
-// -----------------------------------------------------------------------------
-// Scenario: Perception-Based Rendering Quality
-// -----------------------------------------------------------------------------
-// Given: Player with high perception (0.9)
-// When: Minimap is rendered
-// Then: Should see emoji overlays
-//
-//	AND Details should be visible at greater distance
-func TestBDD_Minimap_PerceptionRendering_High(t *testing.T) {
-	// Perception-based rendering is handled by gamemap.GetRenderQuality
-	t.Skip("Perception rendering implemented in gamemap.GetRenderQuality - see worldmap_bdd_test.go")
-}
-
-// -----------------------------------------------------------------------------
-// Scenario: Player Movement & Grid Shifting
-// -----------------------------------------------------------------------------
-// Given: A player at [10, 10] with a visible landmark at [10, 11] (North)
-// When: Player moves North to [10, 11]
-// Then: The landmark should shift from the "North" cell to the "Center" cell
-func TestBDD_Minimap_MovementShift(t *testing.T) {
-	// Grid centering is handled by gamemap.GetMapData centering on player position
-	t.Skip("Grid centering implemented in gamemap.GetMapData - see service_test.go")
-}
-
-// -----------------------------------------------------------------------------
-// Scenario: Spherical Seam Wrapping
-// -----------------------------------------------------------------------------
-// Given: A world with width 100, and player at East edge [99, 50]
-// When: Minimap is generated with radius 2
-// Then: The Eastern-most cells should map to x=0 and x=1
-func TestBDD_Minimap_SphericalWrapping(t *testing.T) {
-	// Spherical wrapping is handled by spatial service
-	t.Skip("Spherical wrapping implemented in spatial service - see spatial_service_test.go")
-}
+// Redundant tests removed (covered by other packages):
+// - TestBDD_Minimap_LineOfSight_Occlusion -> covered by gamemap.Service.computeOcclusion tests
+// - TestBDD_Minimap_PerceptionRendering_High -> covered by gamemap.GetRenderQuality tests
+// - TestBDD_Minimap_MovementShift -> covered by gamemap.GetMapData grid centering tests
+// - TestBDD_Minimap_SphericalWrapping -> covered by spatial.NormalizeCoordinates tests
 
 // -----------------------------------------------------------------------------
 // Scenario: Dynamic Perception Change

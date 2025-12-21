@@ -183,8 +183,9 @@ func TestBDD_Orchestrator_ContextCancellation(t *testing.T) {
 //	AND The error should be wrapped/propagated to the caller
 //	AND The world should NOT be saved as "Ready"
 func TestBDD_Orchestrator_PipelineFailure(t *testing.T) {
-	// This test requires dependency injection refactor to inject failing sub-services
-	// See interfaces.go proposal for future implementation
+	// TODO: Refactor Orchestrator to use dependency injection for sub-generators
+	// (geology, weather, minerals) to enable error simulation testing.
+	// This test requires injecting failing sub-services to verify error propagation.
 	t.Skip("Pipeline failure injection requires DI refactor - see interfaces.go proposal")
 }
 
