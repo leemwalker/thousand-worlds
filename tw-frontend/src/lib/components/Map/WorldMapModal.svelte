@@ -139,25 +139,30 @@
 
     // Listen for sim events and world map data
     function handleSimMessage(msg: any) {
-        // Handle world map data from backend (Issue 5)
-        if (msg.type === "world_map_data") {
+        // Backend sends: { type: "game_message", data: { type: "world_map_data", metadata: {...} } }
+        const dataType = msg.data?.type || msg.type;
+
+        // Handle world map data from backend
+        if (dataType === "world_map_data") {
+            // Payload is in metadata for game_message, or directly in data for other message types
+            const payload = msg.data?.metadata || msg.data;
             console.log("[WorldMapModal] Received world_map_data:", {
-                tiles: msg.data?.tiles?.length,
-                grid: `${msg.data?.grid_width}x${msg.data?.grid_height}`,
-                worldSize: `${msg.data?.world_width}x${msg.data?.world_height}`,
+                tiles: payload?.tiles?.length,
+                grid: `${payload?.grid_width}x${payload?.grid_height}`,
+                worldSize: `${payload?.world_width}x${payload?.world_height}`,
                 biomes: [
-                    ...new Set(msg.data?.tiles?.map((t: any) => t.biome) || []),
+                    ...new Set(payload?.tiles?.map((t: any) => t.biome) || []),
                 ].slice(0, 10),
             });
-            worldMapData = msg.data;
+            worldMapData = payload;
             loading = false;
             return;
         }
 
-        if (msg.type === "sim_event") {
+        if (dataType === "sim_event") {
             simStats.year = msg.data.year || simStats.year;
             // Add to event log
-            const eventText = `Year ${msg.data.year}: ${msg.text}`;
+            const eventText = `Year ${msg.data.year}: ${msg.text || msg.data?.text}`;
             simStats.events = [eventText, ...simStats.events].slice(0, 50); // Keep last 50
         } else if (
             msg.type === "game_message" &&
