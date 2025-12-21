@@ -232,7 +232,7 @@ func setupSpatialTest(t *testing.T) (*processor.GameProcessor, *TestGameClient, 
 	interviewSvc := interview.NewServiceWithRepository(nil, interviewRepo, worldRepo)
 	spatialSvc := player.NewSpatialService(authRepo, worldRepo, nil)
 
-	proc := processor.NewGameProcessor(authRepo, worldRepo, nil, lookService, entitySvc, interviewSvc, spatialSvc, nil, nil, nil, nil, nil, nil, nil, nil)
+	proc := processor.NewGameProcessor(authRepo, worldRepo, nil, lookService, entitySvc, interviewSvc, spatialSvc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	hub := websocket.NewHub(proc)
 	proc.SetHub(hub)

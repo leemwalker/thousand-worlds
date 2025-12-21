@@ -22,6 +22,10 @@ func (m *MockMessageProcessor) ProcessCommand(ctx context.Context, client GameCl
 	return args.Error(0)
 }
 
+func (m *MockMessageProcessor) OnClientConnected(ctx context.Context, client GameClient) {
+	m.Called(ctx, client)
+}
+
 func TestNewHub(t *testing.T) {
 	processor := &MockMessageProcessor{}
 	hub := NewHub(processor)
