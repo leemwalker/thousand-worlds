@@ -153,6 +153,11 @@ func (w *WorldConfiguration) GetSeaLevel() *float64 {
 	return &val
 }
 
+// GetSeed returns nil (random seed) since interviews don't specify seeds
+func (w *WorldConfiguration) GetSeed() *int64 {
+	return nil
+}
+
 // Status represents the state of an interview
 type Status string
 

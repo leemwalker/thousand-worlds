@@ -31,6 +31,11 @@ func (s *GeneratorService) GenerateWorld(
 	worldID uuid.UUID,
 	config WorldConfig,
 ) (*GeneratedWorld, error) {
+	// Check context before starting
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
 	startTime := time.Now()
 
 	// 1. Map configuration to generation parameters
@@ -49,6 +54,11 @@ func (s *GeneratorService) GenerateWorld(
 		},
 	}
 
+	// Check context before geography generation
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
 	// 2. Generate geography
 	if params.SeaLevelOverride != nil {
 		params.LandWaterRatio = 1.0 - clamp(*params.SeaLevelOverride, 0.0, 1.0)
@@ -61,6 +71,11 @@ func (s *GeneratorService) GenerateWorld(
 	generated.Geography = geoMap
 	generated.Metadata.SeaLevel = seaLevel
 	generated.Metadata.LandRatio = params.LandWaterRatio
+
+	// Check context before weather generation
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 
 	// 3. Generate weather patterns
 	// Only generate full weather simulation if geology simulation is enabled
@@ -78,12 +93,22 @@ func (s *GeneratorService) GenerateWorld(
 		generated.WeatherCells = []*weather.GeographyCell{}
 	}
 
+	// Check context before mineral generation
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
 	// 4. Generate mineral deposits
 	mineralDeposits, err := s.generateMinerals(params, geoMap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate minerals: %w", err)
 	}
 	generated.Minerals = mineralDeposits
+
+	// Check context before species generation
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 
 	// 5. Generate species
 	if params.SimulateLife {

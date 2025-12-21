@@ -19,6 +19,7 @@ type WorldConfig interface {
 	GetResourceDistribution() map[string]float64
 	GetSimulationFlags() map[string]bool
 	GetSeaLevel() *float64
+	GetSeed() *int64 // Optional: if nil, random seed is used
 }
 
 // ConfigMapper converts WorldConfiguration to GenerationParams
@@ -31,8 +32,16 @@ func NewConfigMapper() *ConfigMapper {
 
 // MapToParams converts world configuration to generation parameters
 func (m *ConfigMapper) MapToParams(config WorldConfig) (*GenerationParams, error) {
+	// Use seed from config if provided, otherwise generate random
+	var seed int64
+	if configSeed := config.GetSeed(); configSeed != nil {
+		seed = *configSeed
+	} else {
+		seed = rand.Int63()
+	}
+
 	params := &GenerationParams{
-		Seed: rand.Int63(), // Random seed for uniqueness
+		Seed: seed,
 	}
 
 	// Map planet size to dimensions
