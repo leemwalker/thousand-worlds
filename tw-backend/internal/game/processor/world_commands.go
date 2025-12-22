@@ -500,9 +500,13 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		// Progress reporting
 		if year-lastProgress >= progressInterval && progressInterval > 0 {
 			percent := (year * 100) / years
-			totalPop, totalSpecies, totalExtinct := popSim.GetStats()
-			client.SendGameMessage("system", fmt.Sprintf("⏳ Progress: %d%% (Year %d, Pop: %d, Species: %d, Extinct: %d)",
-				percent, year, totalPop, totalSpecies, totalExtinct), nil)
+			if popSim != nil {
+				totalPop, totalSpecies, totalExtinct := popSim.GetStats()
+				client.SendGameMessage("system", fmt.Sprintf("⏳ Progress: %d%% (Year %d, Pop: %d, Species: %d, Extinct: %d)",
+					percent, year, totalPop, totalSpecies, totalExtinct), nil)
+			} else {
+				client.SendGameMessage("system", fmt.Sprintf("⏳ Progress: %d%% (Year %d)", percent, year), nil)
+			}
 			lastProgress = year
 		}
 
@@ -513,7 +517,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		}
 
 		// Apply evolution every 1000 years
-		if popSim.CurrentYear%1000 == 0 && simulateLife {
+		if simulateLife && popSim.CurrentYear%1000 == 0 {
 			popSim.ApplyEvolution()
 
 			// Apply co-evolution (predator-prey arms race) every 1000 years
@@ -527,7 +531,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		}
 
 		// Check for speciation every 10000 years
-		if popSim.CurrentYear%10000 == 0 && simulateLife {
+		if simulateLife && popSim.CurrentYear%10000 == 0 {
 			// Update atmospheric oxygen levels
 			oldO2 := popSim.OxygenLevel
 			newO2 := popSim.UpdateOxygenLevel()
@@ -781,10 +785,10 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			geology.SimulateGeology(10000, tempMod)
 
 			// Update geographic systems (hex grid, regions, tectonics)
-			popSim.UpdateGeographicSystems(10000)
-
-			// Apply isolation effects (gigantism/dwarfism) to isolated regions
 			if simulateLife {
+				popSim.UpdateGeographicSystems(10000)
+
+				// Apply isolation effects (gigantism/dwarfism) to isolated regions
 				isolationAffected := popSim.ApplyIsolationEffects()
 				if isolationAffected > 0 && year%100000 == 0 {
 					client.SendGameMessage("system", fmt.Sprintf("🏝️ Island effects: %d species affected by isolation", isolationAffected), nil)
@@ -793,7 +797,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		}
 
 		// Regional migration every 100,000 years
-		if year%100000 == 0 && year > 0 {
+		if simulateLife && year%100000 == 0 && year > 0 {
 			migrations := popSim.ApplyRegionalMigration()
 			if migrations > 0 {
 				client.SendGameMessage("system", fmt.Sprintf("🌍 Regional migration: %d species expanded to new regions", migrations), nil)
@@ -801,7 +805,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		}
 
 		// Check for turning points every 100,000 years
-		if year%100000 == 0 && year > 0 {
+		if simulateLife && year%100000 == 0 && year > 0 {
 			totalPop, totalSpecies, _ := popSim.GetStats()
 
 			// Determine significant event string based on recent activity
@@ -844,15 +848,20 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 
 	// Get final statistics
 	geoStats := geology.GetStats()
-	totalPop, totalSpecies, totalExtinct := popSim.GetStats()
+	var totalPop, totalSpecies, totalExtinct int64
+	if popSim != nil {
+		totalPop, totalSpecies, totalExtinct = popSim.GetStats()
+	}
 
 	// Build summary
 	var sb strings.Builder
 	sb.WriteString("=== Simulation Complete ===\n")
 	sb.WriteString(fmt.Sprintf("Years Simulated: %d\n", years))
-	sb.WriteString(fmt.Sprintf("Total Population: %d\n", totalPop))
-	sb.WriteString(fmt.Sprintf("Living Species: %d\n", totalSpecies))
-	sb.WriteString(fmt.Sprintf("Extinct Species: %d\n", totalExtinct))
+	if popSim != nil {
+		sb.WriteString(fmt.Sprintf("Total Population: %d\n", totalPop))
+		sb.WriteString(fmt.Sprintf("Living Species: %d\n", totalSpecies))
+		sb.WriteString(fmt.Sprintf("Extinct Species: %d\n", totalExtinct))
+	}
 	sb.WriteString(fmt.Sprintf("Geological Events: %d\n", geologicalEvents))
 
 	// Event Breakdown
@@ -862,16 +871,18 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	}
 
 	// V2 Statistics
-	sb.WriteString("--- V2 Features ---\n")
-	sb.WriteString(fmt.Sprintf("Disease Outbreaks: %d\n", totalOutbreaks))
-	sb.WriteString(fmt.Sprintf("Extinction Cascades: %d\n", totalCascades))
-	if sapienceAchieved {
-		sb.WriteString("Sapience: ACHIEVED! 🧠\n")
-	} else {
-		progress := sapienceDetector.CalculateSapienceProgress()
-		sb.WriteString(fmt.Sprintf("Sapience Progress: %.0f%%\n", progress*100))
+	if simulateLife {
+		sb.WriteString("--- V2 Features ---\n")
+		sb.WriteString(fmt.Sprintf("Disease Outbreaks: %d\n", totalOutbreaks))
+		sb.WriteString(fmt.Sprintf("Extinction Cascades: %d\n", totalCascades))
+		if sapienceAchieved {
+			sb.WriteString("Sapience: ACHIEVED! 🧠\n")
+		} else {
+			progress := sapienceDetector.CalculateSapienceProgress()
+			sb.WriteString(fmt.Sprintf("Sapience Progress: %.0f%%\n", progress*100))
+		}
+		sb.WriteString(fmt.Sprintf("Species in Tree of Life: %d\n", len(phyloTree.Nodes)))
 	}
-	sb.WriteString(fmt.Sprintf("Species in Tree of Life: %d\n", len(phyloTree.Nodes)))
 
 	sb.WriteString("--- Terrain Stats ---\n")
 	sb.WriteString(fmt.Sprintf("Tectonic Plates: %d\n", geoStats.PlateCount))
@@ -895,30 +906,32 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	}
 	biomeTypeMap := make(map[string]*biomeTypeStats)
 
-	for _, biome := range popSim.Biomes {
-		biomeTypeName := string(biome.BiomeType)
-		if _, exists := biomeTypeMap[biomeTypeName]; !exists {
-			biomeTypeMap[biomeTypeName] = &biomeTypeStats{
-				species: make(map[string]struct {
-					count      int64
-					generation int64
-				}),
+	if popSim != nil {
+		for _, biome := range popSim.Biomes {
+			biomeTypeName := string(biome.BiomeType)
+			if _, exists := biomeTypeMap[biomeTypeName]; !exists {
+				biomeTypeMap[biomeTypeName] = &biomeTypeStats{
+					species: make(map[string]struct {
+						count      int64
+						generation int64
+					}),
+				}
 			}
-		}
-		stats := biomeTypeMap[biomeTypeName]
-		stats.count++
-		stats.population += biome.TotalPopulation()
+			stats := biomeTypeMap[biomeTypeName]
+			stats.count++
+			stats.population += biome.TotalPopulation()
 
-		for _, sp := range biome.Species {
-			// Use base species name (without biome prefix for cleaner display)
-			existing := stats.species[sp.Name]
-			existing.count += sp.Count
-			if sp.Generation > existing.generation {
-				existing.generation = sp.Generation
+			for _, sp := range biome.Species {
+				// Use base species name (without biome prefix for cleaner display)
+				existing := stats.species[sp.Name]
+				existing.count += sp.Count
+				if sp.Generation > existing.generation {
+					existing.generation = sp.Generation
+				}
+				stats.species[sp.Name] = existing
 			}
-			stats.species[sp.Name] = existing
 		}
-	}
+	} // end if popSim != nil
 
 	// Output grouped stats
 	for biomeType, stats := range biomeTypeMap {
@@ -935,7 +948,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	}
 
 	// Fossil record
-	if len(popSim.FossilRecord.Extinct) > 0 {
+	if popSim != nil && len(popSim.FossilRecord.Extinct) > 0 {
 		sb.WriteString("--- Fossil Record ---\n")
 		shown := 0
 		for _, ext := range popSim.FossilRecord.Extinct {

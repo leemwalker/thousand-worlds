@@ -70,13 +70,18 @@ func TestHandleWorld_Simulate_OnlyGeology(t *testing.T) {
 
 	// Verify messages confirm geology-only
 	foundV2Message := false
+	foundGeologyOnlyMsg := false
 	for _, m := range client.messages {
 		if strings.Contains(m.Text, "V2 Systems initialized") {
 			foundV2Message = true
-			assert.Contains(t, m.Text, "Active: false", "V2 Systems should report inactive")
+		}
+		if strings.Contains(m.Text, "geology-only simulation") {
+			foundGeologyOnlyMsg = true
 		}
 	}
-	assert.True(t, foundV2Message, "Should have received system initialization message")
+	// V2 Systems should NOT be initialized in geology-only mode
+	assert.False(t, foundV2Message, "V2 Systems should NOT be initialized with --only-geology")
+	assert.True(t, foundGeologyOnlyMsg, "Should receive geology-only message")
 }
 
 // TestHandleWorld_Simulate_Default verifies that WITHOUT flags, life is simulated.
