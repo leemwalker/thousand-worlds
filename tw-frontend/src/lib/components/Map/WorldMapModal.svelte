@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount, onDestroy } from "svelte";
     import { MapRenderer } from "./MapRenderer";
+    import { WebGLMapRenderer } from "./WebGLMapRenderer";
     import type { VisibleTile } from "./MapRenderer";
     import { mapStore } from "$lib/stores/map";
     import { gameWebSocket } from "$lib/services/websocket";
@@ -11,10 +12,14 @@
 
     let canvas: HTMLCanvasElement;
     let renderer: MapRenderer | null = null;
+    let webglRenderer: WebGLMapRenderer | null = null;
     let containerWidth = 0;
     let containerHeight = 0;
     let worldMapData: any = null;
     let loading = false;
+
+    // Graphics mode toggle (WebGL vs ASCII)
+    let useGraphicsMode = true;
 
     // Simulation stats
     let simStats = {
@@ -29,14 +34,12 @@
         requestWorldMap();
     }
 
-    $: if (!isOpen && renderer) {
-        renderer.stop();
-        renderer = null;
-        worldMapData = null;
+    $: if (!isOpen) {
+        cleanupRenderers();
     }
 
     // Update map when world map data is received
-    $: if (renderer && worldMapData && isOpen) {
+    $: if ((renderer || webglRenderer) && worldMapData && isOpen) {
         updateWorldMap();
     }
 
@@ -44,6 +47,19 @@
     // Wait until loading is complete before falling back
     $: if (renderer && !worldMapData && !loading && $mapStore.data && isOpen) {
         updateFromMinimap();
+    }
+
+    function cleanupRenderers() {
+        if (renderer) {
+            renderer.stop();
+            renderer = null;
+        }
+        if (webglRenderer) {
+            webglRenderer.stop();
+            webglRenderer.destroy();
+            webglRenderer = null;
+        }
+        worldMapData = null;
     }
 
     function requestWorldMap() {
@@ -60,22 +76,42 @@
     }
 
     function initRenderer() {
-        if (!canvas || renderer) return;
+        if (!canvas) return;
 
-        const ctx = canvas.getContext("2d", { alpha: false });
-        if (!ctx) return;
+        // Cleanup existing renderers
+        cleanupRenderers();
 
-        renderer = new MapRenderer(canvas);
-        renderer.setTileSize(4);
-        renderer.setViewMode("atlas");
-        renderer.setQuality("low"); // Use ASCII for performance on large map
+        if (useGraphicsMode) {
+            // Use WebGL renderer for graphics mode
+            webglRenderer = new WebGLMapRenderer(canvas);
+            webglRenderer.start();
+            console.log("[WorldMapModal] Using WebGL graphics mode");
+        } else {
+            // Use Canvas 2D renderer for text mode
+            const ctx = canvas.getContext("2d", { alpha: false });
+            if (!ctx) return;
 
-        renderer.start();
+            renderer = new MapRenderer(canvas);
+            renderer.setTileSize(4);
+            renderer.setViewMode("atlas");
+            renderer.setQuality("low");
+            renderer.start();
+            console.log("[WorldMapModal] Using Canvas 2D text mode");
+        }
     }
 
     // Update from full world map data (Issue 5)
     function updateWorldMap() {
-        if (!renderer || !worldMapData) return;
+        if (!worldMapData) return;
+
+        // Graphics mode: use WebGL renderer
+        if (useGraphicsMode && webglRenderer) {
+            webglRenderer.updateData(worldMapData);
+            return;
+        }
+
+        // Text mode: use Canvas 2D renderer
+        if (!renderer) return;
 
         // Convert player world position to grid position
         const gridWidth = worldMapData.grid_width || 128;
@@ -257,6 +293,21 @@
                             >{simStats.year}</span
                         >
                     </div>
+                    <!-- Graphics/Text Mode Toggle -->
+                    <button
+                        on:click={() => {
+                            useGraphicsMode = !useGraphicsMode;
+                            initRenderer();
+                            if (worldMapData) updateWorldMap();
+                        }}
+                        class="px-3 py-1 text-xs rounded-md transition-colors"
+                        class:bg-blue-600={useGraphicsMode}
+                        class:bg-gray-600={!useGraphicsMode}
+                        class:hover:bg-blue-500={useGraphicsMode}
+                        class:hover:bg-gray-500={!useGraphicsMode}
+                    >
+                        {useGraphicsMode ? "🎨 Graphics" : "📝 Text"}
+                    </button>
                     <button
                         on:click={onClose}
                         class="text-gray-400 hover:text-white transition-colors"
