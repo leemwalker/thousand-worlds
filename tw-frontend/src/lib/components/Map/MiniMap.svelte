@@ -44,6 +44,11 @@
                     biome: tile.biome || "Default",
                     elevation: tile.elevation || 0,
                     is_player: tile.is_player || false,
+                    entities:
+                        tile.entities?.map((e: any) => ({
+                            type: e.type || e.Type || "",
+                            name: e.name || e.Name || "",
+                        })) || [],
                 }),
             ),
             player_x: $mapStore.data.player_x,

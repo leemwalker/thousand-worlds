@@ -21,6 +21,17 @@ const BIOME_IDS: Record<string, number> = {
     'Void': 10,
 };
 
+// Entity type ID mapping for texture encoding (stored in B channel)
+const ENTITY_IDS: Record<string, number> = {
+    'wall': 1,
+    'portal': 2,
+    'statue': 3,
+    'npc': 4,
+    'creature': 5,
+    'item': 6,
+    'plant': 7,
+};
+
 // Vertex shader - pass-through with texture coordinates
 const VERTEX_SHADER = `#version 300 es
 precision highp float;
@@ -108,6 +119,19 @@ vec3 getBiomeColor(float biomeId) {
     return COLOR_UNSIMULATED;                     // Default - gray fog
 }
 
+// Entity-based colors (encoded in B channel)
+vec3 getEntityColor(float entityId) {
+    int id = int(entityId * 255.0);
+    if (id == 1) return vec3(0.4, 0.35, 0.3);    // Wall - dark brown
+    if (id == 2) return vec3(0.8, 0.2, 0.8);     // Portal - magenta
+    if (id == 3) return vec3(0.7, 0.7, 0.8);     // Statue - stone gray
+    if (id == 4) return vec3(0.9, 0.8, 0.3);     // NPC - gold
+    if (id == 5) return vec3(0.8, 0.4, 0.3);     // Creature - orange
+    if (id == 6) return vec3(0.3, 0.8, 0.9);     // Item - cyan
+    if (id == 7) return vec3(0.2, 0.7, 0.3);     // Plant - bright green
+    return vec3(0.0);                             // No entity (0 = transparent)
+}
+
 void main() {
     vec4 data = texture(u_dataTexture, v_texCoord);
     vec3 color;
@@ -118,6 +142,13 @@ void main() {
     } else {
         // Lobby/unsimulated - use flat biome colors
         color = getBiomeColor(data.g);
+    }
+    
+    // Entity overlay - entities in B channel override base color
+    float entityId = data.b;
+    if (entityId > 0.01) {
+        vec3 entityColor = getEntityColor(entityId);
+        color = entityColor;
     }
     
     // Player marker - static circle at player position
@@ -166,6 +197,12 @@ export interface MiniMapTile {
     biome: string;
     elevation: number;
     is_player?: boolean;
+    entities?: MiniMapEntity[];
+}
+
+export interface MiniMapEntity {
+    type: string;
+    name?: string;
 }
 
 export class WebGLMapRenderer {
@@ -444,8 +481,13 @@ export class WebGLMapRenderer {
             const biomeId: number = lookupBiome !== undefined ? lookupBiome : 8;
             buffer[idx + 1] = biomeId;
 
-            // B: Unused
-            buffer[idx + 2] = 0;
+            // B: Entity type (first entity on tile)
+            let entityId = 0;
+            if (tile.entities && tile.entities.length > 0 && tile.entities[0]) {
+                const entityType = tile.entities[0].type.toLowerCase();
+                entityId = ENTITY_IDS[entityType] ?? 0;
+            }
+            buffer[idx + 2] = entityId;
 
             // A: Alpha
             buffer[idx + 3] = 255;
