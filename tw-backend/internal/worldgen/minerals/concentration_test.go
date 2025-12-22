@@ -18,7 +18,9 @@ func TestCalculateConcentration(t *testing.T) {
 
 	t.Run("Rare Minerals Low Concentration", func(t *testing.T) {
 		conc := CalculateConcentration(MineralDiamond, poorContext)
-		assert.True(t, conc >= 0.01 && conc <= 1.0)
+		// Diamond: minBase=0.01, poorContext geoMod~0.3-1.0, randomVar=0.8-1.2
+		// Minimum possible: 0.01 * 0.3 * 0.8 = 0.0024
+		assert.True(t, conc >= 0.001 && conc <= 1.0)
 	})
 
 	t.Run("Optimal Conditions Improve Concentration", func(t *testing.T) {
