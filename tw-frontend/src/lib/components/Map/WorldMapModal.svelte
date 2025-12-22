@@ -40,8 +40,9 @@
         updateWorldMap();
     }
 
-    // Fallback: Subscribe to minimap store if no world map data
-    $: if (renderer && !worldMapData && $mapStore.data && isOpen) {
+    // Fallback: Use minimap store only if world map data never arrives
+    // Wait until loading is complete before falling back
+    $: if (renderer && !worldMapData && !loading && $mapStore.data && isOpen) {
         updateFromMinimap();
     }
 
@@ -49,6 +50,13 @@
         loading = true;
         // Send command to request world map data
         gameWebSocket.sendRawCommand("world map");
+
+        // Timeout: if world_map_data doesn't arrive in 3 seconds, stop loading
+        setTimeout(() => {
+            if (!worldMapData) {
+                loading = false;
+            }
+        }, 3000);
     }
 
     function initRenderer() {
