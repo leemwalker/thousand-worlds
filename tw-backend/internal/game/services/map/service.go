@@ -641,6 +641,71 @@ func (s *Service) GetWorldMapData(ctx context.Context, char *auth.Character, gri
 		IsSimulated: geo != nil && geo.IsInitialized(),
 	}
 
+	// Add simulation summary data if available
+	if geo != nil && geo.IsInitialized() {
+		result.SeaLevel = geo.SeaLevel
+		result.Seed = geo.Seed
+		result.SimulatedYears = geo.TotalYearsSimulated
+
+		// Calculate max elevation from heightmap
+		if geo.Heightmap != nil {
+			maxElev := 0.0
+			landCount := 0
+			totalCells := len(geo.Heightmap.Elevations)
+
+			for _, elev := range geo.Heightmap.Elevations {
+				if elev > maxElev {
+					maxElev = elev
+				}
+				if elev > geo.SeaLevel {
+					landCount++
+				}
+			}
+			result.MaxElevation = maxElev
+
+			if totalCells > 0 {
+				result.LandCoverage = float64(landCount) / float64(totalCells) * 100.0
+			}
+		}
+
+		// Calculate average temperature from biomes, or estimate from heightmap
+		if len(geo.Biomes) > 0 {
+			tempSum := 0.0
+			for _, biome := range geo.Biomes {
+				tempSum += biome.Temperature
+			}
+			result.AvgTemperature = tempSum / float64(len(geo.Biomes))
+		} else if geo.Heightmap != nil {
+			// Fallback: estimate from latitude and elevation (for geology-only simulations)
+			// Base temperature at equator sea level: ~27°C
+			// Temperature decreases ~6.5°C per 1000m elevation (lapse rate)
+			// Temperature decreases ~0.5°C per degree latitude
+			tempSum := 0.0
+			count := 0
+			height := geo.Heightmap.Height
+			for y := 0; y < height; y++ {
+				for x := 0; x < geo.Heightmap.Width; x++ {
+					elev := geo.Heightmap.Get(x, y)
+					// Calculate latitude effect (-90 to +90, equator at center)
+					latFactor := float64(y) / float64(height) // 0 to 1
+					latDegrees := (latFactor - 0.5) * 180     // -90 to +90
+					latTemp := 27.0 - 0.5*math.Abs(latDegrees)
+					// Elevation lapse rate: -6.5°C per 1000m above sea level
+					elevAboveSea := elev - geo.SeaLevel
+					if elevAboveSea < 0 {
+						elevAboveSea = 0
+					}
+					temp := latTemp - (elevAboveSea/1000)*6.5
+					tempSum += temp
+					count++
+				}
+			}
+			if count > 0 {
+				result.AvgTemperature = tempSum / float64(count)
+			}
+		}
+	}
+
 	// Store in cache
 	s.worldMapCache.Store(cacheKey, result)
 

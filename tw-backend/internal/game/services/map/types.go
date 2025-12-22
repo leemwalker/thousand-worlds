@@ -88,4 +88,12 @@ type WorldMapData struct {
 	WorldID     uuid.UUID      `json:"world_id"`
 	WorldName   string         `json:"world_name,omitempty"`
 	IsSimulated bool           `json:"is_simulated"` // False for lobby/unsimulated worlds
+
+	// Simulation summary data (populated after simulation)
+	AvgTemperature float64 `json:"avg_temperature,omitempty"` // Average temperature in Celsius
+	MaxElevation   float64 `json:"max_elevation,omitempty"`   // Maximum elevation in meters
+	SeaLevel       float64 `json:"sea_level,omitempty"`       // Sea level in meters
+	LandCoverage   float64 `json:"land_coverage,omitempty"`   // Percentage of land above sea level
+	SimulatedYears int64   `json:"simulated_years,omitempty"` // Total years simulated
+	Seed           int64   `json:"seed,omitempty"`            // Simulation seed used
 }

@@ -189,6 +189,13 @@ export interface WorldMapData {
     player_x: number;
     player_y: number;
     is_simulated?: boolean;
+    // Simulation summary data
+    avg_temperature?: number;
+    max_elevation?: number;
+    sea_level?: number;
+    land_coverage?: number;
+    simulated_years?: number;
+    seed?: number;
 }
 
 export interface WorldMapTile {

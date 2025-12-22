@@ -346,32 +346,90 @@
                 >
                     <div class="p-4 border-b border-gray-800">
                         <h3 class="font-bold text-gray-300 mb-2">
-                            Ecosystem Stats
+                            World Stats
                         </h3>
                         <div class="grid grid-cols-2 gap-2 text-sm">
                             <div class="bg-gray-800 p-2 rounded">
                                 <div class="text-gray-500 text-xs">
-                                    Population
+                                    Avg Temperature
                                 </div>
-                                <div class="text-green-400 font-mono">--</div>
-                            </div>
-                            <div class="bg-gray-800 p-2 rounded">
-                                <div class="text-gray-500 text-xs">Species</div>
-                                <div class="text-yellow-400 font-mono">--</div>
+                                <div class="text-red-400 font-mono">
+                                    {worldMapData?.avg_temperature !== undefined
+                                        ? worldMapData.avg_temperature.toFixed(
+                                              1,
+                                          ) + "°C"
+                                        : "--°C"}
+                                </div>
                             </div>
                             <div class="bg-gray-800 p-2 rounded">
                                 <div class="text-gray-500 text-xs">
-                                    Temperature
+                                    Max Elev
                                 </div>
-                                <div class="text-red-400 font-mono">--°C</div>
+                                <div class="text-yellow-400 font-mono">
+                                    {worldMapData?.max_elevation !== undefined
+                                        ? (
+                                              worldMapData.max_elevation / 1000
+                                          ).toFixed(1) + "km"
+                                        : "--"}
+                                </div>
                             </div>
                             <div class="bg-gray-800 p-2 rounded">
-                                <div class="text-gray-500 text-xs">CO2</div>
+                                <div class="text-gray-500 text-xs">
+                                    Sea Level
+                                </div>
                                 <div class="text-blue-400 font-mono">
-                                    -- ppm
+                                    {worldMapData?.sea_level !== undefined
+                                        ? worldMapData.sea_level.toFixed(0) +
+                                          "m"
+                                        : "--"}
+                                </div>
+                            </div>
+                            <div class="bg-gray-800 p-2 rounded">
+                                <div class="text-gray-500 text-xs">
+                                    Land Coverage
+                                </div>
+                                <div class="text-green-400 font-mono">
+                                    {worldMapData?.land_coverage !== undefined
+                                        ? worldMapData.land_coverage.toFixed(
+                                              1,
+                                          ) + "%"
+                                        : "--%"}
                                 </div>
                             </div>
                         </div>
+                        {#if worldMapData?.simulated_years || worldMapData?.seed}
+                            <div class="mt-3 border-t border-gray-700 pt-3">
+                                <div class="grid grid-cols-2 gap-2 text-sm">
+                                    {#if worldMapData?.simulated_years}
+                                        <div class="bg-gray-800 p-2 rounded">
+                                            <div class="text-gray-500 text-xs">
+                                                Years Simulated
+                                            </div>
+                                            <div
+                                                class="text-purple-400 font-mono"
+                                            >
+                                                {(
+                                                    worldMapData.simulated_years /
+                                                    1000000
+                                                ).toFixed(1)}M
+                                            </div>
+                                        </div>
+                                    {/if}
+                                    {#if worldMapData?.seed}
+                                        <div class="bg-gray-800 p-2 rounded">
+                                            <div class="text-gray-500 text-xs">
+                                                Seed
+                                            </div>
+                                            <div
+                                                class="text-gray-400 font-mono text-xs"
+                                            >
+                                                {worldMapData.seed}
+                                            </div>
+                                        </div>
+                                    {/if}
+                                </div>
+                            </div>
+                        {/if}
                     </div>
 
                     <div class="flex-1 flex flex-col overflow-hidden">
