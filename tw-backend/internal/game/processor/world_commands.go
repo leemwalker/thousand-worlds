@@ -162,7 +162,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		client.SendGameMessage("system", "Geology initialized with tectonic plates and terrain.", nil)
 
 		// Spawn initial creatures based on generated biomes
-		if len(geology.Biomes) > 0 {
+		if len(geology.Biomes) > 0 && simulateLife {
 			client.SendGameMessage("system", "Spawning initial life forms...", nil)
 			p.ecosystemService.SpawnBiomes(char.WorldID, geology.Biomes)
 			client.SendGameMessage("system", fmt.Sprintf("Spawned %d entities across %d biomes.", len(p.ecosystemService.Entities), len(geology.Biomes)), nil)
@@ -390,7 +390,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		defer simLogger.Close()
 	}
 
-	client.SendGameMessage("system", "🧪 V2 Systems initialized: Pathogens, Cascades, Sapience, Phylogeny, Logging", nil)
+	client.SendGameMessage("system", fmt.Sprintf("🧪 V2 Systems initialized: Pathogens, Cascades, Sapience, Phylogeny (Active: %v)", simulateLife), nil)
 
 	// Run simulation year by year (fast!)
 	for year := int64(0); year < years; year++ {
@@ -410,7 +410,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		}
 
 		// Apply evolution every 1000 years
-		if popSim.CurrentYear%1000 == 0 {
+		if popSim.CurrentYear%1000 == 0 && simulateLife {
 			popSim.ApplyEvolution()
 
 			// Apply co-evolution (predator-prey arms race) every 1000 years
@@ -424,7 +424,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		}
 
 		// Check for speciation every 10000 years
-		if popSim.CurrentYear%10000 == 0 {
+		if popSim.CurrentYear%10000 == 0 && simulateLife {
 			// Update atmospheric oxygen levels
 			oldO2 := popSim.OxygenLevel
 			newO2 := popSim.UpdateOxygenLevel()
@@ -497,7 +497,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			}
 
 			// V2: Sapience detection - check species for proto-sapience and sapience
-			if !sapienceAchieved {
+			if !sapienceAchieved && simulateLife {
 				for _, biome := range popSim.Biomes {
 					for _, sp := range biome.Species {
 						if sp.Count > 1000 && sp.Traits.Intelligence > 0.5 { // Only check intelligent species
