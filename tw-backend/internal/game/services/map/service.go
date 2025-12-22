@@ -74,7 +74,25 @@ func (s *Service) SetWorldGeology(worldID uuid.UUID, geo *ecosystem.WorldGeology
 			worldID, len(geo.Biomes), geo.Heightmap.Width, geo.Heightmap.Height)
 	} else if geo == nil {
 		log.Printf("[MAP] SetWorldGeology: Cleared geology for world %s", worldID)
+		// Also clear the world map cache when geology is cleared
+		s.ClearWorldMapCache(worldID)
 	}
+}
+
+// ClearWorldMapCache removes cached world map data for a world
+// Called when world is reset to ensure fresh data is generated
+func (s *Service) ClearWorldMapCache(worldID uuid.UUID) {
+	// Clear all cache entries for this world (any grid size)
+	s.worldMapCache.Range(func(key, value interface{}) bool {
+		if keyStr, ok := key.(string); ok {
+			// Cache key format: "worldID:gridSize"
+			if len(keyStr) >= 36 && keyStr[:36] == worldID.String() {
+				s.worldMapCache.Delete(key)
+				log.Printf("[MAP] ClearWorldMapCache: Cleared cache for world %s", worldID)
+			}
+		}
+		return true
+	})
 }
 
 // getWorldGeology retrieves cached geology data

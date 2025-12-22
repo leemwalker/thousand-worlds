@@ -36,7 +36,7 @@ void main() {
 }
 `;
 
-// Fragment shader - elevation-based coloring with biome support
+// Fragment shader - elevation-based coloring with biome support and player marker
 const FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 
@@ -44,10 +44,11 @@ in vec2 v_texCoord;
 out vec4 fragColor;
 
 uniform sampler2D u_dataTexture;
-uniform float u_worldRadius; // For elevation scaling
+uniform float u_worldRadius;
+uniform vec2 u_playerPos;    // Player position in normalized coords (0-1)
+uniform float u_time;         // For animation
 
 // Earth elevation color stops (hypsometric + bathymetric)
-// Elevation stored as normalized 0-1 where 0.5 = sea level
 const vec3 COLOR_DEEP_OCEAN = vec3(0.02, 0.05, 0.1);      // -6000m
 const vec3 COLOR_ABYSSAL = vec3(0.04, 0.1, 0.16);         // -4000m
 const vec3 COLOR_SLOPE = vec3(0.05, 0.23, 0.36);          // -2000m
@@ -61,15 +62,14 @@ const vec3 COLOR_MOUNTAIN_MID = vec3(0.63, 0.53, 0.5);    // 2000m
 const vec3 COLOR_MOUNTAIN_HIGH = vec3(0.55, 0.43, 0.39);  // 3000m
 const vec3 COLOR_PEAK = vec3(0.62, 0.62, 0.62);           // 5000m
 const vec3 COLOR_SUMMIT = vec3(0.98, 0.98, 0.98);         // 8848m
+const vec3 COLOR_PLAYER = vec3(1.0, 0.2, 0.2);            // Player marker
 
 vec3 getElevationColor(float elevation) {
-    // Elevation is normalized: 0.5 = sea level
-    // Range: 0.0 = -6000m, 1.0 = +8848m (roughly)
     float e = elevation;
     
     // Bathymetric (underwater)
     if (e < 0.5) {
-        float depth = (0.5 - e) * 2.0; // 0 at coast, 1 at -6000m
+        float depth = (0.5 - e) * 2.0;
         if (depth > 0.83) return mix(COLOR_ABYSSAL, COLOR_DEEP_OCEAN, (depth - 0.83) / 0.17);
         if (depth > 0.67) return mix(COLOR_SLOPE, COLOR_ABYSSAL, (depth - 0.67) / 0.16);
         if (depth > 0.33) return mix(COLOR_SHELF, COLOR_SLOPE, (depth - 0.33) / 0.34);
@@ -77,7 +77,7 @@ vec3 getElevationColor(float elevation) {
     }
     
     // Hypsometric (land)
-    float height = (e - 0.5) * 2.0; // 0 at coast, 1 at peak
+    float height = (e - 0.5) * 2.0;
     if (height < 0.02) return mix(COLOR_COAST, COLOR_LOWLAND, height / 0.02);
     if (height < 0.04) return mix(COLOR_LOWLAND, COLOR_PLAIN, (height - 0.02) / 0.02);
     if (height < 0.11) return mix(COLOR_PLAIN, COLOR_FOOTHILL, (height - 0.04) / 0.07);
@@ -89,11 +89,16 @@ vec3 getElevationColor(float elevation) {
 }
 
 void main() {
-    // Sample data texture: R = elevation, G = biome, B = unused, A = alpha
     vec4 data = texture(u_dataTexture, v_texCoord);
-    
-    // Get elevation color
     vec3 color = getElevationColor(data.r);
+    
+    // Player marker - draw a pulsing circle at player position
+    float dist = distance(v_texCoord, u_playerPos);
+    float markerSize = 0.015 + 0.005 * sin(u_time * 3.0); // Pulsing effect
+    if (dist < markerSize) {
+        float alpha = smoothstep(markerSize, markerSize * 0.5, dist);
+        color = mix(color, COLOR_PLAYER, alpha);
+    }
     
     fragColor = vec4(color, 1.0);
 }
@@ -124,9 +129,15 @@ export class WebGLMapRenderer {
 
     private gridWidth: number = 128;
     private gridHeight: number = 64;
-    private worldRadius: number = 6371000; // Earth radius in meters
+    private worldWidth: number = 1;
+    private worldHeight: number = 1;
+    private worldRadius: number = 6371000;
     private elevationMin: number = -6000;
     private elevationMax: number = 8848;
+
+    // Player position in normalized coordinates (0-1)
+    private playerPosX: number = 0.5;
+    private playerPosY: number = 0.5;
 
     private positionBuffer: WebGLBuffer | null = null;
     private texCoordBuffer: WebGLBuffer | null = null;
@@ -134,6 +145,7 @@ export class WebGLMapRenderer {
     private running: boolean = false;
     private dirty: boolean = true;
     private frameId: number | null = null;
+    private startTime: number = Date.now();
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
@@ -319,12 +331,21 @@ export class WebGLMapRenderer {
             gl.RGBA, gl.UNSIGNED_BYTE, buffer
         );
 
+        // Store world dimensions and calculate player position in normalized coords
+        this.worldWidth = data.world_width || 1;
+        this.worldHeight = data.world_height || 1;
+
+        // Normalize player position to 0-1 range
+        this.playerPosX = (data.player_x || 0) / this.worldWidth;
+        this.playerPosY = (data.player_y || 0) / this.worldHeight;
+
         this.dirty = true;
 
         console.log('[WebGLMapRenderer] Data updated:', {
             grid: `${this.gridWidth}x${this.gridHeight}`,
             tiles: data.tiles.length,
-            elevRange: { min: minElev, max: maxElev }
+            elevRange: { min: minElev, max: maxElev },
+            playerPos: { x: this.playerPosX.toFixed(3), y: this.playerPosY.toFixed(3) }
         });
     }
 
@@ -365,10 +386,8 @@ export class WebGLMapRenderer {
     private loop = (): void => {
         if (!this.running) return;
 
-        if (this.dirty) {
-            this.render();
-            this.dirty = false;
-        }
+        // Always render for pulsing animation
+        this.render();
 
         this.frameId = requestAnimationFrame(this.loop);
     };
@@ -407,6 +426,14 @@ export class WebGLMapRenderer {
         // Set world radius uniform
         const radiusUniform = gl.getUniformLocation(this.program, 'u_worldRadius');
         gl.uniform1f(radiusUniform, this.worldRadius);
+
+        // Set player position uniform
+        const playerPosUniform = gl.getUniformLocation(this.program, 'u_playerPos');
+        gl.uniform2f(playerPosUniform, this.playerPosX, this.playerPosY);
+
+        // Set time uniform for animation
+        const timeUniform = gl.getUniformLocation(this.program, 'u_time');
+        gl.uniform1f(timeUniform, (Date.now() - this.startTime) / 1000.0);
 
         // Draw full-screen quad
         gl.drawArrays(gl.TRIANGLES, 0, 6);

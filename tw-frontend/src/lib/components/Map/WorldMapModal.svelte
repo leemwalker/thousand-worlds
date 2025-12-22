@@ -293,21 +293,6 @@
                             >{simStats.year}</span
                         >
                     </div>
-                    <!-- Graphics/Text Mode Toggle -->
-                    <button
-                        on:click={() => {
-                            useGraphicsMode = !useGraphicsMode;
-                            initRenderer();
-                            if (worldMapData) updateWorldMap();
-                        }}
-                        class="px-3 py-1 text-xs rounded-md transition-colors"
-                        class:bg-blue-600={useGraphicsMode}
-                        class:bg-gray-600={!useGraphicsMode}
-                        class:hover:bg-blue-500={useGraphicsMode}
-                        class:hover:bg-gray-500={!useGraphicsMode}
-                    >
-                        {useGraphicsMode ? "🎨 Graphics" : "📝 Text"}
-                    </button>
                     <button
                         on:click={onClose}
                         class="text-gray-400 hover:text-white transition-colors"
