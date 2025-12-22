@@ -59,6 +59,7 @@ uniform float u_worldRadius;
 uniform vec2 u_playerPos;     // Player position in normalized coords (0-1)
 uniform float u_time;          // For animation
 uniform float u_isSimulated;   // 1.0 = simulated world, 0.0 = lobby/unsimulated
+uniform float u_zoomLevel;     // 1.0 = normal, >1.0 = zoomed out (flying)
 
 // Earth elevation color stops (hypsometric + bathymetric)
 const vec3 COLOR_DEEP_OCEAN = vec3(0.02, 0.05, 0.1);      // -6000m
@@ -133,7 +134,23 @@ vec3 getEntityColor(float entityId) {
 }
 
 void main() {
-    vec4 data = texture(u_dataTexture, v_texCoord);
+    // Apply zoom by scaling texture coordinates around center
+    // When zoomed out, we sample a larger area of the texture
+    vec2 zoomedCoord = v_texCoord;
+    if (u_zoomLevel > 1.0) {
+        // Center zoom on player position (0.5, 0.5 for minimap)
+        vec2 center = vec2(0.5, 0.5);
+        zoomedCoord = center + (v_texCoord - center) * u_zoomLevel;
+    }
+    
+    // Check if zoomed coordinates are out of bounds
+    if (zoomedCoord.x < 0.0 || zoomedCoord.x > 1.0 || 
+        zoomedCoord.y < 0.0 || zoomedCoord.y > 1.0) {
+        fragColor = vec4(0.05, 0.05, 0.1, 1.0); // Dark edge
+        return;
+    }
+    
+    vec4 data = texture(u_dataTexture, zoomedCoord);
     vec3 color;
     
     if (u_isSimulated > 0.5) {
@@ -151,9 +168,9 @@ void main() {
         color = entityColor;
     }
     
-    // Player marker - static circle at player position
-    float dist = distance(v_texCoord, u_playerPos);
-    float markerSize = 0.02; // Fixed size, no pulse
+    // Player marker - static circle at center, size scales with zoom
+    float dist = distance(v_texCoord, vec2(0.5, 0.5));
+    float markerSize = 0.02 / max(u_zoomLevel, 1.0); // Scale marker with zoom
     if (dist < markerSize) {
         float alpha = smoothstep(markerSize, markerSize * 0.5, dist);
         color = mix(color, COLOR_PLAYER, alpha);
@@ -225,6 +242,9 @@ export class WebGLMapRenderer {
 
     // Whether this is a simulated world (has geology) or lobby/unsimulated
     private isSimulated: boolean = false;
+
+    // Zoom level based on altitude (1.0 = normal, >1.0 = zoomed out for flying)
+    private zoomLevel: number = 1.0;
 
     private positionBuffer: WebGLBuffer | null = null;
     private texCoordBuffer: WebGLBuffer | null = null;
@@ -508,6 +528,16 @@ export class WebGLMapRenderer {
         // Track whether world is simulated for styling
         this.isSimulated = data.is_simulated ?? false;
 
+        // Calculate zoom level from altitude
+        // When flying above 100m, zoom out: 1.0 at 100m, increases for higher alt
+        const altitude = data.player_z ?? 0;
+        if (altitude > 100) {
+            // Zoom out by 0.01 per meter above 100, capped at 5x zoom
+            this.zoomLevel = Math.min(1.0 + (altitude - 100) * 0.01, 5.0);
+        } else {
+            this.zoomLevel = 1.0;
+        }
+
         this.dirty = true;
     }
 
@@ -600,6 +630,10 @@ export class WebGLMapRenderer {
         // Set isSimulated uniform for styling
         const simulatedUniform = gl.getUniformLocation(this.program, 'u_isSimulated');
         gl.uniform1f(simulatedUniform, this.isSimulated ? 1.0 : 0.0);
+
+        // Set zoom level uniform for flying
+        const zoomUniform = gl.getUniformLocation(this.program, 'u_zoomLevel');
+        gl.uniform1f(zoomUniform, this.zoomLevel);
 
         // Draw full-screen quad
         gl.drawArrays(gl.TRIANGLES, 0, 6);
