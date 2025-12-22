@@ -10,6 +10,7 @@ export interface MapData {
     grid_size: number;
     scale?: number;
     world_id: string;
+    is_simulated?: boolean;
 }
 
 interface MapStoreState {

@@ -58,10 +58,12 @@ type MapData struct {
 	Tiles         []MapTile     `json:"tiles"`
 	PlayerX       float64       `json:"player_x"`
 	PlayerY       float64       `json:"player_y"`
+	PlayerZ       float64       `json:"player_z"` // Player altitude for zoom
 	RenderQuality RenderQuality `json:"render_quality"`
 	GridSize      int           `json:"grid_size"` // 9 on ground, 17 when flying
 	Scale         int           `json:"scale"`     // World units per tile (1 = ground, >1 = flying)
 	WorldID       uuid.UUID     `json:"world_id"`
+	IsSimulated   bool          `json:"is_simulated"` // False for lobby/unsimulated worlds
 }
 
 // WorldMapTile represents an aggregated tile for the full world map
@@ -85,4 +87,5 @@ type WorldMapData struct {
 	PlayerY     float64        `json:"player_y"`     // Player Y position
 	WorldID     uuid.UUID      `json:"world_id"`
 	WorldName   string         `json:"world_name,omitempty"`
+	IsSimulated bool           `json:"is_simulated"` // False for lobby/unsimulated worlds
 }

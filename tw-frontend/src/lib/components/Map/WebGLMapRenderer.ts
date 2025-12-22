@@ -45,8 +45,9 @@ out vec4 fragColor;
 
 uniform sampler2D u_dataTexture;
 uniform float u_worldRadius;
-uniform vec2 u_playerPos;    // Player position in normalized coords (0-1)
-uniform float u_time;         // For animation
+uniform vec2 u_playerPos;     // Player position in normalized coords (0-1)
+uniform float u_time;          // For animation
+uniform float u_isSimulated;   // 1.0 = simulated world, 0.0 = lobby/unsimulated
 
 // Earth elevation color stops (hypsometric + bathymetric)
 const vec3 COLOR_DEEP_OCEAN = vec3(0.02, 0.05, 0.1);      // -6000m
@@ -63,6 +64,10 @@ const vec3 COLOR_MOUNTAIN_HIGH = vec3(0.55, 0.43, 0.39);  // 3000m
 const vec3 COLOR_PEAK = vec3(0.62, 0.62, 0.62);           // 5000m
 const vec3 COLOR_SUMMIT = vec3(0.98, 0.98, 0.98);         // 8848m
 const vec3 COLOR_PLAYER = vec3(1.0, 0.2, 0.2);            // Player marker
+
+// Lobby/unsimulated world colors
+const vec3 COLOR_LOBBY = vec3(0.85, 0.82, 0.78);          // Marble-like
+const vec3 COLOR_UNSIMULATED = vec3(0.3, 0.3, 0.35);      // Gray fog
 
 vec3 getElevationColor(float elevation) {
     float e = elevation;
@@ -88,13 +93,36 @@ vec3 getElevationColor(float elevation) {
     return mix(COLOR_PEAK, COLOR_SUMMIT, (height - 0.85) / 0.15);
 }
 
+// Biome-based flat colors for unsimulated worlds
+vec3 getBiomeColor(float biomeId) {
+    int id = int(biomeId * 255.0);
+    if (id == 0) return vec3(0.1, 0.3, 0.6);     // Ocean - blue
+    if (id == 1) return vec3(0.4, 0.6, 0.3);     // Grassland - green
+    if (id == 2) return vec3(0.9, 0.8, 0.5);     // Desert - tan
+    if (id == 3) return vec3(0.2, 0.5, 0.3);     // Rainforest - dark green
+    if (id == 4) return vec3(0.5, 0.6, 0.4);     // Deciduous - olive
+    if (id == 5) return vec3(0.3, 0.5, 0.4);     // Taiga - blue-green
+    if (id == 6) return vec3(0.8, 0.85, 0.9);    // Tundra - icy white
+    if (id == 7) return vec3(0.6, 0.55, 0.5);    // Alpine - gray brown
+    if (id == 9) return COLOR_LOBBY;              // Lobby - marble
+    return COLOR_UNSIMULATED;                     // Default - gray fog
+}
+
 void main() {
     vec4 data = texture(u_dataTexture, v_texCoord);
-    vec3 color = getElevationColor(data.r);
+    vec3 color;
     
-    // Player marker - draw a pulsing circle at player position
+    if (u_isSimulated > 0.5) {
+        // Simulated world - use elevation-based coloring
+        color = getElevationColor(data.r);
+    } else {
+        // Lobby/unsimulated - use flat biome colors
+        color = getBiomeColor(data.g);
+    }
+    
+    // Player marker - static circle at player position
     float dist = distance(v_texCoord, u_playerPos);
-    float markerSize = 0.015 + 0.005 * sin(u_time * 3.0); // Pulsing effect
+    float markerSize = 0.02; // Fixed size, no pulse
     if (dist < markerSize) {
         float alpha = smoothstep(markerSize, markerSize * 0.5, dist);
         color = mix(color, COLOR_PLAYER, alpha);
@@ -112,6 +140,7 @@ export interface WorldMapData {
     world_height: number;
     player_x: number;
     player_y: number;
+    is_simulated?: boolean;
 }
 
 export interface WorldMapTile {
@@ -126,7 +155,9 @@ export interface MiniMapData {
     tiles: MiniMapTile[];
     player_x: number;
     player_y: number;
+    player_z?: number;
     grid_size: number;
+    is_simulated?: boolean;
 }
 
 export interface MiniMapTile {
@@ -154,6 +185,9 @@ export class WebGLMapRenderer {
     // Player position in normalized coordinates (0-1)
     private playerPosX: number = 0.5;
     private playerPosY: number = 0.5;
+
+    // Whether this is a simulated world (has geology) or lobby/unsimulated
+    private isSimulated: boolean = false;
 
     private positionBuffer: WebGLBuffer | null = null;
     private texCoordBuffer: WebGLBuffer | null = null;
@@ -355,13 +389,17 @@ export class WebGLMapRenderer {
         this.playerPosX = (data.player_x || 0) / this.worldWidth;
         this.playerPosY = (data.player_y || 0) / this.worldHeight;
 
+        // Track whether world is simulated for styling
+        this.isSimulated = data.is_simulated ?? false;
+
         this.dirty = true;
 
         console.log('[WebGLMapRenderer] Data updated:', {
             grid: `${this.gridWidth}x${this.gridHeight}`,
             tiles: data.tiles.length,
             elevRange: { min: minElev, max: maxElev },
-            playerPos: { x: this.playerPosX.toFixed(3), y: this.playerPosY.toFixed(3) }
+            playerPos: { x: this.playerPosX.toFixed(3), y: this.playerPosY.toFixed(3) },
+            isSimulated: this.isSimulated
         });
     }
 
@@ -424,6 +462,9 @@ export class WebGLMapRenderer {
         // Player is at center of minimap
         this.playerPosX = 0.5;
         this.playerPosY = 0.5;
+
+        // Track whether world is simulated for styling
+        this.isSimulated = data.is_simulated ?? false;
 
         this.dirty = true;
     }
@@ -513,6 +554,10 @@ export class WebGLMapRenderer {
         // Set time uniform for animation
         const timeUniform = gl.getUniformLocation(this.program, 'u_time');
         gl.uniform1f(timeUniform, (Date.now() - this.startTime) / 1000.0);
+
+        // Set isSimulated uniform for styling
+        const simulatedUniform = gl.getUniformLocation(this.program, 'u_isSimulated');
+        gl.uniform1f(simulatedUniform, this.isSimulated ? 1.0 : 0.0);
 
         // Draw full-screen quad
         gl.drawArrays(gl.TRIANGLES, 0, 6);

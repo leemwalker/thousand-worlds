@@ -396,10 +396,12 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 		Tiles:         tiles,
 		PlayerX:       char.PositionX,
 		PlayerY:       char.PositionY,
+		PlayerZ:       char.PositionZ,
 		RenderQuality: quality,
 		GridSize:      gridSize,
 		Scale:         stride, // Send stride as Scale
 		WorldID:       char.WorldID,
+		IsSimulated:   hasGeology, // True if world has geology data (simulated)
 	}, nil
 }
 
@@ -636,6 +638,7 @@ func (s *Service) GetWorldMapData(ctx context.Context, char *auth.Character, gri
 		PlayerY:     char.PositionY,
 		WorldID:     char.WorldID,
 		WorldName:   world.Name,
+		IsSimulated: geo != nil && geo.IsInitialized(),
 	}
 
 	// Store in cache

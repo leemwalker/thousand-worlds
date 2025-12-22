@@ -48,7 +48,9 @@
             ),
             player_x: $mapStore.data.player_x,
             player_y: $mapStore.data.player_y,
+            player_z: $mapStore.data.player_z || 0,
             grid_size: $mapStore.data.grid_size || 9,
+            is_simulated: $mapStore.data.is_simulated || false,
         };
 
         renderer.updateMiniMapData(data);
