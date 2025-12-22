@@ -24,7 +24,7 @@ func TestGetHelpText(t *testing.T) {
 		{
 			name:     "Command Help - With Subcommand",
 			args:     []string{"world", "simulate"},
-			contains: []string{"Command: world simulate", "Usage: world simulate <years>", "Flags:", "--epoch"},
+			contains: []string{"Command: world simulate", "Usage: world simulate [years]", "Flags:", "--geology"},
 		},
 		{
 			name:     "Prefix Search - Matches found",

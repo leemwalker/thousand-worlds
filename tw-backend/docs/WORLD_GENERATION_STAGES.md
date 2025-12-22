@@ -150,15 +150,23 @@ States: `idle` → `running` ⇄ `paused` → `stopping`
 
 ### Synchronous Simulation
 
-Command: `world simulate <years> [flags]`
+Command: `world simulate [years] [flags]`
 
-| Flag | Effect |
-|------|--------|
-| `--epoch <name>` | Label time period |
-| `--seed <number>` | Use custom random seed (for testing) |
-| `--only-geology` | Skip life simulation |
-| `--only-life` | Skip active geology |
-| `--no-diseases` | Disable pathogens |
+Default: 1,000,000 years with all subsystems enabled, random seed.
+
+| Flag | Effect | Dependencies |
+|------|--------|--------------|
+| `--geology` | Tectonics, erosion, climate | None |
+| `--weather` | Temperature, seasons | geology |
+| `--life` | Populations, biomes, evolution | geology |
+| `--disease` | Pathogen outbreaks | life |
+| `--sapience` | Intelligence detection | life |
+| `--migration` | Species range expansion | life |
+| `--seed <n>` | Custom random seed | None |
+| `--water-level` | Set water level | None |
+
+> [!NOTE]
+> Dependencies are auto-enabled. E.g., `--weather` auto-enables `--geology`.
 
 ---
 

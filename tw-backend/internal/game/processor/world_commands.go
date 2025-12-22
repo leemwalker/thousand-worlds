@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/rand"
 	"strconv"
 	"strings"
 	"tw-backend/cmd/game-server/websocket"
@@ -58,30 +59,61 @@ func (p *GameProcessor) handleWorld(ctx context.Context, client websocket.GameCl
 
 // handleWorldSimulate runs a fast-forward simulation of the world
 func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocket.GameClient, argsStr string) error {
-	// Parse arguments: years [--epoch epoch_name] [--goal goal_name] [--seed number]
+	// Parse arguments: [years] [--flags]
+	// Default: 1,000,000 years with all subsystems enabled
 	args := strings.Fields(strings.TrimSpace(argsStr))
-	if len(args) == 0 {
-		client.SendGameMessage("error", "Usage: world simulate <years> [--epoch name] [--goal name] [--seed number] [--only-geology] [--only-life] [--no-diseases] [--water-level level]", nil)
-		return nil
-	}
 
-	years, err := strconv.ParseInt(args[0], 10, 64)
-	if err != nil || years <= 0 {
-		client.SendGameMessage("error", "Invalid years. Please provide a positive number.", nil)
-		return nil
-	}
-
-	// Parse optional flags
-	// Parse optional flags
+	// Default values
+	years := int64(1_000_000)
+	var seedFlag int64 = 0
 	var epochFlag, goalFlag, waterLevelFlag string
-	var seedFlag int64 = 0 // 0 means use WorldID-based seed
-	simulateGeology := true
-	simulateLife := true
-	simulateDiseases := true
 
-	for i := 1; i < len(args); i++ {
+	// Subsystem flags - all false by default, enabled explicitly or via "no flags = all"
+	enableGeology := false
+	enableWeather := false
+	enableLife := false
+	enableDisease := false
+	enableSapience := false
+	enableMigration := false
+	anyFlagSet := false
+
+	// Parse first argument as years if it's numeric
+	argStart := 0
+	if len(args) > 0 {
+		if parsed, err := strconv.ParseInt(args[0], 10, 64); err == nil && parsed > 0 {
+			years = parsed
+			argStart = 1
+		}
+	}
+
+	// Parse flags
+	for i := argStart; i < len(args); i++ {
 		arg := args[i]
 		switch arg {
+		// Subsystem flags
+		case "--geology":
+			enableGeology = true
+			anyFlagSet = true
+		case "--weather":
+			enableWeather = true
+			anyFlagSet = true
+		case "--life":
+			enableLife = true
+			anyFlagSet = true
+		case "--disease":
+			enableDisease = true
+			anyFlagSet = true
+		case "--sapience":
+			enableSapience = true
+			anyFlagSet = true
+		case "--migration":
+			enableMigration = true
+			anyFlagSet = true
+		case "--all":
+			enableGeology, enableWeather, enableLife = true, true, true
+			enableDisease, enableSapience, enableMigration = true, true, true
+			anyFlagSet = true
+		// Other flags
 		case "--epoch":
 			if i+1 < len(args) {
 				epochFlag = args[i+1]
@@ -104,15 +136,70 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 				}
 				i++
 			}
+		// Legacy flags (for backward compatibility)
 		case "--only-geology":
-			simulateLife = false
-			simulateDiseases = false
+			enableGeology = true
+			anyFlagSet = true
 		case "--only-life":
-			simulateGeology = false
+			enableLife = true
+			anyFlagSet = true
 		case "--no-diseases":
-			simulateDiseases = false
+			enableDisease = false
 		}
 	}
+
+	// If no subsystem flags set, enable all (full simulation)
+	if !anyFlagSet {
+		enableGeology, enableWeather, enableLife = true, true, true
+		enableDisease, enableSapience, enableMigration = true, true, true
+	}
+
+	// Auto-enable dependencies
+	if enableWeather {
+		enableGeology = true
+	}
+	if enableLife {
+		enableGeology = true
+	}
+	if enableDisease || enableSapience || enableMigration {
+		enableLife = true
+		enableGeology = true
+	}
+
+	// Generate random seed if not provided
+	if seedFlag == 0 {
+		seedFlag = rand.Int63n(999_999_999_999) + 1 // 1 to 12 digits
+	}
+
+	// Map old variable names for compatibility with rest of code
+	simulateGeology := enableGeology
+	simulateLife := enableLife
+	simulateDiseases := enableDisease
+
+	// Build enabled subsystems list for display
+	var enabledSystems []string
+	if enableGeology {
+		enabledSystems = append(enabledSystems, "geology")
+	}
+	if enableWeather {
+		enabledSystems = append(enabledSystems, "weather")
+	}
+	if enableLife {
+		enabledSystems = append(enabledSystems, "life")
+	}
+	if enableDisease {
+		enabledSystems = append(enabledSystems, "disease")
+	}
+	if enableSapience {
+		enabledSystems = append(enabledSystems, "sapience")
+	}
+	if enableMigration {
+		enabledSystems = append(enabledSystems, "migration")
+	}
+
+	// Display simulation configuration
+	client.SendGameMessage("system", fmt.Sprintf("🌍 Simulation: %d years | Seed: %d | Systems: %s",
+		years, seedFlag, strings.Join(enabledSystems, ", ")), nil)
 
 	// Get current world for context
 	char, _ := p.authRepo.GetCharacter(ctx, client.GetCharacterID())
@@ -137,21 +224,8 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			circumference = *world.Circumference
 		}
 
-		// Calculate seed: use custom seed if provided, otherwise derive from WorldID
-		var seed int64
-		if seedFlag != 0 {
-			seed = seedFlag
-			client.SendGameMessage("system", fmt.Sprintf("Using custom seed: %d", seed), nil)
-		} else {
-			// Use world ID bytes as seed for determinism
-			seed = int64(char.WorldID[0])<<56 | int64(char.WorldID[1])<<48 |
-				int64(char.WorldID[2])<<40 | int64(char.WorldID[3])<<32 |
-				int64(char.WorldID[4])<<24 | int64(char.WorldID[5])<<16 |
-				int64(char.WorldID[6])<<8 | int64(char.WorldID[7])
-			client.SendGameMessage("system", fmt.Sprintf("Using WorldID-derived seed: %d", seed), nil)
-		}
-
-		geology = ecosystem.NewWorldGeology(char.WorldID, seed, circumference)
+		// Use seedFlag (always set - either user-provided or random)
+		geology = ecosystem.NewWorldGeology(char.WorldID, seedFlag, circumference)
 		p.worldGeology[char.WorldID] = geology
 	}
 
@@ -209,7 +283,11 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	}
 
 	// Use population-based simulation for efficiency
-	client.SendGameMessage("system", fmt.Sprintf("Starting population simulation of %d years...", years), nil)
+	if enableLife {
+		client.SendGameMessage("system", fmt.Sprintf("Starting population simulation of %d years...", years), nil)
+	} else {
+		client.SendGameMessage("system", fmt.Sprintf("Starting geology-only simulation of %d years...", years), nil)
+	}
 
 	// Report epoch and goal if specified
 	if epochFlag != "" {
@@ -222,130 +300,145 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		client.SendGameMessage("system", fmt.Sprintf("🎯 Evolution goal: %s", goalFlag), nil)
 	}
 
-	// Create seed from world ID
+	// Create seed from world ID (for population sim)
 	seed := int64(char.WorldID[0])<<56 | int64(char.WorldID[1])<<48 |
 		int64(char.WorldID[2])<<40 | int64(char.WorldID[3])<<32 |
 		int64(char.WorldID[4])<<24 | int64(char.WorldID[5])<<16 |
 		int64(char.WorldID[6])<<8 | int64(char.WorldID[7])
 
-	// Initialize population simulator
-	popSim := population.NewPopulationSimulator(char.WorldID, seed)
-	_ = evolutionGoal // Will be used in the evolution loop below
+	// Initialize population simulator only if life is enabled
+	var popSim *population.PopulationSimulator
+	var biomesByType map[geography.BiomeType][]*geography.Biome
 
-	// Group biomes by type to ensure diversity
-	biomesByType := make(map[geography.BiomeType][]*geography.Biome)
-	for i := range geology.Biomes {
-		biome := &geology.Biomes[i]
-		biomesByType[biome.Type] = append(biomesByType[biome.Type], biome)
+	if enableLife {
+		popSim = population.NewPopulationSimulator(char.WorldID, seed)
+		_ = evolutionGoal // Will be used in the evolution loop below
+
+		// Assign biomes (part of life system)
+		if len(geology.Biomes) == 0 {
+			geology.Biomes = geography.AssignBiomes(geology.Heightmap, geology.SeaLevel, geology.Seed, 0.0)
+		}
+
+		// Group biomes by type to ensure diversity
+		biomesByType = make(map[geography.BiomeType][]*geography.Biome)
+		for i := range geology.Biomes {
+			biome := &geology.Biomes[i]
+			biomesByType[biome.Type] = append(biomesByType[biome.Type], biome)
+		}
+	} else {
+		// For geology-only, we still need biomesByType for event processing
+		biomesByType = make(map[geography.BiomeType][]*geography.Biome)
 	}
 
 	// Create populations for each biome type (sample up to 2 per type)
-	for biomeType, biomes := range biomesByType {
-		// Take up to 2 biomes of each type
-		count := 2
-		if len(biomes) < count {
-			count = len(biomes)
+	// Only runs when life simulation is enabled
+	if enableLife && popSim != nil {
+		for biomeType, biomes := range biomesByType {
+			// Take up to 2 biomes of each type
+			count := 2
+			if len(biomes) < count {
+				count = len(biomes)
+			}
+
+			for i := 0; i < count; i++ {
+				bp := population.NewBiomePopulation(uuid.New(), biomeType)
+
+				// Flora with biome-specific growth type
+				floraTraits := population.DefaultTraitsForDiet(population.DietPhotosynthetic)
+				floraTraits.FloraGrowth = population.GetFloraGrowthForBiome(biomeType)
+				floraTraits.Covering = population.GetCoveringForDiet(population.DietPhotosynthetic, biomeType)
+
+				// Boost traits for harsh biomes
+				var startingFlora int64 = 500
+				switch biomeType {
+				case geography.BiomeDesert:
+					floraTraits.HeatResistance = 0.95
+					floraTraits.Fertility = 4.0  // Desert plants adapt to reproduce very rapidly
+					floraTraits.Camouflage = 0.8 // Thorns and spines deter grazers
+					startingFlora = 1000         // More flora to support sparse desert ecosystem
+				case geography.BiomeOcean:
+					floraTraits.Fertility = 2.5
+				case geography.BiomeTundra, geography.BiomeAlpine:
+					floraTraits.ColdResistance = 0.9
+				}
+
+				floraSpecies := &population.SpeciesPopulation{
+					SpeciesID:     uuid.New(),
+					Name:          fmt.Sprintf("%s %s", biomeType, population.GenerateSpeciesName(floraTraits, population.DietPhotosynthetic, biomeType)),
+					Count:         startingFlora,
+					Traits:        floraTraits,
+					TraitVariance: 0.3,
+					Diet:          population.DietPhotosynthetic,
+					Generation:    0,
+					CreatedYear:   0,
+				}
+				bp.AddSpecies(floraSpecies)
+
+				// Herbivore with biome-specific covering
+				herbTraits := population.DefaultTraitsForDiet(population.DietHerbivore)
+				herbTraits.Covering = population.GetCoveringForDiet(population.DietHerbivore, biomeType)
+
+				// Boost herbivore traits for harsh biomes
+				switch biomeType {
+				case geography.BiomeDesert:
+					herbTraits.HeatResistance = 0.9
+				case geography.BiomeOcean:
+					herbTraits.Speed = 5.0
+				case geography.BiomeTundra, geography.BiomeAlpine:
+					herbTraits.ColdResistance = 0.9
+				}
+
+				herbSpecies := &population.SpeciesPopulation{
+					SpeciesID:     uuid.New(),
+					Name:          fmt.Sprintf("%s %s", biomeType, population.GenerateSpeciesName(herbTraits, population.DietHerbivore, biomeType)),
+					Count:         200,
+					Traits:        herbTraits,
+					TraitVariance: 0.3,
+					Diet:          population.DietHerbivore,
+					Generation:    0,
+					CreatedYear:   0,
+				}
+				bp.AddSpecies(herbSpecies)
+
+				// Carnivore with biome-specific covering
+				carnTraits := population.DefaultTraitsForDiet(population.DietCarnivore)
+				carnTraits.Covering = population.GetCoveringForDiet(population.DietCarnivore, biomeType)
+
+				// Boost carnivore traits for harsh biomes
+				switch biomeType {
+				case geography.BiomeDesert:
+					carnTraits.HeatResistance = 0.85
+					carnTraits.NightVision = 0.8 // Hunt at night
+				case geography.BiomeOcean:
+					carnTraits.Speed = 7.0 // Fast swimmers
+				case geography.BiomeTundra, geography.BiomeAlpine:
+					carnTraits.ColdResistance = 0.9
+				}
+
+				carnSpecies := &population.SpeciesPopulation{
+					SpeciesID:     uuid.New(),
+					Name:          fmt.Sprintf("%s %s", biomeType, population.GenerateSpeciesName(carnTraits, population.DietCarnivore, biomeType)),
+					Count:         50,
+					Traits:        carnTraits,
+					TraitVariance: 0.3,
+					Diet:          population.DietCarnivore,
+					Generation:    0,
+					CreatedYear:   0,
+				}
+				bp.AddSpecies(carnSpecies)
+
+				popSim.Biomes[bp.BiomeID] = bp
+			}
 		}
 
-		for i := 0; i < count; i++ {
-			bp := population.NewBiomePopulation(uuid.New(), biomeType)
-
-			// Flora with biome-specific growth type
-			floraTraits := population.DefaultTraitsForDiet(population.DietPhotosynthetic)
-			floraTraits.FloraGrowth = population.GetFloraGrowthForBiome(biomeType)
-			floraTraits.Covering = population.GetCoveringForDiet(population.DietPhotosynthetic, biomeType)
-
-			// Boost traits for harsh biomes
-			var startingFlora int64 = 500
-			switch biomeType {
-			case geography.BiomeDesert:
-				floraTraits.HeatResistance = 0.95
-				floraTraits.Fertility = 4.0  // Desert plants adapt to reproduce very rapidly
-				floraTraits.Camouflage = 0.8 // Thorns and spines deter grazers
-				startingFlora = 1000         // More flora to support sparse desert ecosystem
-			case geography.BiomeOcean:
-				floraTraits.Fertility = 2.5
-			case geography.BiomeTundra, geography.BiomeAlpine:
-				floraTraits.ColdResistance = 0.9
-			}
-
-			floraSpecies := &population.SpeciesPopulation{
-				SpeciesID:     uuid.New(),
-				Name:          fmt.Sprintf("%s %s", biomeType, population.GenerateSpeciesName(floraTraits, population.DietPhotosynthetic, biomeType)),
-				Count:         startingFlora,
-				Traits:        floraTraits,
-				TraitVariance: 0.3,
-				Diet:          population.DietPhotosynthetic,
-				Generation:    0,
-				CreatedYear:   0,
-			}
-			bp.AddSpecies(floraSpecies)
-
-			// Herbivore with biome-specific covering
-			herbTraits := population.DefaultTraitsForDiet(population.DietHerbivore)
-			herbTraits.Covering = population.GetCoveringForDiet(population.DietHerbivore, biomeType)
-
-			// Boost herbivore traits for harsh biomes
-			switch biomeType {
-			case geography.BiomeDesert:
-				herbTraits.HeatResistance = 0.9
-				herbTraits.Fertility = 1.5
-				herbTraits.Speed = 3.0 // Slower, conserve energy
-			case geography.BiomeOcean:
-				herbTraits.Fertility = 1.5
-				herbTraits.Speed = 4.0
-			case geography.BiomeTundra, geography.BiomeAlpine:
-				herbTraits.ColdResistance = 0.9
-			}
-
-			herbSpecies := &population.SpeciesPopulation{
-				SpeciesID:     uuid.New(),
-				Name:          fmt.Sprintf("%s %s", biomeType, population.GenerateSpeciesName(herbTraits, population.DietHerbivore, biomeType)),
-				Count:         200,
-				Traits:        herbTraits,
-				TraitVariance: 0.3,
-				Diet:          population.DietHerbivore,
-				Generation:    0,
-				CreatedYear:   0,
-			}
-			bp.AddSpecies(herbSpecies)
-
-			// Carnivore with biome-specific covering
-			carnTraits := population.DefaultTraitsForDiet(population.DietCarnivore)
-			carnTraits.Covering = population.GetCoveringForDiet(population.DietCarnivore, biomeType)
-
-			// Boost carnivore traits for harsh biomes
-			switch biomeType {
-			case geography.BiomeDesert:
-				carnTraits.HeatResistance = 0.85
-				carnTraits.NightVision = 0.8 // Hunt at night
-			case geography.BiomeOcean:
-				carnTraits.Speed = 7.0 // Fast swimmers
-			case geography.BiomeTundra, geography.BiomeAlpine:
-				carnTraits.ColdResistance = 0.9
-			}
-
-			carnSpecies := &population.SpeciesPopulation{
-				SpeciesID:     uuid.New(),
-				Name:          fmt.Sprintf("%s %s", biomeType, population.GenerateSpeciesName(carnTraits, population.DietCarnivore, biomeType)),
-				Count:         50,
-				Traits:        carnTraits,
-				TraitVariance: 0.3,
-				Diet:          population.DietCarnivore,
-				Generation:    0,
-				CreatedYear:   0,
-			}
-			bp.AddSpecies(carnSpecies)
-
-			popSim.Biomes[bp.BiomeID] = bp
-		}
+		client.SendGameMessage("system", fmt.Sprintf("Simulating %d biome types with %d total biome instances...", len(biomesByType), len(popSim.Biomes)), nil)
 	}
 
-	client.SendGameMessage("system", fmt.Sprintf("Simulating %d biome types with %d total biome instances...", len(biomesByType), len(popSim.Biomes)), nil)
-
-	// Initialize geographic systems for regional isolation tracking
-	popSim.InitializeGeographicSystems(char.WorldID, seed)
-	client.SendGameMessage("system", "🗺️ Geographic systems initialized: Hex grid, Regions, Tectonics", nil)
+	// Initialize geographic systems for regional isolation tracking (life only)
+	if enableLife && popSim != nil {
+		popSim.InitializeGeographicSystems(char.WorldID, seed)
+		client.SendGameMessage("system", "🗺️ Geographic systems initialized: Hex grid, Regions, Tectonics", nil)
+	}
 
 	// Track statistics
 	geologicalEvents := 0
@@ -356,17 +449,25 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	// Track event frequencies
 	eventCounts := make(map[ecosystem.GeologicalEventType]int)
 
-	// V2 Systems: Initialize pathogen, cascade, sapience, and phylogeny systems
-	diseaseSystem := pathogen.NewDiseaseSystem(char.WorldID, seed)
-	cascadeSim := population.NewCascadeSimulator()
-	sapienceDetector := sapience.NewSapienceDetector(char.WorldID, true) // Magic-enabled
-	phyloTree := population.NewPhylogeneticTree(char.WorldID)
-	turningPointMgr := ecosystem.NewTurningPointManager(char.WorldID)
+	// V2 Systems: Initialize pathogen, cascade, sapience, and phylogeny systems (life only)
+	var diseaseSystem *pathogen.DiseaseSystem
+	var cascadeSim *population.CascadeSimulator
+	var sapienceDetector *sapience.SapienceDetector
+	var phyloTree *population.PhylogeneticTree
+	var turningPointMgr *ecosystem.TurningPointManager
 
-	// Add initial species to phylogenetic tree
-	for _, biome := range popSim.Biomes {
-		for _, sp := range biome.Species {
-			phyloTree.AddRoot(sp, 0)
+	if enableLife {
+		diseaseSystem = pathogen.NewDiseaseSystem(char.WorldID, seed)
+		cascadeSim = population.NewCascadeSimulator()
+		sapienceDetector = sapience.NewSapienceDetector(char.WorldID, true) // Magic-enabled
+		phyloTree = population.NewPhylogeneticTree(char.WorldID)
+		turningPointMgr = ecosystem.NewTurningPointManager(char.WorldID)
+
+		// Add initial species to phylogenetic tree
+		for _, biome := range popSim.Biomes {
+			for _, sp := range biome.Species {
+				phyloTree.AddRoot(sp, 0)
+			}
 		}
 	}
 
@@ -390,7 +491,9 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		defer simLogger.Close()
 	}
 
-	client.SendGameMessage("system", fmt.Sprintf("🧪 V2 Systems initialized: Pathogens, Cascades, Sapience, Phylogeny (Active: %v)", simulateLife), nil)
+	if enableLife {
+		client.SendGameMessage("system", "🧪 V2 Systems initialized: Pathogens, Cascades, Sapience, Phylogeny", nil)
+	}
 
 	// Run simulation year by year (fast!)
 	for year := int64(0); year < years; year++ {
