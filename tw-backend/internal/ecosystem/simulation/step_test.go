@@ -177,3 +177,114 @@ func TestStep_EventsGenerated(t *testing.T) {
 	// Events in result should match events sent to handler
 	assert.Equal(t, len(result.Events), len(receivedEvents))
 }
+
+// TestStep_AdaptiveInterrupts verifies sub-stepping interrupts on turning points
+func TestStep_AdaptiveInterrupts(t *testing.T) {
+	worldID := uuid.New()
+	seed := int64(12345)
+
+	popSim := population.NewPopulationSimulator(worldID, seed)
+
+	// Set up minimal biome
+	biome := population.NewBiomePopulation(uuid.New(), geography.BiomeGrassland)
+	flora := &population.SpeciesPopulation{
+		SpeciesID: uuid.New(),
+		Name:      "Test Flora",
+		Count:     1000,
+		Traits:    population.DefaultTraitsForDiet(population.DietPhotosynthetic),
+		Diet:      population.DietPhotosynthetic,
+	}
+	biome.AddSpecies(flora)
+	popSim.Biomes[biome.BiomeID] = biome
+
+	// Configure to detect events at or after year 350
+	targetInterruptYear := int64(350)
+
+	config := StepConfig{
+		SimulateLife:    true,
+		SimulateGeology: false,
+		TurningPointDetector: func(events []SimulationEvent, currentYear int64) *SimulationEvent {
+			// Trigger interrupt when we reach the target year
+			if currentYear >= targetInterruptYear {
+				return &SimulationEvent{
+					Year:        currentYear,
+					Type:        "volcanic_eruption",
+					Description: "Massive volcanic activity detected",
+					Importance:  9,
+				}
+			}
+			return nil
+		},
+	}
+
+	subsystems := Subsystems{}
+
+	// Request 1000 years, expect interruption around 350-400
+	result := Step(popSim, subsystems, 1000, config)
+
+	// Verify partial completion
+	assert.True(t, result.Interrupted, "Should be interrupted")
+	assert.Less(t, result.YearsAdvanced, int64(1000), "Should not complete full 1000 years")
+	assert.GreaterOrEqual(t, result.YearsAdvanced, targetInterruptYear,
+		"Should advance at least to interrupt year")
+	// Due to MaxSubStep=50, should stop at next boundary after 350 (i.e., 350 or 400)
+	assert.LessOrEqual(t, result.YearsAdvanced, int64(400),
+		"Should stop within one sub-step of interrupt")
+	assert.NotNil(t, result.InterruptEvent, "Should have interrupt event")
+	assert.Equal(t, "volcanic_eruption", result.InterruptEvent.Type)
+}
+
+// TestStep_SubStepBoundaries verifies correct chunking
+func TestStep_SubStepBoundaries(t *testing.T) {
+	worldID := uuid.New()
+	popSim := population.NewPopulationSimulator(worldID, 12345)
+
+	// Add a biome so simulation has something to work with
+	biome := population.NewBiomePopulation(uuid.New(), geography.BiomeGrassland)
+	flora := &population.SpeciesPopulation{
+		SpeciesID: uuid.New(),
+		Name:      "Test Flora",
+		Count:     1000,
+		Traits:    population.DefaultTraitsForDiet(population.DietPhotosynthetic),
+		Diet:      population.DietPhotosynthetic,
+	}
+	biome.AddSpecies(flora)
+	popSim.Biomes[biome.BiomeID] = biome
+
+	config := DefaultStepConfig()
+	subsystems := Subsystems{}
+
+	// 125 years should require 3 sub-steps: 50 + 50 + 25
+	result := Step(popSim, subsystems, 125, config)
+
+	assert.Equal(t, int64(125), result.YearsAdvanced)
+	assert.False(t, result.Interrupted)
+}
+
+// TestStep_NoInterruptWithoutDetector verifies default behavior without detector
+func TestStep_NoInterruptWithoutDetector(t *testing.T) {
+	worldID := uuid.New()
+	popSim := population.NewPopulationSimulator(worldID, 12345)
+
+	biome := population.NewBiomePopulation(uuid.New(), geography.BiomeGrassland)
+	flora := &population.SpeciesPopulation{
+		SpeciesID: uuid.New(),
+		Name:      "Test Flora",
+		Count:     1000,
+		Traits:    population.DefaultTraitsForDiet(population.DietPhotosynthetic),
+		Diet:      population.DietPhotosynthetic,
+	}
+	biome.AddSpecies(flora)
+	popSim.Biomes[biome.BiomeID] = biome
+
+	config := DefaultStepConfig()
+	// No TurningPointDetector set
+	subsystems := Subsystems{}
+
+	// Should complete all 500 years without interruption
+	result := Step(popSim, subsystems, 500, config)
+
+	assert.Equal(t, int64(500), result.YearsAdvanced)
+	assert.False(t, result.Interrupted)
+	assert.Nil(t, result.InterruptEvent)
+}

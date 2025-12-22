@@ -47,6 +47,10 @@ type Subsystems struct {
 	// GeologyManager *WorldGeology // Not imported to avoid cycle
 }
 
+// TurningPointDetector is called after each sub-step to check for critical events.
+// If it returns a non-nil event, the Step function will interrupt early.
+type TurningPointDetector func(events []SimulationEvent, currentYear int64) *SimulationEvent
+
 // StepResult contains the outcome of a simulation step
 type StepResult struct {
 	YearsAdvanced  int64
@@ -55,15 +59,18 @@ type StepResult struct {
 	OutbreakCount  int
 	GeologyUpdated bool
 	Events         []SimulationEvent
+	Interrupted    bool             // True if step was interrupted early by a turning point
+	InterruptEvent *SimulationEvent // The event that caused the interruption
 }
 
 // StepConfig configures a single simulation step
 type StepConfig struct {
-	SimulateLife     bool
-	SimulateGeology  bool
-	SimulateDiseases bool
-	GlobalTempMod    float64
-	EventHandler     EventHandler
+	SimulateLife         bool
+	SimulateGeology      bool
+	SimulateDiseases     bool
+	GlobalTempMod        float64
+	EventHandler         EventHandler
+	TurningPointDetector TurningPointDetector // Optional: check for turning points after each sub-step
 }
 
 // DefaultStepConfig returns a default configuration with all subsystems enabled
@@ -182,7 +189,64 @@ func ShouldUpdateGeology(currentYear int64, config StepConfig) bool {
 
 // Step executes a complete simulation step for the given number of years.
 // This is the UNIFIED step function used by both headless and interactive modes.
+//
+// The function uses adaptive sub-stepping: instead of processing all years at once,
+// it breaks the request into chunks of MaxSubStep years. After each sub-step,
+// the TurningPointDetector callback (if set) is invoked to check for critical events.
+// If a turning point is detected, the function returns early with Interrupted=true.
 func Step(
+	popSim *population.PopulationSimulator,
+	subsystems Subsystems,
+	targetYears int64,
+	config StepConfig,
+) StepResult {
+	result := StepResult{
+		Events: make([]SimulationEvent, 0),
+	}
+
+	var yearsPassed int64 = 0
+
+	for yearsPassed < targetYears {
+		// Determine sub-step duration
+		remaining := targetYears - yearsPassed
+		dt := remaining
+		if dt > MaxSubStep {
+			dt = MaxSubStep
+		}
+
+		// Execute sub-step (year-by-year within dt)
+		subResult := stepInternal(popSim, subsystems, dt, config)
+
+		// Accumulate results
+		result.YearsAdvanced += subResult.YearsAdvanced
+		result.NewSpecies += subResult.NewSpecies
+		result.MigrationCount += subResult.MigrationCount
+		result.OutbreakCount += subResult.OutbreakCount
+		result.GeologyUpdated = result.GeologyUpdated || subResult.GeologyUpdated
+		result.Events = append(result.Events, subResult.Events...)
+
+		// Check for turning points
+		if config.TurningPointDetector != nil {
+			currentYear := int64(0)
+			if popSim != nil {
+				currentYear = popSim.CurrentYear
+			}
+			if criticalEvent := config.TurningPointDetector(subResult.Events, currentYear); criticalEvent != nil {
+				result.Interrupted = true
+				result.InterruptEvent = criticalEvent
+				return result // EARLY RETURN - partial completion
+			}
+		}
+
+		yearsPassed += dt
+	}
+
+	return result
+}
+
+// stepInternal executes the simulation for exactly 'years' years.
+// This is the original Step logic, now internal to support sub-stepping.
+func stepInternal(
 	popSim *population.PopulationSimulator,
 	subsystems Subsystems,
 	yearsToAdvance int64,
