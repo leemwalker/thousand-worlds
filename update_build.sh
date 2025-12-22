@@ -10,7 +10,11 @@ echo "Pulling latest code..."
 cd /home/walker/git/thousand-worlds
 git pull
 
-# (Skipping host-level npm install as it is handled in Docker build)
+# Install frontend dependencies (for new packages like Zod)
+echo "Installing frontend dependencies..."
+cd tw-frontend
+npm install --legacy-peer-deps
+cd ..
 
 # Rebuild game server and frontend
 echo "Rebuilding game-server and frontend..."

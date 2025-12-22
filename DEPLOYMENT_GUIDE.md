@@ -6,20 +6,19 @@ We have optimized the deployment process to reduce iteration time.
 ### Optimized "Fast Deploy" (Recommended)
 **Script:** `./fast_deploy.sh`
 
-This script runs on your **local machine**. It uses Docker's remote context feature to send the build context directly to the server (`10.0.0.17`) and build/run the containers there.
+This script uses **rsync** to synchronize your local code to the server and then executes `docker compose` remotely via SSH.
 
 **Prerequisites:**
 1.  **SSH Keys**: You must have passwordless SSH access to the server.
     ```bash
     ssh-copy-id walker@10.0.0.17
     ```
-2.  **Docker Client**: You need Docker installed locally.
+2.  **Rsync**: Standard on macOS/Linux.
 
 **Benefits:**
-- No need to `git push` -> `git pull`.
-- Deploys uncommitted local changes immediately.
-- Only rebuilds changed layers (cache enabled).
-- Only restarts application services (`game-server`, `frontend`), leaving databases (`postgres`, `mongo`, etc.) running.
+- **No Local Docker Required**: Works even if Docker Desktop is broken or not installed.
+- **Fast**: Only transfers changed source files.
+- **Reliable**: Builds internally on the server using the server's environment.
 
 ### Legacy "Update Build" (On Server)
 **Script:** `./update_build.sh`
