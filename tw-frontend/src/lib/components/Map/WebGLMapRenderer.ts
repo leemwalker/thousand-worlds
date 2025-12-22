@@ -121,6 +121,22 @@ export interface WorldMapTile {
     avg_elevation: number;
 }
 
+// MiniMap data format (local area around player)
+export interface MiniMapData {
+    tiles: MiniMapTile[];
+    player_x: number;
+    player_y: number;
+    grid_size: number;
+}
+
+export interface MiniMapTile {
+    x: number;
+    y: number;
+    biome: string;
+    elevation: number;
+    is_player?: boolean;
+}
+
 export class WebGLMapRenderer {
     private canvas: HTMLCanvasElement;
     private gl: WebGL2RenderingContext | null = null;
@@ -347,6 +363,69 @@ export class WebGLMapRenderer {
             elevRange: { min: minElev, max: maxElev },
             playerPos: { x: this.playerPosX.toFixed(3), y: this.playerPosY.toFixed(3) }
         });
+    }
+
+    /**
+     * Update renderer with minimap data (local area around player)
+     */
+    updateMiniMapData(data: MiniMapData): void {
+        const gl = this.gl;
+        if (!gl || !this.dataTexture) return;
+
+        const gridSize = data.grid_size || 9;
+        this.gridWidth = gridSize;
+        this.gridHeight = gridSize;
+
+        // Calculate bounds from tiles
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
+        for (const tile of data.tiles) {
+            if (tile.x < minX) minX = tile.x;
+            if (tile.x > maxX) maxX = tile.x;
+            if (tile.y < minY) minY = tile.y;
+            if (tile.y > maxY) maxY = tile.y;
+        }
+
+        // Create texture data buffer (RGBA)
+        const buffer = new Uint8Array(gridSize * gridSize * 4);
+
+        for (const tile of data.tiles) {
+            // Map tile coords to grid coords (0 to gridSize-1)
+            const gx = tile.x - minX;
+            const gy = tile.y - minY;
+            if (gx < 0 || gx >= gridSize || gy < 0 || gy >= gridSize) continue;
+
+            const idx = (gy * gridSize + gx) * 4;
+
+            // R: Elevation normalized
+            const normElev = this.normalizeElevation(tile.elevation);
+            buffer[idx] = Math.round(normElev * 255);
+
+            // G: Biome ID
+            const lookupBiome = BIOME_IDS[tile.biome];
+            const biomeId: number = lookupBiome !== undefined ? lookupBiome : 8;
+            buffer[idx + 1] = biomeId;
+
+            // B: Unused
+            buffer[idx + 2] = 0;
+
+            // A: Alpha
+            buffer[idx + 3] = 255;
+        }
+
+        // Upload texture
+        gl.bindTexture(gl.TEXTURE_2D, this.dataTexture);
+        gl.texImage2D(
+            gl.TEXTURE_2D, 0, gl.RGBA,
+            gridSize, gridSize, 0,
+            gl.RGBA, gl.UNSIGNED_BYTE, buffer
+        );
+
+        // Player is at center of minimap
+        this.playerPosX = 0.5;
+        this.playerPosY = 0.5;
+
+        this.dirty = true;
     }
 
     private normalizeElevation(elevation: number): number {

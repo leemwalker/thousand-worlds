@@ -1,43 +1,26 @@
 <script lang="ts">
     import { onDestroy, onMount } from "svelte";
-    import { MapRenderer } from "./MapRenderer";
-    import type { VisibleTile, RenderQuality } from "./MapRenderer";
+    import { WebGLMapRenderer } from "./WebGLMapRenderer";
+    import type { MiniMapData, MiniMapTile } from "./WebGLMapRenderer";
     import { mapStore } from "$lib/stores/map";
 
     // Fixed size matching D-Pad (3x3 grid of 48px buttons + gaps)
     const MAP_SIZE = 152;
 
-    // Tile size adjusts based on grid size (fractional for sub-pixel rendering at high altitude)
-    $: gridSize = $mapStore.data?.grid_size || 9;
-    $: tileSize = MAP_SIZE / gridSize;
-
     let canvas: HTMLCanvasElement;
-    let renderer: MapRenderer | null = null;
+    let renderer: WebGLMapRenderer | null = null;
 
     $: if (renderer && $mapStore.data) {
-        console.log("[MiniMap] Data received:", {
-            tiles: $mapStore.data.tiles?.length,
-            quality: $mapStore.data.render_quality,
-            grid_size: $mapStore.data.grid_size,
-            player: { x: $mapStore.data.player_x, y: $mapStore.data.player_y },
-            sample_tile: $mapStore.data.tiles?.[0],
-        });
-        renderer.setQuality($mapStore.data.render_quality || "low");
-        renderer.setStyle("standard"); // Use biome-based rendering instead of geology
-        renderer.setTileSize(tileSize);
         updateMapData();
     }
 
     onMount(() => {
-        console.log("[MiniMap] v2.3 Debug Mode");
+        console.log("[MiniMap] v3.0 WebGL Mode");
         if (canvas) {
-            renderer = new MapRenderer(canvas);
-            renderer.setTileSize(tileSize);
-            renderer.start(); // Start render loop
+            renderer = new WebGLMapRenderer(canvas);
+            renderer.start();
 
             if ($mapStore.data) {
-                renderer.setQuality($mapStore.data.render_quality || "low");
-                renderer.setStyle("standard"); // Use biome-based rendering
                 updateMapData();
             }
         }
@@ -46,45 +29,29 @@
     onDestroy(() => {
         if (renderer) {
             renderer.stop();
+            renderer.destroy();
         }
     });
 
     function updateMapData() {
         if (!renderer || !$mapStore.data) return;
 
-        const playerPos = {
-            x: Math.round($mapStore.data.player_x),
-            y: Math.round($mapStore.data.player_y),
-            z: Math.round($mapStore.data.player_z || 0), // Pass Player Z
+        const data: MiniMapData = {
+            tiles: $mapStore.data.tiles.map(
+                (tile: any): MiniMapTile => ({
+                    x: tile.x,
+                    y: tile.y,
+                    biome: tile.biome || "Default",
+                    elevation: tile.elevation || 0,
+                    is_player: tile.is_player || false,
+                }),
+            ),
+            player_x: $mapStore.data.player_x,
+            player_y: $mapStore.data.player_y,
+            grid_size: $mapStore.data.grid_size || 9,
         };
 
-        // Convert tiles to VisibleTile format
-        const visibleTiles: VisibleTile[] = $mapStore.data.tiles.map((tile) => {
-            const vt: VisibleTile = {
-                x: tile.x,
-                y: tile.y,
-                biome: tile.biome || "Default",
-                elevation: tile.elevation || 0,
-                entities: tile.entities || [],
-                is_player: tile.is_player || false,
-                occluded: tile.occluded || false,
-            };
-            if (tile.portal) vt.portal = tile.portal;
-            return vt;
-        });
-
-        renderer.updateData(playerPos, visibleTiles, $mapStore.data.scale || 1);
-    }
-
-    function getQualityLabel(quality: RenderQuality | undefined): string {
-        switch (quality) {
-            case "high":
-                return "◆◆◆";
-            case "medium":
-                return "◆◆○";
-            default:
-                return "◆○○";
-        }
+        renderer.updateMiniMapData(data);
     }
 </script>
 
@@ -98,11 +65,6 @@
 
     <!-- Compass indicator -->
     <div class="compass">N</div>
-
-    <!-- Quality indicator -->
-    <div class="quality-indicator" title="Perception Quality">
-        {getQualityLabel($mapStore.data?.render_quality)}
-    </div>
 </div>
 
 <style>
@@ -137,19 +99,5 @@
         padding: 2px 6px;
         border-radius: 4px;
         border: 1px solid #374151;
-    }
-
-    .quality-indicator {
-        position: absolute;
-        bottom: -6px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(31, 41, 55, 0.95);
-        color: #ffd700;
-        font-size: 8px;
-        padding: 2px 6px;
-        border-radius: 4px;
-        border: 1px solid #374151;
-        letter-spacing: 2px;
     }
 </style>
