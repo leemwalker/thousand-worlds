@@ -58,10 +58,10 @@ func (p *GameProcessor) handleWorld(ctx context.Context, client websocket.GameCl
 
 // handleWorldSimulate runs a fast-forward simulation of the world
 func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocket.GameClient, argsStr string) error {
-	// Parse arguments: years [--epoch epoch_name] [--goal goal_name]
+	// Parse arguments: years [--epoch epoch_name] [--goal goal_name] [--seed number]
 	args := strings.Fields(strings.TrimSpace(argsStr))
 	if len(args) == 0 {
-		client.SendGameMessage("error", "Usage: world simulate <years> [--epoch name] [--goal name] [--only-geology] [--only-life] [--no-diseases] [--water-level level]", nil)
+		client.SendGameMessage("error", "Usage: world simulate <years> [--epoch name] [--goal name] [--seed number] [--only-geology] [--only-life] [--no-diseases] [--water-level level]", nil)
 		return nil
 	}
 
@@ -74,6 +74,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	// Parse optional flags
 	// Parse optional flags
 	var epochFlag, goalFlag, waterLevelFlag string
+	var seedFlag int64 = 0 // 0 means use WorldID-based seed
 	simulateGeology := true
 	simulateLife := true
 	simulateDiseases := true
@@ -94,6 +95,13 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		case "--water-level":
 			if i+1 < len(args) {
 				waterLevelFlag = args[i+1]
+				i++
+			}
+		case "--seed":
+			if i+1 < len(args) {
+				if parsed, err := strconv.ParseInt(args[i+1], 10, 64); err == nil {
+					seedFlag = parsed
+				}
 				i++
 			}
 		case "--only-geology":
@@ -129,11 +137,19 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			circumference = *world.Circumference
 		}
 
-		// Use world ID bytes as seed for determinism
-		seed := int64(char.WorldID[0])<<56 | int64(char.WorldID[1])<<48 |
-			int64(char.WorldID[2])<<40 | int64(char.WorldID[3])<<32 |
-			int64(char.WorldID[4])<<24 | int64(char.WorldID[5])<<16 |
-			int64(char.WorldID[6])<<8 | int64(char.WorldID[7])
+		// Calculate seed: use custom seed if provided, otherwise derive from WorldID
+		var seed int64
+		if seedFlag != 0 {
+			seed = seedFlag
+			client.SendGameMessage("system", fmt.Sprintf("Using custom seed: %d", seed), nil)
+		} else {
+			// Use world ID bytes as seed for determinism
+			seed = int64(char.WorldID[0])<<56 | int64(char.WorldID[1])<<48 |
+				int64(char.WorldID[2])<<40 | int64(char.WorldID[3])<<32 |
+				int64(char.WorldID[4])<<24 | int64(char.WorldID[5])<<16 |
+				int64(char.WorldID[6])<<8 | int64(char.WorldID[7])
+			client.SendGameMessage("system", fmt.Sprintf("Using WorldID-derived seed: %d", seed), nil)
+		}
 
 		geology = ecosystem.NewWorldGeology(char.WorldID, seed, circumference)
 		p.worldGeology[char.WorldID] = geology

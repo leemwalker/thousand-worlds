@@ -233,6 +233,7 @@ var CommandRegistry = map[string]CommandMetadata{
 				Flags: map[string]string{
 					"--epoch <name>":        "Start in specific epoch",
 					"--goal <name>":         "Set evolution goal",
+					"--seed <number>":       "Use custom random seed (for testing)",
 					"--only-geology":        "Simulate only geology",
 					"--only-life":           "Simulate only life",
 					"--no-diseases":         "Disable disease simulation",

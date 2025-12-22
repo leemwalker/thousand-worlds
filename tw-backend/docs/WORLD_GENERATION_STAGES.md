@@ -155,6 +155,7 @@ Command: `world simulate <years> [flags]`
 | Flag | Effect |
 |------|--------|
 | `--epoch <name>` | Label time period |
+| `--seed <number>` | Use custom random seed (for testing) |
 | `--only-geology` | Skip life simulation |
 | `--only-life` | Skip active geology |
 | `--no-diseases` | Disable pathogens |
