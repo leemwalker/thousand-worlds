@@ -6,7 +6,92 @@ import (
 	"github.com/google/uuid"
 )
 
+// ClassifyBiome determines biome type from climate and elevation data.
+// This is a PURE classification function with NO latitude/coordinate math.
+// Temperature and rainfall should be computed by the Weather service.
+//
+// Parameters:
+//   - tempC: Annual average temperature in Celsius (from Weather)
+//   - rainfallMM: Annual rainfall in millimeters (from Weather)
+//   - drainage: Soil drainage factor 0-1 (0=waterlogged, 1=well-drained)
+//   - elevation: Elevation in meters
+//   - seaLevel: Current sea level in meters
+//
+// Returns the appropriate BiomeType for these conditions.
+func ClassifyBiome(tempC, rainfallMM, drainage, elevation, seaLevel float64) BiomeType {
+	// 1. Check for ocean (below sea level)
+	if elevation <= seaLevel {
+		return BiomeOcean
+	}
+
+	// 2. Check for extreme elevation biomes
+	altitudeAboveSea := elevation - seaLevel
+	if altitudeAboveSea >= 3000 {
+		return BiomeAlpine // Very high mountain
+	}
+	if altitudeAboveSea >= 1000 && tempC < 0 {
+		return BiomeAlpine // Cold mountain
+	}
+
+	// 3. Convert rainfall to moisture factor (0-1 scale)
+	// Using 2000mm/year as baseline for "very wet"
+	moisture := rainfallMM / 2000.0
+	if moisture > 1.0 {
+		moisture = 1.0
+	}
+	if moisture < 0.0 {
+		moisture = 0.0
+	}
+
+	// 4. Temperature + Moisture classification (Whittaker-style)
+	return classifyByClimate(tempC, moisture)
+}
+
+// classifyByClimate determines biome from temperature and moisture.
+// This implements a Whittaker biome classification approximation.
+func classifyByClimate(tempC, moisture float64) BiomeType {
+	// Cold climates (< -5°C)
+	if tempC < -5 {
+		if moisture > 0.5 {
+			return BiomeTaiga // Cold but wet enough for trees
+		}
+		return BiomeTundra // Frozen wasteland
+	}
+
+	// Cool climates (-5 to 10°C)
+	if tempC < 10 {
+		if moisture > 0.6 {
+			return BiomeTaiga // Boreal forest
+		} else if moisture > 0.3 {
+			return BiomeGrassland // Steppe/Tundra transition
+		}
+		return BiomeTundra // Cold desert
+	}
+
+	// Temperate climates (10 to 20°C)
+	if tempC < 20 {
+		if moisture > 0.6 {
+			return BiomeDeciduousForest
+		} else if moisture > 0.3 {
+			return BiomeGrassland
+		}
+		return BiomeDesert // Cold desert
+	}
+
+	// Warm/Tropical climates (> 20°C)
+	if moisture > 0.7 {
+		return BiomeRainforest
+	} else if moisture > 0.4 {
+		return BiomeDeciduousForest // Seasonal tropical / Savanna with trees
+	} else if moisture > 0.2 {
+		return BiomeGrassland // Savanna
+	}
+	return BiomeDesert
+}
+
 // AssignBiomes determines the biome for each cell
+// Deprecated: This function calculates temperature internally using latitude.
+// New code should use ClassifyBiome with temperature from the Weather service.
 func AssignBiomes(hm *Heightmap, seaLevel float64, seed int64, globalTempMod float64) []Biome {
 	biomes := make([]Biome, hm.Width*hm.Height)
 	noise := NewPerlinGenerator(seed)

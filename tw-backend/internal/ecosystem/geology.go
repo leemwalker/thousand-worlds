@@ -6,6 +6,7 @@ import (
 	"sync"
 	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/underground"
+	"tw-backend/internal/worldgen/weather"
 
 	"github.com/google/uuid"
 )
@@ -138,8 +139,8 @@ func (g *WorldGeology) InitializeGeology() {
 	// Generate initial rivers
 	g.Rivers = geography.GenerateRivers(g.Heightmap, g.SeaLevel, g.Seed)
 
-	// Initialize biomes with default temp (0 offset)
-	g.Biomes = geography.AssignBiomes(g.Heightmap, g.SeaLevel, g.Seed, 0.0)
+	// Initialize biomes using Weather→Biome pipeline (no latitude coupling)
+	g.Biomes = g.generateBiomesFromClimate(0.0) // No global temp modifier initially
 
 	// Initialize underground column grid (Phase 3)
 	g.initializeColumns(width, height)
@@ -463,7 +464,8 @@ func (g *WorldGeology) SimulateGeology(yearsElapsed int64, globalTempMod float64
 	// Rivers and biomes change as terrain evolves
 	g.Rivers = geography.GenerateRivers(g.Heightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
 	// Pass global temperature modifier to biome assignment
-	g.Biomes = geography.AssignBiomes(g.Heightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated, globalTempMod)
+	// Uses new Weather→Biome pipeline
+	g.Biomes = g.generateBiomesFromClimate(globalTempMod)
 
 	// Update heightmap min/max
 	g.updateHeightmapStats()
@@ -837,4 +839,42 @@ func (g *WorldGeology) ShiftTemperature(shift float64) {
 	for i := range g.Biomes {
 		g.Biomes[i].Temperature += shift
 	}
+}
+
+// generateBiomesFromClimate uses the Weather→Biome pipeline.
+// This is the correct causal chain: Weather determines temperature,
+// which determines biome type (no latitude math in biomes.go).
+func (g *WorldGeology) generateBiomesFromClimate(globalTempMod float64) []geography.Biome {
+	seed := g.Seed + g.TotalYearsSimulated
+
+	// 1. Generate climate data from Weather service
+	climateData := weather.GenerateInitialClimate(g.Heightmap, g.SeaLevel, seed, globalTempMod)
+
+	// 2. Classify biomes using climate data
+	biomes := make([]geography.Biome, g.Heightmap.Width*g.Heightmap.Height)
+	for y := 0; y < g.Heightmap.Height; y++ {
+		for x := 0; x < g.Heightmap.Width; x++ {
+			idx := y*g.Heightmap.Width + x
+			elev := g.Heightmap.Get(x, y)
+			climate := weather.GetClimateAt(climateData, g.Heightmap.Width, x, y)
+
+			biomeType := geography.ClassifyBiome(
+				climate.Temperature,
+				climate.AnnualRainfall,
+				climate.SoilDrainage,
+				elev,
+				g.SeaLevel,
+			)
+
+			biomes[idx] = geography.Biome{
+				BiomeID:       uuid.New(),
+				Name:          string(biomeType),
+				Type:          biomeType,
+				Temperature:   climate.Temperature,
+				Precipitation: climate.AnnualRainfall,
+			}
+		}
+	}
+
+	return biomes
 }
