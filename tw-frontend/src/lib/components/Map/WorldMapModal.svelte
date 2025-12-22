@@ -69,24 +69,32 @@
     function updateWorldMap() {
         if (!renderer || !worldMapData) return;
 
+        // Convert player world position to grid position
+        const gridWidth = worldMapData.grid_width || 128;
+        const gridHeight = worldMapData.grid_height || 64;
+        const worldWidth = worldMapData.world_width || 1;
+        const worldHeight = worldMapData.world_height || 1;
+
+        // Player position in grid coordinates (not world coordinates)
+        const playerGridX = (worldMapData.player_x / worldWidth) * gridWidth;
+        const playerGridY = (worldMapData.player_y / worldHeight) * gridHeight;
+
         const playerPos = {
-            x: Math.round(worldMapData.player_x || 0),
-            y: Math.round(worldMapData.player_y || 0),
+            x: Math.round(playerGridX),
+            y: Math.round(playerGridY),
             z: 0,
         };
 
-        renderer.setWorldSize(worldMapData.grid_width * 100); // Estimate world size
+        // World size for the renderer is the grid size
+        renderer.setWorldSize(Math.max(gridWidth, gridHeight));
 
         // Convert WorldMapTile to VisibleTile format
+        // Use grid coordinates directly - each tile is one grid cell
         const visibleTiles: VisibleTile[] = worldMapData.tiles.map(
             (tile: any) => {
                 const vt: VisibleTile = {
-                    x:
-                        tile.grid_x *
-                        (worldMapData.world_width / worldMapData.grid_width),
-                    y:
-                        tile.grid_y *
-                        (worldMapData.world_height / worldMapData.grid_height),
+                    x: tile.grid_x, // Use grid coordinates directly
+                    y: tile.grid_y, // Use grid coordinates directly
                     biome: tile.biome || "Default",
                     elevation: tile.avg_elevation || 0,
                     entities: [],
