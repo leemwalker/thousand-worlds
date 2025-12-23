@@ -1,6 +1,8 @@
 package geography
 
 import (
+	"tw-backend/internal/spatial"
+
 	"github.com/google/uuid"
 )
 
@@ -31,15 +33,16 @@ const (
 	BoundaryTransform  BoundaryType = "transform"
 )
 
-// TectonicPlate represents a piece of the planet's crust
+// TectonicPlate represents a piece of the planet's crust on a spherical topology
 type TectonicPlate struct {
-	PlateID        uuid.UUID
-	Type           PlateType
-	BoundaryPoints []Point // Polygon vertices defining the plate shape
-	Centroid       Point
-	MovementVector Vector
-	Thickness      float64 // km
-	Age            float64 // million years
+	ID        uuid.UUID
+	Type      PlateType
+	Centroid  spatial.Coordinate              // Grid cell where plate center is located
+	Position  spatial.Vector3D                // Normalized sphere position of centroid
+	Velocity  spatial.Vector3D                // Movement direction vector (tangent to sphere)
+	Region    map[spatial.Coordinate]struct{} // Set of all tiles belonging to this plate
+	Thickness float64                         // km
+	Age       float64                         // million years
 }
 
 // Heightmap represents the elevation grid of the world

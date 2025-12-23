@@ -1,166 +1,258 @@
 package geography
 
 import (
-	"math"
 	"math/rand"
+
+	"tw-backend/internal/spatial"
 
 	"github.com/google/uuid"
 )
 
-// GeneratePlates creates a set of tectonic plates
-func GeneratePlates(count int, width, height int, seed int64) []TectonicPlate {
+// GeneratePlates creates tectonic plates using spherical topology.
+// Uses Multi-Source BFS to assign regions efficiently in O(N) time.
+func GeneratePlates(count int, topology spatial.Topology, seed int64) []TectonicPlate {
 	r := rand.New(rand.NewSource(seed))
+	resolution := topology.Resolution()
 	plates := make([]TectonicPlate, count)
 
-	// 1. Initialize plates with random centroids
+	// 1. Initialize plates with random centroids distributed across all faces
 	for i := 0; i < count; i++ {
-		plates[i] = TectonicPlate{
-			PlateID:  uuid.New(),
-			Centroid: Point{X: float64(r.Intn(width)), Y: float64(r.Intn(height))},
-			// Random movement vector (-1 to 1)
-			MovementVector: Vector{
-				X: r.Float64()*2 - 1,
-				Y: r.Float64()*2 - 1,
-			},
-			Age: r.Float64() * 100, // 0-100 million years
-		}
+		face := r.Intn(6)
+		x := r.Intn(resolution)
+		y := r.Intn(resolution)
+		centroid := spatial.Coordinate{Face: face, X: x, Y: y}
 
-		// Normalize movement vector
-		mag := math.Sqrt(plates[i].MovementVector.X*plates[i].MovementVector.X + plates[i].MovementVector.Y*plates[i].MovementVector.Y)
-		if mag > 0 {
-			plates[i].MovementVector.X /= mag
-			plates[i].MovementVector.Y /= mag
-		}
+		// Get 3D position on sphere from coordinate
+		sx, sy, sz := topology.ToSphere(centroid)
+		position := spatial.Vector3D{X: sx, Y: sy, Z: sz}
+
+		// Generate random tangent velocity (perpendicular to position)
+		velocity := randomTangentVector(position, r)
 
 		// Assign type (30% continental, 70% oceanic)
+		plateType := PlateOceanic
+		thickness := 5 + r.Float64()*5 // 5-10km
 		if i < int(float64(count)*0.3) {
-			plates[i].Type = PlateContinental
-			plates[i].Thickness = 30 + r.Float64()*20 // 30-50km
-		} else {
-			plates[i].Type = PlateOceanic
-			plates[i].Thickness = 5 + r.Float64()*5 // 5-10km
+			plateType = PlateContinental
+			thickness = 30 + r.Float64()*20 // 30-50km
+		}
+
+		plates[i] = TectonicPlate{
+			ID:        uuid.New(),
+			Type:      plateType,
+			Centroid:  centroid,
+			Position:  position,
+			Velocity:  velocity,
+			Region:    make(map[spatial.Coordinate]struct{}),
+			Thickness: thickness,
+			Age:       r.Float64() * 100, // 0-100 million years
 		}
 	}
+
+	// 2. Multi-Source BFS to assign all cells to nearest plate
+	assignRegionsBFS(plates, topology)
 
 	return plates
 }
 
-// SimulateTectonics calculates elevation modifiers based on plate interactions
-// Returns a map of (x,y) -> elevation modifier
-func SimulateTectonics(plates []TectonicPlate, width, height int) *Heightmap {
-	modifiers := NewHeightmap(width, height)
+// randomTangentVector generates a random unit vector tangent to the sphere at position.
+func randomTangentVector(position spatial.Vector3D, r *rand.Rand) spatial.Vector3D {
+	// Generate random vector
+	arbitrary := spatial.Vector3D{
+		X: r.NormFloat64(),
+		Y: r.NormFloat64(),
+		Z: r.NormFloat64(),
+	}.Normalize()
 
-	// Map each pixel to a plate (Voronoi)
-	plateMap := make([]int, width*height) // Index of plate
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			minDist := math.MaxFloat64
-			closestPlate := 0
+	// Project out the radial component to get tangent
+	// tangent = arbitrary - (arbitrary · position) * position
+	dot := arbitrary.Dot(position)
+	tangent := spatial.Vector3D{
+		X: arbitrary.X - dot*position.X,
+		Y: arbitrary.Y - dot*position.Y,
+		Z: arbitrary.Z - dot*position.Z,
+	}
 
-			for i, p := range plates {
-				dist := distance(float64(x), float64(y), p.Centroid.X, p.Centroid.Y)
-				if dist < minDist {
-					minDist = dist
-					closestPlate = i
-				}
+	return tangent.Normalize()
+}
+
+// bfsItem represents a work item in the BFS queue
+type bfsItem struct {
+	coord    spatial.Coordinate
+	plateIdx int
+}
+
+// assignRegionsBFS uses Multi-Source BFS to assign every cell to the nearest plate.
+// This naturally handles wrap-around and creates perfect Voronoi regions.
+func assignRegionsBFS(plates []TectonicPlate, topology spatial.Topology) {
+	resolution := topology.Resolution()
+	totalCells := 6 * resolution * resolution
+
+	// Track which cells are assigned
+	assigned := make(map[spatial.Coordinate]int, totalCells)
+
+	// Initialize queue with all plate centroids
+	queue := make([]bfsItem, 0, len(plates))
+	for i, p := range plates {
+		queue = append(queue, bfsItem{coord: p.Centroid, plateIdx: i})
+		assigned[p.Centroid] = i
+		plates[i].Region[p.Centroid] = struct{}{}
+	}
+
+	// Cardinal directions for neighbor traversal
+	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+
+	// BFS expansion
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		// Check all 4 neighbors
+		for _, dir := range directions {
+			neighbor := topology.GetNeighbor(current.coord, dir)
+
+			// If not already assigned, claim it for this plate
+			if _, exists := assigned[neighbor]; !exists {
+				assigned[neighbor] = current.plateIdx
+				plates[current.plateIdx].Region[neighbor] = struct{}{}
+				queue = append(queue, bfsItem{coord: neighbor, plateIdx: current.plateIdx})
 			}
-			plateMap[y*width+x] = closestPlate
+		}
+	}
+}
+
+// SimulateTectonics calculates elevation based on plate interactions on a sphere.
+// Returns a SphereHeightmap with elevation modifiers.
+func SimulateTectonics(plates []TectonicPlate, heightmap *SphereHeightmap, topology spatial.Topology) *SphereHeightmap {
+	// Build reverse lookup: coordinate -> plate index
+	coordToPlate := make(map[spatial.Coordinate]int)
+	for i, p := range plates {
+		for coord := range p.Region {
+			coordToPlate[coord] = i
 		}
 	}
 
-	// Detect boundaries and apply modifiers
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			currentPlateIdx := plateMap[y*width+x]
-			currentPlate := plates[currentPlateIdx]
+	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+	resolution := topology.Resolution()
 
-			// Check neighbors to find boundary
-			neighbors := []Point{{X: 1, Y: 0}, {X: 0, Y: 1}}
-
-			for _, n := range neighbors {
-				nx, ny := x+int(n.X), y+int(n.Y)
-				if nx >= width || ny >= height {
+	// Process all cells to detect boundaries
+	for face := 0; face < 6; face++ {
+		for y := 0; y < resolution; y++ {
+			for x := 0; x < resolution; x++ {
+				coord := spatial.Coordinate{Face: face, X: x, Y: y}
+				currentPlateIdx, exists := coordToPlate[coord]
+				if !exists {
 					continue
 				}
+				currentPlate := plates[currentPlateIdx]
 
-				neighborPlateIdx := plateMap[ny*width+nx]
-				if currentPlateIdx != neighborPlateIdx {
-					neighborPlate := plates[neighborPlateIdx]
-
-					// Calculate interaction
-					// Vector from current to neighbor
-					dx := neighborPlate.Centroid.X - currentPlate.Centroid.X
-					dy := neighborPlate.Centroid.Y - currentPlate.Centroid.Y
-
-					// Normalize direction
-					dist := math.Sqrt(dx*dx + dy*dy)
-					if dist == 0 {
+				// Check neighbors for boundary
+				for _, dir := range directions {
+					neighbor := topology.GetNeighbor(coord, dir)
+					neighborPlateIdx, exists := coordToPlate[neighbor]
+					if !exists || neighborPlateIdx == currentPlateIdx {
 						continue
 					}
-					dirX, dirY := dx/dist, dy/dist
 
-					// Relative movement: neighbor - current
-					mvX := neighborPlate.MovementVector.X - currentPlate.MovementVector.X
-					mvY := neighborPlate.MovementVector.Y - currentPlate.MovementVector.Y
+					// Found a boundary between two plates
+					neighborPlate := plates[neighborPlateIdx]
+					boundaryType := CalculateBoundaryType(currentPlate, neighborPlate)
 
-					// Interaction factor: positive = divergent, negative = convergent
-					// Dot product of direction and relative movement
-					interaction := dirX*mvX + dirY*mvY
-
-					applyBoundaryEffect(modifiers, x, y, currentPlate, neighborPlate, interaction)
+					// Apply elevation change
+					elevationChange := calculateElevationChange(currentPlate, neighborPlate, boundaryType)
+					applyBoundaryEffectSpherical(heightmap, coord, elevationChange, topology)
 				}
 			}
 		}
 	}
 
-	return modifiers
+	return heightmap
 }
 
-func distance(x1, y1, x2, y2 float64) float64 {
-	return math.Sqrt((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2))
+// CalculateBoundaryType determines the type of interaction between two plates.
+// Uses 3D vector math on the sphere surface.
+func CalculateBoundaryType(plateA, plateB TectonicPlate) BoundaryType {
+	// Normal vector from A to B (direction of boundary)
+	normal := plateB.Position.Sub(plateA.Position).Normalize()
+
+	// Relative velocity: how plates move relative to each other
+	relativeVelocity := plateA.Velocity.Sub(plateB.Velocity)
+
+	// Convergence score: positive = convergent, negative = divergent
+	score := relativeVelocity.Dot(normal)
+
+	if score > 0.2 {
+		return BoundaryConvergent
+	} else if score < -0.2 {
+		return BoundaryDivergent
+	}
+	return BoundaryTransform
 }
 
-func applyBoundaryEffect(hm *Heightmap, x, y int, p1, p2 TectonicPlate, interaction float64) {
-	var elevationChange float64
-	// Assuming 1 pixel = 10km for now, so radius = 5 pixels
-	// TODO: Make scale configurable
+// calculateElevationChange returns the elevation modifier based on boundary type
+func calculateElevationChange(p1, p2 TectonicPlate, boundaryType BoundaryType) float64 {
+	switch boundaryType {
+	case BoundaryDivergent:
+		if p1.Type == PlateOceanic && p2.Type == PlateOceanic {
+			return 500 // Mid-ocean ridge
+		} else if p1.Type == PlateContinental && p2.Type == PlateContinental {
+			return -200 // Rift valley
+		}
+		return 100 // Mixed
+
+	case BoundaryConvergent:
+		if p1.Type == PlateOceanic && p2.Type == PlateOceanic {
+			return -8000 // Trench
+		} else if p1.Type == PlateContinental && p2.Type == PlateContinental {
+			return 6000 // Mountains
+		}
+		return 4000 // Oceanic-Continental (coastal mountains)
+
+	case BoundaryTransform:
+		return 50 // Minimal effect
+	}
+	return 0
+}
+
+// applyBoundaryEffectSpherical applies elevation change with falloff on sphere
+func applyBoundaryEffectSpherical(hm *SphereHeightmap, center spatial.Coordinate, elevationChange float64, topology spatial.Topology) {
 	pixelRadius := 5
 
-	if interaction > 0.2 {
-		// Divergent
-		if p1.Type == PlateOceanic && p2.Type == PlateOceanic {
-			elevationChange = 500 // Mid-ocean ridge
-		} else if p1.Type == PlateContinental && p2.Type == PlateContinental {
-			elevationChange = -200 // Rift valley
-		}
-	} else if interaction < -0.2 {
-		// Convergent
-		if p1.Type == PlateOceanic && p2.Type == PlateOceanic {
-			elevationChange = -8000 // Trench
-		} else if p1.Type == PlateContinental && p2.Type == PlateContinental {
-			elevationChange = 6000 // Mountains
-		} else {
-			// Oceanic-Continental
-			elevationChange = 4000 // Coastal mountains
-		}
-	} else {
-		// Transform
-		elevationChange = 50 // Minimal
+	// Simple falloff using BFS from center
+	visited := make(map[spatial.Coordinate]struct{})
+	type queueItem struct {
+		coord    spatial.Coordinate
+		distance int
 	}
+	queue := []queueItem{{coord: center, distance: 0}}
+	visited[center] = struct{}{}
 
-	// Apply with falloff
-	for dy := -pixelRadius; dy <= pixelRadius; dy++ {
-		for dx := -pixelRadius; dx <= pixelRadius; dx++ {
-			px, py := x+dx, y+dy
-			if px >= 0 && px < hm.Width && py >= 0 && py < hm.Height {
-				dist := math.Sqrt(float64(dx*dx + dy*dy))
-				if dist <= float64(pixelRadius) {
-					factor := (1.0 - dist/float64(pixelRadius))
-					factor = factor * factor // Square for smoother falloff
+	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
 
-					current := hm.Get(px, py)
-					// Additive blending
-					hm.Set(px, py, current+elevationChange*factor)
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		if current.distance > pixelRadius {
+			continue
+		}
+
+		// Calculate falloff factor
+		dist := float64(current.distance)
+		factor := 1.0 - dist/float64(pixelRadius)
+		factor = factor * factor // Square for smoother falloff
+
+		// Apply elevation change
+		currentElev := hm.Get(current.coord)
+		hm.Set(current.coord, currentElev+elevationChange*factor)
+
+		// Expand to neighbors
+		if current.distance < pixelRadius {
+			for _, dir := range directions {
+				neighbor := topology.GetNeighbor(current.coord, dir)
+				if _, exists := visited[neighbor]; !exists {
+					visited[neighbor] = struct{}{}
+					queue = append(queue, queueItem{coord: neighbor, distance: current.distance + 1})
 				}
 			}
 		}

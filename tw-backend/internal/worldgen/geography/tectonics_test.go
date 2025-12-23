@@ -3,15 +3,18 @@ package geography
 import (
 	"testing"
 
+	"tw-backend/internal/spatial"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGeneratePlates(t *testing.T) {
-	width, height := 100, 100
+	resolution := 32
+	topology := spatial.NewCubeSphereTopology(resolution)
 	count := 10
 	seed := int64(12345)
 
-	plates := GeneratePlates(count, width, height, seed)
+	plates := GeneratePlates(count, topology, seed)
 
 	assert.Equal(t, count, len(plates))
 
@@ -24,7 +27,7 @@ func TestGeneratePlates(t *testing.T) {
 		} else {
 			oceanicCount++
 		}
-		assert.NotEqual(t, 0, p.PlateID)
+		assert.NotEqual(t, 0, p.ID)
 		assert.True(t, p.Thickness > 0)
 	}
 
@@ -34,22 +37,43 @@ func TestGeneratePlates(t *testing.T) {
 }
 
 func TestSimulateTectonics(t *testing.T) {
-	width, height := 50, 50
+	resolution := 16
+	topology := spatial.NewCubeSphereTopology(resolution)
 	count := 5
 	seed := int64(12345)
 
-	plates := GeneratePlates(count, width, height, seed)
-	modifiers := SimulateTectonics(plates, width, height)
+	plates := GeneratePlates(count, topology, seed)
+	hm := NewSphereHeightmap(topology)
 
-	assert.NotNil(t, modifiers)
-	assert.Equal(t, width, modifiers.Width)
-	assert.Equal(t, height, modifiers.Height)
+	// Initialize with zeros
+	for face := 0; face < 6; face++ {
+		for y := 0; y < resolution; y++ {
+			for x := 0; x < resolution; x++ {
+				hm.Set(spatial.Coordinate{Face: face, X: x, Y: y}, 0)
+			}
+		}
+	}
+
+	result := SimulateTectonics(plates, hm, topology)
+
+	assert.NotNil(t, result)
 
 	// Check that we have some non-zero modifiers (boundaries)
 	hasChanges := false
-	for _, val := range modifiers.Elevations {
-		if val != 0 {
-			hasChanges = true
+	for face := 0; face < 6; face++ {
+		for y := 0; y < resolution; y++ {
+			for x := 0; x < resolution; x++ {
+				val := result.Get(spatial.Coordinate{Face: face, X: x, Y: y})
+				if val != 0 {
+					hasChanges = true
+					break
+				}
+			}
+			if hasChanges {
+				break
+			}
+		}
+		if hasChanges {
 			break
 		}
 	}

@@ -9,8 +9,8 @@ import (
 type SphereHeightmap struct {
 	topology spatial.Topology
 	faces    [6]*Heightmap
-	minElev  float64
-	maxElev  float64
+	MinElev  float64
+	MaxElev  float64
 }
 
 // NewSphereHeightmap creates a new spherical heightmap using the given topology.
@@ -62,15 +62,15 @@ func (s *SphereHeightmap) UpdateMinMax() {
 	for _, face := range s.faces {
 		for _, elev := range face.Elevations {
 			if first {
-				s.minElev = elev
-				s.maxElev = elev
+				s.MinElev = elev
+				s.MaxElev = elev
 				first = false
 			} else {
-				if elev < s.minElev {
-					s.minElev = elev
+				if elev < s.MinElev {
+					s.MinElev = elev
 				}
-				if elev > s.maxElev {
-					s.maxElev = elev
+				if elev > s.MaxElev {
+					s.MaxElev = elev
 				}
 			}
 		}
@@ -79,7 +79,7 @@ func (s *SphereHeightmap) UpdateMinMax() {
 
 // MinMax returns the minimum and maximum elevations
 func (s *SphereHeightmap) MinMax() (min, max float64) {
-	return s.minElev, s.maxElev
+	return s.MinElev, s.MaxElev
 }
 
 // GetFace returns the underlying Heightmap for a specific face.

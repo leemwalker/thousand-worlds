@@ -197,11 +197,19 @@ func (s *GeneratorService) generateMinerals(params *GenerationParams, geoMap *ge
 	deposits := []minerals.MineralDeposit{}
 
 	// Generate hydrothermal deposits at plate boundaries
+	// Extract boundary points from plate centroids (simplified approach)
 	ridgePoints := []minerals.Point{}
 	for _, plate := range geoMap.Plates {
-		for _, point := range plate.BoundaryPoints {
-			ridgePoints = append(ridgePoints, minerals.Point{X: point.X, Y: point.Y})
+		// Use the plate centroid as a representative boundary point
+		// In a full spherical implementation, we'd trace actual boundaries
+		sx := float64(geoMap.Heightmap.Width / 2)
+		sy := float64(geoMap.Heightmap.Height / 2)
+		if plate.Position.X != 0 || plate.Position.Y != 0 || plate.Position.Z != 0 {
+			// Map 3D sphere position to 2D for minerals (simplified)
+			sx = float64(plate.Centroid.Face*geoMap.Heightmap.Width/6 + plate.Centroid.X)
+			sy = float64(plate.Centroid.Y)
 		}
+		ridgePoints = append(ridgePoints, minerals.Point{X: sx, Y: sy})
 	}
 	hydro := minerals.GenerateHydrothermalDeposits(ridgePoints)
 	for _, d := range hydro {

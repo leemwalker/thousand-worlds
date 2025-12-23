@@ -1,123 +1,210 @@
 package geography
 
 import (
-	"math"
+	"tw-backend/internal/spatial"
 )
 
-// GenerateHeightmap creates the final heightmap
-func GenerateHeightmap(width, height int, plates []TectonicPlate, seed int64, erosionRate float64, rainfallFactor float64) *Heightmap {
-	hm := NewHeightmap(width, height)
+// GenerateHeightmap creates the final heightmap for a spherical world.
+// Uses SphereHeightmap and spherical topology for all calculations.
+func GenerateHeightmap(plates []TectonicPlate, heightmap *SphereHeightmap, topology spatial.Topology, seed int64, erosionRate float64, rainfallFactor float64) *SphereHeightmap {
 	noise := NewPerlinGenerator(seed)
+	resolution := topology.Resolution()
 
 	// 1. Base Elevation based on Plate Type
-	// We need the Voronoi map again to assign base elevation
-	// TODO: Optimize by reusing Voronoi map from SimulateTectonics if possible,
-	// but for now recalculating is cleaner separation.
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			// Find closest plate
-			minDist := math.MaxFloat64
-			var closestPlate TectonicPlate
+	// Use the Region map from plates to assign base elevation
+	for i := range plates {
+		plate := &plates[i]
+		baseElev := -4000.0 // Oceanic default
+		if plate.Type == PlateContinental {
+			baseElev = 100.0 // Continental default
+		}
 
-			for _, p := range plates {
-				dist := distance(float64(x), float64(y), p.Centroid.X, p.Centroid.Y)
-				if dist < minDist {
-					minDist = dist
-					closestPlate = p
-				}
-			}
-
-			baseElev := -4000.0 // Oceanic default
-			if closestPlate.Type == PlateContinental {
-				baseElev = 100.0 // Continental default
-			}
-
-			hm.Set(x, y, baseElev)
+		for coord := range plate.Region {
+			heightmap.Set(coord, baseElev)
 		}
 	}
 
 	// 2. Apply Tectonic Modifiers
-	tectonicMods := SimulateTectonics(plates, width, height)
-	for i := 0; i < len(hm.Elevations); i++ {
-		hm.Elevations[i] += tectonicMods.Elevations[i]
-	}
+	SimulateTectonics(plates, heightmap, topology)
 
 	// 2a. Apply Volcanic Hotspots
-	ApplyHotspots(hm, plates, seed)
+	ApplyHotspots(heightmap, plates, topology, seed)
 
 	// 3. Apply Noise for variation
-	// Scale noise to be significant but not overwhelming
-	// Frequency 0.05 for broad features, 0.1 for detail
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			// Multiple octaves of noise
-			n1 := noise.Noise2D(float64(x)*0.02, float64(y)*0.02)
-			n2 := noise.Noise2D(float64(x)*0.1, float64(y)*0.1)
+	for face := 0; face < 6; face++ {
+		for y := 0; y < resolution; y++ {
+			for x := 0; x < resolution; x++ {
+				coord := spatial.Coordinate{Face: face, X: x, Y: y}
 
-			variation := n1*500 + n2*100
+				// Multiple octaves of noise using sphere position
+				sx, sy, sz := topology.ToSphere(coord)
+				n1 := noise.Noise3D(sx*2, sy*2, sz*2)
+				n2 := noise.Noise3D(sx*10, sy*10, sz*10)
 
-			current := hm.Get(x, y)
-			hm.Set(x, y, current+variation)
+				variation := n1*500 + n2*100
+
+				current := heightmap.Get(coord)
+				heightmap.Set(coord, current+variation)
+			}
 		}
 	}
 
 	// 4. Advanced Erosion
-	// Thermal erosion to stabilize slopes
 	// Scale iterations by erosionRate
 	iterations := int(5.0 * erosionRate)
 	if iterations < 1 {
 		iterations = 1
 	}
-	ApplyThermalErosion(hm, iterations, seed)
+	ApplyThermalErosionSpherical(heightmap, topology, iterations, seed)
 
-	// Hydraulic erosion for river channels
-	// Drops proportional to area and erosionRate AND rainfallFactor
-	// RainfallFactor defaults to ~1.0 for temperate, 0.25 for arid, 3.0 for wet
-	baseDrops := width * height * 5
+	// Hydraulic erosion
 	effectiveRainfall := rainfallFactor
 	if effectiveRainfall <= 0 {
-		effectiveRainfall = 1.0 // Safety fallback
+		effectiveRainfall = 1.0
 	}
-	numDrops := int(float64(baseDrops) * erosionRate * effectiveRainfall)
-	ApplyHydraulicErosion(hm, numDrops, seed)
+	totalCells := 6 * resolution * resolution
+	numDrops := int(float64(totalCells) * 0.05 * erosionRate * effectiveRainfall)
+	ApplyHydraulicErosionSpherical(heightmap, topology, numDrops, seed)
 
-	// 4. Smooth (Gaussian blur approximation)
-	// Simple box blur for performance
-	smooth(hm)
+	// 5. Smooth
+	SmoothSpherical(heightmap, topology)
 
 	// Update Min/Max
-	minElev, maxElev := math.MaxFloat64, -math.MaxFloat64
-	for _, val := range hm.Elevations {
-		if val < minElev {
-			minElev = val
-		}
-		if val > maxElev {
-			maxElev = val
-		}
-	}
-	hm.MinElev = minElev
-	hm.MaxElev = maxElev
+	heightmap.UpdateMinMax()
 
-	return hm
+	return heightmap
 }
 
-func smooth(hm *Heightmap) {
-	temp := make([]float64, len(hm.Elevations))
-	copy(temp, hm.Elevations)
+// SmoothSpherical applies a box blur to the sphere heightmap
+func SmoothSpherical(hm *SphereHeightmap, topology spatial.Topology) {
+	resolution := topology.Resolution()
+	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
 
-	for y := 1; y < hm.Height-1; y++ {
-		for x := 1; x < hm.Width-1; x++ {
-			sum := 0.0
-			count := 0.0
+	// Create a copy of current values
+	original := make(map[spatial.Coordinate]float64)
+	for face := 0; face < 6; face++ {
+		for y := 0; y < resolution; y++ {
+			for x := 0; x < resolution; x++ {
+				coord := spatial.Coordinate{Face: face, X: x, Y: y}
+				original[coord] = hm.Get(coord)
+			}
+		}
+	}
 
-			for dy := -1; dy <= 1; dy++ {
-				for dx := -1; dx <= 1; dx++ {
-					sum += temp[(y+dy)*hm.Width+(x+dx)]
-					count++
+	// Apply smoothing
+	for face := 0; face < 6; face++ {
+		for y := 0; y < resolution; y++ {
+			for x := 0; x < resolution; x++ {
+				coord := spatial.Coordinate{Face: face, X: x, Y: y}
+
+				sum := original[coord]
+				count := 1.0
+
+				for _, dir := range directions {
+					neighbor := topology.GetNeighbor(coord, dir)
+					if val, exists := original[neighbor]; exists {
+						sum += val
+						count++
+					}
+				}
+
+				hm.Set(coord, sum/count)
+			}
+		}
+	}
+}
+
+// ApplyThermalErosionSpherical applies thermal erosion on a sphere
+func ApplyThermalErosionSpherical(hm *SphereHeightmap, topology spatial.Topology, iterations int, seed int64) {
+	resolution := topology.Resolution()
+	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+	talusAngle := 0.5 // Maximum stable slope
+
+	for iter := 0; iter < iterations; iter++ {
+		for face := 0; face < 6; face++ {
+			for y := 0; y < resolution; y++ {
+				for x := 0; x < resolution; x++ {
+					coord := spatial.Coordinate{Face: face, X: x, Y: y}
+					currentElev := hm.Get(coord)
+
+					for _, dir := range directions {
+						neighbor := topology.GetNeighbor(coord, dir)
+						neighborElev := hm.Get(neighbor)
+						diff := currentElev - neighborElev
+
+						if diff > talusAngle {
+							// Transfer material
+							transfer := diff * 0.25
+							hm.Set(coord, currentElev-transfer)
+							hm.Set(neighbor, neighborElev+transfer)
+							currentElev -= transfer
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// ApplyHydraulicErosionSpherical simulates water erosion on a sphere
+func ApplyHydraulicErosionSpherical(hm *SphereHeightmap, topology spatial.Topology, numDrops int, seed int64) {
+	// Simplified hydraulic erosion - trace water droplets downhill
+	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+
+	for drop := int64(0); drop < int64(numDrops); drop++ {
+		// Start at random position
+		startPoint := spatial.RandomPointOnSphere(seed + drop)
+		coord := topology.FromVector(startPoint.X, startPoint.Y, startPoint.Z)
+
+		sediment := 0.0
+		capacity := 1.0
+		erosionRate := 0.1
+		depositionRate := 0.1
+
+		// Trace downhill for max 50 steps
+		for step := 0; step < 50; step++ {
+			currentElev := hm.Get(coord)
+
+			// Find steepest descent
+			var lowestNeighbor *spatial.Coordinate
+			lowestElev := currentElev
+
+			for _, dir := range directions {
+				neighbor := topology.GetNeighbor(coord, dir)
+				neighborElev := hm.Get(neighbor)
+				if neighborElev < lowestElev {
+					lowestElev = neighborElev
+					neighborCopy := neighbor
+					lowestNeighbor = &neighborCopy
 				}
 			}
 
-			hm.Set(x, y, sum/count)
+			if lowestNeighbor == nil {
+				// Local minimum - deposit all sediment
+				hm.Set(coord, currentElev+sediment)
+				break
+			}
+
+			// Calculate slope
+			slope := currentElev - lowestElev
+			newCapacity := slope * capacity
+
+			if sediment > newCapacity {
+				// Deposit excess
+				deposit := (sediment - newCapacity) * depositionRate
+				hm.Set(coord, currentElev+deposit)
+				sediment -= deposit
+			} else {
+				// Erode
+				erode := (newCapacity - sediment) * erosionRate
+				if erode > slope*0.5 {
+					erode = slope * 0.5
+				}
+				hm.Set(coord, currentElev-erode)
+				sediment += erode
+			}
+
+			coord = *lowestNeighbor
 		}
 	}
 }

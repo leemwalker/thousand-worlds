@@ -1,6 +1,7 @@
 package orchestrator
 
 import (
+	"tw-backend/internal/spatial"
 	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/weather"
 
@@ -22,24 +23,31 @@ type DefaultGeographyGenerator struct{}
 // GenerateGeography creates terrain using geographic subsystem.
 // Pipeline order: Tectonics → Topography → Weather/Climate → Biomes
 func (g *DefaultGeographyGenerator) GenerateGeography(params *GenerationParams) (*geography.WorldMap, float64, error) {
-	// 1. Generate tectonic plates
-	plates := geography.GeneratePlates(params.PlateCount, params.Width, params.Height, params.Seed)
+	// Create spherical topology for the world
+	// Resolution = Height as the face grid size (faces are square)
+	topology := spatial.NewCubeSphereTopology(params.Height)
 
-	// 2. Generate heightmap from tectonic activity
-	heightmap := geography.GenerateHeightmap(params.Width, params.Height, plates, params.Seed, params.ErosionRate, params.RainfallFactor)
+	// 1. Generate tectonic plates on the sphere
+	plates := geography.GeneratePlates(params.PlateCount, topology, params.Seed)
 
-	// 3. Assign ocean/land based on desired ratio
+	// 2. Create sphere heightmap and apply tectonics
+	sphereHeightmap := geography.NewSphereHeightmap(topology)
+	sphereHeightmap = geography.GenerateHeightmap(plates, sphereHeightmap, topology, params.Seed, params.ErosionRate, params.RainfallFactor)
+
+	// 3. Convert to flat heightmap for legacy compatibility
+	// TODO: Eventually migrate all consumers to SphereHeightmap
+	heightmap := sphereToFlatHeightmap(sphereHeightmap, topology, params.Width, params.Height)
+
+	// 4. Assign ocean/land based on desired ratio
 	seaLevel := geography.AssignOceanLand(heightmap, params.LandWaterRatio)
 
-	// 4. Generate rivers (before climate, rivers affect local moisture)
+	// 5. Generate rivers (before climate, rivers affect local moisture)
 	rivers := geography.GenerateRivers(heightmap, seaLevel, params.Seed)
 
-	// 5. Generate climate data from Weather service (NEW!)
-	// This moves latitude→temperature physics from biomes.go to weather package
+	// 6. Generate climate data from Weather service
 	climateData := weather.GenerateInitialClimate(heightmap, seaLevel, params.Seed, 0.0)
 
-	// 6. Assign biomes using climate data (NEW!)
-	// Biomes now depend on Weather data, not latitude directly
+	// 7. Assign biomes using climate data
 	biomes := assignBiomesFromClimate(heightmap, seaLevel, climateData)
 
 	worldMap := &geography.WorldMap{
@@ -52,8 +60,43 @@ func (g *DefaultGeographyGenerator) GenerateGeography(params *GenerationParams) 
 	return worldMap, seaLevel, nil
 }
 
+// sphereToFlatHeightmap converts a SphereHeightmap to a flat Heightmap for legacy compatibility.
+// Uses equirectangular projection from Face 0 (front face).
+func sphereToFlatHeightmap(sphere *geography.SphereHeightmap, topology spatial.Topology, width, height int) *geography.Heightmap {
+	flat := geography.NewHeightmap(width, height)
+	resolution := topology.Resolution()
+
+	// Simple projection: use Face 0 as the main view
+	// This is a temporary bridge until all consumers migrate to SphereHeightmap
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			// Map flat coordinates to sphere coordinate
+			// Use modulo to wrap around the face grid
+			face := (x / resolution) % 6
+			fx := x % resolution
+			fy := y % resolution
+
+			if fx >= resolution {
+				fx = resolution - 1
+			}
+			if fy >= resolution {
+				fy = resolution - 1
+			}
+
+			coord := spatial.Coordinate{Face: face, X: fx, Y: fy}
+			elev := sphere.Get(coord)
+			flat.Set(x, y, elev)
+		}
+	}
+
+	// Update min/max
+	flat.MinElev = sphere.MinElev
+	flat.MaxElev = sphere.MaxElev
+
+	return flat
+}
+
 // assignBiomesFromClimate creates biomes using pre-computed climate data.
-// This is the new Weather→Biome causal chain.
 func assignBiomesFromClimate(hm *geography.Heightmap, seaLevel float64, climateData []weather.ClimateData) []geography.Biome {
 	biomes := make([]geography.Biome, hm.Width*hm.Height)
 
@@ -63,7 +106,6 @@ func assignBiomesFromClimate(hm *geography.Heightmap, seaLevel float64, climateD
 			elev := hm.Get(x, y)
 			climate := weather.GetClimateAt(climateData, hm.Width, x, y)
 
-			// Use the new pure classification function
 			biomeType := geography.ClassifyBiome(
 				climate.Temperature,
 				climate.AnnualRainfall,

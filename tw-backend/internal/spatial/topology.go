@@ -1,6 +1,9 @@
 package spatial
 
-import "math"
+import (
+	"math"
+	"math/rand"
+)
 
 // Coordinate represents a position on a cube-sphere topology.
 type Coordinate struct {
@@ -22,9 +25,23 @@ func (v Vector3D) Normalize() Vector3D {
 	return Vector3D{X: v.X / mag, Y: v.Y / mag, Z: v.Z / mag}
 }
 
+// Length returns the magnitude of the vector
+func (v Vector3D) Length() float64 {
+	return math.Sqrt(v.X*v.X + v.Y*v.Y + v.Z*v.Z)
+}
+
 // Dot returns the dot product of two vectors
 func (v Vector3D) Dot(other Vector3D) float64 {
 	return v.X*other.X + v.Y*other.Y + v.Z*other.Z
+}
+
+// Cross returns the cross product of two vectors
+func (v Vector3D) Cross(other Vector3D) Vector3D {
+	return Vector3D{
+		X: v.Y*other.Z - v.Z*other.Y,
+		Y: v.Z*other.X - v.X*other.Z,
+		Z: v.X*other.Y - v.Y*other.X,
+	}
 }
 
 // Scale returns the vector multiplied by a scalar
@@ -35,6 +52,30 @@ func (v Vector3D) Scale(s float64) Vector3D {
 // Add returns the sum of two vectors
 func (v Vector3D) Add(other Vector3D) Vector3D {
 	return Vector3D{X: v.X + other.X, Y: v.Y + other.Y, Z: v.Z + other.Z}
+}
+
+// Sub returns the difference of two vectors (v - other)
+func (v Vector3D) Sub(other Vector3D) Vector3D {
+	return Vector3D{X: v.X - other.X, Y: v.Y - other.Y, Z: v.Z - other.Z}
+}
+
+// Distance returns the Euclidean distance between two points
+func (v Vector3D) Distance(other Vector3D) float64 {
+	return v.Sub(other).Length()
+}
+
+// RandomPointOnSphere generates a uniformly distributed random point on a unit sphere.
+// Uses the Gaussian/Marsaglia method for uniform sphere coverage.
+func RandomPointOnSphere(seed int64) Vector3D {
+	r := rand.New(rand.NewSource(seed))
+
+	// Gaussian distribution method: three independent normal samples
+	// normalized to unit length gives uniform distribution on sphere
+	x := r.NormFloat64()
+	y := r.NormFloat64()
+	z := r.NormFloat64()
+
+	return Vector3D{X: x, Y: y, Z: z}.Normalize()
 }
 
 // DirectionDelta returns the (dx, dy) movement delta for a direction.

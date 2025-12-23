@@ -23,3 +23,8 @@ func NewPerlinGenerator(seed int64) *PerlinGenerator {
 func (g *PerlinGenerator) Noise2D(x, y float64) float64 {
 	return g.p.Noise2D(x, y)
 }
+
+// Noise3D returns a value between -1 and 1 for 3D coordinates
+func (g *PerlinGenerator) Noise3D(x, y, z float64) float64 {
+	return g.p.Noise3D(x, y, z)
+}

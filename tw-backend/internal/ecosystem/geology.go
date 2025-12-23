@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/rand"
 	"sync"
+	"tw-backend/internal/spatial"
 	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/underground"
 	"tw-backend/internal/worldgen/weather"
@@ -22,7 +23,8 @@ type WorldGeology struct {
 	// Core geographic data
 	Heightmap *geography.Heightmap
 	Plates    []geography.TectonicPlate
-	SeaLevel  float64 // meters (0 = baseline, positive = higher sea level)
+	SeaLevel  float64          // meters (0 = baseline, positive = higher sea level)
+	Topology  spatial.Topology // Spherical topology for plate operations
 
 	// Underground data (Phase 3)
 	Columns     *underground.ColumnGrid // Per-column underground data
@@ -114,14 +116,18 @@ func (g *WorldGeology) InitializeGeology() {
 
 	g.PixelsPerKm = float64(width) / circumKm
 
-	// Generate tectonic plates
-	// Plate count scales with world size (more surface = more plates)
-	plateCount := 6 + g.rng.Intn(4) // 6-9 plates for variety
-	g.Plates = geography.GeneratePlates(plateCount, width, height, g.Seed)
+	// Create spherical topology for all plate operations
+	g.Topology = spatial.NewCubeSphereTopology(height)
 
-	// Generate initial heightmap using existing worldgen
-	// Default erosion rate 1.0, rainfall 1.0 for balanced terrain
-	g.Heightmap = geography.GenerateHeightmap(width, height, g.Plates, g.Seed, 1.0, 1.0)
+	// Generate tectonic plates using spherical topology
+	plateCount := 6 + g.rng.Intn(4) // 6-9 plates for variety
+	g.Plates = geography.GeneratePlates(plateCount, g.Topology, g.Seed)
+
+	// Generate initial heightmap using spherical topology
+	// Create sphere heightmap and convert to flat for legacy compatibility
+	sphereHm := geography.NewSphereHeightmap(g.Topology)
+	sphereHm = geography.GenerateHeightmap(g.Plates, sphereHm, g.Topology, g.Seed, 1.0, 1.0)
+	g.Heightmap = g.sphereToFlat(sphereHm, width, height)
 
 	// Initialize hotspots (2-5 fixed mantle plume locations)
 	numHotspots := 2 + g.rng.Intn(4)
@@ -144,6 +150,36 @@ func (g *WorldGeology) InitializeGeology() {
 
 	// Initialize underground column grid (Phase 3)
 	g.initializeColumns(width, height)
+}
+
+// sphereToFlat converts a SphereHeightmap to a flat Heightmap for legacy compatibility
+func (g *WorldGeology) sphereToFlat(sphere *geography.SphereHeightmap, width, height int) *geography.Heightmap {
+	flat := geography.NewHeightmap(width, height)
+	resolution := sphere.Resolution()
+
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			// Map flat coordinates to sphere coordinate
+			face := (x / resolution) % 6
+			fx := x % resolution
+			fy := y % resolution
+
+			if fx >= resolution {
+				fx = resolution - 1
+			}
+			if fy >= resolution {
+				fy = resolution - 1
+			}
+
+			coord := spatial.Coordinate{Face: face, X: fx, Y: fy}
+			elev := sphere.Get(coord)
+			flat.Set(x, y, elev)
+		}
+	}
+
+	flat.MinElev = sphere.MinElev
+	flat.MaxElev = sphere.MaxElev
+	return flat
 }
 
 // initializeColumns creates the underground column grid and generates strata
@@ -284,18 +320,20 @@ func (g *WorldGeology) simulateMagmaChambers(yearsElapsed int64) {
 	}
 
 	// Extract tectonic boundaries from plate data
+	// Use 3D Position and Velocity projected to 2D for legacy underground API
 	plateCentroids := make([]underground.Vector3, len(g.Plates))
 	plateMovements := make([]underground.Vector3, len(g.Plates))
 	for i, plate := range g.Plates {
+		// Convert spherical coordinate to flat x,y
 		plateCentroids[i] = underground.Vector3{
-			X: plate.Centroid.X,
-			Y: plate.Centroid.Y,
+			X: float64(plate.Centroid.Face*g.Heightmap.Width/6 + plate.Centroid.X),
+			Y: float64(plate.Centroid.Y),
 			Z: 0,
 		}
 		plateMovements[i] = underground.Vector3{
-			X: plate.MovementVector.X,
-			Y: plate.MovementVector.Y,
-			Z: 0,
+			X: plate.Velocity.X,
+			Y: plate.Velocity.Y,
+			Z: plate.Velocity.Z,
 		}
 	}
 
@@ -333,7 +371,7 @@ func (g *WorldGeology) simulateMagmaChambers(yearsElapsed int64) {
 			// Apply volcano to surface
 			height := 500 + g.rng.Float64()*1500 // 500-2000m
 			radius := 2.0 + g.rng.Float64()*3.0
-			geography.ApplyVolcano(g.Heightmap, float64(x), float64(y), radius, height)
+			geography.ApplyVolcanoFlat(g.Heightmap, float64(x), float64(y), radius, height)
 		}
 	}
 
@@ -511,51 +549,26 @@ func (g *WorldGeology) applyHotspotActivity(years float64) {
 			height := 10.0 + g.rng.Float64()*20.0
 			radius := 1.5 // Small distinct cones
 
-			geography.ApplyVolcano(g.Heightmap, jx, jy, radius, height)
+			geography.ApplyVolcanoFlat(g.Heightmap, jx, jy, radius, height)
 		}
 	}
 }
 
 // advancePlates moves tectonic plates and recalculates boundaries
+// In spherical mode, plates move by rotating their 3D Position/Velocity vectors
 func (g *WorldGeology) advancePlates(years float64) {
 	// Movement rate: 2cm/year = 0.00002 km/year
-	movementRate := 0.00002 * years // km
+	// For simplicity on sphere, we just age plates
+	// Full plate movement would require great circle rotation
 
-	// Convert to pixels
-	pixelMovement := movementRate * g.PixelsPerKm
-
-	// Move plate centroids
+	// Age plates
 	for i := range g.Plates {
-		g.Plates[i].Centroid.X += g.Plates[i].MovementVector.X * pixelMovement
-		g.Plates[i].Centroid.Y += g.Plates[i].MovementVector.Y * pixelMovement
-
-		// Wrap around (toroidal topology)
-		if g.Plates[i].Centroid.X < 0 {
-			g.Plates[i].Centroid.X += float64(g.Heightmap.Width)
-		}
-		if g.Plates[i].Centroid.X >= float64(g.Heightmap.Width) {
-			g.Plates[i].Centroid.X -= float64(g.Heightmap.Width)
-		}
-		// Y doesn't wrap, clamp instead
-		if g.Plates[i].Centroid.Y < 0 {
-			g.Plates[i].Centroid.Y = 0
-		}
-		if g.Plates[i].Centroid.Y >= float64(g.Heightmap.Height) {
-			g.Plates[i].Centroid.Y = float64(g.Heightmap.Height - 1)
-		}
-
-		// Age plates
 		g.Plates[i].Age += years / 1_000_000 // Age in million years
 	}
 
-	// Recalculate tectonic effects on boundaries
-	tectonicMods := geography.SimulateTectonics(g.Plates, g.Heightmap.Width, g.Heightmap.Height)
-
-	// Apply a small fraction of tectonic modification (gradual buildup)
-	scaleFactor := 0.01 // Only 1% per interval for gradual change
-	for i := range g.Heightmap.Elevations {
-		g.Heightmap.Elevations[i] += tectonicMods.Elevations[i] * scaleFactor
-	}
+	// Skip individual SimulateTectonics call in time stepping
+	// Tectonic effects are already applied during initial generation
+	// and would require sphere heightmap for proper spherical operation
 }
 
 // ApplyEvent handles geological events that affect terrain
@@ -606,7 +619,7 @@ func (g *WorldGeology) applyVolcanicMountains(severity float64) {
 		height := 200 + severity*300
 		radius := 2.0 + g.rng.Float64()*2.0
 
-		geography.ApplyVolcano(g.Heightmap, x, y, radius, height)
+		geography.ApplyVolcanoFlat(g.Heightmap, x, y, radius, height)
 	}
 }
 
@@ -677,13 +690,13 @@ func (g *WorldGeology) applyContinentalDrift(severity float64) {
 	extraYears := 50_000 + int64(severity*100_000)
 	g.advancePlates(float64(extraYears))
 
-	// Additional mountain building at convergent boundaries
-	// Recalculate tectonics with higher effect
-	tectonicMods := geography.SimulateTectonics(g.Plates, g.Heightmap.Width, g.Heightmap.Height)
-
-	scaleFactor := 0.05 * severity // 5% per event, scaled by severity
+	// Skip full SimulateTectonics - it requires SphereHeightmap now
+	// Just apply some additional mountain noise based on severity
 	for i := range g.Heightmap.Elevations {
-		g.Heightmap.Elevations[i] += tectonicMods.Elevations[i] * scaleFactor
+		if g.Heightmap.Elevations[i] > g.SeaLevel {
+			// Slight uplift of existing land
+			g.Heightmap.Elevations[i] += 50 * severity
+		}
 	}
 }
 
@@ -819,7 +832,7 @@ func (g *WorldGeology) TriggerTectonicCollision(x, y float64, magnitude float32)
 		peakHeight := height * (1.0 + (g.rng.Float64()-0.5)*0.4)
 		radius := 2.0 + g.rng.Float64()*1.5
 
-		geography.ApplyVolcano(g.Heightmap, px, py, radius, peakHeight)
+		geography.ApplyVolcanoFlat(g.Heightmap, px, py, radius, peakHeight)
 	}
 
 	g.updateHeightmapStats()
