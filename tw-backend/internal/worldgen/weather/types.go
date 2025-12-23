@@ -3,6 +3,7 @@ package weather
 import (
 	"time"
 
+	"tw-backend/internal/spatial"
 	"tw-backend/internal/worldgen/geography"
 
 	"github.com/google/uuid"
@@ -94,8 +95,9 @@ const (
 // This will be populated from the geography package
 type GeographyCell struct {
 	CellID      uuid.UUID
-	Location    geography.Point
-	Elevation   float64 // meters
+	Location    geography.Point     // Flat grid coordinates (legacy)
+	SphereCoord *spatial.Coordinate // Optional: spherical position (nil = flat mode)
+	Elevation   float64             // meters
 	IsOcean     bool
 	RiverWidth  float64 // meters (0 if no river)
 	Temperature float64 // °C (base temperature)
