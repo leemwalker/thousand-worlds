@@ -71,10 +71,13 @@ func TestLilliputEffect(t *testing.T) {
 	sim.Biomes[biome.BiomeID] = biome
 
 	// Apply recovery effects multiple times to see trend
+	// Increased from 10 to 50 iterations - probabilistic effects need more samples
+	// Large species has 25% chance of 10% reduction per iteration
+	// Small species has 20% chance of 10% boost per iteration
 	initialLarge := largeSpecies.Count
 	initialSmall := smallSpecies.Count
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 50; i++ {
 		sim.ApplyRecoveryEffects()
 	}
 
