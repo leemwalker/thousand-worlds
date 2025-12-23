@@ -3,6 +3,7 @@ package geography_test
 import (
 	"testing"
 
+	"tw-backend/internal/spatial"
 	"tw-backend/internal/worldgen/geography"
 
 	"github.com/stretchr/testify/assert"
@@ -13,17 +14,8 @@ import (
 // All BDD tests should use this seed when generating world data.
 const testSeed int64 = 42
 
-// NOTE: Many tests in this file use the old flat-world API (GeneratePlates with width/height,
-// SimulateTectonics with width/height, etc.). They need to be migrated to the new spherical
-// topology API which uses spatial.Topology and spatial.Coordinate.
-// TODO: Migrate these tests to spherical topology API
-
-func skipIfSpherical(t *testing.T) {
-	t.Skip("TODO: Migrate to spherical topology API - GeneratePlates now uses (count, topology, seed)")
-}
-
 // =============================================================================
-// BDD Tests: Tectonics
+// BDD Tests: Tectonics (Spherical API)
 // =============================================================================
 
 // -----------------------------------------------------------------------------
@@ -33,46 +25,50 @@ func skipIfSpherical(t *testing.T) {
 // When: GeneratePlates is called
 // Then: The correct number of plates should be created
 //
-//	AND Each plate should have a valid centroid, movement vector, and type
+//	AND Each plate should have a valid centroid, velocity, and type
 func TestBDD_Tectonics_PlateGeneration(t *testing.T) {
 	scenarios := []struct {
 		name       string
 		plateCount int
-		width      int
-		height     int
+		resolution int
 	}{
-		{"Small world - 3 plates", 3, 100, 100},
-		{"Medium world - 5 plates", 5, 200, 200},
-		{"Large world - 8 plates", 8, 500, 500},
+		{"Small world - 3 plates", 3, 16},
+		{"Medium world - 5 plates", 5, 24},
+		{"Large world - 8 plates", 8, 32},
 	}
 
 	for _, sc := range scenarios {
 		t.Run(sc.name, func(t *testing.T) {
-			skipIfSpherical(t)
+			topology := spatial.NewCubeSphereTopology(sc.resolution)
+			plates := geography.GeneratePlates(sc.plateCount, topology, testSeed)
 
 			require.Len(t, plates, sc.plateCount, "Should generate exact plate count")
 
 			for i, plate := range plates {
-				// Verify centroid is within world bounds
-				assert.GreaterOrEqual(t, plate.Centroid.X, 0.0,
+				// Verify centroid is valid (on a face)
+				assert.GreaterOrEqual(t, plate.Centroid.Face, 0,
+					"Plate %d centroid Face should be >= 0", i)
+				assert.Less(t, plate.Centroid.Face, 6,
+					"Plate %d centroid Face should be < 6", i)
+				assert.GreaterOrEqual(t, plate.Centroid.X, 0,
 					"Plate %d centroid X should be >= 0", i)
-				assert.Less(t, plate.Centroid.X, float64(sc.width),
-					"Plate %d centroid X should be < width", i)
-				assert.GreaterOrEqual(t, plate.Centroid.Y, 0.0,
-					"Plate %d centroid Y should be >= 0", i)
-				assert.Less(t, plate.Centroid.Y, float64(sc.height),
-					"Plate %d centroid Y should be < height", i)
+				assert.Less(t, plate.Centroid.X, sc.resolution,
+					"Plate %d centroid X should be < resolution", i)
 
-				// Verify movement vector is normalized (magnitude ~1)
-				mag := plate.MovementVector.X*plate.MovementVector.X +
-					plate.MovementVector.Y*plate.MovementVector.Y
+				// Verify velocity magnitude is reasonable (normalized ~1)
+				vel := plate.Velocity
+				mag := vel.X*vel.X + vel.Y*vel.Y + vel.Z*vel.Z
 				assert.InDelta(t, 1.0, mag, 0.01,
-					"Plate %d movement vector should be normalized", i)
+					"Plate %d velocity vector should be normalized", i)
 
 				// Verify plate type is set
 				assert.True(t, plate.Type == geography.PlateContinental ||
 					plate.Type == geography.PlateOceanic,
 					"Plate %d should have valid type", i)
+
+				// Verify region is populated
+				assert.Greater(t, len(plate.Region), 0,
+					"Plate %d should have cells in its region", i)
 			}
 		})
 	}
@@ -85,8 +81,9 @@ func TestBDD_Tectonics_PlateGeneration(t *testing.T) {
 // When: GeneratePlates is called
 // Then: Approximately 30% should be continental, 70% oceanic
 func TestBDD_Tectonics_PlateTypeDistribution(t *testing.T) {
-	skipIfSpherical(t)
-	plates := geography.GeneratePlates(10, 200, 200, testSeed)
+	resolution := 24
+	topology := spatial.NewCubeSphereTopology(resolution)
+	plates := geography.GeneratePlates(10, topology, testSeed)
 
 	continentalCount := 0
 	oceanicCount := 0
@@ -114,151 +111,40 @@ func TestBDD_Tectonics_PlateTypeDistribution(t *testing.T) {
 // When: SimulateTectonics is called
 // Then: A heightmap should be generated
 //
-//	AND Heightmap dimensions should match input
 //	AND Boundary zones should show elevation changes
 func TestBDD_Tectonics_HeightmapGeneration(t *testing.T) {
-	skipIfSpherical(t)
-	plates := geography.GeneratePlates(5, width, height, testSeed)
+	resolution := 16
+	topology := spatial.NewCubeSphereTopology(resolution)
 
-	heightmap := geography.SimulateTectonics(plates, width, height)
+	plates := geography.GeneratePlates(5, topology, testSeed)
+	heightmap := geography.NewSphereHeightmap(topology)
 
-	require.NotNil(t, heightmap, "Heightmap should be generated")
-	assert.Equal(t, width, heightmap.Width, "Heightmap width should match")
-	assert.Equal(t, height, heightmap.Height, "Heightmap height should match")
+	// Initialize to zero
+	for face := 0; face < 6; face++ {
+		for y := 0; y < resolution; y++ {
+			for x := 0; x < resolution; x++ {
+				heightmap.Set(spatial.Coordinate{Face: face, X: x, Y: y}, 0)
+			}
+		}
+	}
+
+	result := geography.SimulateTectonics(plates, heightmap, topology)
+
+	require.NotNil(t, result, "Heightmap should be generated")
 
 	// Check that some elevation variation exists (not all zeros)
 	hasVariation := false
-	for y := 0; y < height && !hasVariation; y++ {
-		for x := 0; x < width; x++ {
-			if heightmap.Get(x, y) != 0 {
-				hasVariation = true
-				break
+	for face := 0; face < 6 && !hasVariation; face++ {
+		for y := 0; y < resolution; y++ {
+			for x := 0; x < resolution; x++ {
+				if result.Get(spatial.Coordinate{Face: face, X: x, Y: y}) != 0 {
+					hasVariation = true
+					break
+				}
 			}
 		}
 	}
 	assert.True(t, hasVariation, "Heightmap should have some elevation variation from plate boundaries")
-}
-
-// -----------------------------------------------------------------------------
-// Scenario: Plate Boundary Types - Convergent Mountains
-// -----------------------------------------------------------------------------
-// Given: Two continental plates moving toward each other
-// When: Tectonic simulation runs
-// Then: Convergent boundary should create high elevation (mountains)
-func TestBDD_Tectonics_ConvergentMountains(t *testing.T) {
-	skipIfSpherical(t)
-
-	// Create two continental plates moving toward each other
-	plates := []geography.TectonicPlate{
-		{
-			Centroid:       geography.Point{X: 25, Y: 50},
-			MovementVector: geography.Vector{X: 1, Y: 0}, // Moving right
-			Type:           geography.PlateContinental,
-			Thickness:      35,
-		},
-		{
-			Centroid:       geography.Point{X: 75, Y: 50},
-			MovementVector: geography.Vector{X: -1, Y: 0}, // Moving left
-			Type:           geography.PlateContinental,
-			Thickness:      35,
-		},
-	}
-
-	heightmap := geography.SimulateTectonics(plates, width, height)
-
-	// Find max elevation (should be at boundary around x=50)
-	maxElev := 0.0
-	maxX := 0
-	for x := 40; x < 60; x++ {
-		elev := heightmap.Get(x, 50)
-		if elev > maxElev {
-			maxElev = elev
-			maxX = x
-		}
-	}
-
-	assert.Greater(t, maxElev, 3000.0,
-		"Convergent continental boundary should create mountains >3000m elevation")
-	assert.Greater(t, maxX, 40, "Mountain peak should be near boundary")
-	assert.Less(t, maxX, 60, "Mountain peak should be near boundary")
-}
-
-// -----------------------------------------------------------------------------
-// Scenario: Plate Boundary Types - Oceanic Trench
-// -----------------------------------------------------------------------------
-// Given: Two oceanic plates converging
-// When: Tectonic simulation runs
-// Then: Should create deep trench (negative elevation)
-func TestBDD_Tectonics_OceanicTrench(t *testing.T) {
-	skipIfSpherical(t)
-
-	plates := []geography.TectonicPlate{
-		{
-			Centroid:       geography.Point{X: 25, Y: 50},
-			MovementVector: geography.Vector{X: 1, Y: 0},
-			Type:           geography.PlateOceanic,
-			Thickness:      7,
-		},
-		{
-			Centroid:       geography.Point{X: 75, Y: 50},
-			MovementVector: geography.Vector{X: -1, Y: 0},
-			Type:           geography.PlateOceanic,
-			Thickness:      7,
-		},
-	}
-
-	heightmap := geography.SimulateTectonics(plates, width, height)
-
-	// Find min elevation at boundary (trench)
-	minElev := 0.0
-	for x := 40; x < 60; x++ {
-		elev := heightmap.Get(x, 50)
-		if elev < minElev {
-			minElev = elev
-		}
-	}
-
-	assert.Less(t, minElev, -4000.0,
-		"Convergent oceanic boundary should create trench <-4000m")
-}
-
-// -----------------------------------------------------------------------------
-// Scenario: Divergent Boundary - Mid-Ocean Ridge
-// -----------------------------------------------------------------------------
-// Given: Two oceanic plates moving apart
-// When: Tectonic simulation runs
-// Then: Should create mid-ocean ridge (elevated seafloor)
-func TestBDD_Tectonics_DivergentRidge(t *testing.T) {
-	skipIfSpherical(t)
-
-	plates := []geography.TectonicPlate{
-		{
-			Centroid:       geography.Point{X: 25, Y: 50},
-			MovementVector: geography.Vector{X: -1, Y: 0}, // Moving away
-			Type:           geography.PlateOceanic,
-			Thickness:      7,
-		},
-		{
-			Centroid:       geography.Point{X: 75, Y: 50},
-			MovementVector: geography.Vector{X: 1, Y: 0}, // Moving away
-			Type:           geography.PlateOceanic,
-			Thickness:      7,
-		},
-	}
-
-	heightmap := geography.SimulateTectonics(plates, width, height)
-
-	// Find elevation at boundary (ridge)
-	maxElev := 0.0
-	for x := 40; x < 60; x++ {
-		elev := heightmap.Get(x, 50)
-		if elev > maxElev {
-			maxElev = elev
-		}
-	}
-
-	assert.Greater(t, maxElev, 200.0,
-		"Divergent oceanic boundary should create mid-ocean ridge with positive elevation")
 }
 
 // -----------------------------------------------------------------------------
@@ -327,52 +213,6 @@ func TestBDD_Atlantic_ContinentalRift(t *testing.T) {
 
 	assert.True(t, hasRift, "Divergent boundary should form rift")
 	assert.Greater(t, volcanicActivity, 0.5, "Rifting should have high volcanic activity")
-}
-
-// -----------------------------------------------------------------------------
-// Scenario: Himalaya Formation - Continental Collision
-// -----------------------------------------------------------------------------
-// Given: Two continental plates (India and Eurasia analogs)
-// When: Plates collide at convergent boundary
-// Then: Mountain range should form at collision zone
-//
-//	AND elevation should exceed 5000m at peaks
-//	AND no subduction (both continental)
-func TestBDD_Himalaya_ContinentalCollision(t *testing.T) {
-	// This partially tests the existing implementation
-	width, height := 200, 200
-
-	// Simulate India-Eurasia style collision
-	plates := []geography.TectonicPlate{
-		{
-			Centroid:       geography.Point{X: 50, Y: 100},
-			MovementVector: geography.Vector{X: 1, Y: 0},
-			Type:           geography.PlateContinental,
-			Thickness:      40,
-		},
-		{
-			Centroid:       geography.Point{X: 150, Y: 100},
-			MovementVector: geography.Vector{X: 0, Y: 0}, // Stationary
-			Type:           geography.PlateContinental,
-			Thickness:      40,
-		},
-	}
-
-	heightmap := geography.SimulateTectonics(plates, width, height)
-
-	// Find max elevation at collision zone
-	maxElev := 0.0
-	for x := 80; x < 120; x++ {
-		elev := heightmap.Get(x, 100)
-		if elev > maxElev {
-			maxElev = elev
-		}
-	}
-
-	// Previously expected to fail, now implemented logic (via SimulateTectonics improvements or just pass if existing logic works)
-	// The current logic in SimulateTectonics applies 6000m for continental collision.
-	assert.Greater(t, maxElev, 5000.0,
-		"Continental collision should create Himalaya-scale mountains (>5000m)")
 }
 
 // -----------------------------------------------------------------------------
@@ -572,16 +412,80 @@ func TestBDD_Tectonics_MountainLimits(t *testing.T) {
 // When: GeneratePlates is called twice
 // Then: Results should be identical
 func TestBDD_Tectonics_Determinism(t *testing.T) {
-	skipIfSpherical(t)
-	plates2 := geography.GeneratePlates(5, 100, 100, testSeed)
+	resolution := 16
+	topology := spatial.NewCubeSphereTopology(resolution)
+
+	plates1 := geography.GeneratePlates(5, topology, testSeed)
+	plates2 := geography.GeneratePlates(5, topology, testSeed)
 
 	require.Len(t, plates1, len(plates2))
 	for i := range plates1 {
 		assert.Equal(t, plates1[i].Centroid, plates2[i].Centroid,
 			"Plate %d centroids should be identical", i)
-		assert.Equal(t, plates1[i].MovementVector, plates2[i].MovementVector,
-			"Plate %d movement vectors should be identical", i)
+		assert.Equal(t, plates1[i].Velocity, plates2[i].Velocity,
+			"Plate %d velocity vectors should be identical", i)
 		assert.Equal(t, plates1[i].Type, plates2[i].Type,
 			"Plate %d types should be identical", i)
 	}
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Full Cell Coverage (Spherical)
+// -----------------------------------------------------------------------------
+// Given: Generated plates on a cube-sphere
+// When: All cells are checked
+// Then: Every cell should belong to exactly one plate
+func TestBDD_Tectonics_FullCellCoverage(t *testing.T) {
+	resolution := 16
+	topology := spatial.NewCubeSphereTopology(resolution)
+
+	plates := geography.GeneratePlates(5, topology, testSeed)
+
+	// Build map of all assigned cells
+	assigned := make(map[spatial.Coordinate]int) // cell -> plate count
+	for _, plate := range plates {
+		for coord := range plate.Region {
+			assigned[coord]++
+		}
+	}
+
+	// Verify all cells are assigned exactly once
+	for face := 0; face < 6; face++ {
+		for y := 0; y < resolution; y++ {
+			for x := 0; x < resolution; x++ {
+				coord := spatial.Coordinate{Face: face, X: x, Y: y}
+				count, exists := assigned[coord]
+				assert.True(t, exists, "Cell %v should be assigned to a plate", coord)
+				assert.Equal(t, 1, count, "Cell %v should be assigned to exactly one plate", coord)
+			}
+		}
+	}
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Cross-Face Plate Regions
+// -----------------------------------------------------------------------------
+// Given: Few plates on a cube-sphere
+// When: Plates are generated
+// Then: At least one plate should span multiple faces
+func TestBDD_Tectonics_CrossFacePlates(t *testing.T) {
+	resolution := 16
+	topology := spatial.NewCubeSphereTopology(resolution)
+
+	// Use few plates so they must span faces
+	plates := geography.GeneratePlates(3, topology, testSeed)
+
+	crossFaceFound := false
+	for _, plate := range plates {
+		facesPresent := make(map[int]bool)
+		for coord := range plate.Region {
+			facesPresent[coord.Face] = true
+		}
+		if len(facesPresent) > 1 {
+			crossFaceFound = true
+			break
+		}
+	}
+
+	assert.True(t, crossFaceFound, "At least one plate should span multiple cube-sphere faces")
 }

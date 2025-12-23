@@ -3,6 +3,7 @@ package geography_test
 import (
 	"testing"
 
+	"tw-backend/internal/spatial"
 	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/underground"
 
@@ -18,10 +19,10 @@ import (
 // =============================================================================
 
 // -----------------------------------------------------------------------------
-// Scenario: Volcano Cone Formation
+// Scenario: Volcano Cone Formation (Flat Heightmap)
 // -----------------------------------------------------------------------------
 // Given: A heightmap and volcano parameters
-// When: ApplyVolcano is called
+// When: ApplyVolcanoFlat is called
 // Then: A cone-shaped elevation increase should appear
 //
 //	AND Peak should be at center
@@ -29,8 +30,8 @@ import (
 func TestBDD_Volcanism_ConeFormation(t *testing.T) {
 	hm := geography.NewHeightmap(50, 50)
 
-	// Apply a volcano at center
-	geography.ApplyVolcano(hm, 25, 25, 3.0, 2000.0)
+	// Apply a volcano at center using flat heightmap function
+	geography.ApplyVolcanoFlat(hm, 25, 25, 3.0, 2000.0)
 
 	// Check peak at center
 	peakElev := hm.Get(25, 25)
@@ -45,34 +46,33 @@ func TestBDD_Volcanism_ConeFormation(t *testing.T) {
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Hotspot Chain Creation
+// Scenario: Hotspot Chain Creation (Spherical)
 // -----------------------------------------------------------------------------
-// Given: A heightmap and tectonic plates
+// Given: A spherical heightmap and tectonic plates
 // When: ApplyHotspots is called
 // Then: Volcanic chains should form following plate movement
 //
-//	AND Multiple volcanoes should appear in a line
+//	AND Multiple volcanoes should appear in a chain
 //	AND Older volcanoes should be smaller (eroded)
 func TestBDD_Hotspots_ChainCreation(t *testing.T) {
-	hm := geography.NewHeightmap(100, 100)
+	resolution := 32
+	topology := spatial.NewCubeSphereTopology(resolution)
+	hm := geography.NewSphereHeightmap(topology)
 
-	// Create a simple plate configuration
-	plates := []geography.TectonicPlate{
-		{
-			Centroid:       geography.Point{X: 50, Y: 50},
-			MovementVector: geography.Vector{X: 1, Y: 0}, // Moving right
-			Type:           geography.PlateOceanic,
-		},
-	}
+	// Create plates using spherical API
+	plates := geography.GeneratePlates(3, topology, testSeed)
 
-	geography.ApplyHotspots(hm, plates, testSeed)
+	geography.ApplyHotspots(hm, plates, topology, testSeed)
 
 	// Check that some elevation was added (hotspots created volcanoes)
 	maxElev := 0.0
-	for y := 0; y < 100; y++ {
-		for x := 0; x < 100; x++ {
-			if hm.Get(x, y) > maxElev {
-				maxElev = hm.Get(x, y)
+	for face := 0; face < 6; face++ {
+		for y := 0; y < resolution; y++ {
+			for x := 0; x < resolution; x++ {
+				val := hm.Get(spatial.Coordinate{Face: face, X: x, Y: y})
+				if val > maxElev {
+					maxElev = val
+				}
 			}
 		}
 	}
@@ -81,33 +81,33 @@ func TestBDD_Hotspots_ChainCreation(t *testing.T) {
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Hotspot Determinism
+// Scenario: Hotspot Determinism (Spherical)
 // -----------------------------------------------------------------------------
 // Given: Same seed and inputs
 // When: ApplyHotspots is called twice
 // Then: Results should be identical
 func TestBDD_Hotspots_Determinism(t *testing.T) {
-	plates := []geography.TectonicPlate{
-		{
-			Centroid:       geography.Point{X: 50, Y: 50},
-			MovementVector: geography.Vector{X: 1, Y: 0},
-			Type:           geography.PlateOceanic,
-		},
-	}
+	resolution := 16
+	topology := spatial.NewCubeSphereTopology(resolution)
 
-	hm1 := geography.NewHeightmap(100, 100)
-	hm2 := geography.NewHeightmap(100, 100)
+	plates := geography.GeneratePlates(3, topology, testSeed)
 
-	geography.ApplyHotspots(hm1, plates, testSeed)
-	geography.ApplyHotspots(hm2, plates, testSeed)
+	hm1 := geography.NewSphereHeightmap(topology)
+	hm2 := geography.NewSphereHeightmap(topology)
+
+	geography.ApplyHotspots(hm1, plates, topology, testSeed)
+	geography.ApplyHotspots(hm2, plates, topology, testSeed)
 
 	// Compare heightmaps
 	matches := true
-	for y := 0; y < 100 && matches; y++ {
-		for x := 0; x < 100; x++ {
-			if hm1.Get(x, y) != hm2.Get(x, y) {
-				matches = false
-				break
+	for face := 0; face < 6 && matches; face++ {
+		for y := 0; y < resolution && matches; y++ {
+			for x := 0; x < resolution; x++ {
+				coord := spatial.Coordinate{Face: face, X: x, Y: y}
+				if hm1.Get(coord) != hm2.Get(coord) {
+					matches = false
+					break
+				}
 			}
 		}
 	}
@@ -115,10 +115,10 @@ func TestBDD_Hotspots_Determinism(t *testing.T) {
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Volcano Additive to Existing Terrain
+// Scenario: Volcano Additive to Existing Terrain (Flat)
 // -----------------------------------------------------------------------------
 // Given: A heightmap with existing elevation
-// When: ApplyVolcano is called
+// When: ApplyVolcanoFlat is called
 // Then: Volcano should add to existing elevation (not replace)
 func TestBDD_Volcanism_AdditiveElevation(t *testing.T) {
 	hm := geography.NewHeightmap(50, 50)
@@ -128,7 +128,7 @@ func TestBDD_Volcanism_AdditiveElevation(t *testing.T) {
 	hm.Set(25, 25, baseElev)
 
 	// Apply volcano
-	geography.ApplyVolcano(hm, 25, 25, 3.0, 1000.0)
+	geography.ApplyVolcanoFlat(hm, 25, 25, 3.0, 1000.0)
 
 	// New elevation should be base + volcano height
 	newElev := hm.Get(25, 25)
@@ -398,7 +398,7 @@ func TestBDD_Volcanism_ClimateFeedback(t *testing.T) {
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Multiple Volcano Application
+// Scenario: Multiple Volcano Application (Flat)
 // -----------------------------------------------------------------------------
 // Given: A heightmap
 // When: Multiple volcanoes are applied at different locations
@@ -409,8 +409,8 @@ func TestBDD_Volcanism_MultipleVolcanoes(t *testing.T) {
 	hm := geography.NewHeightmap(100, 100)
 
 	// Apply two volcanoes with some overlap
-	geography.ApplyVolcano(hm, 30, 50, 5.0, 2000.0)
-	geography.ApplyVolcano(hm, 40, 50, 5.0, 2000.0)
+	geography.ApplyVolcanoFlat(hm, 30, 50, 5.0, 2000.0)
+	geography.ApplyVolcanoFlat(hm, 40, 50, 5.0, 2000.0)
 
 	// Each peak should have high elevation
 	peak1 := hm.Get(30, 50)
@@ -425,10 +425,10 @@ func TestBDD_Volcanism_MultipleVolcanoes(t *testing.T) {
 }
 
 // -----------------------------------------------------------------------------
-// Scenario: Edge Boundary Handling
+// Scenario: Edge Boundary Handling (Flat)
 // -----------------------------------------------------------------------------
 // Given: A volcano near the edge of the heightmap
-// When: ApplyVolcano is called
+// When: ApplyVolcanoFlat is called
 // Then: Should not panic or corrupt memory
 //
 //	AND Elevation should only affect valid cells
@@ -437,15 +437,15 @@ func TestBDD_Volcanism_EdgeBoundary(t *testing.T) {
 
 	// Apply volcanoes at edges - should not panic
 	require.NotPanics(t, func() {
-		geography.ApplyVolcano(hm, 0, 0, 5.0, 2000.0)
+		geography.ApplyVolcanoFlat(hm, 0, 0, 5.0, 2000.0)
 	}, "Should handle corner volcano")
 
 	require.NotPanics(t, func() {
-		geography.ApplyVolcano(hm, 49, 49, 5.0, 2000.0)
+		geography.ApplyVolcanoFlat(hm, 49, 49, 5.0, 2000.0)
 	}, "Should handle opposite corner volcano")
 
 	require.NotPanics(t, func() {
-		geography.ApplyVolcano(hm, -5, 25, 5.0, 2000.0)
+		geography.ApplyVolcanoFlat(hm, -5, 25, 5.0, 2000.0)
 	}, "Should handle off-map volcano")
 
 	// Verify some elevation was applied where valid
