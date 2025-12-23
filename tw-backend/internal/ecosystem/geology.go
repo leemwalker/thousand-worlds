@@ -21,10 +21,11 @@ type WorldGeology struct {
 	Circumference float64 // meters
 
 	// Core geographic data
-	Heightmap *geography.Heightmap
-	Plates    []geography.TectonicPlate
-	SeaLevel  float64          // meters (0 = baseline, positive = higher sea level)
-	Topology  spatial.Topology // Spherical topology for plate operations
+	Heightmap       *geography.Heightmap       // Flat heightmap for legacy consumers
+	SphereHeightmap *geography.SphereHeightmap // Spherical heightmap for proper 3D operations
+	Plates          []geography.TectonicPlate
+	SeaLevel        float64          // meters (0 = baseline, positive = higher sea level)
+	Topology        spatial.Topology // Spherical topology for plate operations
 
 	// Underground data (Phase 3)
 	Columns     *underground.ColumnGrid // Per-column underground data
@@ -125,9 +126,9 @@ func (g *WorldGeology) InitializeGeology() {
 
 	// Generate initial heightmap using spherical topology
 	// Create sphere heightmap and convert to flat for legacy compatibility
-	sphereHm := geography.NewSphereHeightmap(g.Topology)
-	sphereHm = geography.GenerateHeightmap(g.Plates, sphereHm, g.Topology, g.Seed, 1.0, 1.0)
-	g.Heightmap = g.sphereToFlat(sphereHm, width, height)
+	g.SphereHeightmap = geography.NewSphereHeightmap(g.Topology)
+	g.SphereHeightmap = geography.GenerateHeightmap(g.Plates, g.SphereHeightmap, g.Topology, g.Seed, 1.0, 1.0)
+	g.Heightmap = g.sphereToFlat(g.SphereHeightmap, width, height)
 
 	// Initialize hotspots (2-5 fixed mantle plume locations)
 	numHotspots := 2 + g.rng.Intn(4)
@@ -555,20 +556,48 @@ func (g *WorldGeology) applyHotspotActivity(years float64) {
 }
 
 // advancePlates moves tectonic plates and recalculates boundaries
-// In spherical mode, plates move by rotating their 3D Position/Velocity vectors
+// Uses great circle rotation on the sphere to move plate positions
 func (g *WorldGeology) advancePlates(years float64) {
-	// Movement rate: 2cm/year = 0.00002 km/year
-	// For simplicity on sphere, we just age plates
-	// Full plate movement would require great circle rotation
+	// Planet radius in km (circumference / 2π)
+	planetRadius := g.Circumference / (2 * math.Pi * 1000) // Convert m to km
 
-	// Age plates
+	// Movement rate: ~2cm/year = 0.00002 km/year (average plate speed)
+	plateSpeed := 0.00002 // km/year
+
 	for i := range g.Plates {
+		// Age the plate
 		g.Plates[i].Age += years / 1_000_000 // Age in million years
+
+		// Calculate rotation angle: θ = distance / radius = (speed * time) / radius
+		distance := plateSpeed * years   // km moved
+		theta := distance / planetRadius // radians
+
+		// Get current position and velocity
+		pos := g.Plates[i].Position
+		vel := g.Plates[i].Velocity
+
+		// Rotation axis = Position × Velocity (perpendicular to both)
+		axis := pos.Cross(vel)
+		if axis.Length() < 1e-9 {
+			// Velocity is parallel to position - no meaningful rotation
+			continue
+		}
+
+		// Rotate position around the axis
+		newPos := pos.RotateAround(axis, theta)
+		g.Plates[i].Position = newPos.Normalize() // Keep on unit sphere
+
+		// Update centroid from new position
+		if g.Topology != nil {
+			g.Plates[i].Centroid = g.Topology.FromVector(newPos.X, newPos.Y, newPos.Z)
+		}
 	}
 
-	// Skip individual SimulateTectonics call in time stepping
-	// Tectonic effects are already applied during initial generation
-	// and would require sphere heightmap for proper spherical operation
+	// Re-assign plate regions after significant movement
+	// Only do this every 10M years to avoid excessive computation
+	if int64(years)%10_000_000 == 0 && g.Topology != nil {
+		geography.ReassignPlateRegions(g.Plates, g.Topology)
+	}
 }
 
 // ApplyEvent handles geological events that affect terrain
@@ -684,18 +713,25 @@ func (g *WorldGeology) applyIceAgeEffects(severity float64) {
 	}
 }
 
-// applyContinentalDrift accelerates plate movement and creates mountains
+// applyContinentalDrift accelerates plate movement and simulates tectonic effects
 func (g *WorldGeology) applyContinentalDrift(severity float64) {
-	// Enhanced plate movement
+	// Enhanced plate movement (accelerated by severity)
 	extraYears := 50_000 + int64(severity*100_000)
 	g.advancePlates(float64(extraYears))
 
-	// Skip full SimulateTectonics - it requires SphereHeightmap now
-	// Just apply some additional mountain noise based on severity
-	for i := range g.Heightmap.Elevations {
-		if g.Heightmap.Elevations[i] > g.SeaLevel {
-			// Slight uplift of existing land
-			g.Heightmap.Elevations[i] += 50 * severity
+	// Apply full spherical tectonic simulation if we have the required data
+	if g.SphereHeightmap != nil && g.Topology != nil {
+		// Run spherical tectonics simulation to create mountain ranges and trenches
+		g.SphereHeightmap = geography.SimulateTectonics(g.Plates, g.SphereHeightmap, g.Topology)
+
+		// Update the flat heightmap for legacy consumers
+		g.Heightmap = g.sphereToFlat(g.SphereHeightmap, g.Heightmap.Width, g.Heightmap.Height)
+	} else {
+		// Fallback: simple uplift for when spherical data isn't available
+		for i := range g.Heightmap.Elevations {
+			if g.Heightmap.Elevations[i] > g.SeaLevel {
+				g.Heightmap.Elevations[i] += 50 * severity
+			}
 		}
 	}
 }

@@ -50,7 +50,7 @@ func GeneratePlates(count int, topology spatial.Topology, seed int64) []Tectonic
 	}
 
 	// 2. Multi-Source BFS to assign all cells to nearest plate
-	assignRegionsBFS(plates, topology)
+	ReassignPlateRegions(plates, topology)
 
 	return plates
 }
@@ -82,9 +82,10 @@ type bfsItem struct {
 	plateIdx int
 }
 
-// assignRegionsBFS uses Multi-Source BFS to assign every cell to the nearest plate.
+// ReassignPlateRegions uses Multi-Source BFS to assign every cell to the nearest plate.
 // This naturally handles wrap-around and creates perfect Voronoi regions.
-func assignRegionsBFS(plates []TectonicPlate, topology spatial.Topology) {
+// Can be called after plate movement to update regions.
+func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology) {
 	resolution := topology.Resolution()
 	totalCells := 6 * resolution * resolution
 

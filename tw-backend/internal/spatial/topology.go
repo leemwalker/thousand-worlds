@@ -64,6 +64,39 @@ func (v Vector3D) Distance(other Vector3D) float64 {
 	return v.Sub(other).Length()
 }
 
+// RotateAround rotates the vector around an axis by the given angle (radians).
+// Uses Rodrigues' rotation formula:
+//
+//	v_rot = v*cos(θ) + (k×v)*sin(θ) + k*(k·v)*(1-cos(θ))
+//
+// where k is the normalized rotation axis.
+func (v Vector3D) RotateAround(axis Vector3D, angle float64) Vector3D {
+	// Normalize the axis
+	k := axis.Normalize()
+
+	// Handle zero axis (no rotation possible)
+	if k.Length() == 0 {
+		return v
+	}
+
+	cosTheta := math.Cos(angle)
+	sinTheta := math.Sin(angle)
+
+	// Rodrigues' formula components:
+	// Term 1: v * cos(θ)
+	term1 := v.Scale(cosTheta)
+
+	// Term 2: (k × v) * sin(θ)
+	kCrossV := k.Cross(v)
+	term2 := kCrossV.Scale(sinTheta)
+
+	// Term 3: k * (k · v) * (1 - cos(θ))
+	kDotV := k.Dot(v)
+	term3 := k.Scale(kDotV * (1 - cosTheta))
+
+	return term1.Add(term2).Add(term3)
+}
+
 // RandomPointOnSphere generates a uniformly distributed random point on a unit sphere.
 // Uses the Gaussian/Marsaglia method for uniform sphere coverage.
 func RandomPointOnSphere(seed int64) Vector3D {

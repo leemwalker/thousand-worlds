@@ -135,3 +135,87 @@ func vectorsEqual(a, b Vector3D, tol float64) bool {
 		math.Abs(a.Y-b.Y) < tol &&
 		math.Abs(a.Z-b.Z) < tol
 }
+
+func TestVector3D_RotateAround(t *testing.T) {
+	tests := []struct {
+		name  string
+		v     Vector3D
+		axis  Vector3D
+		angle float64
+		want  Vector3D
+	}{
+		{
+			name:  "X around Z by 90° = Y",
+			v:     Vector3D{1, 0, 0},
+			axis:  Vector3D{0, 0, 1},
+			angle: math.Pi / 2,
+			want:  Vector3D{0, 1, 0},
+		},
+		{
+			name:  "Y around Z by 90° = -X",
+			v:     Vector3D{0, 1, 0},
+			axis:  Vector3D{0, 0, 1},
+			angle: math.Pi / 2,
+			want:  Vector3D{-1, 0, 0},
+		},
+		{
+			name:  "X around Y by 90° = -Z",
+			v:     Vector3D{1, 0, 0},
+			axis:  Vector3D{0, 1, 0},
+			angle: math.Pi / 2,
+			want:  Vector3D{0, 0, -1},
+		},
+		{
+			name:  "Z around X by 90° = Y",
+			v:     Vector3D{0, 0, 1},
+			axis:  Vector3D{1, 0, 0},
+			angle: math.Pi / 2,
+			want:  Vector3D{0, -1, 0},
+		},
+		{
+			name:  "X around Z by 180° = -X",
+			v:     Vector3D{1, 0, 0},
+			axis:  Vector3D{0, 0, 1},
+			angle: math.Pi,
+			want:  Vector3D{-1, 0, 0},
+		},
+		{
+			name:  "Rotation around parallel axis = same vector",
+			v:     Vector3D{0, 0, 1},
+			axis:  Vector3D{0, 0, 1},
+			angle: math.Pi / 2,
+			want:  Vector3D{0, 0, 1},
+		},
+		{
+			name:  "Zero angle = same vector",
+			v:     Vector3D{1, 2, 3},
+			axis:  Vector3D{0, 0, 1},
+			angle: 0,
+			want:  Vector3D{1, 2, 3},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := tc.v.RotateAround(tc.axis, tc.angle)
+			if !vectorsEqual(got, tc.want, 1e-9) {
+				t.Errorf("RotateAround() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestVector3D_RotateAround_PreservesLength(t *testing.T) {
+	// Rotation should preserve vector length
+	v := Vector3D{3, 4, 5}
+	axis := Vector3D{1, 1, 1}
+	originalLength := v.Length()
+
+	for angle := 0.0; angle < 2*math.Pi; angle += math.Pi / 6 {
+		rotated := v.RotateAround(axis, angle)
+		newLength := rotated.Length()
+		if math.Abs(newLength-originalLength) > 1e-9 {
+			t.Errorf("Rotation by %.2f changed length from %v to %v", angle, originalLength, newLength)
+		}
+	}
+}
