@@ -512,10 +512,28 @@ func (g *WorldGeology) SimulateGeology(yearsElapsed int64, globalTempMod float64
 	// Fix 4: Sea level equilibrium model - sea level recovers toward baseline
 	// Instead of permanent drops, sea level trends back to 0 over geological time
 	// This simulates glacial melt and thermal expansion during interglacials
+	// Recovery rate increased 10x from 0.001 to 0.01 for more aggressive homeostasis
 	targetSeaLevel := 0.0 // Baseline sea level
-	recoveryRate := 0.001 // 0.1% per 10k years
+	recoveryRate := 0.01  // 1% per 10k years (10x faster than before)
 	seaLevelChange := (targetSeaLevel - g.SeaLevel) * recoveryRate * float64(yearsElapsed) / 10000
 	g.SeaLevel += seaLevelChange
+
+	// Fix 5: Global elevation clamping on SphereHeightmap
+	// Ensures no runaway elevation accumulation over geological time
+	if g.SphereHeightmap != nil {
+		g.SphereHeightmap.ClampElevations(geography.MinElevation, geography.MaxElevation)
+		// Sync to flat heightmap after clamping
+		g.syncSphereToFlat()
+	} else {
+		// Fallback: clamp flat heightmap directly
+		for i, elev := range g.Heightmap.Elevations {
+			if elev > geography.MaxElevation {
+				g.Heightmap.Elevations[i] = geography.MaxElevation
+			} else if elev < geography.MinElevation {
+				g.Heightmap.Elevations[i] = geography.MinElevation
+			}
+		}
+	}
 
 	// Update heightmap min/max
 	g.updateHeightmapStats()
@@ -790,28 +808,109 @@ func (g *WorldGeology) applyIceAgeEffects(severity float64) {
 }
 
 // applyContinentalDrift accelerates plate movement and simulates tectonic effects
+// Note: Removed direct SimulateTectonics call to prevent additive elevation accumulation.
+// Tectonic effects now use equilibrium-based approach applied during normal simulation.
 func (g *WorldGeology) applyContinentalDrift(severity float64) {
 	// Enhanced plate movement (accelerated by severity)
 	extraYears := 50_000 + int64(severity*100_000)
 	g.advancePlates(float64(extraYears))
 
-	// Apply full spherical tectonic simulation if we have the required data
+	// Minor elevation adjustment at convergent boundaries
+	// Instead of full SimulateTectonics, apply small equilibrium-based changes
 	if g.SphereHeightmap != nil && g.Topology != nil {
-		// Run spherical tectonics simulation to create mountain ranges and trenches
-		g.SphereHeightmap = geography.SimulateTectonics(g.Plates, g.SphereHeightmap, g.Topology)
-
+		// Apply minor boundary uplift based on severity (max 100m per event)
+		g.applyMinorBoundaryUplift(severity * 100)
 		// Sync to flat heightmap for legacy consumers
 		g.syncSphereToFlat()
 	} else {
 		// Fallback: simple uplift for when spherical data isn't available
+		// Capped at 50m per event to prevent runaway growth
+		uplift := 50 * severity
+		if uplift > 50 {
+			uplift = 50
+		}
 		for i := range g.Heightmap.Elevations {
 			if g.Heightmap.Elevations[i] > g.SeaLevel {
-				g.Heightmap.Elevations[i] += 50 * severity
+				g.Heightmap.Elevations[i] += uplift
+				// Apply cap
+				if g.Heightmap.Elevations[i] > geography.MaxElevation {
+					g.Heightmap.Elevations[i] = geography.MaxElevation
+				}
 			}
 		}
 	}
 }
 
+
+// applyMinorBoundaryUplift applies small elevation changes at plate boundaries.
+// Uses equilibrium-based approach: moves toward target elevation rather than adding fixed amounts.
+// maxChange limits the maximum elevation change per call to prevent runaway accumulation.
+func (g *WorldGeology) applyMinorBoundaryUplift(maxChange float64) {
+	if g.SphereHeightmap == nil || g.Topology == nil || len(g.Plates) == 0 {
+		return
+	}
+
+	// Build reverse lookup: coordinate -> plate index
+	coordToPlate := make(map[spatial.Coordinate]int)
+	for i, p := range g.Plates {
+		for coord := range p.Region {
+			coordToPlate[coord] = i
+		}
+	}
+
+	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+	resolution := g.Topology.Resolution()
+
+	// Process all cells to detect boundaries
+	for face := 0; face < 6; face++ {
+		for y := 0; y < resolution; y++ {
+			for x := 0; x < resolution; x++ {
+				coord := spatial.Coordinate{Face: face, X: x, Y: y}
+				currentPlateIdx, exists := coordToPlate[coord]
+				if !exists {
+					continue
+				}
+				currentPlate := g.Plates[currentPlateIdx]
+
+				// Check neighbors for boundary
+				for _, dir := range directions {
+					neighbor := g.Topology.GetNeighbor(coord, dir)
+					neighborPlateIdx, exists := coordToPlate[neighbor]
+					if !exists || neighborPlateIdx == currentPlateIdx {
+						continue
+					}
+
+					// Found a boundary between two plates
+					neighborPlate := g.Plates[neighborPlateIdx]
+					boundaryType := geography.CalculateBoundaryType(currentPlate, neighborPlate)
+
+					// Get target and current elevation
+					targetElev := geography.GetTargetElevation(currentPlate, neighborPlate, boundaryType)
+					currentElev := g.SphereHeightmap.Get(coord)
+
+					// Calculate equilibrium change (10% of difference)
+					delta := (targetElev - currentElev) * 0.1
+
+					// Cap the change to prevent large swings
+					if delta > maxChange {
+						delta = maxChange
+					} else if delta < -maxChange {
+						delta = -maxChange
+					}
+
+					// Apply change with clamping
+					newElev := currentElev + delta
+					if newElev > geography.MaxElevation {
+						newElev = geography.MaxElevation
+					} else if newElev < geography.MinElevation {
+						newElev = geography.MinElevation
+					}
+					g.SphereHeightmap.Set(coord, newElev)
+				}
+			}
+		}
+	}
+}
 // applyFloodBasalt creates large volcanic provinces
 func (g *WorldGeology) applyFloodBasalt(severity float64) {
 	// Radius based on severity (30-100 cells)

@@ -129,3 +129,19 @@ func (s *SphereHeightmap) ToFlatHeightmap(width, height int) *Heightmap {
 
 	return flat
 }
+
+// ClampElevations constrains all elevation values to be within [minElev, maxElev].
+// This prevents runaway elevation accumulation over geological time.
+func (s *SphereHeightmap) ClampElevations(minElev, maxElev float64) {
+	for _, face := range s.faces {
+		for i, elev := range face.Elevations {
+			if elev > maxElev {
+				face.Elevations[i] = maxElev
+			} else if elev < minElev {
+				face.Elevations[i] = minElev
+			}
+		}
+	}
+	// Update min/max after clamping
+	s.UpdateMinMax()
+}

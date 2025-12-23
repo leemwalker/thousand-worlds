@@ -96,6 +96,14 @@ func calculateTemperatureFromLatitude(latitude, elevation, seaLevel, globalTempM
 	if altitudeAboveSea < 0 {
 		altitudeAboveSea = 0
 	}
+
+	// Cap altitude effect at 15km to prevent unrealistic temperatures
+	// Above this height, atmospheric physics change significantly anyway
+	const maxAltitudeEffect = 15000.0
+	if altitudeAboveSea > maxAltitudeEffect {
+		altitudeAboveSea = maxAltitudeEffect
+	}
+
 	temp := baseTemp - (altitudeAboveSea/1000.0)*6.5
 
 	// Apply global modifier (volcanic winter, greenhouse, etc.)

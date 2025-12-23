@@ -8,6 +8,17 @@ import (
 	"github.com/google/uuid"
 )
 
+// Elevation physical limits (in meters)
+const (
+	// MaxElevation is the upper bound for terrain (above Olympus Mons scale)
+	MaxElevation = 15000.0
+	// MinElevation is the lower bound for terrain (below Mariana Trench scale)
+	MinElevation = -11000.0
+	// TectonicConvergenceRate controls how quickly boundaries approach target elevation
+	// Value of 0.1 means 10% of remaining difference per tectonic step
+	TectonicConvergenceRate = 0.1
+)
+
 // GeneratePlates creates tectonic plates using spherical topology.
 // Uses Multi-Source BFS to assign regions efficiently in O(N) time.
 func GeneratePlates(count int, topology spatial.Topology, seed int64) []TectonicPlate {
@@ -123,6 +134,7 @@ func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology) {
 }
 
 // SimulateTectonics calculates elevation based on plate interactions on a sphere.
+// Uses equilibrium-based approach where elevation approaches target asymptotically.
 // Returns a SphereHeightmap with elevation modifiers.
 func SimulateTectonics(plates []TectonicPlate, heightmap *SphereHeightmap, topology spatial.Topology) *SphereHeightmap {
 	// Build reverse lookup: coordinate -> plate index
@@ -159,9 +171,10 @@ func SimulateTectonics(plates []TectonicPlate, heightmap *SphereHeightmap, topol
 					neighborPlate := plates[neighborPlateIdx]
 					boundaryType := CalculateBoundaryType(currentPlate, neighborPlate)
 
-					// Apply elevation change
-					elevationChange := calculateElevationChange(currentPlate, neighborPlate, boundaryType)
-					applyBoundaryEffectSpherical(heightmap, coord, elevationChange, topology)
+					// Apply equilibrium-based elevation change
+					currentElev := heightmap.Get(coord)
+					elevationDelta := calculateEquilibriumElevationChange(currentPlate, neighborPlate, boundaryType, currentElev)
+					applyBoundaryEffectSpherical(heightmap, coord, elevationDelta, topology)
 				}
 			}
 		}
@@ -190,12 +203,13 @@ func CalculateBoundaryType(plateA, plateB TectonicPlate) BoundaryType {
 	return BoundaryTransform
 }
 
-// calculateElevationChange returns the elevation modifier based on boundary type
-func calculateElevationChange(p1, p2 TectonicPlate, boundaryType BoundaryType) float64 {
+// GetTargetElevation returns the target elevation for a given boundary type.
+// This is the equilibrium elevation that boundaries approach asymptotically.
+func GetTargetElevation(p1, p2 TectonicPlate, boundaryType BoundaryType) float64 {
 	switch boundaryType {
 	case BoundaryDivergent:
 		if p1.Type == PlateOceanic && p2.Type == PlateOceanic {
-			return 500 // Mid-ocean ridge
+			return -2000 // Mid-ocean ridge (relative to ocean floor at -4000)
 		} else if p1.Type == PlateContinental && p2.Type == PlateContinental {
 			return -200 // Rift valley
 		}
@@ -203,19 +217,41 @@ func calculateElevationChange(p1, p2 TectonicPlate, boundaryType BoundaryType) f
 
 	case BoundaryConvergent:
 		if p1.Type == PlateOceanic && p2.Type == PlateOceanic {
-			return -8000 // Trench
+			return -8000 // Oceanic trench (Mariana-scale)
 		} else if p1.Type == PlateContinental && p2.Type == PlateContinental {
-			return 6000 // Mountains
+			return 6000 // Himalaya-scale mountains
 		}
-		return 4000 // Oceanic-Continental (coastal mountains)
+		return 4000 // Oceanic-Continental (Andes-scale coastal mountains)
 
 	case BoundaryTransform:
-		return 50 // Minimal effect
+		return 0 // No significant elevation change
 	}
 	return 0
 }
 
-// applyBoundaryEffectSpherical applies elevation change with falloff on sphere
+// calculateEquilibriumElevationChange returns the delta to apply using an asymptotic approach.
+// Instead of adding fixed amounts, we move toward a target elevation at a convergence rate.
+// This prevents runaway elevation accumulation over geological time.
+func calculateEquilibriumElevationChange(p1, p2 TectonicPlate, boundaryType BoundaryType, currentElev float64) float64 {
+	target := GetTargetElevation(p1, p2, boundaryType)
+
+	// Calculate difference and apply convergence rate
+	// This creates an asymptotic approach: delta = (target - current) * rate
+	difference := target - currentElev
+	delta := difference * TectonicConvergenceRate
+
+	return delta
+}
+
+// calculateElevationChange returns the elevation modifier based on boundary type.
+// Deprecated: Use calculateEquilibriumElevationChange for equilibrium-based tectonics.
+// Kept for backward compatibility with tests.
+func calculateElevationChange(p1, p2 TectonicPlate, boundaryType BoundaryType) float64 {
+	return GetTargetElevation(p1, p2, boundaryType)
+}
+
+// applyBoundaryEffectSpherical applies elevation change with falloff on sphere.
+// Uses equilibrium-based approach with hard clamping to physical limits.
 func applyBoundaryEffectSpherical(hm *SphereHeightmap, center spatial.Coordinate, elevationChange float64, topology spatial.Topology) {
 	pixelRadius := 5
 
@@ -243,9 +279,18 @@ func applyBoundaryEffectSpherical(hm *SphereHeightmap, center spatial.Coordinate
 		factor := 1.0 - dist/float64(pixelRadius)
 		factor = factor * factor // Square for smoother falloff
 
-		// Apply elevation change
+		// Apply elevation change with physical limits
 		currentElev := hm.Get(current.coord)
-		hm.Set(current.coord, currentElev+elevationChange*factor)
+		newElev := currentElev + elevationChange*factor
+
+		// Clamp to physical limits
+		if newElev > MaxElevation {
+			newElev = MaxElevation
+		}
+		if newElev < MinElevation {
+			newElev = MinElevation
+		}
+		hm.Set(current.coord, newElev)
 
 		// Expand to neighbors
 		if current.distance < pixelRadius {
