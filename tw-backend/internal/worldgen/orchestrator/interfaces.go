@@ -34,9 +34,8 @@ func (g *DefaultGeographyGenerator) GenerateGeography(params *GenerationParams) 
 	sphereHeightmap := geography.NewSphereHeightmap(topology)
 	sphereHeightmap = geography.GenerateHeightmap(plates, sphereHeightmap, topology, params.Seed, params.ErosionRate, params.RainfallFactor)
 
-	// 3. Convert to flat heightmap for legacy compatibility
-	// TODO: Eventually migrate all consumers to SphereHeightmap
-	heightmap := sphereToFlatHeightmap(sphereHeightmap, topology, params.Width, params.Height)
+	// 3. Convert to flat heightmap for legacy consumers
+	heightmap := sphereHeightmap.ToFlatHeightmap(params.Width, params.Height)
 
 	// 4. Assign ocean/land based on desired ratio
 	seaLevel := geography.AssignOceanLand(heightmap, params.LandWaterRatio)
@@ -58,42 +57,6 @@ func (g *DefaultGeographyGenerator) GenerateGeography(params *GenerationParams) 
 	}
 
 	return worldMap, seaLevel, nil
-}
-
-// sphereToFlatHeightmap converts a SphereHeightmap to a flat Heightmap for legacy compatibility.
-// Uses equirectangular projection from Face 0 (front face).
-func sphereToFlatHeightmap(sphere *geography.SphereHeightmap, topology spatial.Topology, width, height int) *geography.Heightmap {
-	flat := geography.NewHeightmap(width, height)
-	resolution := topology.Resolution()
-
-	// Simple projection: use Face 0 as the main view
-	// This is a temporary bridge until all consumers migrate to SphereHeightmap
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			// Map flat coordinates to sphere coordinate
-			// Use modulo to wrap around the face grid
-			face := (x / resolution) % 6
-			fx := x % resolution
-			fy := y % resolution
-
-			if fx >= resolution {
-				fx = resolution - 1
-			}
-			if fy >= resolution {
-				fy = resolution - 1
-			}
-
-			coord := spatial.Coordinate{Face: face, X: fx, Y: fy}
-			elev := sphere.Get(coord)
-			flat.Set(x, y, elev)
-		}
-	}
-
-	// Update min/max
-	flat.MinElev = sphere.MinElev
-	flat.MaxElev = sphere.MaxElev
-
-	return flat
 }
 
 // assignBiomesFromClimate creates biomes using pre-computed climate data.

@@ -4,6 +4,7 @@ import (
 	"math"
 	"testing"
 
+	"tw-backend/internal/spatial"
 	"tw-backend/internal/worldgen/geography"
 
 	"github.com/stretchr/testify/assert"
@@ -16,15 +17,21 @@ func TestRainfallErosionImpact(t *testing.T) {
 	plateCount := 5
 	erosionRate := 1.0 // Standard erosion
 
-	// Generate plates once to share (though GenerateHeightmap re-calculates/uses them)
-	// We need to pass the same plates to ensure base terrain is similar before erosion
-	plates := geography.GeneratePlates(plateCount, width, height, seed)
+	// Create spherical topology (resolution = height for square face grids)
+	topology := spatial.NewCubeSphereTopology(height)
+
+	// Generate plates using spherical topology
+	plates := geography.GeneratePlates(plateCount, topology, seed)
 
 	// 1. Generate Arid World (RainfallFactor = 0.25)
-	hmArid := geography.GenerateHeightmap(width, height, plates, seed, erosionRate, 0.25)
+	hmAridSphere := geography.NewSphereHeightmap(topology)
+	hmAridSphere = geography.GenerateHeightmap(plates, hmAridSphere, topology, seed, erosionRate, 0.25)
+	hmArid := hmAridSphere.ToFlatHeightmap(width, height)
 
 	// 2. Generate Wet World (RainfallFactor = 2.0)
-	hmWet := geography.GenerateHeightmap(width, height, plates, seed, erosionRate, 2.0)
+	hmWetSphere := geography.NewSphereHeightmap(topology)
+	hmWetSphere = geography.GenerateHeightmap(plates, hmWetSphere, topology, seed, erosionRate, 2.0)
+	hmWet := hmWetSphere.ToFlatHeightmap(width, height)
 
 	// Compare Statistics
 	// Hydraulic erosion generally fills depressions and carves channels.

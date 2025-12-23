@@ -95,3 +95,37 @@ func (s *SphereHeightmap) GetFace(face int) *Heightmap {
 func (s *SphereHeightmap) Topology() spatial.Topology {
 	return s.topology
 }
+
+// ToFlatHeightmap converts this spherical heightmap to a flat equirectangular projection.
+// Uses a simple face-wrapping projection for compatibility with legacy systems.
+// width and height specify the dimensions of the output heightmap.
+func (s *SphereHeightmap) ToFlatHeightmap(width, height int) *Heightmap {
+	flat := NewHeightmap(width, height)
+	resolution := s.topology.Resolution()
+
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			// Map flat coordinates to sphere coordinate
+			// Use modulo to wrap around the face grid
+			face := (x / resolution) % 6
+			fx := x % resolution
+			fy := y % resolution
+
+			if fx >= resolution {
+				fx = resolution - 1
+			}
+			if fy >= resolution {
+				fy = resolution - 1
+			}
+
+			coord := spatial.Coordinate{Face: face, X: fx, Y: fy}
+			elev := s.Get(coord)
+			flat.Set(x, y, elev)
+		}
+	}
+
+	flat.MinElev = s.MinElev
+	flat.MaxElev = s.MaxElev
+
+	return flat
+}

@@ -125,10 +125,10 @@ func (g *WorldGeology) InitializeGeology() {
 	g.Plates = geography.GeneratePlates(plateCount, g.Topology, g.Seed)
 
 	// Generate initial heightmap using spherical topology
-	// Create sphere heightmap and convert to flat for legacy compatibility
+	// Create sphere heightmap and convert to flat for legacy consumers
 	g.SphereHeightmap = geography.NewSphereHeightmap(g.Topology)
 	g.SphereHeightmap = geography.GenerateHeightmap(g.Plates, g.SphereHeightmap, g.Topology, g.Seed, 1.0, 1.0)
-	g.Heightmap = g.sphereToFlat(g.SphereHeightmap, width, height)
+	g.Heightmap = g.SphereHeightmap.ToFlatHeightmap(width, height)
 
 	// Initialize hotspots (2-5 fixed mantle plume locations)
 	numHotspots := 2 + g.rng.Intn(4)
@@ -153,43 +153,13 @@ func (g *WorldGeology) InitializeGeology() {
 	g.initializeColumns(width, height)
 }
 
-// sphereToFlat converts a SphereHeightmap to a flat Heightmap for legacy compatibility
-func (g *WorldGeology) sphereToFlat(sphere *geography.SphereHeightmap, width, height int) *geography.Heightmap {
-	flat := geography.NewHeightmap(width, height)
-	resolution := sphere.Resolution()
-
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			// Map flat coordinates to sphere coordinate
-			face := (x / resolution) % 6
-			fx := x % resolution
-			fy := y % resolution
-
-			if fx >= resolution {
-				fx = resolution - 1
-			}
-			if fy >= resolution {
-				fy = resolution - 1
-			}
-
-			coord := spatial.Coordinate{Face: face, X: fx, Y: fy}
-			elev := sphere.Get(coord)
-			flat.Set(x, y, elev)
-		}
-	}
-
-	flat.MinElev = sphere.MinElev
-	flat.MaxElev = sphere.MaxElev
-	return flat
-}
-
 // syncSphereToFlat updates the flat Heightmap from the SphereHeightmap
 // Call this after making changes to SphereHeightmap to keep both in sync
 func (g *WorldGeology) syncSphereToFlat() {
 	if g.SphereHeightmap == nil || g.Heightmap == nil {
 		return
 	}
-	g.Heightmap = g.sphereToFlat(g.SphereHeightmap, g.Heightmap.Width, g.Heightmap.Height)
+	g.Heightmap = g.SphereHeightmap.ToFlatHeightmap(g.Heightmap.Width, g.Heightmap.Height)
 }
 
 // initializeColumns creates the underground column grid and generates strata
