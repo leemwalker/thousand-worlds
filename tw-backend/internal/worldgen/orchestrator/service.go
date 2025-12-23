@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"tw-backend/internal/spatial"
 	"tw-backend/internal/worldgen/evolution"
 	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/minerals"
@@ -193,24 +194,53 @@ func (s *GeneratorService) mapToGeographyCells(geoMap *geography.WorldMap, param
 }
 
 // generateMinerals distributes mineral deposits based on geology
+// Uses spherical plate boundaries for realistic mineral placement
 func (s *GeneratorService) generateMinerals(params *GenerationParams, geoMap *geography.WorldMap) ([]minerals.MineralDeposit, error) {
 	deposits := []minerals.MineralDeposit{}
 
-	// Generate hydrothermal deposits at plate boundaries
-	// Extract boundary points from plate centroids (simplified approach)
-	ridgePoints := []minerals.Point{}
-	for _, plate := range geoMap.Plates {
-		// Use the plate centroid as a representative boundary point
-		// In a full spherical implementation, we'd trace actual boundaries
-		sx := float64(geoMap.Heightmap.Width / 2)
-		sy := float64(geoMap.Heightmap.Height / 2)
-		if plate.Position.X != 0 || plate.Position.Y != 0 || plate.Position.Z != 0 {
-			// Map 3D sphere position to 2D for minerals (simplified)
-			sx = float64(plate.Centroid.Face*geoMap.Heightmap.Width/6 + plate.Centroid.X)
-			sy = float64(plate.Centroid.Y)
+	// Create topology for spherical boundary detection
+	topology := spatial.NewCubeSphereTopology(params.Height)
+	resolution := topology.Resolution()
+
+	// Build reverse lookup: coordinate -> plate index
+	coordToPlate := make(map[spatial.Coordinate]int)
+	for i, plate := range geoMap.Plates {
+		for coord := range plate.Region {
+			coordToPlate[coord] = i
 		}
-		ridgePoints = append(ridgePoints, minerals.Point{X: sx, Y: sy})
 	}
+
+	// Find actual plate boundary cells (where neighbors are on different plates)
+	boundaryPoints := []minerals.Point{}
+	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+
+	for coord, plateIdx := range coordToPlate {
+		for _, dir := range directions {
+			neighbor := topology.GetNeighbor(coord, dir)
+			neighborPlateIdx, exists := coordToPlate[neighbor]
+			if exists && neighborPlateIdx != plateIdx {
+				// This is a boundary cell! Convert to flat point
+				flatX := float64(coord.Face*resolution + coord.X)
+				flatY := float64(coord.Y)
+				boundaryPoints = append(boundaryPoints, minerals.Point{X: flatX, Y: flatY})
+				break // Only add once per boundary cell
+			}
+		}
+	}
+
+	// Generate hydrothermal deposits at plate boundaries
+	// Use actual boundary points (or sample if too many)
+	ridgePoints := boundaryPoints
+	if len(ridgePoints) > 100 {
+		// Sample down to ~100 points for performance
+		sampled := []minerals.Point{}
+		step := len(ridgePoints) / 100
+		for i := 0; i < len(ridgePoints); i += step {
+			sampled = append(sampled, ridgePoints[i])
+		}
+		ridgePoints = sampled
+	}
+
 	hydro := minerals.GenerateHydrothermalDeposits(ridgePoints)
 	for _, d := range hydro {
 		deposits = append(deposits, *d)
