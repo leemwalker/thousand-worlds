@@ -1,6 +1,6 @@
 # Ecosystem Geography Package
 
-Tectonic plate and region simulation for population dynamics.
+Dynamic tectonic plate and region simulation for population dynamics.
 
 ## Architecture
 

@@ -14,7 +14,7 @@ Go-based Mobile SDK for building mobile applications that interact with the Thou
 ## Installation
 
 ```bash
-go get mud-platform-backend/internal/mobile
+go get tw-backend/internal/mobile
 ```
 
 ## Quick Start
@@ -26,7 +26,7 @@ import (
     "context"
     "log"
     
-    "mud-platform-backend/internal/mobile"
+    "tw-backend/internal/mobile"
 )
 
 func main() {

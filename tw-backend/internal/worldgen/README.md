@@ -8,6 +8,7 @@ The `internal/worldgen` package implements procedural world generation for Thous
 worldgen/
 ├── geography/       # Terrain, tectonics, rivers, biomes
 ├── weather/         # Weather simulation (evaporation, wind, precipitation)
+├── underground/     # Hybrid column-based strata and cave simulation
 ├── evolution/       # Flora/fauna evolution with environmental pressures
 ├── minerals/        # Resource/ore placement by geology
 ├── orchestrator/    # Coordinates generation pipeline
@@ -92,9 +93,9 @@ graph TD
     C --> D[Heightmap]
     D --> E[Erosion]
     E --> F[Rivers/Oceans]
-    F --> G[Biomes]
-    G --> H[Weather]
-    H --> I[Evolution]
+    F --> H[Weather]
+    H --> G[Biomes]
+    G --> I[Evolution]
     I --> J[Minerals]
     J --> K[Ready World]
 ```

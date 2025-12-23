@@ -91,6 +91,7 @@ tw-backend/
 | `worldgen` | Procedural generation: tectonic plates, heightmaps, biomes, weather, flora/fauna |
 | `spatial` | PostGIS integration, 3D coordinate system (X, Y, Z), spatial indexing, radius queries |
 | `ecosystem` | Geological processes, environmental simulation, terrain evolution |
+| `ecosystem/simulation` | Core simulation engine, sub-stepping, and state synchronization |
 
 ### NPC Systems
 
@@ -336,4 +337,4 @@ docker exec mud_ollama ollama pull llama3.1:8b
 - [../features.md](../features.md) - Detailed feature specifications
 - [../roadmap.md](../roadmap.md) - Development roadmap
 - [../SECURITY.md](../SECURITY.md) - Security documentation
-- [Ecosystem Simulation Guide](docs/ECOSYSTEM_SIMULATION.md) - Detailed mechanics of geology, biology, and evolution
+- [Ecosystem Simulation Guide](docs/ECOSYSTEM_SIMULATION_V2.md) - Detailed mechanics of geology, biology, and evolution

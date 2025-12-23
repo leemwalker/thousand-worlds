@@ -53,7 +53,7 @@ geography/
 
 | Function | Description |
 |----------|-------------|
-| `AssignBiomes()` | Whittaker classification by temp/moisture |
+| `AssignBiomes()` | Whittaker classification by temp/moisture (from weather) |
 | `resolveBiome()` | Maps temperature + moisture to biome type |
 
 ---

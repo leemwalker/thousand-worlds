@@ -8,6 +8,7 @@ Wildlife simulation including geology, evolution, creature spawning, and pathfin
 ecosystem/
 ├── geology.go       # Geological events and terrain evolution
 ├── evolution.go     # Species adaptation over time
+├── simulation/      # Core world simulation engine and turn orchestration
 ├── spawner.go       # Creature population management
 ├── pathfinding.go   # A* pathfinding for entities
 ├── events.go        # Ecosystem event types
