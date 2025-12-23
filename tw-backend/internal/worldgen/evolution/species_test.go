@@ -25,7 +25,11 @@ func TestGenerateInitialSpecies(t *testing.T) {
 }
 
 func TestSpeciesTypesDistribution(t *testing.T) {
-	biomes := []string{"tropical"}
+	// Use multiple biomes to ensure sufficient sample size for distribution test
+	// With 4 biomes × 5-10 species = 20-40 species total
+	// At 40% flora / 30% herbivore / 30% carnivore distribution,
+	// getting zero of any type is extremely unlikely (<0.01%)
+	biomes := []string{"tropical", "temperate", "desert", "arctic"}
 	species := GenerateInitialSpecies(biomes)
 
 	floraCount := 0
@@ -43,7 +47,7 @@ func TestSpeciesTypesDistribution(t *testing.T) {
 	}
 
 	// Should have a mix of all types
-	assert.True(t, floraCount > 0)
-	assert.True(t, herbivoreCount > 0)
-	assert.True(t, carnivoreCount > 0)
+	assert.True(t, floraCount > 0, "Should have at least one flora species")
+	assert.True(t, herbivoreCount > 0, "Should have at least one herbivore species")
+	assert.True(t, carnivoreCount > 0, "Should have at least one carnivore species")
 }
