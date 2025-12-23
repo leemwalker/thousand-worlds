@@ -183,6 +183,15 @@ func (g *WorldGeology) sphereToFlat(sphere *geography.SphereHeightmap, width, he
 	return flat
 }
 
+// syncSphereToFlat updates the flat Heightmap from the SphereHeightmap
+// Call this after making changes to SphereHeightmap to keep both in sync
+func (g *WorldGeology) syncSphereToFlat() {
+	if g.SphereHeightmap == nil || g.Heightmap == nil {
+		return
+	}
+	g.Heightmap = g.sphereToFlat(g.SphereHeightmap, g.Heightmap.Width, g.Heightmap.Height)
+}
+
 // initializeColumns creates the underground column grid and generates strata
 func (g *WorldGeology) initializeColumns(width, height int) {
 	g.Columns = underground.NewColumnGrid(width, height)
@@ -638,27 +647,39 @@ func (g *WorldGeology) applyVolcanicMountains(severity float64) {
 	// Number of volcanoes based on severity
 	numVolcanoes := 1 + int(severity*3)
 
-	for i := 0; i < numVolcanoes; i++ {
-		// Random location, preferring plate boundaries
-		x := float64(g.rng.Intn(g.Heightmap.Width))
-		y := float64(g.rng.Intn(g.Heightmap.Height))
+	// Use spherical operations if available
+	if g.SphereHeightmap != nil && g.Topology != nil {
+		resolution := g.Topology.Resolution()
+		for i := 0; i < numVolcanoes; i++ {
+			// Random location on sphere
+			face := g.rng.Intn(6)
+			x := g.rng.Intn(resolution)
+			y := g.rng.Intn(resolution)
+			center := spatial.Coordinate{Face: face, X: x, Y: y}
 
-		// Volcano height based on severity (200-500m per event, not 2-5km!)
-		// Real volcanic eruptions add 10-100m typically; we use higher for gameplay
-		height := 200 + severity*300
-		radius := 2.0 + g.rng.Float64()*2.0
+			// Volcano height based on severity (200-500m per event)
+			height := 200 + severity*300
+			radius := 2.0 + g.rng.Float64()*2.0
 
-		geography.ApplyVolcanoFlat(g.Heightmap, x, y, radius, height)
+			geography.ApplyVolcanoSpherical(g.SphereHeightmap, center, g.Topology, radius, height)
+		}
+		// Sync to flat heightmap
+		g.syncSphereToFlat()
+	} else {
+		// Fallback to flat heightmap
+		for i := 0; i < numVolcanoes; i++ {
+			x := float64(g.rng.Intn(g.Heightmap.Width))
+			y := float64(g.rng.Intn(g.Heightmap.Height))
+			height := 200 + severity*300
+			radius := 2.0 + g.rng.Float64()*2.0
+			geography.ApplyVolcanoFlat(g.Heightmap, x, y, radius, height)
+		}
 	}
 }
 
 // applyImpactCrater creates a crater from asteroid impact
 func (g *WorldGeology) applyImpactCrater(severity float64) {
-	// Random impact location
-	centerX := g.rng.Intn(g.Heightmap.Width)
-	centerY := g.rng.Intn(g.Heightmap.Height)
-
-	// Crater size based on severity (10-50 pixel radius)
+	// Crater size based on severity (10-50 cells radius)
 	radius := int(10 + severity*40)
 
 	// Depth based on severity (500-3000m)
@@ -667,25 +688,79 @@ func (g *WorldGeology) applyImpactCrater(severity float64) {
 	// Rim height (15% of depth)
 	rimHeight := depth * 0.15
 
-	// Apply crater depression with raised rim
-	for dy := -radius * 2; dy <= radius*2; dy++ {
-		for dx := -radius * 2; dx <= radius*2; dx++ {
-			px, py := centerX+dx, centerY+dy
-			if px >= 0 && px < g.Heightmap.Width && py >= 0 && py < g.Heightmap.Height {
-				dist := math.Sqrt(float64(dx*dx + dy*dy))
+	// Use spherical operations if available
+	if g.SphereHeightmap != nil && g.Topology != nil {
+		resolution := g.Topology.Resolution()
+		// Random impact location on sphere
+		centerFace := g.rng.Intn(6)
+		centerX := g.rng.Intn(resolution)
+		centerY := g.rng.Intn(resolution)
+		center := spatial.Coordinate{Face: centerFace, X: centerX, Y: centerY}
 
-				if dist < float64(radius) {
-					// Inside crater - depression
-					factor := 1.0 - (dist / float64(radius))
-					current := g.Heightmap.Get(px, py)
-					g.Heightmap.Set(px, py, current-depth*factor*factor)
+		// Use BFS to apply crater with proper cross-face handling
+		visited := make(map[spatial.Coordinate]bool)
+		queue := []struct {
+			coord spatial.Coordinate
+			dist  int
+		}{{center, 0}}
+		visited[center] = true
 
-				} else if dist < float64(radius)*1.3 {
-					// Crater rim - raised
-					t := (dist - float64(radius)) / (float64(radius) * 0.3)
-					factor := 1.0 - t
-					current := g.Heightmap.Get(px, py)
-					g.Heightmap.Set(px, py, current+rimHeight*factor)
+		directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+
+		for len(queue) > 0 {
+			current := queue[0]
+			queue = queue[1:]
+
+			dist := float64(current.dist)
+			if dist < float64(radius) {
+				// Inside crater - depression
+				factor := 1.0 - (dist / float64(radius))
+				currentElev := g.SphereHeightmap.Get(current.coord)
+				g.SphereHeightmap.Set(current.coord, currentElev-depth*factor*factor)
+			} else if dist < float64(radius)*1.3 {
+				// Crater rim - raised
+				t := (dist - float64(radius)) / (float64(radius) * 0.3)
+				factor := 1.0 - t
+				currentElev := g.SphereHeightmap.Get(current.coord)
+				g.SphereHeightmap.Set(current.coord, currentElev+rimHeight*factor)
+			}
+
+			// Only expand if within extended radius
+			if current.dist < int(float64(radius)*1.5) {
+				for _, dir := range directions {
+					neighbor := g.Topology.GetNeighbor(current.coord, dir)
+					if !visited[neighbor] {
+						visited[neighbor] = true
+						queue = append(queue, struct {
+							coord spatial.Coordinate
+							dist  int
+						}{neighbor, current.dist + 1})
+					}
+				}
+			}
+		}
+		g.syncSphereToFlat()
+	} else {
+		// Fallback to flat heightmap
+		centerX := g.rng.Intn(g.Heightmap.Width)
+		centerY := g.rng.Intn(g.Heightmap.Height)
+
+		for dy := -radius * 2; dy <= radius*2; dy++ {
+			for dx := -radius * 2; dx <= radius*2; dx++ {
+				px, py := centerX+dx, centerY+dy
+				if px >= 0 && px < g.Heightmap.Width && py >= 0 && py < g.Heightmap.Height {
+					dist := math.Sqrt(float64(dx*dx + dy*dy))
+
+					if dist < float64(radius) {
+						factor := 1.0 - (dist / float64(radius))
+						current := g.Heightmap.Get(px, py)
+						g.Heightmap.Set(px, py, current-depth*factor*factor)
+					} else if dist < float64(radius)*1.3 {
+						t := (dist - float64(radius)) / (float64(radius) * 0.3)
+						factor := 1.0 - t
+						current := g.Heightmap.Get(px, py)
+						g.Heightmap.Set(px, py, current+rimHeight*factor)
+					}
 				}
 			}
 		}
@@ -698,16 +773,34 @@ func (g *WorldGeology) applyIceAgeEffects(severity float64) {
 	g.SeaLevel -= 50 + severity*70
 
 	// Glacial erosion - carve U-shaped valleys in high-elevation areas
-	// Find high-elevation pixels and erode downward
-	threshold := g.Heightmap.MaxElev * 0.6 // Top 40% of elevation
+	if g.SphereHeightmap != nil && g.Topology != nil {
+		// Apply to sphere heightmap
+		threshold := g.SphereHeightmap.MaxElev * 0.6 // Top 40% of elevation
+		resolution := g.Topology.Resolution()
 
-	for y := 0; y < g.Heightmap.Height; y++ {
-		for x := 0; x < g.Heightmap.Width; x++ {
-			elev := g.Heightmap.Get(x, y)
-			if elev > threshold {
-				// Glacial carving - erode proportionally
-				erosion := (elev - threshold) * 0.1 * severity
-				g.Heightmap.Set(x, y, elev-erosion)
+		for face := 0; face < 6; face++ {
+			for y := 0; y < resolution; y++ {
+				for x := 0; x < resolution; x++ {
+					coord := spatial.Coordinate{Face: face, X: x, Y: y}
+					elev := g.SphereHeightmap.Get(coord)
+					if elev > threshold {
+						erosion := (elev - threshold) * 0.1 * severity
+						g.SphereHeightmap.Set(coord, elev-erosion)
+					}
+				}
+			}
+		}
+		g.syncSphereToFlat()
+	} else {
+		// Fallback to flat heightmap
+		threshold := g.Heightmap.MaxElev * 0.6
+		for y := 0; y < g.Heightmap.Height; y++ {
+			for x := 0; x < g.Heightmap.Width; x++ {
+				elev := g.Heightmap.Get(x, y)
+				if elev > threshold {
+					erosion := (elev - threshold) * 0.1 * severity
+					g.Heightmap.Set(x, y, elev-erosion)
+				}
 			}
 		}
 	}
@@ -724,8 +817,8 @@ func (g *WorldGeology) applyContinentalDrift(severity float64) {
 		// Run spherical tectonics simulation to create mountain ranges and trenches
 		g.SphereHeightmap = geography.SimulateTectonics(g.Plates, g.SphereHeightmap, g.Topology)
 
-		// Update the flat heightmap for legacy consumers
-		g.Heightmap = g.sphereToFlat(g.SphereHeightmap, g.Heightmap.Width, g.Heightmap.Height)
+		// Sync to flat heightmap for legacy consumers
+		g.syncSphereToFlat()
 	} else {
 		// Fallback: simple uplift for when spherical data isn't available
 		for i := range g.Heightmap.Elevations {
@@ -738,28 +831,73 @@ func (g *WorldGeology) applyContinentalDrift(severity float64) {
 
 // applyFloodBasalt creates large volcanic provinces
 func (g *WorldGeology) applyFloodBasalt(severity float64) {
-	// Large area volcanic activity
-	centerX := g.rng.Intn(g.Heightmap.Width)
-	centerY := g.rng.Intn(g.Heightmap.Height)
-
-	// Radius based on severity (30-100 pixels)
+	// Radius based on severity (30-100 cells)
 	radius := 30 + int(severity*70)
 
-	// Height of basalt layers (100-500m, reduced from 500-2000m)
+	// Height of basalt layers (100-500m)
 	height := 100 + severity*400
 
-	// Apply basalt layers with gradual falloff
-	for dy := -radius; dy <= radius; dy++ {
-		for dx := -radius; dx <= radius; dx++ {
-			px, py := centerX+dx, centerY+dy
-			if px >= 0 && px < g.Heightmap.Width && py >= 0 && py < g.Heightmap.Height {
-				dist := math.Sqrt(float64(dx*dx + dy*dy))
-				if dist < float64(radius) {
-					factor := 1.0 - (dist / float64(radius))
-					factor = factor * factor // Smoother falloff
+	// Use spherical operations if available
+	if g.SphereHeightmap != nil && g.Topology != nil {
+		resolution := g.Topology.Resolution()
+		// Random center on sphere
+		centerFace := g.rng.Intn(6)
+		centerX := g.rng.Intn(resolution)
+		centerY := g.rng.Intn(resolution)
+		center := spatial.Coordinate{Face: centerFace, X: centerX, Y: centerY}
 
-					current := g.Heightmap.Get(px, py)
-					g.Heightmap.Set(px, py, current+height*factor)
+		// Use BFS to apply basalt with proper cross-face handling
+		visited := make(map[spatial.Coordinate]bool)
+		queue := []struct {
+			coord spatial.Coordinate
+			dist  int
+		}{{center, 0}}
+		visited[center] = true
+
+		directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+
+		for len(queue) > 0 {
+			current := queue[0]
+			queue = queue[1:]
+
+			if current.dist < radius {
+				dist := float64(current.dist)
+				factor := 1.0 - (dist / float64(radius))
+				factor = factor * factor // Smoother falloff
+
+				currentElev := g.SphereHeightmap.Get(current.coord)
+				g.SphereHeightmap.Set(current.coord, currentElev+height*factor)
+
+				// Expand to neighbors
+				for _, dir := range directions {
+					neighbor := g.Topology.GetNeighbor(current.coord, dir)
+					if !visited[neighbor] {
+						visited[neighbor] = true
+						queue = append(queue, struct {
+							coord spatial.Coordinate
+							dist  int
+						}{neighbor, current.dist + 1})
+					}
+				}
+			}
+		}
+		g.syncSphereToFlat()
+	} else {
+		// Fallback to flat heightmap
+		centerX := g.rng.Intn(g.Heightmap.Width)
+		centerY := g.rng.Intn(g.Heightmap.Height)
+
+		for dy := -radius; dy <= radius; dy++ {
+			for dx := -radius; dx <= radius; dx++ {
+				px, py := centerX+dx, centerY+dy
+				if px >= 0 && px < g.Heightmap.Width && py >= 0 && py < g.Heightmap.Height {
+					dist := math.Sqrt(float64(dx*dx + dy*dy))
+					if dist < float64(radius) {
+						factor := 1.0 - (dist / float64(radius))
+						factor = factor * factor
+						current := g.Heightmap.Get(px, py)
+						g.Heightmap.Set(px, py, current+height*factor)
+					}
 				}
 			}
 		}
