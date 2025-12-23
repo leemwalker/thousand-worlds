@@ -467,6 +467,25 @@ func (g *WorldGeology) SimulateGeology(yearsElapsed int64, globalTempMod float64
 	// Uses new Weather→Biome pipeline
 	g.Biomes = g.generateBiomesFromClimate(globalTempMod)
 
+	// Fix 3: Apply isostatic adjustment - high mountains slowly subside
+	// Mountains above 8km (Everest scale) experience isostatic rebound pressure
+	for i, elev := range g.Heightmap.Elevations {
+		if elev > 8000 {
+			// Subsidence rate: 0.01% of excess height per 10k years
+			excess := elev - 8000
+			subsidence := excess * 0.0001 * float64(yearsElapsed) / 10000
+			g.Heightmap.Elevations[i] -= subsidence
+		}
+	}
+
+	// Fix 4: Sea level equilibrium model - sea level recovers toward baseline
+	// Instead of permanent drops, sea level trends back to 0 over geological time
+	// This simulates glacial melt and thermal expansion during interglacials
+	targetSeaLevel := 0.0 // Baseline sea level
+	recoveryRate := 0.001 // 0.1% per 10k years
+	seaLevelChange := (targetSeaLevel - g.SeaLevel) * recoveryRate * float64(yearsElapsed) / 10000
+	g.SeaLevel += seaLevelChange
+
 	// Update heightmap min/max
 	g.updateHeightmapStats()
 }
@@ -582,8 +601,9 @@ func (g *WorldGeology) applyVolcanicMountains(severity float64) {
 		x := float64(g.rng.Intn(g.Heightmap.Width))
 		y := float64(g.rng.Intn(g.Heightmap.Height))
 
-		// Volcano height based on severity (2000-5000m)
-		height := 2000 + severity*3000
+		// Volcano height based on severity (200-500m per event, not 2-5km!)
+		// Real volcanic eruptions add 10-100m typically; we use higher for gameplay
+		height := 200 + severity*300
 		radius := 2.0 + g.rng.Float64()*2.0
 
 		geography.ApplyVolcano(g.Heightmap, x, y, radius, height)
@@ -676,8 +696,8 @@ func (g *WorldGeology) applyFloodBasalt(severity float64) {
 	// Radius based on severity (30-100 pixels)
 	radius := 30 + int(severity*70)
 
-	// Height of basalt layers (500-2000m)
-	height := 500 + severity*1500
+	// Height of basalt layers (100-500m, reduced from 500-2000m)
+	height := 100 + severity*400
 
 	// Apply basalt layers with gradual falloff
 	for dy := -radius; dy <= radius; dy++ {

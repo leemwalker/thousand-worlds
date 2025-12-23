@@ -76,9 +76,9 @@ func (g *GeologicalEventManager) CheckForNewEvents(currentTick, ticksElapsed int
 		// We want probabilities to be per-check
 
 		// Volcanic winter: now tied to tectonic activity
-		// Base chance 0.01% per check (approx 1 per 2.7M years at base)
-		// Max chance 0.15% per check (approx 1 per 180k years at max activity)
-		volcanicChance := (0.0001 + g.TectonicActivity*0.0014) * (float64(chunkSize) / float64(stepSize))
+		// Base chance 0.001% per check (reduced 10x from 0.01%)
+		// This reduces volcanic winters from ~5000 to ~500 per billion years
+		volcanicChance := (0.00001 + g.TectonicActivity*0.00014) * (float64(chunkSize) / float64(stepSize))
 		if g.rng.Float64() < volcanicChance {
 			g.ActiveEvents = append(g.ActiveEvents, GeologicalEvent{
 				Type:           EventVolcanicWinter,
@@ -212,9 +212,10 @@ func (g *GeologicalEventManager) updateClimateRecovery(currentTick, chunkSize in
 	// If world has been cooling for >50k years, increase chance of warming event
 	if g.RecentCoolingYears > 50000 {
 		// Warming chance scales with how long they've been cold
-		warmingChance := float64(g.RecentCoolingYears-50000) / 500000.0 // Up to ~10% after 500k years
-		if warmingChance > 0.1 {
-			warmingChance = 0.1
+		// Increased from ~10% max to ~30% max for faster climate recovery
+		warmingChance := float64(g.RecentCoolingYears-50000) / 200000.0 // Up to ~30% after 200k years
+		if warmingChance > 0.3 {
+			warmingChance = 0.3
 		}
 
 		if g.rng.Float64() < warmingChance*(float64(chunkSize)/10000.0) {
@@ -253,6 +254,15 @@ func (g *GeologicalEventManager) GetEnvironmentModifiers() (tempMod, sunlightMod
 		tempMod += e.TemperatureMod
 		sunlightMod *= e.SunlightMod
 		oxygenMod *= e.OxygenMod
+	}
+
+	// Cap temperature modifiers to prevent runaway cooling/heating
+	// Earth-like worlds should stay within ±50°C of baseline
+	if tempMod < -50 {
+		tempMod = -50
+	}
+	if tempMod > 50 {
+		tempMod = 50
 	}
 
 	return tempMod, sunlightMod, oxygenMod
