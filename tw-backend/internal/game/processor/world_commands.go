@@ -718,131 +718,132 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 
 			if newEvents > 0 {
 				geologicalEvents += newEvents
-			}
-
-			// Process ALL active events for biome transitions and effects
-			// This ensures warming events (climate recovery) are properly handled
-			for _, e := range geoManager.ActiveEvents {
-				// Check if this event started recently (within this check period)
-				eventAge := tick - e.StartTick
-				isNewEvent := eventAge < 365*10000 // Within the last 10k years
-
-				if isNewEvent {
-					geologicalEvents++
-					eventCounts[e.Type]++
-					// Log the event
-					client.SendGameMessage("system", fmt.Sprintf("⚠️ GEOLOGICAL EVENT: %s (severity: %.0f%%)", e.Type, e.Severity*100), nil)
-					geology.ApplyEvent(e)
-
-					// Apply extinction event to populations based on event type
-					if simulateLife {
-						eventType := population.ExtinctionEventType(e.Type)
-						deaths := popSim.ApplyExtinctionEvent(eventType, e.Severity)
-						if deaths > 100 {
-							client.SendGameMessage("system", fmt.Sprintf("   💀 %d organisms perished", deaths), nil)
-						}
-					}
-				}
-
-				// Apply biome transitions for ALL active events (cooling AND warming)
-				// This is what allows climate recovery to work!
-				eventType := population.ExtinctionEventType(e.Type)
-				transitioned := popSim.ApplyBiomeTransitions(eventType, e.Severity)
-				if transitioned > 0 {
-					if e.Type == ecosystem.EventWarming || e.Type == ecosystem.EventGreenhouseSpike {
-						client.SendGameMessage("system", fmt.Sprintf("   🌡️ %d biomes warming! Climate recovery in progress", transitioned), nil)
-					} else {
-						client.SendGameMessage("system", fmt.Sprintf("   🌍 %d biomes shifted due to climate change", transitioned), nil)
-					}
-				}
-
-				// Update continental configuration for drift events
-				if eventType == population.EventContinentalDrift && isNewEvent {
-					oldFrag := popSim.ContinentalFragmentation
-					newFrag := popSim.UpdateContinentalConfiguration(true, e.Severity)
-					popSim.ApplyContinentalEffects()
-
-					// Report significant configuration changes
-					fragChange := math.Abs(newFrag - oldFrag)
-					if fragChange > 0.05 {
-						var status string
-						if newFrag > 0.7 {
-							status = "fragmented (high endemism)"
-						} else if newFrag < 0.3 {
-							status = "unified (supercontinent forming)"
-						} else {
-							status = "moderate"
-						}
-						client.SendGameMessage("system", fmt.Sprintf("   🗺️ Continental configuration: %s (%.0f%%)", status, newFrag*100), nil)
-					}
-				}
-			}
-
-			// Calculate current global temperature modifier
-			tempMod, _, _ := geoManager.GetEnvironmentModifiers()
-
-			// Update geology with climate awareness
-			geology.SimulateGeology(10000, tempMod)
-
-			// Update geographic systems (hex grid, regions, tectonics)
-			if simulateLife {
-				popSim.UpdateGeographicSystems(10000)
-
-				// Apply isolation effects (gigantism/dwarfism) to isolated regions
-				isolationAffected := popSim.ApplyIsolationEffects()
-				if isolationAffected > 0 && year%100000 == 0 {
-					client.SendGameMessage("system", fmt.Sprintf("🏝️ Island effects: %d species affected by isolation", isolationAffected), nil)
-				}
-			}
-		}
-
-		// Regional migration every 100,000 years
-		if simulateLife && year%100000 == 0 && year > 0 {
-			migrations := popSim.ApplyRegionalMigration()
-			if migrations > 0 {
-				client.SendGameMessage("system", fmt.Sprintf("🌍 Regional migration: %d species expanded to new regions", migrations), nil)
-			}
-		}
-
-		// Check for turning points every 100,000 years
-		if simulateLife && year%100000 == 0 && year > 0 {
-			totalPop, totalSpecies, _ := popSim.GetStats()
-
-			// Determine significant event string based on recent activity
-			significantEvent := ""
-			if len(geoManager.ActiveEvents) > 0 {
+				// Process ALL active events for biome transitions and effects
+				// This ensures warming events (climate recovery) are properly handled
 				for _, e := range geoManager.ActiveEvents {
-					if e.Severity > 0.5 {
-						significantEvent = string(e.Type)
-						break
+					eventType := population.ExtinctionEventType(e.Type)
+
+					// Check if this event started recently (within this check period)
+					eventAge := tick - e.StartTick
+					isNewEvent := eventAge < 365*10000 // Within the last 10k years
+
+					if isNewEvent {
+						geologicalEvents++
+						eventCounts[e.Type]++
+						// Log the event
+						client.SendGameMessage("system", fmt.Sprintf("⚠️ GEOLOGICAL EVENT: %s (severity: %.0f%%)", e.Type, e.Severity*100), nil)
+						geology.ApplyEvent(e)
+
+						// Apply extinction event to populations based on event type
+						if simulateLife {
+							deaths := popSim.ApplyExtinctionEvent(eventType, e.Severity)
+							if deaths > 100 {
+								client.SendGameMessage("system", fmt.Sprintf("   💀 %d organisms perished", deaths), nil)
+							}
+						}
+					}
+
+					// Apply biome transitions for ALL active events (cooling AND warming)
+					// This is what allows climate recovery to work!
+					if simulateLife && popSim != nil {
+						transitioned := popSim.ApplyBiomeTransitions(eventType, e.Severity)
+						if transitioned > 0 {
+							if e.Type == ecosystem.EventWarming || e.Type == ecosystem.EventGreenhouseSpike {
+								client.SendGameMessage("system", fmt.Sprintf("   🌡️ %d biomes warming! Climate recovery in progress", transitioned), nil)
+							} else {
+								client.SendGameMessage("system", fmt.Sprintf("   🌍 %d biomes shifted due to climate change", transitioned), nil)
+							}
+						}
+					}
+
+					// Update continental configuration for drift events
+					if eventType == population.EventContinentalDrift && isNewEvent && popSim != nil {
+						oldFrag := popSim.ContinentalFragmentation
+						newFrag := popSim.UpdateContinentalConfiguration(true, e.Severity)
+						popSim.ApplyContinentalEffects()
+
+						// Report significant configuration changes
+						fragChange := math.Abs(newFrag - oldFrag)
+						if fragChange > 0.05 {
+							var status string
+							if newFrag > 0.7 {
+								status = "fragmented (high endemism)"
+							} else if newFrag < 0.3 {
+								status = "unified (supercontinent forming)"
+							} else {
+								status = "moderate"
+							}
+							client.SendGameMessage("system", fmt.Sprintf("   🗺️ Continental configuration: %s (%.0f%%)", status, newFrag*100), nil)
+						}
+					}
+				}
+
+				// Calculate current global temperature modifier
+				tempMod, _, _ := geoManager.GetEnvironmentModifiers()
+
+				// Update geology with climate awareness
+				geology.SimulateGeology(10000, tempMod)
+
+				// Update geographic systems (hex grid, regions, tectonics)
+				if simulateLife && popSim != nil {
+					popSim.UpdateGeographicSystems(10000)
+
+					// Apply isolation effects (gigantism/dwarfism) to isolated regions
+					isolationAffected := popSim.ApplyIsolationEffects()
+					if isolationAffected > 0 && year%100000 == 0 {
+						client.SendGameMessage("system", fmt.Sprintf("🏝️ Island effects: %d species affected by isolation", isolationAffected), nil)
 					}
 				}
 			}
 
-			// Check for turning point
-			tp := turningPointMgr.CheckForTurningPoint(
-				popSim.CurrentYear,
-				int(totalSpecies),
-				recentExtinctions,
-				newSapientSpecies,
-				significantEvent,
-			)
-
-			if tp != nil {
-				client.SendGameMessage("system", fmt.Sprintf("🔮 TURNING POINT: %s - %s", tp.Title, tp.Description), nil)
-				if simLogger != nil {
-					simLogger.LogTurningPoint(ctx, popSim.CurrentYear, string(tp.Trigger), "auto_resolved")
-				}
-				// For sync simulation, auto-resolve with first option (observe only)
-				if len(tp.Interventions) > 0 {
-					turningPointMgr.ResolveTurningPoint(tp.ID, tp.Interventions[0].ID)
+			// Regional migration every 100,000 years
+			if simulateLife && popSim != nil && year%100000 == 0 && year > 0 {
+				migrations := popSim.ApplyRegionalMigration()
+				if migrations > 0 {
+					client.SendGameMessage("system", fmt.Sprintf("🌍 Regional migration: %d species expanded to new regions", migrations), nil)
 				}
 			}
 
-			// Reset periodic counters
-			recentExtinctions = 0
-			newSapientSpecies = []uuid.UUID{}
-			_ = totalPop // Silence unused variable warning
+			// Check for turning points every 100,000 years
+			if simulateLife && popSim != nil && year%100000 == 0 && year > 0 {
+				totalPop, totalSpecies, _ := popSim.GetStats()
+
+				// Determine significant event string based on recent activity
+				significantEvent := ""
+				if len(geoManager.ActiveEvents) > 0 {
+					for _, e := range geoManager.ActiveEvents {
+						if e.Severity > 0.5 {
+							significantEvent = string(e.Type)
+							break
+						}
+					}
+				}
+
+				// Check for turning point
+				tp := turningPointMgr.CheckForTurningPoint(
+					popSim.CurrentYear,
+					int(totalSpecies),
+					recentExtinctions,
+					newSapientSpecies,
+					significantEvent,
+				)
+
+				if tp != nil {
+					client.SendGameMessage("system", fmt.Sprintf("🔮 TURNING POINT: %s - %s", tp.Title, tp.Description), nil)
+					if simLogger != nil {
+						simLogger.LogTurningPoint(ctx, popSim.CurrentYear, string(tp.Trigger), "auto_resolved")
+					}
+					// For sync simulation, auto-resolve with first option (observe only)
+					if len(tp.Interventions) > 0 {
+						turningPointMgr.ResolveTurningPoint(tp.ID, tp.Interventions[0].ID)
+					}
+				}
+
+				// Reset periodic counters
+				recentExtinctions = 0
+				newSapientSpecies = []uuid.UUID{}
+				_ = totalPop // Silence unused variable warning
+			}
 		}
 	}
 
