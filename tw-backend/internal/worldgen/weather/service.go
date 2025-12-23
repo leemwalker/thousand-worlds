@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"tw-backend/internal/spatial"
+
 	"github.com/google/uuid"
 )
 
@@ -16,6 +18,7 @@ type Service struct {
 	stateCache map[uuid.UUID]map[uuid.UUID]*WeatherState // worldID -> cellID -> State
 	geoCache   map[uuid.UUID][]*GeographyCell            // worldID -> cells
 	cacheMutex sync.RWMutex
+	topology   spatial.Topology // Optional: nil = flat mode
 }
 
 // NewService creates a new weather service
@@ -25,6 +28,17 @@ func NewService(repo Repository) *Service {
 		stateCache: make(map[uuid.UUID]map[uuid.UUID]*WeatherState),
 		geoCache:   make(map[uuid.UUID][]*GeographyCell),
 	}
+}
+
+// WithTopology sets the spherical topology for the service.
+// When set, the service uses spherical coordinates for weather calculations.
+func (s *Service) WithTopology(t spatial.Topology) {
+	s.topology = t
+}
+
+// Topology returns the current topology (nil if flat mode)
+func (s *Service) Topology() spatial.Topology {
+	return s.topology
 }
 
 // UpdateWorldWeather updates weather for all cells in a world

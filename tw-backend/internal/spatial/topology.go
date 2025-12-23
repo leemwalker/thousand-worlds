@@ -1,9 +1,40 @@
 package spatial
 
+import "math"
+
 // Coordinate represents a position on a cube-sphere topology.
 type Coordinate struct {
 	Face int // 0-5 representing the 6 cube faces
 	X, Y int // Position within the face grid
+}
+
+// Vector3D represents a 3D vector for wind direction, movement, etc.
+type Vector3D struct {
+	X, Y, Z float64
+}
+
+// Normalize returns a unit vector in the same direction
+func (v Vector3D) Normalize() Vector3D {
+	mag := math.Sqrt(v.X*v.X + v.Y*v.Y + v.Z*v.Z)
+	if mag == 0 {
+		return Vector3D{}
+	}
+	return Vector3D{X: v.X / mag, Y: v.Y / mag, Z: v.Z / mag}
+}
+
+// Dot returns the dot product of two vectors
+func (v Vector3D) Dot(other Vector3D) float64 {
+	return v.X*other.X + v.Y*other.Y + v.Z*other.Z
+}
+
+// Scale returns the vector multiplied by a scalar
+func (v Vector3D) Scale(s float64) Vector3D {
+	return Vector3D{X: v.X * s, Y: v.Y * s, Z: v.Z * s}
+}
+
+// Add returns the sum of two vectors
+func (v Vector3D) Add(other Vector3D) Vector3D {
+	return Vector3D{X: v.X + other.X, Y: v.Y + other.Y, Z: v.Z + other.Z}
 }
 
 // DirectionDelta returns the (dx, dy) movement delta for a direction.
