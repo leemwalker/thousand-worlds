@@ -2,6 +2,7 @@ package geography
 
 import (
 	"math/rand"
+	"tw-backend/internal/spatial"
 )
 
 // GenerateRivers creates river paths based on heightmap
@@ -100,4 +101,133 @@ func traceRiver(hm *Heightmap, sx, sy int, seaLevel float64, visited map[int]boo
 	}
 
 	return path
+}
+
+// =============================================================================
+// Spherical River Generation
+// =============================================================================
+
+// SphericalRiverPath represents a river as a sequence of spherical coordinates
+type SphericalRiverPath struct {
+	Points []spatial.Coordinate
+}
+
+// GenerateRiversSpherical creates river paths on a spherical heightmap
+// Uses topology-aware neighbor lookups for proper cross-face water flow
+func GenerateRiversSpherical(hm *SphereHeightmap, seaLevel float64, seed int64) []SphericalRiverPath {
+	var rivers []SphericalRiverPath
+	r := rand.New(rand.NewSource(seed))
+	topology := hm.Topology()
+	resolution := topology.Resolution()
+
+	// Track visited cells to avoid merging too often
+	visited := make(map[spatial.Coordinate]bool)
+
+	// Number of rivers based on total sphere surface area
+	totalCells := 6 * resolution * resolution
+	numRivers := totalCells / 50
+
+	for i := 0; i < numRivers; i++ {
+		// Pick random source on sphere
+		face := r.Intn(6)
+		x := r.Intn(resolution)
+		y := r.Intn(resolution)
+		source := spatial.Coordinate{Face: face, X: x, Y: y}
+
+		elev := hm.Get(source)
+
+		// Must be high elevation and not already visited
+		if elev > seaLevel+500 && !visited[source] {
+			path := traceRiverSpherical(hm, source, seaLevel, visited)
+			if len(path) > 5 { // Min length
+				rivers = append(rivers, SphericalRiverPath{Points: path})
+
+				// Mark path as visited and apply erosion
+				for _, coord := range path {
+					visited[coord] = true
+
+					// Erosion: Carve valley
+					current := hm.Get(coord)
+					hm.Set(coord, current-20)
+				}
+			}
+		}
+	}
+
+	return rivers
+}
+
+// traceRiverSpherical traces water downhill from source to sea/lake
+// Uses topology for cross-face neighbor lookups
+func traceRiverSpherical(hm *SphereHeightmap, source spatial.Coordinate, seaLevel float64, visited map[spatial.Coordinate]bool) []spatial.Coordinate {
+	path := []spatial.Coordinate{source}
+	current := source
+	topology := hm.Topology()
+
+	// Cardinal directions for neighbor traversal
+	directions := []spatial.Direction{
+		spatial.North, spatial.South, spatial.East, spatial.West,
+	}
+
+	for {
+		// Find lowest neighbor
+		var bestNeighbor spatial.Coordinate
+		minElev := hm.Get(current)
+		foundDownhill := false
+
+		for _, dir := range directions {
+			neighbor := topology.GetNeighbor(current, dir)
+			elev := hm.Get(neighbor)
+			if elev < minElev {
+				minElev = elev
+				bestNeighbor = neighbor
+				foundDownhill = true
+			}
+		}
+
+		if !foundDownhill {
+			// Local minimum (lake) or ocean
+			break
+		}
+
+		// Move to lowest neighbor
+		current = bestNeighbor
+		path = append(path, current)
+
+		// Check if reached ocean
+		if minElev <= seaLevel {
+			break
+		}
+
+		// Max length protection
+		if len(path) > 500 {
+			break
+		}
+
+		// If we hit an existing river, merge and stop
+		if visited[current] {
+			break
+		}
+	}
+
+	return path
+}
+
+// ConvertSphericalRiversToFlat converts spherical river paths to flat 2D points
+// for legacy consumers that expect [][]Point
+func ConvertSphericalRiversToFlat(rivers []SphericalRiverPath, resolution int) [][]Point {
+	result := make([][]Point, len(rivers))
+
+	for i, river := range rivers {
+		points := make([]Point, len(river.Points))
+		for j, coord := range river.Points {
+			// Simple projection: face * resolution + x, y wrapped
+			flatX := float64(coord.Face*resolution + coord.X)
+			flatY := float64(coord.Y)
+			points[j] = Point{X: flatX, Y: flatY}
+		}
+		result[i] = points
+	}
+
+	return result
 }

@@ -143,8 +143,15 @@ func (g *WorldGeology) InitializeGeology() {
 	// Calculate initial sea level (target ~30% land coverage)
 	g.SeaLevel = geography.AssignOceanLand(g.Heightmap, 0.3)
 
-	// Generate initial rivers
-	g.Rivers = geography.GenerateRivers(g.Heightmap, g.SeaLevel, g.Seed)
+	// Generate initial rivers using spherical algorithm
+	if g.SphereHeightmap != nil {
+		sphereRivers := geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed)
+		g.Rivers = geography.ConvertSphericalRiversToFlat(sphereRivers, g.Topology.Resolution())
+		// Sync sphere heightmap changes from river erosion
+		g.syncSphereToFlat()
+	} else {
+		g.Rivers = geography.GenerateRivers(g.Heightmap, g.SeaLevel, g.Seed)
+	}
 
 	// Initialize biomes using Weather→Biome pipeline (no latitude coupling)
 	g.Biomes = g.generateBiomesFromClimate(0.0) // No global temp modifier initially
@@ -478,9 +485,15 @@ func (g *WorldGeology) SimulateGeology(yearsElapsed int64, globalTempMod float64
 		g.simulateDepositEvolution(yearsElapsed)
 	}
 
-	// Regenerate dynamic features
+	// Regenerate dynamic features using spherical algorithms
 	// Rivers and biomes change as terrain evolves
-	g.Rivers = geography.GenerateRivers(g.Heightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
+	if g.SphereHeightmap != nil {
+		sphereRivers := geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
+		g.Rivers = geography.ConvertSphericalRiversToFlat(sphereRivers, g.Topology.Resolution())
+		g.syncSphereToFlat() // Sync river erosion to flat heightmap
+	} else {
+		g.Rivers = geography.GenerateRivers(g.Heightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
+	}
 	// Pass global temperature modifier to biome assignment
 	// Uses new Weather→Biome pipeline
 	g.Biomes = g.generateBiomesFromClimate(globalTempMod)
