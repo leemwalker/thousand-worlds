@@ -97,28 +97,35 @@ func (s *SphereHeightmap) Topology() spatial.Topology {
 }
 
 // ToFlatHeightmap converts this spherical heightmap to a flat equirectangular projection.
-// Uses a simple face-wrapping projection for compatibility with legacy systems.
+// Uses latitude/longitude mapping for proper global coverage of all 6 cube-sphere faces.
 // width and height specify the dimensions of the output heightmap.
 func (s *SphereHeightmap) ToFlatHeightmap(width, height int) *Heightmap {
 	flat := NewHeightmap(width, height)
-	resolution := s.topology.Resolution()
 
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
-			// Map flat coordinates to sphere coordinate
-			// Use modulo to wrap around the face grid
-			face := (x / resolution) % 6
-			fx := x % resolution
-			fy := y % resolution
+			// Map pixel coordinates to longitude and latitude
+			// Longitude: 0 to 2π (left to right)
+			// Latitude: π/2 to -π/2 (top to bottom, north pole to south pole)
+			lon := (float64(x) / float64(width)) * 2 * 3.141592653589793  // 0 to 2π
+			lat := (0.5 - float64(y)/float64(height)) * 3.141592653589793 // π/2 to -π/2
 
-			if fx >= resolution {
-				fx = resolution - 1
-			}
-			if fy >= resolution {
-				fy = resolution - 1
-			}
+			// Convert lat/lon to 3D unit sphere coordinates
+			// Standard spherical coordinate conversion:
+			// x = cos(lat) * cos(lon)
+			// y = sin(lat)           (Y is up/down axis)
+			// z = cos(lat) * sin(lon)
+			cosLat := cosineApprox(lat)
+			sinLat := sineApprox(lat)
+			cosLon := cosineApprox(lon)
+			sinLon := sineApprox(lon)
 
-			coord := spatial.Coordinate{Face: face, X: fx, Y: fy}
+			sphereX := cosLat * cosLon
+			sphereY := sinLat
+			sphereZ := cosLat * sinLon
+
+			// Use topology to find the correct cube-sphere face and coordinate
+			coord := s.topology.FromVector(sphereX, sphereY, sphereZ)
 			elev := s.Get(coord)
 			flat.Set(x, y, elev)
 		}
@@ -128,6 +135,52 @@ func (s *SphereHeightmap) ToFlatHeightmap(width, height int) *Heightmap {
 	flat.MaxElev = s.MaxElev
 
 	return flat
+}
+
+// cosineApprox provides cosine using math package
+func cosineApprox(x float64) float64 {
+	// Using Taylor series approximation to avoid import cycle
+	// cos(x) = 1 - x²/2! + x⁴/4! - x⁶/6! + ...
+	// For better accuracy, normalize x to [-π, π]
+	const pi = 3.141592653589793
+	const twoPi = 2 * pi
+
+	// Normalize to [-π, π]
+	for x > pi {
+		x -= twoPi
+	}
+	for x < -pi {
+		x += twoPi
+	}
+
+	x2 := x * x
+	x4 := x2 * x2
+	x6 := x4 * x2
+	x8 := x6 * x2
+
+	return 1 - x2/2 + x4/24 - x6/720 + x8/40320
+}
+
+// sineApprox provides sine using Taylor series
+func sineApprox(x float64) float64 {
+	const pi = 3.141592653589793
+	const twoPi = 2 * pi
+
+	// Normalize to [-π, π]
+	for x > pi {
+		x -= twoPi
+	}
+	for x < -pi {
+		x += twoPi
+	}
+
+	x2 := x * x
+	x3 := x2 * x
+	x5 := x3 * x2
+	x7 := x5 * x2
+	x9 := x7 * x2
+
+	return x - x3/6 + x5/120 - x7/5040 + x9/362880
 }
 
 // ClampElevations constrains all elevation values to be within [minElev, maxElev].

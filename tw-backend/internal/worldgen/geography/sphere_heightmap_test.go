@@ -139,3 +139,59 @@ func TestSphereHeightmap_MinMaxElev(t *testing.T) {
 		t.Errorf("MaxElev = %f, want 8848.0", max)
 	}
 }
+
+// TestSphereHeightmap_ToFlatHeightmap_SamplesAllFaces verifies that the
+// equirectangular projection correctly samples from all 6 cube-sphere faces.
+// This is a regression test for the bug where only faces 0-1 were sampled.
+func TestSphereHeightmap_ToFlatHeightmap_SamplesAllFaces(t *testing.T) {
+	topo := spatial.NewCubeSphereTopology(64)
+	shm := NewSphereHeightmap(topo)
+
+	// Set a distinctive elevation at the center of each face
+	// Using large, unique values that are easy to identify
+	faceElevations := map[int]float64{
+		0: 1000.0,  // Front
+		1: 2000.0,  // Back
+		2: 3000.0,  // Left
+		3: 4000.0,  // Right
+		4: 5000.0,  // Top
+		5: -5000.0, // Bottom (ocean)
+	}
+
+	for face, elev := range faceElevations {
+		// Set the center of each face
+		shm.Set(spatial.Coordinate{Face: face, X: 32, Y: 32}, elev)
+		// Also set a broader region to increase hit probability
+		for dx := -5; dx <= 5; dx++ {
+			for dy := -5; dy <= 5; dy++ {
+				shm.Set(spatial.Coordinate{Face: face, X: 32 + dx, Y: 32 + dy}, elev)
+			}
+		}
+	}
+	shm.UpdateMinMax()
+
+	// Convert to flat heightmap
+	flat := shm.ToFlatHeightmap(256, 128)
+
+	// Check which face values appear in the flat output
+	facesFound := make(map[int]bool)
+	for _, elev := range flat.Elevations {
+		for face, expected := range faceElevations {
+			// Use tolerance for floating point comparison
+			if elev >= expected-0.1 && elev <= expected+0.1 {
+				facesFound[face] = true
+			}
+		}
+	}
+
+	// Verify at least 4 out of 6 faces are represented
+	// (poles may be compressed in equirectangular projection)
+	if len(facesFound) < 4 {
+		t.Errorf("ToFlatHeightmap only sampled %d faces, want at least 4. Found: %v",
+			len(facesFound), facesFound)
+	}
+
+	// The old broken projection only samples faces 0 and 1
+	// This test will fail if fewer than 4 faces are found
+	t.Logf("Faces found in flat output: %v", facesFound)
+}
