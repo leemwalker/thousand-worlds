@@ -59,8 +59,6 @@ uniform float u_worldRadius;
 uniform vec2 u_playerPos;     // Player position in normalized coords (0-1)
 uniform float u_time;          // For animation
 uniform float u_isSimulated;   // 1.0 = simulated world, 0.0 = lobby/unsimulated
-uniform float u_time;          // For animation
-uniform float u_isSimulated;   // 1.0 = simulated world, 0.0 = lobby/unsimulated
 uniform vec2 u_scale;          // Zoom/Scale factor (X, Y). >1.0 = zoomed out
 uniform vec2 u_center;         // Center of view in normalized coords (0-1)
 
@@ -139,8 +137,6 @@ vec3 getEntityColor(float entityId) {
 void main() {
     // Apply zoom by scaling texture coordinates around center
     // When zoomed out, we sample a larger area of the texture
-    vec2 zoomedCoord = v_texCoord;
-    // Apply scale around center
     // u_scale > 1.0 means we sample a larger area (Zoom Out)
     vec2 zoomedCoord = u_center + (v_texCoord - vec2(0.5)) * u_scale;
     
@@ -169,13 +165,8 @@ void main() {
         color = entityColor;
     }
     
-    // Player marker - static circle at center, size scales with zoom
-    float dist = distance(v_texCoord, vec2(0.5, 0.5));
-    // Player marker - static circle at center, size scales with zoom
-    float dist = distance(v_texCoord, vec2(0.5, 0.5)); // Marker always at screen center if tracking player?
-    // Actually, v_texCoord is screen coordinate (0-1).
-    // The player is at u_playerPos in Texturespace.
-    // If we want to show player on map:
+    // Player marker - circle at player position
+    // v_texCoord is screen coordinate (0-1), u_playerPos is texture space position
     vec2 playerScreenPos = vec2(0.5) + (u_playerPos - u_center) / u_scale;
     float markerDist = distance(v_texCoord, playerScreenPos);
     
