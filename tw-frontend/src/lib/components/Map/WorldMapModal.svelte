@@ -6,7 +6,6 @@
     import { fade, fly } from "svelte/transition";
     import { mapStore } from "$lib/stores/map";
     import { gameWebSocket } from "$lib/services/websocket";
-    import { fade } from "svelte/transition";
 
     export let isOpen = false;
     export let onClose: () => void;
