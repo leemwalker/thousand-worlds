@@ -50,6 +50,13 @@ export const MapUpdateDataSchema = z.object({
     grid_size: z.number().optional(),
     world_id: z.string().optional(),
     render_quality: z.string().optional(),
+    // Simulation stats
+    avg_temperature: z.number().optional(),
+    max_elevation: z.number().optional(),
+    sea_level: z.number().optional(),
+    land_coverage: z.number().optional(),
+    simulated_years: z.number().optional(),
+    seed: z.number().optional(),
 });
 
 // --- Game Message Schema ---

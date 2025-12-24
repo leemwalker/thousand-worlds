@@ -2,7 +2,8 @@
     import { onMount, onDestroy } from "svelte";
     import { MapRenderer } from "./MapRenderer";
     import { WebGLMapRenderer } from "./WebGLMapRenderer";
-    import type { VisibleTile } from "./MapRenderer";
+    import WorldMapLegend from "./WorldMapLegend.svelte";
+    import { fade, fly } from "svelte/transition";
     import { mapStore } from "$lib/stores/map";
     import { gameWebSocket } from "$lib/services/websocket";
     import { fade } from "svelte/transition";
@@ -21,12 +22,37 @@
     // Graphics mode toggle (WebGL vs ASCII)
     let useGraphicsMode = true;
 
-    // Simulation stats
+    // Simulation stats (from events or world data)
     let simStats = {
         year: 0,
         population: 0,
         species: 0,
         events: [] as string[],
+    };
+
+    // Derived stats for HUD
+    $: displayStats = {
+        age: worldMapData?.simulated_years
+            ? (worldMapData.simulated_years / 1_000_000).toFixed(1) + "M Years"
+            : simStats.year > 0
+              ? `Year ${simStats.year}`
+              : "--",
+        temp:
+            worldMapData?.avg_temperature !== undefined
+                ? worldMapData.avg_temperature.toFixed(1) + "°C"
+                : "--",
+        elev:
+            worldMapData?.max_elevation !== undefined
+                ? (worldMapData.max_elevation / 1000).toFixed(1) + "km"
+                : "--",
+        sea:
+            worldMapData?.sea_level !== undefined
+                ? worldMapData.sea_level.toFixed(0) + "m"
+                : "--",
+        land:
+            worldMapData?.land_coverage !== undefined
+                ? worldMapData.land_coverage.toFixed(1) + "%"
+                : "--",
     };
 
     $: if (isOpen && canvas) {
@@ -107,6 +133,8 @@
         // Graphics mode: use WebGL renderer
         if (useGraphicsMode && webglRenderer) {
             webglRenderer.updateData(worldMapData);
+            // Fit to world view initially
+            webglRenderer.fitToWorld();
             return;
         }
 
@@ -330,7 +358,72 @@
                         class="block w-full h-full"
                     ></canvas>
 
-                    <!-- Overlay Controls -->
+                    <!-- Stats HUD (Top Left) -->
+                    <div
+                        class="absolute top-4 left-4 p-4 rounded-lg bg-gray-900/80 backdrop-blur border border-gray-700 shadow-xl min-w-[200px]"
+                        transition:fade
+                    >
+                        <h3
+                            class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 border-b border-gray-700 pb-2"
+                        >
+                            Planetary Data
+                        </h3>
+
+                        <div class="space-y-3 font-mono text-sm">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400">Age</span>
+                                <span class="text-purple-400 font-bold"
+                                    >{displayStats.age}</span
+                                >
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400">Avg Temp</span>
+                                <span class="text-red-400 font-bold"
+                                    >{displayStats.temp}</span
+                                >
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400">Max Elev</span>
+                                <span class="text-yellow-400"
+                                    >{displayStats.elev}</span
+                                >
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400">Sea Level</span>
+                                <span class="text-blue-400"
+                                    >{displayStats.sea}</span
+                                >
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-400">Land Mass</span>
+                                <span class="text-green-400"
+                                    >{displayStats.land}</span
+                                >
+                            </div>
+
+                            {#if worldMapData?.seed}
+                                <div
+                                    class="pt-2 mt-2 border-t border-gray-700 text-xs flex justify-between"
+                                >
+                                    <span class="text-gray-500">Seed</span>
+                                    <span class="text-gray-400"
+                                        >{worldMapData.seed}</span
+                                    >
+                                </div>
+                            {/if}
+                        </div>
+                    </div>
+
+                    <!-- Legend (Bottom Left) -->
+                    <div class="absolute bottom-4 left-4" transition:fade>
+                        <WorldMapLegend
+                            mode={worldMapData?.is_simulated
+                                ? "terrain"
+                                : "biome"}
+                        />
+                    </div>
+
+                    <!-- Overlay Controls (Bottom Right) -->
                     <div class="absolute bottom-4 right-4 flex gap-2">
                         <div
                             class="bg-gray-800/80 p-2 rounded text-xs text-gray-300"
@@ -340,98 +433,11 @@
                     </div>
                 </div>
 
-                <!-- Sidebar / Stats -->
+                <!-- Sidebar / Event Log Only -->
                 <div
-                    class="w-80 bg-gray-850 border-l border-gray-800 flex flex-col"
+                    class="w-72 bg-gray-850 border-l border-gray-800 flex flex-col"
                 >
-                    <div class="p-4 border-b border-gray-800">
-                        <h3 class="font-bold text-gray-300 mb-2">
-                            World Stats
-                        </h3>
-                        <div class="grid grid-cols-2 gap-2 text-sm">
-                            <div class="bg-gray-800 p-2 rounded">
-                                <div class="text-gray-500 text-xs">
-                                    Avg Temperature
-                                </div>
-                                <div class="text-red-400 font-mono">
-                                    {worldMapData?.avg_temperature !== undefined
-                                        ? worldMapData.avg_temperature.toFixed(
-                                              1,
-                                          ) + "°C"
-                                        : "--°C"}
-                                </div>
-                            </div>
-                            <div class="bg-gray-800 p-2 rounded">
-                                <div class="text-gray-500 text-xs">
-                                    Max Elev
-                                </div>
-                                <div class="text-yellow-400 font-mono">
-                                    {worldMapData?.max_elevation !== undefined
-                                        ? (
-                                              worldMapData.max_elevation / 1000
-                                          ).toFixed(1) + "km"
-                                        : "--"}
-                                </div>
-                            </div>
-                            <div class="bg-gray-800 p-2 rounded">
-                                <div class="text-gray-500 text-xs">
-                                    Sea Level
-                                </div>
-                                <div class="text-blue-400 font-mono">
-                                    {worldMapData?.sea_level !== undefined
-                                        ? worldMapData.sea_level.toFixed(0) +
-                                          "m"
-                                        : "--"}
-                                </div>
-                            </div>
-                            <div class="bg-gray-800 p-2 rounded">
-                                <div class="text-gray-500 text-xs">
-                                    Land Coverage
-                                </div>
-                                <div class="text-green-400 font-mono">
-                                    {worldMapData?.land_coverage !== undefined
-                                        ? worldMapData.land_coverage.toFixed(
-                                              1,
-                                          ) + "%"
-                                        : "--%"}
-                                </div>
-                            </div>
-                        </div>
-                        {#if worldMapData?.simulated_years || worldMapData?.seed}
-                            <div class="mt-3 border-t border-gray-700 pt-3">
-                                <div class="grid grid-cols-2 gap-2 text-sm">
-                                    {#if worldMapData?.simulated_years}
-                                        <div class="bg-gray-800 p-2 rounded">
-                                            <div class="text-gray-500 text-xs">
-                                                Years Simulated
-                                            </div>
-                                            <div
-                                                class="text-purple-400 font-mono"
-                                            >
-                                                {(
-                                                    worldMapData.simulated_years /
-                                                    1000000
-                                                ).toFixed(1)}M
-                                            </div>
-                                        </div>
-                                    {/if}
-                                    {#if worldMapData?.seed}
-                                        <div class="bg-gray-800 p-2 rounded">
-                                            <div class="text-gray-500 text-xs">
-                                                Seed
-                                            </div>
-                                            <div
-                                                class="text-gray-400 font-mono text-xs"
-                                            >
-                                                {worldMapData.seed}
-                                            </div>
-                                        </div>
-                                    {/if}
-                                </div>
-                            </div>
-                        {/if}
-                    </div>
-
+                    <!-- Old Stats removed, now in HUD -->
                     <div class="flex-1 flex flex-col overflow-hidden">
                         <h3 class="font-bold text-gray-300 p-4 pb-2">
                             Event Log

@@ -59,7 +59,10 @@ uniform float u_worldRadius;
 uniform vec2 u_playerPos;     // Player position in normalized coords (0-1)
 uniform float u_time;          // For animation
 uniform float u_isSimulated;   // 1.0 = simulated world, 0.0 = lobby/unsimulated
-uniform float u_zoomLevel;     // 1.0 = normal, >1.0 = zoomed out (flying)
+uniform float u_time;          // For animation
+uniform float u_isSimulated;   // 1.0 = simulated world, 0.0 = lobby/unsimulated
+uniform vec2 u_scale;          // Zoom/Scale factor (X, Y). >1.0 = zoomed out
+uniform vec2 u_center;         // Center of view in normalized coords (0-1)
 
 // Earth elevation color stops (hypsometric + bathymetric)
 const vec3 COLOR_DEEP_OCEAN = vec3(0.02, 0.05, 0.1);      // -6000m
@@ -137,11 +140,9 @@ void main() {
     // Apply zoom by scaling texture coordinates around center
     // When zoomed out, we sample a larger area of the texture
     vec2 zoomedCoord = v_texCoord;
-    if (u_zoomLevel > 1.0) {
-        // Center zoom on player position (0.5, 0.5 for minimap)
-        vec2 center = vec2(0.5, 0.5);
-        zoomedCoord = center + (v_texCoord - center) * u_zoomLevel;
-    }
+    // Apply scale around center
+    // u_scale > 1.0 means we sample a larger area (Zoom Out)
+    vec2 zoomedCoord = u_center + (v_texCoord - vec2(0.5)) * u_scale;
     
     // Check if zoomed coordinates are out of bounds
     if (zoomedCoord.x < 0.0 || zoomedCoord.x > 1.0 || 
@@ -170,9 +171,18 @@ void main() {
     
     // Player marker - static circle at center, size scales with zoom
     float dist = distance(v_texCoord, vec2(0.5, 0.5));
-    float markerSize = 0.02 / max(u_zoomLevel, 1.0); // Scale marker with zoom
-    if (dist < markerSize) {
-        float alpha = smoothstep(markerSize, markerSize * 0.5, dist);
+    // Player marker - static circle at center, size scales with zoom
+    float dist = distance(v_texCoord, vec2(0.5, 0.5)); // Marker always at screen center if tracking player?
+    // Actually, v_texCoord is screen coordinate (0-1).
+    // The player is at u_playerPos in Texturespace.
+    // If we want to show player on map:
+    vec2 playerScreenPos = vec2(0.5) + (u_playerPos - u_center) / u_scale;
+    float markerDist = distance(v_texCoord, playerScreenPos);
+    
+    float zoomFactor = max(u_scale.x, u_scale.y);
+    float markerSize = 0.02 / zoomFactor; // Scale marker with zoom (larger when zoomed in)
+    if (markerDist < markerSize) {
+        float alpha = smoothstep(markerSize, markerSize * 0.5, markerDist);
         color = mix(color, COLOR_PLAYER, alpha);
     }
     
@@ -250,8 +260,11 @@ export class WebGLMapRenderer {
     // Whether this is a simulated world (has geology) or lobby/unsimulated
     private isSimulated: boolean = false;
 
-    // Zoom level based on altitude (1.0 = normal, >1.0 = zoomed out for flying)
-    private zoomLevel: number = 1.0;
+    // View Transform
+    private scaleX: number = 1.0;
+    private scaleY: number = 1.0;
+    private centerX: number = 0.5;
+    private centerY: number = 0.5;
 
     private positionBuffer: WebGLBuffer | null = null;
     private texCoordBuffer: WebGLBuffer | null = null;
@@ -540,10 +553,17 @@ export class WebGLMapRenderer {
         const altitude = data.player_z ?? 0;
         if (altitude > 100) {
             // Zoom out by 0.01 per meter above 100, capped at 5x zoom
-            this.zoomLevel = Math.min(1.0 + (altitude - 100) * 0.01, 5.0);
+            // Zoom out by 0.01 per meter above 100, capped at 5x zoom
+            const zoom = Math.min(1.0 + (altitude - 100) * 0.01, 5.0);
+            this.scaleX = zoom;
+            this.scaleY = zoom;
         } else {
-            this.zoomLevel = 1.0;
+            this.scaleX = 1.0;
+            this.scaleY = 1.0;
         }
+
+        this.centerX = 0.5;
+        this.centerY = 0.5;
 
         this.dirty = true;
     }
@@ -638,9 +658,13 @@ export class WebGLMapRenderer {
         const simulatedUniform = gl.getUniformLocation(this.program, 'u_isSimulated');
         gl.uniform1f(simulatedUniform, this.isSimulated ? 1.0 : 0.0);
 
-        // Set zoom level uniform for flying
-        const zoomUniform = gl.getUniformLocation(this.program, 'u_zoomLevel');
-        gl.uniform1f(zoomUniform, this.zoomLevel);
+        // Set scale uniform
+        const scaleUniform = gl.getUniformLocation(this.program, 'u_scale');
+        gl.uniform2f(scaleUniform, this.scaleX, this.scaleY);
+
+        // Set center uniform
+        const centerUniform = gl.getUniformLocation(this.program, 'u_center');
+        gl.uniform2f(centerUniform, this.centerX, this.centerY);
 
         // Draw full-screen quad
         gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -660,6 +684,75 @@ export class WebGLMapRenderer {
     }
 
     resize(): void {
+        // Re-fit if in auto-fit mode? For now just mark dirty.
+        // We might want to call fitToWorld again if window resizes.
+        this.dirty = true;
+    }
+
+    /**
+     * Fits the map to the current canvas dimensions, maintaining aspect ratio.
+     * Centers the map.
+     */
+    fitToWorld(): void {
+        const canvasAspect = this.canvas.width / this.canvas.height;
+        const worldAspect = this.gridWidth / this.gridHeight;
+
+        console.log(`[WebGLMapRenderer] fitToWorld: canvas=${this.canvas.width}x${this.canvas.height} (${canvasAspect.toFixed(2)}), world=${this.gridWidth}x${this.gridHeight} (${worldAspect.toFixed(2)})`);
+
+        if (worldAspect > canvasAspect) {
+            // World is wider than canvas (or canvas is taller than world)
+            // Fit Width: Scale X = 1.0 (Texture width matches Canvas width)
+            // Height needs to show MORE of the texture vertically to maintain aspect? 
+            // OR Height needs to show LESS?
+            // If World 2:1, Canvas 1:1.
+            // We squash 2 units of world into 1 unit of canvas width? 
+            // Wait, Texture space is 0-1 regardless of aspect.
+            // If we map 0-1 X to 0-1 Screen X.
+            // We map 0-1 Y to 0-1 Screen Y.
+            // This stretches 2:1 world to 1:1 screen.
+
+            // To fix: We want Screen Y to cover 0.5 of world height? No.
+            // We want Screen Y to cover range [0..1] of Texture Y?
+            // If we fit width, we see full width [0..1].
+            // To maintain 2:1 aspect on 1:1 screen, we need to see 0.5 height?
+            // No, the image should look "letterboxed".
+            // So we need to see MORE vertical space (black bars)?
+            // We need to sample range [-0.5..1.5] on Y?
+            // Range = ScaleY.
+            // Aspect = Width / Height.
+            // We want (RangeX * WorldWidth) / (RangeY * WorldHeight) = CanvasWidth / CanvasHeight ???
+
+            // Let's deduce:
+            // Screen Ratio = CanvasWidth / CanvasHeight
+            // World Ratio = GridWidth / GridHeight
+
+            // We want pixels to be square.
+            // Pixel Width in Texture Space = ScaleX / CanvasWidth
+            // Pixel Height in Texture Space = ScaleY / CanvasHeight
+            // We want (Pixel Width * GridWidth) = (Pixel Height * GridHeight)
+            // (ScaleX / CanvasWidth) * GridWidth = (ScaleY / CanvasHeight) * GridHeight
+            // ScaleY = ScaleX * (GridWidth / GridHeight) * (CanvasHeight / CanvasWidth)
+            // ScaleY = ScaleX * (WorldAspect / CanvasAspect)
+
+            // If we Fit Width: ScaleX = 1.0
+            // ScaleY = 1.0 * (WorldAspect / CanvasAspect)
+            // 2:1 World, 1:1 Canvas => ScaleY = 2.0. Correct (Zoom Out Y, show more vertical space -> black bars).
+
+            this.scaleX = 1.0;
+            this.scaleY = worldAspect / canvasAspect;
+        } else {
+            // World is taller (or canvas is wider)
+            // Fit Height: ScaleY = 1.0
+            // ScaleX = ScaleY * (CanvasAspect / WorldAspect)?
+            // Formula above: ScaleX = ScaleY * (CanvasWidth/CanvasHeight) * (GridHeight/GridWidth)
+            // ScaleX = ScaleY * (CanvasAspect / WorldAspect)
+
+            this.scaleY = 1.0;
+            this.scaleX = canvasAspect / worldAspect;
+        }
+
+        this.centerX = 0.5;
+        this.centerY = 0.5;
         this.dirty = true;
     }
 
