@@ -156,3 +156,73 @@ func Get3DWindVector(topology spatial.Topology, coord spatial.Coordinate, season
 
 	return windVec
 }
+
+// OceanTemperatureProvider is an interface for getting ocean temperature data.
+// This allows the climate generator to use ocean data without importing the ocean package.
+type OceanTemperatureProvider interface {
+	// GetAverageOceanTemp returns the average temperature of neighboring ocean cells.
+	// Returns (temperature, hasOceanNeighbor).
+	GetAverageOceanTemp(coord spatial.Coordinate) (float64, bool)
+	// IsOcean returns true if the coordinate is an ocean cell.
+	IsOcean(coord spatial.Coordinate) bool
+}
+
+// ApplyOceanModeration modifies coastal land temperatures based on nearby ocean temperatures.
+// This implements the "Gulf Stream effect" where warm currents heat high-latitude coasts.
+//
+// Physics:
+//   - Coastal land cells have their temperature moderated by neighboring ocean
+//   - Formula: LandTemp = (LandTemp * 0.7) + (OceanTemp * 0.3)
+//   - Effect: Cold land near warm water heats up; hot land near cold water cools down
+func ApplyOceanModeration(
+	climateData SphereClimateMap,
+	topology spatial.Topology,
+	oceanProvider OceanTemperatureProvider,
+	sphereMap *geography.SphereHeightmap,
+	seaLevel float64,
+) {
+	faceSize := topology.Resolution()
+	directions := []spatial.Direction{
+		spatial.North, spatial.South, spatial.East, spatial.West,
+	}
+
+	for face := 0; face < 6; face++ {
+		for y := 0; y < faceSize; y++ {
+			for x := 0; x < faceSize; x++ {
+				coord := spatial.Coordinate{Face: face, X: x, Y: y}
+				idx := y*faceSize + x
+
+				// Skip ocean cells
+				if sphereMap.Get(coord) <= seaLevel {
+					continue
+				}
+
+				// Check if this land cell has an ocean neighbor
+				oceanTemp, hasOceanNeighbor := oceanProvider.GetAverageOceanTemp(coord)
+				if !hasOceanNeighbor {
+					// Also check if any direct neighbor is ocean
+					for _, dir := range directions {
+						neighbor := topology.GetNeighbor(coord, dir)
+						if oceanProvider.IsOcean(neighbor) {
+							hasOceanNeighbor = true
+							break
+						}
+					}
+					if !hasOceanNeighbor {
+						continue
+					}
+				}
+
+				// Apply maritime moderation: 70% land influence, 30% ocean influence
+				landTemp := climateData[face][idx].Temperature
+				moderatedTemp := (landTemp * 0.7) + (oceanTemp * 0.3)
+
+				// Also reduce temperature extremes (seasonality) for coastal areas
+				moderatedSeasonality := climateData[face][idx].Seasonality * 0.7
+
+				climateData[face][idx].Temperature = moderatedTemp
+				climateData[face][idx].Seasonality = moderatedSeasonality
+			}
+		}
+	}
+}
