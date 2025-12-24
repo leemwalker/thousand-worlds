@@ -449,6 +449,13 @@ func (g *WorldGeology) SimulateGeology(yearsElapsed int64, globalTempMod float64
 		intervals := yearsElapsed / tectonicInterval
 		for i := int64(0); i < intervals; i++ {
 			g.advancePlates(float64(tectonicInterval))
+
+			// Fix 1: Re-enable Equilibrium Tectonics
+			// Uses asymptotic approach to prevent runaway elevation
+			if g.SphereHeightmap != nil && g.Topology != nil {
+				g.SphereHeightmap = geography.SimulateTectonics(g.Plates, g.SphereHeightmap, g.Topology)
+				g.syncSphereToFlat()
+			}
 		}
 	}
 
@@ -841,7 +848,6 @@ func (g *WorldGeology) applyContinentalDrift(severity float64) {
 	}
 }
 
-
 // applyMinorBoundaryUplift applies small elevation changes at plate boundaries.
 // Uses equilibrium-based approach: moves toward target elevation rather than adding fixed amounts.
 // maxChange limits the maximum elevation change per call to prevent runaway accumulation.
@@ -911,6 +917,7 @@ func (g *WorldGeology) applyMinorBoundaryUplift(maxChange float64) {
 		}
 	}
 }
+
 // applyFloodBasalt creates large volcanic provinces
 func (g *WorldGeology) applyFloodBasalt(severity float64) {
 	// Radius based on severity (30-100 cells)
