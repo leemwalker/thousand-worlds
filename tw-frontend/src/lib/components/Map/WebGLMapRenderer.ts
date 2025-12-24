@@ -243,6 +243,7 @@ export class WebGLMapRenderer {
     private worldRadius: number = 6371000;
     private elevationMin: number = -6000;
     private elevationMax: number = 8848;
+    private seaLevel: number = 0;
 
     // Player position in normalized coordinates (0-1)
     private playerPosX: number = 0.5;
@@ -460,6 +461,9 @@ export class WebGLMapRenderer {
         // Track whether world is simulated for styling
         this.isSimulated = data.is_simulated ?? false;
 
+        // Store sea level for proper elevation normalization
+        this.seaLevel = data.sea_level ?? 0;
+
         this.dirty = true;
 
         console.log('[WebGLMapRenderer] Data updated:', {
@@ -560,17 +564,19 @@ export class WebGLMapRenderer {
     }
 
     private normalizeElevation(elevation: number): number {
-        // Map elevation to 0-1 with 0.5 at sea level
+        // Map elevation to 0-1 with 0.5 at actual sea level
         // Below sea level: 0 to 0.5
         // Above sea level: 0.5 to 1.0
-        if (elevation <= 0) {
-            // Underwater: map -6000 to 0 → 0 to 0.5
-            const depth = Math.max(elevation, -6000);
-            return 0.5 + (depth / 12000); // -6000 → 0, 0 → 0.5
+        const relativeElevation = elevation - this.seaLevel;
+
+        if (relativeElevation <= 0) {
+            // Underwater: map -6000m below sea level to sea level → 0 to 0.5
+            const depthBelowSea = Math.max(relativeElevation, -6000);
+            return 0.5 + (depthBelowSea / 12000); // -6000 → 0, 0 → 0.5
         } else {
-            // Land: map 0 to 8848 → 0.5 to 1.0
-            const height = Math.min(elevation, 8848);
-            return 0.5 + (height / 17696); // 0 → 0.5, 8848 → 1.0
+            // Land: map sea level to 8848m above sea level → 0.5 to 1.0
+            const heightAboveSea = Math.min(relativeElevation, 8848);
+            return 0.5 + (heightAboveSea / 17696); // 0 → 0.5, 8848 → 1.0
         }
     }
 
