@@ -69,13 +69,15 @@ func (s *Service) SetWorldGeology(worldID uuid.UUID, geo *ecosystem.WorldGeology
 	s.worldGeologyMu.Lock()
 	defer s.worldGeologyMu.Unlock()
 	s.worldGeology[worldID] = geo
+
+	// Always clear cache when geology changes - ensures fresh data with correct sea level
+	s.ClearWorldMapCache(worldID)
+
 	if geo != nil && geo.IsInitialized() {
-		log.Printf("[MAP] SetWorldGeology: Registered geology for world %s with %d biomes, heightmap %dx%d",
-			worldID, len(geo.Biomes), geo.Heightmap.Width, geo.Heightmap.Height)
+		log.Printf("[MAP] SetWorldGeology: Registered geology for world %s with %d biomes, heightmap %dx%d, sea level %.0fm",
+			worldID, len(geo.Biomes), geo.Heightmap.Width, geo.Heightmap.Height, geo.SeaLevel)
 	} else if geo == nil {
 		log.Printf("[MAP] SetWorldGeology: Cleared geology for world %s", worldID)
-		// Also clear the world map cache when geology is cleared
-		s.ClearWorldMapCache(worldID)
 	}
 }
 
