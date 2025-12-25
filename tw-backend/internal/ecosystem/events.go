@@ -104,18 +104,21 @@ func (g *GeologicalEventManager) CheckForNewEvents(currentTick, ticksElapsed int
 			})
 		}
 
-		// Ice age: 0.01% per check (~1 per 2.7M years)
-		if g.rng.Float64() < 0.0001*(float64(chunkSize)/float64(stepSize)) {
-			g.ActiveEvents = append(g.ActiveEvents, GeologicalEvent{
-				Type:           EventIceAge,
-				StartTick:      currentTick,
-				DurationTicks:  100000 + g.rng.Int63n(200000), // 270-550 years (shortened for gameplay)
-				Severity:       0.4 + g.rng.Float64()*0.4,
-				TemperatureMod: -8 - g.rng.Float64()*12, // -8 to -20 degrees
-				SunlightMod:    0.9,
-				OxygenMod:      1.0,
-			})
-		}
+		// Ice age: NOW DRIVEN BY MILANKOVITCH CYCLES (ClimateDriver)
+		// The RNG-based trigger has been replaced by deterministic orbital mechanics.
+		// See climate_driver.go for the new implementation based on insolation thresholds.
+		// Old code (disabled):
+		// if g.rng.Float64() < 0.0001*(float64(chunkSize)/float64(stepSize)) {
+		//     g.ActiveEvents = append(g.ActiveEvents, GeologicalEvent{
+		//         Type:           EventIceAge,
+		//         StartTick:      currentTick,
+		//         DurationTicks:  100000 + g.rng.Int63n(200000),
+		//         Severity:       0.4 + g.rng.Float64()*0.4,
+		//         TemperatureMod: -8 - g.rng.Float64()*12,
+		//         SunlightMod:    0.9,
+		//         OxygenMod:      1.0,
+		//     })
+		// }
 
 		// Ocean anoxia: 0.005% per check (~1 per 5.5M years)
 		if g.rng.Float64() < 0.00005*(float64(chunkSize)/float64(stepSize)) {

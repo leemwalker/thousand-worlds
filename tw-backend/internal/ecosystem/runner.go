@@ -107,7 +107,8 @@ type SimulationRunner struct {
 	// Subsystem Integrations (Phase 4)
 	diseaseSystem    *pathogen.DiseaseSystem
 	sapienceDetector *sapience.SapienceDetector
-	geology          *WorldGeology // Uses existing WorldGeology from this package
+	geology          *WorldGeology  // Uses existing WorldGeology from this package
+	climateDriver    *ClimateDriver // Orbital mechanics for ice ages (Phase 3)
 	snapshotRepo     *SimulationSnapshotRepository
 	stateRepo        *RunnerStateRepository
 
@@ -188,13 +189,17 @@ func (sr *SimulationRunner) InitializePopulationSimulator(seed int64) {
 	sr.initializeSubsystems(seed)
 }
 
-// initializeSubsystems sets up disease, sapience, and geology systems
+// initializeSubsystems sets up disease, sapience, geology, and climate systems
 func (sr *SimulationRunner) initializeSubsystems(seed int64) {
 	// Initialize Disease System
 	sr.diseaseSystem = pathogen.NewDiseaseSystem(sr.config.WorldID, seed)
 
 	// Initialize Sapience Detector (magic disabled by default)
 	sr.sapienceDetector = sapience.NewSapienceDetector(sr.config.WorldID, false)
+
+	// Initialize Climate Driver (orbital mechanics for ice ages)
+	// Uses standalone event manager for climate-driven events
+	sr.climateDriver = NewClimateDriver(NewGeologicalEventManager())
 
 	// Geology uses existing WorldGeology from this package
 	// (typically initialized separately or via worldgen)
@@ -487,6 +492,22 @@ func (sr *SimulationRunner) tickLocked(yearsToAdvance int64) error {
 		// Geology Updates (every 100000 years)
 		if sr.popSim.CurrentYear%100000 == 0 {
 			sr.updateGeology(100000)
+
+			// Climate Driver Update (orbital mechanics for ice ages)
+			// This checks insolation and triggers/ends ice ages deterministically
+			if sr.climateDriver != nil {
+				sr.climateDriver.Update(sr.popSim.CurrentYear)
+
+				// Broadcast ice age events
+				if sr.climateDriver.IsIceAge() && sr.climateDriver.IceAgeStartYear == sr.popSim.CurrentYear {
+					sr.broadcastEvent(RunnerEvent{
+						Year:        sr.popSim.CurrentYear,
+						Type:        "ice_age_start",
+						Description: fmt.Sprintf("Ice Age begins (Insolation: %.3f)", sr.climateDriver.GetInsolation()),
+						Importance:  8,
+					})
+				}
+			}
 		}
 
 		// Check for events logged by the simulator this year

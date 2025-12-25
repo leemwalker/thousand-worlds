@@ -1,0 +1,148 @@
+package ecosystem
+
+import (
+	"tw-backend/internal/worldgen/astronomy"
+)
+
+// IceAgeInsolationThreshold is the insolation value below which ice ages begin.
+// When insolation drops below this threshold, conditions favor ice accumulation.
+// Based on orbital calculations, insolation ranges from ~0.97 to ~1.03.
+const IceAgeInsolationThreshold = 0.985
+
+// IceAgeRecoveryThreshold is the insolation value above which ice ages end.
+// Uses hysteresis to prevent rapid oscillation between states.
+const IceAgeRecoveryThreshold = 0.995
+
+// IceAgeDurationBase is the minimum duration of an ice age event in years.
+const IceAgeDurationBase = 10000
+
+// ClimateDriver connects orbital mechanics to climate events.
+// It monitors the current orbital state and triggers ice ages deterministically
+// based on insolation values rather than random number generation.
+type ClimateDriver struct {
+	// CurrentState holds the current orbital parameters
+	CurrentState astronomy.OrbitalState
+
+	// CurrentInsolation is the calculated solar energy factor
+	CurrentInsolation float64
+
+	// IceAgeActive indicates whether an ice age is currently in progress
+	IceAgeActive bool
+
+	// IceAgeStartYear is when the current ice age began (0 if none)
+	IceAgeStartYear int64
+
+	// eventManager is the geological event system
+	eventManager *GeologicalEventManager
+}
+
+// NewClimateDriver creates a climate driver connected to the event system.
+func NewClimateDriver(eventManager *GeologicalEventManager) *ClimateDriver {
+	return &ClimateDriver{
+		CurrentState:    astronomy.CalculateOrbitalState(0),
+		eventManager:    eventManager,
+		IceAgeActive:    false,
+		IceAgeStartYear: 0,
+	}
+}
+
+// Update checks the orbital state and triggers/ends ice ages based on insolation.
+// This should be called periodically (e.g., every 100,000 simulation years).
+func (cd *ClimateDriver) Update(year int64) {
+	// Calculate current orbital state
+	cd.CurrentState = astronomy.CalculateOrbitalState(year)
+	cd.CurrentInsolation = astronomy.CalculateInsolation(cd.CurrentState)
+
+	// Check for ice age transitions using hysteresis
+	if !cd.IceAgeActive && cd.CurrentInsolation < IceAgeInsolationThreshold {
+		cd.startIceAge(year)
+	} else if cd.IceAgeActive && cd.CurrentInsolation > IceAgeRecoveryThreshold {
+		// Only end if minimum duration has passed
+		if year-cd.IceAgeStartYear >= IceAgeDurationBase {
+			cd.endIceAge(year)
+		}
+	}
+}
+
+// startIceAge triggers a new ice age event through the event manager.
+func (cd *ClimateDriver) startIceAge(year int64) {
+	cd.IceAgeActive = true
+	cd.IceAgeStartYear = year
+
+	if cd.eventManager == nil {
+		return
+	}
+
+	// Calculate severity based on how far below threshold we are
+	// Insolation of 0.95 → severity 1.0, insolation of 0.98 → severity 0.3
+	severity := (IceAgeInsolationThreshold - cd.CurrentInsolation) / 0.03
+	if severity > 1.0 {
+		severity = 1.0
+	}
+	if severity < 0.3 {
+		severity = 0.3
+	}
+
+	// Create deterministic ice age event
+	// Duration based on orbital mechanics: typically 10k-50k years
+	// We estimate duration based on insolation cycle
+	iceAgeEvent := GeologicalEvent{
+		Type:           EventIceAge,
+		StartTick:      year * 100, // Convert years to ticks (100 ticks/year)
+		DurationTicks:  100000,     // Initial estimate, will be extended by orbital state
+		Severity:       severity,
+		TemperatureMod: -8 - severity*12, // -8 to -20 degrees
+		SunlightMod:    0.9,
+		OxygenMod:      1.0,
+	}
+
+	cd.eventManager.ActiveEvents = append(cd.eventManager.ActiveEvents, iceAgeEvent)
+}
+
+// endIceAge terminates the current ice age event.
+func (cd *ClimateDriver) endIceAge(year int64) {
+	cd.IceAgeActive = false
+	cd.IceAgeStartYear = 0
+
+	if cd.eventManager == nil {
+		return
+	}
+
+	// Remove ice age events from active events
+	// Note: We update end time rather than removing to maintain history
+	filtered := make([]GeologicalEvent, 0, len(cd.eventManager.ActiveEvents))
+	for _, e := range cd.eventManager.ActiveEvents {
+		if e.Type == EventIceAge {
+			// Truncate this ice age event to current year
+			e.DurationTicks = year*100 - e.StartTick
+			if e.DurationTicks > 0 {
+				filtered = append(filtered, e)
+			}
+			// Skip adding it back since it's now ended
+			continue
+		}
+		filtered = append(filtered, e)
+	}
+	cd.eventManager.ActiveEvents = filtered
+}
+
+// GetObliquity returns the current axial tilt for weather calculations.
+// This allows the weather system to use dynamic orbital parameters.
+func (cd *ClimateDriver) GetObliquity() float64 {
+	return cd.CurrentState.Obliquity
+}
+
+// GetInsolation returns the current normalized solar energy factor.
+func (cd *ClimateDriver) GetInsolation() float64 {
+	return cd.CurrentInsolation
+}
+
+// GetOrbitalState returns the full current orbital state.
+func (cd *ClimateDriver) GetOrbitalState() astronomy.OrbitalState {
+	return cd.CurrentState
+}
+
+// IsIceAge returns true if an ice age is currently active.
+func (cd *ClimateDriver) IsIceAge() bool {
+	return cd.IceAgeActive
+}

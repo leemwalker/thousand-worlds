@@ -6,9 +6,14 @@ import (
 	"tw-backend/internal/spatial"
 )
 
-// AxialTilt is Earth's axial tilt in degrees.
+// DefaultAxialTilt is Earth's axial tilt in degrees.
 // This determines the maximum latitude where the sun can be directly overhead.
-const AxialTilt = 23.5
+// For dynamic orbital mechanics (Milankovitch cycles), use CalculateSolarDeclinationWithTilt.
+const DefaultAxialTilt = 23.5
+
+// AxialTilt is a backward-compatible alias for DefaultAxialTilt.
+// Deprecated: Use DefaultAxialTilt or CalculateSolarDeclinationWithTilt for new code.
+const AxialTilt = DefaultAxialTilt
 
 // Baseline surface pressure in millibars (standard atmosphere at sea level)
 const baselinePressure = 1013.25
@@ -27,15 +32,33 @@ const referenceTemp = 15.0
 //   - Negative values: Southern Hemisphere (sun overhead south of equator)
 //   - Range: [-23.5, +23.5] degrees
 func CalculateSolarDeclination(dayOfYear int) float64 {
+	return CalculateSolarDeclinationWithTilt(dayOfYear, DefaultAxialTilt)
+}
+
+// CalculateSolarDeclinationWithTilt returns the latitude where the sun is directly overhead
+// for a given day of year and axial tilt.
+//
+// This function supports dynamic axial tilt from Milankovitch orbital cycles.
+// For the default Earth-like tilt (23.5°), use CalculateSolarDeclination instead.
+//
+// Parameters:
+//   - dayOfYear: Day of year (0-365)
+//   - axialTilt: Axial tilt in degrees (typically 22.1° to 24.5° for Earth-like)
+//
+// Returns:
+//   - Positive values: Northern Hemisphere (sun overhead north of equator)
+//   - Negative values: Southern Hemisphere (sun overhead south of equator)
+//   - Range: [-axialTilt, +axialTilt] degrees
+func CalculateSolarDeclinationWithTilt(dayOfYear int, axialTilt float64) float64 {
 	// Convert the angular component to radians
 	// The +284 offset shifts the sine wave so that:
-	// - Day 172 (June 21) → maximum (+23.5°, Northern summer solstice)
-	// - Day 355 (Dec 21) → minimum (-23.5°, Southern summer solstice)
+	// - Day 172 (June 21) → maximum (Northern summer solstice)
+	// - Day 355 (Dec 21) → minimum (Southern summer solstice)
 	// - Day 80 (Mar 21) and Day 266 (Sep 23) → 0° (equinoxes)
 	angularPosition := (360.0 / 365.0) * float64(dayOfYear+284)
 	angularPositionRad := angularPosition * math.Pi / 180.0
 
-	declination := AxialTilt * math.Sin(angularPositionRad)
+	declination := axialTilt * math.Sin(angularPositionRad)
 	return declination
 }
 
