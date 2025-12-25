@@ -77,10 +77,11 @@ type WorldConfiguration struct {
 	MagicImpact  string
 
 	// Geography
-	PlanetSize     string
-	ClimateRange   string
-	LandWaterRatio string
-	UniqueFeatures []string
+	PlanetSize        string
+	ClimateRange      string
+	LandWaterRatio    string
+	UniqueFeatures    []string
+	NaturalSatellites string // "none", "one", "many", "random"
 
 	ExtremeEnvironments []string
 	WaterLevel          string // "high", "low", "50%", etc.
@@ -156,6 +157,15 @@ func (w *WorldConfiguration) GetSeaLevel() *float64 {
 // GetSeed returns nil (random seed) since interviews don't specify seeds
 func (w *WorldConfiguration) GetSeed() *int64 {
 	return nil
+}
+
+// GetNaturalSatellites returns the natural satellites configuration
+// Returns "none", "one", "many", "random", or a specific number
+func (w *WorldConfiguration) GetNaturalSatellites() string {
+	if w.NaturalSatellites == "" {
+		return "random" // Default to random if not specified
+	}
+	return w.NaturalSatellites
 }
 
 // Status represents the state of an interview

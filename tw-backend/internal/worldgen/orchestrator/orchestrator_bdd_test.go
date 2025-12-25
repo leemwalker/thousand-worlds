@@ -30,6 +30,7 @@ type mockWorldConfig struct {
 	simulationFlags      map[string]bool
 	seaLevel             *float64
 	seed                 *int64
+	naturalSatellites    string
 }
 
 func (m *mockWorldConfig) GetPlanetSize() string                       { return m.planetSize }
@@ -43,6 +44,7 @@ func (m *mockWorldConfig) GetResourceDistribution() map[string]float64 { return 
 func (m *mockWorldConfig) GetSimulationFlags() map[string]bool         { return m.simulationFlags }
 func (m *mockWorldConfig) GetSeaLevel() *float64                       { return m.seaLevel }
 func (m *mockWorldConfig) GetSeed() *int64                             { return m.seed }
+func (m *mockWorldConfig) GetNaturalSatellites() string                { return m.naturalSatellites }
 
 // =============================================================================
 // BDD Tests: Orchestrator

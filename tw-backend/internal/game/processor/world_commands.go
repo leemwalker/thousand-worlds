@@ -66,6 +66,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	// Default values
 	years := int64(1_000_000)
 	var seedFlag int64 = 0
+	var moonsFlag int = -1 // -1 means random, >= 0 means override
 	var epochFlag, goalFlag, waterLevelFlag string
 
 	// Subsystem flags - all false by default, enabled explicitly or via "no flags = all"
@@ -145,6 +146,13 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			anyFlagSet = true
 		case "--no-diseases":
 			enableDisease = false
+		case "--moons":
+			if i+1 < len(args) {
+				if parsed, err := strconv.Atoi(args[i+1]); err == nil && parsed >= 0 {
+					moonsFlag = parsed
+				}
+				i++
+			}
 		}
 	}
 
@@ -200,6 +208,11 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	// Display simulation configuration
 	client.SendGameMessage("system", fmt.Sprintf("🌍 Simulation: %d years | Seed: %d | Systems: %s",
 		years, seedFlag, strings.Join(enabledSystems, ", ")), nil)
+
+	// Display natural satellites configuration if specified
+	if moonsFlag >= 0 {
+		client.SendGameMessage("system", fmt.Sprintf("🌙 Natural Satellites: %d moons configured", moonsFlag), nil)
+	}
 
 	// Get current world for context
 	char, _ := p.authRepo.GetCharacter(ctx, client.GetCharacterID())

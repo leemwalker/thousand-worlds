@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"time"
 
+	"tw-backend/internal/worldgen/astronomy"
 	"tw-backend/internal/worldgen/evolution"
 	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/minerals"
@@ -19,6 +20,7 @@ type GeneratedWorld struct {
 	WeatherCells []*weather.GeographyCell
 	Minerals     []minerals.MineralDeposit
 	Species      []*evolution.Species
+	Satellites   []astronomy.Satellite // Natural satellites (moons)
 	Metadata     GenerationMetadata
 }
 
@@ -66,6 +68,9 @@ type GenerationParams struct {
 	SimulateLife     bool     // If true, species are generated
 	DisableDiseases  bool     // If true, no diseases are generated
 	SeaLevelOverride *float64 // If non-nil, overrides the land/water ratio calc
+
+	// Satellite configuration
+	SatelliteConfig astronomy.SatelliteConfig
 
 	// Random seed
 	Seed int64

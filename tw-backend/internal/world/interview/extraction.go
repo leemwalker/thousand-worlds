@@ -92,6 +92,7 @@ Return ONLY a valid JSON object with these exact fields (use null for missing da
   "uniqueFeatures": ["array of unique geographical features"],
   "extremeEnvironments": ["array of extreme environments"],
   "waterLevel": "string - specific water level preference (e.g. 'high', 'low', '50%') or null",
+  "naturalSatellites": "string - one of: none, one, many, random (default: random)",
   "simulateGeology": true,
   "simulateLife": true,
   "disableDiseases": false,
@@ -136,6 +137,7 @@ func parseExtractionResponse(jsonStr string) (*WorldConfiguration, error) {
 		UniqueFeatures      []string `json:"uniqueFeatures"`
 		ExtremeEnvironments []string `json:"extremeEnvironments"`
 		WaterLevel          string   `json:"waterLevel"`
+		NaturalSatellites   string   `json:"naturalSatellites"`
 		SimulateGeology     bool     `json:"simulateGeology"`
 		SimulateLife        bool     `json:"simulateLife"`
 		DisableDiseases     bool     `json:"disableDiseases"`
@@ -168,6 +170,7 @@ func parseExtractionResponse(jsonStr string) (*WorldConfiguration, error) {
 		UniqueFeatures:      raw.UniqueFeatures,
 		ExtremeEnvironments: raw.ExtremeEnvironments,
 		WaterLevel:          raw.WaterLevel,
+		NaturalSatellites:   raw.NaturalSatellites,
 		SimulateGeology:     raw.SimulateGeology,
 		SimulateLife:        raw.SimulateLife,
 		DisableDiseases:     raw.DisableDiseases,

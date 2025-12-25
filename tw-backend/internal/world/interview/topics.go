@@ -21,6 +21,9 @@ var AllTopics = []Topic{
 	// Geological Age
 	{Category: CategoryGeography, Name: "Geological Age", Description: "How old is this world geologically? (Young with sharp peaks, Mature, or Old with smoothed mountains)"},
 
+	// Natural Satellites
+	{Category: CategoryGeography, Name: "Natural Satellites", Description: "How many moons does this world have? (None, One, Many, or Random)"},
+
 	// Simulation Preferences
 	{Category: CategoryTheme, Name: "Simulation Preferences", Description: "Customize simulation detail: catastrophe-only, life-only, no diseases, and water level preferences."},
 

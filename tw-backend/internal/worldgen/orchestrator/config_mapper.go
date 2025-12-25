@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+
+	"tw-backend/internal/worldgen/astronomy"
 )
 
 // WorldConfig interface represents the minimal world configuration needed for generation
@@ -19,7 +21,8 @@ type WorldConfig interface {
 	GetResourceDistribution() map[string]float64
 	GetSimulationFlags() map[string]bool
 	GetSeaLevel() *float64
-	GetSeed() *int64 // Optional: if nil, random seed is used
+	GetSeed() *int64              // Optional: if nil, random seed is used
+	GetNaturalSatellites() string // Returns "none", "one", "many", "random", or a number
 }
 
 // ConfigMapper converts WorldConfiguration to GenerationParams
@@ -133,6 +136,9 @@ func (m *ConfigMapper) MapToParams(config WorldConfig) (*GenerationParams, error
 
 	// Map sea level override
 	params.SeaLevelOverride = config.GetSeaLevel()
+
+	// Map satellite configuration
+	params.SatelliteConfig = parseSatelliteConfig(config.GetNaturalSatellites())
 
 	return params, nil
 }
@@ -286,5 +292,32 @@ func calculateAgeParameters(age string) (erosion, bioDiversity float64) {
 	default:
 		// Mature/Medium
 		return 1.0, 1.0
+	}
+}
+
+// parseSatelliteConfig converts natural satellite description to SatelliteConfig
+// Accepted values: "none", "one", "many", "random", or a numeric string
+func parseSatelliteConfig(satellites string) astronomy.SatelliteConfig {
+	lower := strings.ToLower(strings.TrimSpace(satellites))
+
+	switch lower {
+	case "", "random":
+		// Random generation (default)
+		return astronomy.SatelliteConfig{Override: false}
+	case "none", "0":
+		return astronomy.SatelliteConfig{Override: true, Count: 0}
+	case "one", "1":
+		return astronomy.SatelliteConfig{Override: true, Count: 1}
+	case "many":
+		// "Many" means 2-4 moons
+		return astronomy.SatelliteConfig{Override: true, Count: 3}
+	default:
+		// Try parsing as a number
+		var count int
+		if _, err := fmt.Sscanf(lower, "%d", &count); err == nil && count >= 0 {
+			return astronomy.SatelliteConfig{Override: true, Count: count}
+		}
+		// Default to random if parsing fails
+		return astronomy.SatelliteConfig{Override: false}
 	}
 }
