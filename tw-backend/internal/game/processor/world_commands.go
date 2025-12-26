@@ -10,6 +10,7 @@ import (
 	"strings"
 	"tw-backend/cmd/game-server/websocket"
 	"tw-backend/internal/ecosystem"
+	"tw-backend/internal/ecosystem/atmosphere"
 	"tw-backend/internal/ecosystem/pathogen"
 	"tw-backend/internal/ecosystem/population"
 	"tw-backend/internal/ecosystem/sapience"
@@ -473,9 +474,14 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	// Calculate obliquity stability for climate driver
 	obliquityStability := astronomy.CalculateObliquityStability(satellites, astronomy.EarthMassKg)
 
-	// Initialize Climate Driver (Milankovitch Cycles)
+	// Initialize Climate Driver (Milankovitch Cycles + Solar Evolution)
 	climateDriver := ecosystem.NewClimateDriver(geoManager)
 	climateDriver.ObliquityStability = obliquityStability
+
+	// Initialize Atmospheric Composition (Carbon-Silicate Cycle)
+	// Early Earth: High CO2 to compensate for faint young Sun
+	// Modern Earth: Low CO2 after billions of years of weathering
+	atm := atmosphere.NewAtmosphere(0) // Start at year 0
 
 	progressInterval := years / 10
 	// Cap progress interval to 10M years for better responsiveness on long simulations
@@ -794,12 +800,42 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			// If stepSize > 1, skipped years shouldn't trigger expensive checks unless accumulators handle them
 			// (which they now do!)
 
+			// === CARBON-SILICATE CYCLE ===
+			// Simulate atmospheric composition changes
+			// This creates a self-regulating climate thermostat:
+			// - Volcanism adds CO2 (proportional to planetary heat)
+			// - Weathering removes CO2 (proportional to temp × precipitation × CO2)
+			// - Negative feedback: Warming → More weathering → Less CO2 → Cooling
+
+			// Calculate volcanic CO2 emissions (source)
+			heat := ecosystem.GetPlanetaryHeat(year)
+			volcanicRate := atmosphere.CalculateVolcanicOutgassing(heat)
+
+			// Calculate weathering CO2 removal (sink)
+			geoStats := geology.GetStats()
+			weatheringRate := atmosphere.CalculateWeatheringRate(
+				geoStats.AverageTemperature,
+				1000.0, // TODO: Get actual global average precipitation from weather system
+				geoStats.LandPercent/100.0,
+				atm.CO2Mass,
+			)
+
+			// Update atmospheric CO2 (mass balance)
+			atm.SimulateCarbonCycle(stepSize, volcanicRate, weatheringRate)
+
+			// Update climate driver with greenhouse effect from atmosphere
+			atmosphereStats := atm.GetStats()
+			climateDriver.SetGreenhouseOffset(atmosphereStats.GreenhouseOffset)
+
+			// === GEOLOGY SIMULATION ===
 			// Update Geology state (Tectonics, Erosion, etc)
-			// This was missing before! Now we drive it explicitly.
-			// We pass stepSize (dt) so it can accumulate stress/erosion.
-			// Calculate global temp mod from events for biome updates
-			tempMod, _, _ := geoManager.GetEnvironmentModifiers()
-			phaseEvent := geology.SimulateGeology(stepSize, tempMod)
+			// Apply combined temperature modifiers:
+			// - Geological events (volcanic winter, etc)
+			// - Geothermal offset (internal heat)
+			// - Greenhouse offset (atmospheric CO2)
+			eventTempMod, _, _ := geoManager.GetEnvironmentModifiers()
+			totalTempMod := eventTempMod + climateDriver.GetGeothermalOffset() + climateDriver.GetGreenhouseOffset()
+			phaseEvent := geology.SimulateGeology(stepSize, totalTempMod)
 
 			// Log phase transition events (e.g., Great Deluge)
 			if phaseEvent != nil {

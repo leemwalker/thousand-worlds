@@ -42,6 +42,16 @@ type ClimateDriver struct {
 	// Represents geothermal flux from mantle/core cooling
 	GeothermalOffset float64
 
+	// SolarLuminosity is the Sun's brightness relative to modern (0.7-1.0)
+	// Faint Young Sun: Year 0 ≈ 0.71, Year 4.5B = 1.0
+	// Based on Gough (1981) stellarevolution model
+	SolarLuminosity float64
+
+	// GreenhouseOffset is the temperature increase from atmospheric CO2
+	// Set by atmospheric simulation, represents greenhouse warming
+	// Early Earth: High CO2 → +50°C, Modern: Low CO2 → ~0°C
+	GreenhouseOffset float64
+
 	// eventManager is the geological event system
 	eventManager *GeologicalEventManager
 }
@@ -53,8 +63,10 @@ func NewClimateDriver(eventManager *GeologicalEventManager) *ClimateDriver {
 		eventManager:       eventManager,
 		IceAgeActive:       false,
 		IceAgeStartYear:    0,
-		ObliquityStability: 1.0, // Default to Earth-like stability
-		GeothermalOffset:   0.0, // Will be calculated on first Update
+		ObliquityStability: 1.0,  // Default to Earth-like stability
+		GeothermalOffset:   0.0,  // Will be calculated on first Update
+		SolarLuminosity:    0.71, // Early Earth baseline
+		GreenhouseOffset:   0.0,  // Will be set by atmosphere
 	}
 }
 
@@ -62,10 +74,19 @@ func NewClimateDriver(eventManager *GeologicalEventManager) *ClimateDriver {
 // This should be called periodically (e.g., every 100,000 simulation years).
 // Uses ObliquityStability to scale obliquity variance for chaotic/stable worlds.
 // Calculates GeothermalOffset from planetary age for early Earth heating.
+// Calculates SolarLuminosity from stellar evolution (Faint Young Sun).
 func (cd *ClimateDriver) Update(year int64) {
 	// Calculate current orbital state with stability-adjusted obliquity
 	cd.CurrentState = astronomy.CalculateOrbitalStateWithStability(year, cd.ObliquityStability)
-	cd.CurrentInsolation = astronomy.CalculateInsolation(cd.CurrentState)
+	baseInsolation := astronomy.CalculateInsolation(cd.CurrentState)
+
+	// Calculate solar luminosity evolution (Faint Young Sun)
+	// Year 0: ~71% modern brightness → Year 4.5B: 100% brightness (Gough 1981)
+	cd.SolarLuminosity = astronomy.GetSolarLuminosity(year)
+
+	// Apply solar luminosity to insolation
+	// Effective insolation = orbital_insolation × solar_brightness
+	cd.CurrentInsolation = baseInsolation * cd.SolarLuminosity
 
 	// Calculate geothermal contribution from planetary internal heat
 	// Uses the same thermal evolution model as geology
@@ -179,4 +200,22 @@ func (cd *ClimateDriver) IsIceAge() bool {
 // This value decreases from ~90°C in early Earth to ~0°C in modern Earth.
 func (cd *ClimateDriver) GetGeothermalOffset() float64 {
 	return cd.GeothermalOffset
+}
+
+// SetGreenhouseOffset sets the temperature offset from atmospheric greenhouse gases.
+// This is updated by the atmospheric simulation based on CO2 levels.
+func (cd *ClimateDriver) SetGreenhouseOffset(offset float64) {
+	cd.GreenhouseOffset = offset
+}
+
+// GetGreenhouseOffset returns the current temperature offset from atmospheric CO2.
+// Early Earth: +50°C from high CO2, Modern Earth: ~0°C from trace CO2.
+func (cd *ClimateDriver) GetGreenhouseOffset() float64 {
+	return cd.GreenhouseOffset
+}
+
+// GetSolarLuminosity returns the current solar brightness relative to modern (0.7-1.0).
+// Year 0: ~0.71 (Faint Young Sun), Year 4.5B: 1.0 (Modern Sun)
+func (cd *ClimateDriver) GetSolarLuminosity() float64 {
+	return cd.SolarLuminosity
 }
