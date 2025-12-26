@@ -478,6 +478,10 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	climateDriver.ObliquityStability = obliquityStability
 
 	progressInterval := years / 10
+	// Cap progress interval to 10M years for better responsiveness on long simulations
+	if progressInterval > 10_000_000 {
+		progressInterval = 10_000_000
+	}
 	lastProgress := int64(0)
 
 	// Track event frequencies
@@ -553,7 +557,10 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 
 		// Update Climate Driver (Milankovitch Cycles)
 		// Triggers ice ages/interglacials based on orbital mechanics
-		climateDriver.Update(year)
+		// Only check every 100,000 years as designed (orbital cycles are very slow)
+		if year%100_000 == 0 {
+			climateDriver.Update(year)
+		}
 
 		// Apply evolution every 1000 years
 		if simulateLife && popSim.CurrentYear%1000 == 0 {
