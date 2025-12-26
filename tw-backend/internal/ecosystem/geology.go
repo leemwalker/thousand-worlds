@@ -1,9 +1,11 @@
 package ecosystem
 
 import (
+	"log"
 	"math"
 	"math/rand"
 	"sync"
+	"time"
 	"tw-backend/internal/spatial"
 	"tw-backend/internal/worldgen/astronomy"
 	"tw-backend/internal/worldgen/geography"
@@ -530,6 +532,10 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 		return nil // Not initialized
 	}
 
+	// === DEEP PROFILING ===
+	var tectonicTime, biomeTime, oceanPhaseTime, statsTime time.Duration
+	profilingEnabled := g.TotalYearsSimulated%10_000_000 == 0 // Log every 10M years
+
 	g.TotalYearsSimulated += dt
 
 	// Calculate planetary heat multiplier for this time period
@@ -553,6 +559,7 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 	// We accumulate movement and apply tectonic effects periodically
 
 	// Apply plate tectonics every 100,000 years for efficiency
+	tectonicStart := time.Now()
 	tectonicInterval := 100_000.0
 	if g.TectonicStressAccumulator >= tectonicInterval {
 		// Calculate how many intervals passed
@@ -573,6 +580,7 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 		// Keep remainder
 		g.TectonicStressAccumulator -= float64(intervals) * tectonicInterval
 	}
+	tectonicTime = time.Since(tectonicStart)
 
 	// === HADEAN OPTIMIZATION ===
 	// Skip expensive surface processes on molten early Earth (heat > 4.0)
@@ -786,9 +794,12 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 	}
 
 	// Update heightmap min/max
+	statsStart := time.Now()
 	g.updateHeightmapStats()
+	statsTime += time.Since(statsStart)
 
 	// === Ocean Phase Transition Logic ===
+	oceanPhaseStart := time.Now()
 	// Model water vapor ↔ liquid phase changes based on surface temperature
 	// Early Earth (Hadean): >100°C → water exists as atmospheric vapor
 	// Modern Earth: <100°C → water condenses into liquid oceans
@@ -846,6 +857,19 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 			Year:        g.TotalYearsSimulated,
 			Description: "Atmospheric water vapor condenses into liquid oceans as planet cools below 100°C",
 		}
+	}
+
+	oceanPhaseTime = time.Since(oceanPhaseStart)
+
+	// Log deep profiling every 10M years
+	if profilingEnabled {
+		totalProfiled := tectonicTime + biomeTime + oceanPhaseTime + statsTime
+		log.Printf("[GEO PROFILE] Year %d | Tectonic: %v (%.0f%%) | OceanPhase: %v (%.0f%%) | Stats: %v (%.0f%%) | Biome: %v (%.0f%%)",
+			g.TotalYearsSimulated,
+			tectonicTime, float64(tectonicTime)/float64(totalProfiled)*100,
+			oceanPhaseTime, float64(oceanPhaseTime)/float64(totalProfiled)*100,
+			statsTime, float64(statsTime)/float64(totalProfiled)*100,
+			biomeTime, float64(biomeTime)/float64(totalProfiled)*100)
 	}
 
 	return phaseEvent
