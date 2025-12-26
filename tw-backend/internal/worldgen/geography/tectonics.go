@@ -136,79 +136,78 @@ func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology) {
 // SimulateTectonics calculates elevation based on plate interactions on a sphere.
 // Uses equilibrium-based approach where elevation approaches target asymptotically.
 // Returns a SphereHeightmap with elevation modifiers.
-// SimulateTectonics calculates elevation based on plate interactions on a sphere.
-// Uses equilibrium-based approach where elevation approaches target asymptotically.
-// OPTIMIZATION: Uses boundary-only processing for ~12x speedup (O(N) -> O(sqrt(N))).
-// Returns a SphereHeightmap with elevation modifiers.
-func SimulateTectonics(plates []TectonicPlate, heightmap *SphereHeightmap, topology spatial.Topology) *SphereHeightmap {
-	// Build reverse lookup: coordinate -> plate index
-	// Optimization: This mapping is still needed but is fast (O(N))
-	coordToPlate := make(map[spatial.Coordinate]int)
+// scaleFactor allows adjusting the intensity based on time step (1.0 = standard 100k year interval)
+func SimulateTectonics(plates []TectonicPlate, heightmap *SphereHeightmap, topology spatial.Topology, scaleFactor float64) *SphereHeightmap {
+	resolution := topology.Resolution()
+	totalCells := 6 * resolution * resolution
+
+	// OPTIMIZATION: Use flat slice for O(1) plate lookup instead of map
+	// Initialize with -1 (no plate)
+	plateGrid := make([]int, totalCells)
+	for i := range plateGrid {
+		plateGrid[i] = -1
+	}
+
+	// Populate grid
+	// O(N) where N is total cells (sum of all plate regions)
 	for i, p := range plates {
 		for coord := range p.Region {
-			coordToPlate[coord] = i
+			idx := (coord.Face * resolution * resolution) + (coord.Y * resolution) + coord.X
+			if idx >= 0 && idx < totalCells {
+				plateGrid[idx] = i
+			}
 		}
 	}
 
 	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+	resSq := resolution * resolution
 
-	// Phase 1 Optimization: Find Boundary Cells
-	// Instead of iterating ALL 131,072 cells, we identify boundary cells using the plate definitions.
-	// Each plate stores its region. Cells on the edge of a region are boundaries if they neighbor a different plate.
-
-	// Set of boundary cells to process
-	boundaryCells := make(map[spatial.Coordinate]struct{})
-
-	for _, plate := range plates {
-		// Optimization: We could store boundary cells in the plate struct to avoid re-scanning
-		// But for now, scanning the plate region is still faster than scanning the whole world
-		// if plate regions are smaller than world / plates.
-		// Actually, even faster: iterate all cells ONCE to find boundaries?
-		// No, the original efficient approach:
-		// Go through each plate's region. Check neighbors.
-
-		for coord := range plate.Region {
-			isBoundary := false
-			currentPlateIdx := coordToPlate[coord]
-
-			for _, dir := range directions {
-				neighbor := topology.GetNeighbor(coord, dir)
-				neighborPlateIdx, exists := coordToPlate[neighbor]
-
-				// It's a boundary if neighbor belongs to a different plate
-				if exists && neighborPlateIdx != currentPlateIdx {
-					isBoundary = true
-					break
-				}
-			}
-
-			if isBoundary {
-				boundaryCells[coord] = struct{}{}
-			}
+	// Process all cells
+	// O(N) linear scan with O(1) lookups is much faster than map iteration
+	for idx := 0; idx < totalCells; idx++ {
+		currentPlateIdx := plateGrid[idx]
+		if currentPlateIdx == -1 {
+			continue
 		}
-	}
 
-	// Process only boundary cells (typically <10% of total cells)
-	for coord := range boundaryCells {
-		currentPlateIdx := coordToPlate[coord]
+		// Reconstruct coordinate from index
+		// idx = (face * res * res) + (y * res) + x
+		face := idx / resSq
+		rem := idx % resSq
+		y := rem / resolution
+		x := rem % resolution
+		coord := spatial.Coordinate{Face: face, X: x, Y: y}
+
 		currentPlate := plates[currentPlateIdx]
 
-		// Check neighbors for boundary interactions
+		// Check neighbors for boundary
 		for _, dir := range directions {
 			neighbor := topology.GetNeighbor(coord, dir)
-			neighborPlateIdx, exists := coordToPlate[neighbor]
+			// Calculate neighbor index
+			nIdx := (neighbor.Face * resSq) + (neighbor.Y * resolution) + neighbor.X
 
-			if !exists || neighborPlateIdx == currentPlateIdx {
+			var neighborPlateIdx int
+			if nIdx >= 0 && nIdx < totalCells {
+				neighborPlateIdx = plateGrid[nIdx]
+			} else {
+				neighborPlateIdx = -1 // Should not happen with valid topology
+			}
+
+			if neighborPlateIdx == -1 || neighborPlateIdx == currentPlateIdx {
 				continue
 			}
 
-			// Found a boundary interaction
+			// Found a boundary between two plates
 			neighborPlate := plates[neighborPlateIdx]
 			boundaryType := CalculateBoundaryType(currentPlate, neighborPlate)
 
 			// Apply equilibrium-based elevation change
 			currentElev := heightmap.Get(coord)
 			elevationDelta := calculateEquilibriumElevationChange(currentPlate, neighborPlate, boundaryType, currentElev)
+
+			// Apply scale factor for variable time steps
+			elevationDelta *= scaleFactor
+
 			applyBoundaryEffectSpherical(heightmap, coord, elevationDelta, topology)
 		}
 	}
