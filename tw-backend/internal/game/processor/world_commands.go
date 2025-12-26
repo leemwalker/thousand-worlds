@@ -795,6 +795,16 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 				if year+stepSize > years {
 					stepSize = years - year
 				}
+
+				// Debug logging (first iteration only)
+				if year == 0 {
+					log.Printf("[ADAPTIVE STEPPING] Year 0: heat=%.2f, stepSize=%d, simulateLife=%v", heat, stepSize, simulateLife)
+				}
+			} else {
+				// Debug logging for non-adaptive path
+				if year == 0 {
+					log.Printf("[ADAPTIVE STEPPING] DISABLED: simulateLife=true, forcing stepSize=1")
+				}
 			}
 
 			// If stepSize > 1, skipped years shouldn't trigger expensive checks unless accumulators handle them
