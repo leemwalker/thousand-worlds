@@ -30,6 +30,7 @@ const ENTITY_IDS: Record<string, number> = {
     'creature': 5,
     'item': 6,
     'plant': 7,
+    'floor': 8,
 };
 
 // Vertex shader - camera transform with texture coordinates
@@ -145,13 +146,14 @@ vec3 getBiomeColor(float biomeId) {
 // Entity-based colors (encoded in B channel)
 vec3 getEntityColor(float entityId) {
     int id = int(entityId * 255.0);
-    if (id == 1) return vec3(0.4, 0.35, 0.3);    // Wall - dark brown
+    if (id == 1) return vec3(0.35, 0.35, 0.4);   // Wall - dark grey
     if (id == 2) return vec3(0.8, 0.2, 0.8);     // Portal - magenta
     if (id == 3) return vec3(0.7, 0.7, 0.8);     // Statue - stone gray
     if (id == 4) return vec3(0.9, 0.8, 0.3);     // NPC - gold
     if (id == 5) return vec3(0.8, 0.4, 0.3);     // Creature - orange
     if (id == 6) return vec3(0.3, 0.8, 0.9);     // Item - cyan
     if (id == 7) return vec3(0.2, 0.7, 0.3);     // Plant - bright green
+    if (id == 8) return vec3(0.85, 0.82, 0.78);  // Floor - light marble
     return vec3(0.0);                             // No entity (0 = transparent)
 }
 
@@ -876,6 +878,20 @@ export class WebGLMapRenderer {
      */
     getCameraPosition(): { x: number; y: number } {
         return { x: this.cameraX, y: this.cameraY };
+    }
+
+    /**
+     * Get the current texture scale (for entity overlay synchronization)
+     */
+    getTexScale(): { x: number; y: number } {
+        return { x: this.texScaleX, y: this.texScaleY };
+    }
+
+    /**
+     * Get grid dimensions (for entity overlay coordinate conversion)
+     */
+    getGridDimensions(): { width: number; height: number } {
+        return { width: this.gridWidth, height: this.gridHeight };
     }
 
     /**

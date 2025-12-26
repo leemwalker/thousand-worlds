@@ -18,6 +18,25 @@
     let worldMapData: any = null;
     let loading = false;
 
+    // Hover state for tile inspection
+    let hoveredTile: { gridX: number; gridY: number } | null = null;
+    let hoverScreenX = 0;
+    let hoverScreenY = 0;
+    let tooltipData: {
+        x: number;
+        y: number;
+        elevation: number;
+        biome: string;
+    } | null = null;
+
+    // WebGL camera state
+    let cameraZoom = 1.0;
+    let cameraX = 0.5;
+    let cameraY = 0.5;
+    let isDragging = false;
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+
     // Graphics mode toggle (WebGL vs ASCII)
     let useGraphicsMode = true;
 
@@ -270,9 +289,39 @@
     });
 
     function handleKeydown(e: KeyboardEvent) {
-        if (!isOpen || !renderer) return;
+        if (!isOpen) return;
 
-        const speed = 20; // Pan speed
+        // WebGL mode: handle camera
+        if (useGraphicsMode && webglRenderer) {
+            const panDelta = 0.05 * cameraZoom;
+            switch (e.key.toLowerCase()) {
+                case "w":
+                    cameraY -= panDelta;
+                    webglRenderer.setCamera(cameraX, cameraY, cameraZoom);
+                    syncCameraState();
+                    break;
+                case "s":
+                    cameraY += panDelta;
+                    webglRenderer.setCamera(cameraX, cameraY, cameraZoom);
+                    syncCameraState();
+                    break;
+                case "a":
+                    cameraX -= panDelta;
+                    webglRenderer.setCamera(cameraX, cameraY, cameraZoom);
+                    syncCameraState();
+                    break;
+                case "d":
+                    cameraX += panDelta;
+                    webglRenderer.setCamera(cameraX, cameraY, cameraZoom);
+                    syncCameraState();
+                    break;
+            }
+            return;
+        }
+
+        // Canvas2D mode
+        if (!renderer) return;
+        const speed = 20;
         switch (e.key.toLowerCase()) {
             case "w":
                 renderer.pan(0, speed);
@@ -290,8 +339,101 @@
     }
 
     function handleWheel(e: WheelEvent) {
-        if (!isOpen || !renderer) return;
+        if (!isOpen) return;
+
+        // WebGL mode
+        if (useGraphicsMode && webglRenderer) {
+            const zoomDelta = e.deltaY > 0 ? 1.1 : 0.9;
+            cameraZoom = Math.max(0.1, Math.min(10.0, cameraZoom * zoomDelta));
+            webglRenderer.setCamera(cameraX, cameraY, cameraZoom);
+            syncCameraState();
+            return;
+        }
+
+        // Canvas2D mode
+        if (!renderer) return;
         renderer.zoom(e.deltaY);
+    }
+
+    function syncCameraState() {
+        if (!webglRenderer) return;
+        const pos = webglRenderer.getCameraPosition();
+        cameraX = pos.x;
+        cameraY = pos.y;
+        cameraZoom = webglRenderer.getZoom();
+    }
+
+    // Hover handling for tooltip
+    function handleMapMouseMove(e: MouseEvent) {
+        if (!useGraphicsMode || !webglRenderer || !worldMapData) return;
+
+        // Handle dragging
+        if (isDragging) {
+            const deltaX = e.clientX - lastMouseX;
+            const deltaY = e.clientY - lastMouseY;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+
+            const texDeltaX = (-deltaX / containerWidth) * cameraZoom;
+            const texDeltaY = (-deltaY / containerHeight) * cameraZoom;
+
+            cameraX += texDeltaX;
+            cameraY += texDeltaY;
+            webglRenderer.setCamera(cameraX, cameraY, cameraZoom);
+            syncCameraState();
+            return;
+        }
+
+        // Get grid position under mouse
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        hoverScreenX = e.clientX;
+        hoverScreenY = e.clientY;
+
+        const gridPos = webglRenderer.getGridIndexFromScreen(mouseX, mouseY);
+        if (!gridPos) {
+            hoveredTile = null;
+            tooltipData = null;
+            return;
+        }
+
+        hoveredTile = gridPos;
+
+        // Find tile data
+        const tile = worldMapData.tiles.find(
+            (t: any) =>
+                t.grid_x === gridPos.gridX && t.grid_y === gridPos.gridY,
+        );
+
+        if (tile) {
+            tooltipData = {
+                x: gridPos.gridX,
+                y: gridPos.gridY,
+                elevation: tile.avg_elevation || 0,
+                biome: tile.biome || "Unknown",
+            };
+        } else {
+            tooltipData = null;
+        }
+    }
+
+    function handleMapMouseDown(e: MouseEvent) {
+        if (!useGraphicsMode || e.button !== 0) return;
+        isDragging = true;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+    }
+
+    function handleMapMouseUp() {
+        isDragging = false;
+    }
+
+    function handleMapMouseLeave() {
+        isDragging = false;
+        hoveredTile = null;
+        tooltipData = null;
     }
 
     onDestroy(() => {
@@ -354,8 +496,50 @@
                         bind:this={canvas}
                         width={containerWidth}
                         height={containerHeight}
-                        class="block w-full h-full"
+                        class="block w-full h-full cursor-grab"
+                        class:cursor-grabbing={isDragging}
+                        on:mousemove={handleMapMouseMove}
+                        on:mousedown={handleMapMouseDown}
+                        on:mouseup={handleMapMouseUp}
+                        on:mouseleave={handleMapMouseLeave}
                     ></canvas>
+
+                    <!-- Tile Inspection Tooltip -->
+                    {#if tooltipData}
+                        <div
+                            class="fixed z-50 pointer-events-none"
+                            style="left: {hoverScreenX +
+                                16}px; top: {hoverScreenY + 16}px;"
+                        >
+                            <div
+                                class="bg-gray-900/95 border border-gray-600 rounded-lg p-3 shadow-xl text-sm min-w-[150px]"
+                            >
+                                <div
+                                    class="text-gray-400 text-xs mb-2 font-mono"
+                                >
+                                    ({tooltipData.x}, {tooltipData.y})
+                                </div>
+                                <div class="space-y-1">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400">Biome</span>
+                                        <span class="text-white font-medium"
+                                            >{tooltipData.biome}</span
+                                        >
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-400"
+                                            >Elevation</span
+                                        >
+                                        <span class="text-yellow-400"
+                                            >{tooltipData.elevation.toFixed(
+                                                0,
+                                            )}m</span
+                                        >
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {/if}
 
                     <!-- Stats HUD (Top Left) -->
                     <div
