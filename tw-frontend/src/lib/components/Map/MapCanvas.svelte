@@ -23,10 +23,16 @@
     let gridWidth = 128;
     let gridHeight = 64;
 
-    // Drag state
+    // Mouse drag state
     let isDragging = false;
     let lastMouseX = 0;
     let lastMouseY = 0;
+
+    // Touch state for mobile gestures
+    let lastTouchX = 0;
+    let lastTouchY = 0;
+    let lastTouchDistance = 0;
+    let isTouching = false;
 
     onMount(() => {
         renderer = new WebGLMapRenderer(canvas);
@@ -127,6 +133,99 @@
     function handleMouseEnter() {
         canvas.style.cursor = "grab";
     }
+
+    // ============ Touch Handlers for Mobile ============
+
+    /**
+     * Calculate distance between two touch points (for pinch gesture)
+     */
+    function getTouchDistance(touches: TouchList): number {
+        if (touches.length < 2) return 0;
+        const dx = touches[1].clientX - touches[0].clientX;
+        const dy = touches[1].clientY - touches[0].clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    /**
+     * Get center point of touches
+     */
+    function getTouchCenter(touches: TouchList): { x: number; y: number } {
+        if (touches.length === 1) {
+            return { x: touches[0].clientX, y: touches[0].clientY };
+        }
+        return {
+            x: (touches[0].clientX + touches[1].clientX) / 2,
+            y: (touches[0].clientY + touches[1].clientY) / 2,
+        };
+    }
+
+    function handleTouchStart(e: TouchEvent) {
+        e.preventDefault(); // Prevent page scroll
+        if (!renderer) return;
+
+        isTouching = true;
+        const center = getTouchCenter(e.touches);
+        lastTouchX = center.x;
+        lastTouchY = center.y;
+
+        if (e.touches.length >= 2) {
+            // Store initial pinch distance
+            lastTouchDistance = getTouchDistance(e.touches);
+        }
+    }
+
+    function handleTouchMove(e: TouchEvent) {
+        e.preventDefault(); // Prevent page scroll
+        if (!isTouching || !renderer) return;
+
+        const center = getTouchCenter(e.touches);
+
+        if (e.touches.length >= 2) {
+            // Two-finger pinch: Zoom
+            const currentDistance = getTouchDistance(e.touches);
+            if (lastTouchDistance > 0) {
+                const scale = currentDistance / lastTouchDistance;
+                // Invert: if distance increases, zoom in (decrease zoom value)
+                zoom = Math.max(0.1, Math.min(10.0, zoom / scale));
+                renderer.setCamera(cameraX, cameraY, zoom);
+                syncCameraState();
+            }
+            lastTouchDistance = currentDistance;
+        }
+
+        // Pan (works for both 1 and 2 finger touches)
+        const deltaX = center.x - lastTouchX;
+        const deltaY = center.y - lastTouchY;
+        lastTouchX = center.x;
+        lastTouchY = center.y;
+
+        if (Math.abs(deltaX) > 0 || Math.abs(deltaY) > 0) {
+            const texDeltaX = (-deltaX / canvas.width) * renderer.getZoom();
+            const texDeltaY = (-deltaY / canvas.height) * renderer.getZoom();
+
+            cameraX += texDeltaX;
+            cameraY += texDeltaY;
+
+            renderer.setCamera(cameraX, cameraY, zoom);
+            syncCameraState();
+        }
+    }
+
+    function handleTouchEnd(e: TouchEvent) {
+        e.preventDefault();
+
+        if (e.touches.length === 0) {
+            // All fingers lifted
+            isTouching = false;
+            lastTouchDistance = 0;
+        } else if (e.touches.length === 1) {
+            // One finger still down, reset for single-finger pan
+            const center = getTouchCenter(e.touches);
+            lastTouchX = center.x;
+            lastTouchY = center.y;
+            lastTouchDistance = 0;
+        }
+    }
 </script>
 
 <div class="map-container" style="width: {width}px; height: {height}px;">
@@ -141,6 +240,10 @@
         on:mouseup={handleMouseUp}
         on:mouseleave={handleMouseLeave}
         on:mouseenter={handleMouseEnter}
+        on:touchstart|preventDefault={handleTouchStart}
+        on:touchmove|preventDefault={handleTouchMove}
+        on:touchend|preventDefault={handleTouchEnd}
+        on:touchcancel|preventDefault={handleTouchEnd}
     ></canvas>
 
     <MapEntityOverlay
@@ -162,6 +265,7 @@
     .map-container {
         position: relative;
         display: inline-block;
+        touch-action: none; /* Prevent browser handling of touch gestures */
     }
 
     .map-canvas {
@@ -170,6 +274,7 @@
         background: #000;
         cursor: grab;
         display: block;
+        touch-action: none; /* Prevent browser handling of touch gestures */
     }
 
     .map-canvas:active {
