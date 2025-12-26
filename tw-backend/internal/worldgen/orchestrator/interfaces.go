@@ -36,9 +36,10 @@ func (g *DefaultGeographyGenerator) GenerateGeography(params *GenerationParams, 
 	// 1. Generate tectonic plates on the sphere
 	plates := geography.GeneratePlates(params.PlateCount, topology, params.Seed)
 
-	// 2. Create sphere heightmap and apply tectonics (with tidal stress for volcanism)
+	// 2. Create sphere heightmap and apply tectonics (with tidal stress and heat for volcanism)
+	// For world generation, use modern Earth heat baseline (1.0)
 	sphereHeightmap := geography.NewSphereHeightmap(topology)
-	sphereHeightmap = geography.GenerateHeightmapWithTidalStress(plates, sphereHeightmap, topology, params.Seed, params.ErosionRate, params.RainfallFactor, tidalStress)
+	sphereHeightmap = geography.GenerateHeightmapWithTidalStress(plates, sphereHeightmap, topology, params.Seed, params.ErosionRate, params.RainfallFactor, tidalStress, 1.0)
 
 	// 3. Convert to flat heightmap for legacy consumers
 	heightmap := sphereHeightmap.ToFlatHeightmap(params.Width, params.Height)
@@ -57,8 +58,11 @@ func (g *DefaultGeographyGenerator) GenerateGeography(params *GenerationParams, 
 	oceanSys.SimulateThermodynamics(50) // 50 iterations for Gulf Stream effect (balanced for performance)
 
 	// 7. Generate climate data using spherical system (with ocean moderation)
+	// For world generation, use modern Earth baseline (geothermalOffset = 0)
+	// During simulation, this would be driven by ClimateDriver based on planetary age
+	geothermalOffset := 0.0
 	sphereClimate := weather.GenerateInitialClimateSpherical(
-		sphereHeightmap, topology, seaLevel, params.Seed, 0.0,
+		sphereHeightmap, topology, seaLevel, params.Seed, 0.0, geothermalOffset,
 	)
 	weather.ApplyOceanModeration(sphereClimate, topology, oceanSys, sphereHeightmap, seaLevel)
 

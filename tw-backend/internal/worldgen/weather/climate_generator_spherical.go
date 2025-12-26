@@ -21,6 +21,7 @@ type SphereClimateMap [][]ClimateData
 //   - seaLevel: Current sea level in meters
 //   - seed: Random seed for moisture noise
 //   - globalTempMod: Global temperature modifier (e.g., volcanic winter = -10)
+//   - geothermalOffset: Temperature increase from planetary internal heat (early Earth = +90°C)
 //
 // Returns climate data organized by face, with each face indexed row-major.
 func GenerateInitialClimateSpherical(
@@ -29,6 +30,7 @@ func GenerateInitialClimateSpherical(
 	seaLevel float64,
 	seed int64,
 	globalTempMod float64,
+	geothermalOffset float64,
 ) SphereClimateMap {
 	faceSize := sphereMap.Resolution()
 	climateData := make(SphereClimateMap, 6)
@@ -57,8 +59,13 @@ func GenerateInitialClimateSpherical(
 				// Normalize latitude to 0-1 range (0 at equator, 1 at poles)
 				latitudeNormalized := math.Abs(latitude) / 90.0
 
-				// Calculate temperature using the same physics model
-				temp := calculateTemperatureFromLatitude(latitudeNormalized, elevation, seaLevel, globalTempMod)
+				// Calculate base temperature using physics model
+				baseTemp := calculateTemperatureFromLatitude(latitudeNormalized, elevation, seaLevel, globalTempMod)
+
+				// Add geothermal contribution from planetary internal heat
+				// Early Earth (Hadean): +90°C from mantle heat flux
+				// Modern Earth: ~0°C (radiogenic heat depleted)
+				temp := baseTemp + geothermalOffset
 
 				// Get longitude for noise variation
 				longitude := GetLongitudeFromCoord(topology, coord)

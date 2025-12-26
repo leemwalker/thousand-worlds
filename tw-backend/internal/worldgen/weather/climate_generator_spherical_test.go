@@ -35,7 +35,7 @@ func TestGenerateInitialClimateSpherical(t *testing.T) {
 	globalTempMod := 0.0
 
 	t.Run("generates climate for all face coordinates", func(t *testing.T) {
-		climate := GenerateInitialClimateSpherical(sphereMap, topology, seaLevel, seed, globalTempMod)
+		climate := GenerateInitialClimateSpherical(sphereMap, topology, seaLevel, seed, globalTempMod, 0.0)
 
 		// Should have data for all 6 faces
 		if len(climate) != 6 {
@@ -51,7 +51,7 @@ func TestGenerateInitialClimateSpherical(t *testing.T) {
 	})
 
 	t.Run("polar regions are colder than equator", func(t *testing.T) {
-		climate := GenerateInitialClimateSpherical(sphereMap, topology, seaLevel, seed, globalTempMod)
+		climate := GenerateInitialClimateSpherical(sphereMap, topology, seaLevel, seed, globalTempMod, 0.0)
 
 		// Get average temp at equatorial face (face 0) center
 		equatorTemp := climate[0][faceSize/2*faceSize+faceSize/2].Temperature
@@ -79,7 +79,7 @@ func TestGenerateInitialClimateSpherical(t *testing.T) {
 		// Add a mountain at center of face 0
 		mountainMap.Set(spatial.Coordinate{Face: 0, X: faceSize / 2, Y: faceSize / 2}, 5000)
 
-		climate := GenerateInitialClimateSpherical(mountainMap, topology, seaLevel, seed, globalTempMod)
+		climate := GenerateInitialClimateSpherical(mountainMap, topology, seaLevel, seed, globalTempMod, 0.0)
 
 		mountainIdx := faceSize/2*faceSize + faceSize/2
 		neighborIdx := faceSize/2*faceSize + faceSize/2 + 1
@@ -94,7 +94,7 @@ func TestGenerateInitialClimateSpherical(t *testing.T) {
 	})
 
 	t.Run("seasonality is higher at poles", func(t *testing.T) {
-		climate := GenerateInitialClimateSpherical(sphereMap, topology, seaLevel, seed, globalTempMod)
+		climate := GenerateInitialClimateSpherical(sphereMap, topology, seaLevel, seed, globalTempMod, 0.0)
 
 		// Equator center seasonality
 		equatorSeasonality := climate[0][faceSize/2*faceSize+faceSize/2].Seasonality
@@ -110,8 +110,8 @@ func TestGenerateInitialClimateSpherical(t *testing.T) {
 	})
 
 	t.Run("global temp modifier affects all cells", func(t *testing.T) {
-		normalClimate := GenerateInitialClimateSpherical(sphereMap, topology, seaLevel, seed, 0)
-		coldClimate := GenerateInitialClimateSpherical(sphereMap, topology, seaLevel, seed, -10)
+		normalClimate := GenerateInitialClimateSpherical(sphereMap, topology, seaLevel, seed, 0, 0.0)
+		coldClimate := GenerateInitialClimateSpherical(sphereMap, topology, seaLevel, seed, -10, 0.0)
 
 		// Sample cell
 		normalTemp := normalClimate[0][0].Temperature
@@ -140,7 +140,7 @@ func TestGetClimateAtSpherical(t *testing.T) {
 		}
 	}
 
-	climate := GenerateInitialClimateSpherical(sphereMap, topology, 0, 42, 0)
+	climate := GenerateInitialClimateSpherical(sphereMap, topology, 0, 42, 0, 0.0)
 
 	t.Run("returns valid climate for valid coordinate", func(t *testing.T) {
 		coord := spatial.Coordinate{Face: 0, X: 5, Y: 5}

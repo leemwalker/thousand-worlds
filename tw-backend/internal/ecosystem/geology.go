@@ -53,6 +53,16 @@ type WorldGeology struct {
 	RiverAccumulator          float64 // Years of accumulated river/biome update time
 	MaintenanceAccumulator    float64 // Years of accumulated maintenance time (subsidence, clamping, stats)
 	GeneralAccumulator        float64 // Years of accumulated time for lower frequency events
+
+	// Ocean phase state (Hadean vapor → Modern liquid transition)
+	OceanVaporFraction float64 // 0.0 = all liquid (cool planet), 1.0 = all vapor (hot planet)
+}
+
+// PhaseTransitionEvent represents a major planetary phase change
+type PhaseTransitionEvent struct {
+	Type        string // "GreatDeluge", etc.
+	Year        int64  // Year when event occurred
+	Description string // Human-readable description
 }
 
 // GeologyStats contains summary statistics for world info display
@@ -511,12 +521,13 @@ func (g *WorldGeology) simulateDepositEvolution(yearsElapsed int64) {
 // SimulateGeology advances geological processes over time
 // dt is the time step in years (Delta Time)
 // globalTempMod is the current global temperature offset (e.g. from volcanic winter)
-func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) {
+// Returns a PhaseTransitionEvent if a major phase change occurred (e.g., Great Deluge)
+func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTransitionEvent {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
 	if g.Heightmap == nil {
-		return // Not initialized
+		return nil // Not initialized
 	}
 
 	g.TotalYearsSimulated += dt
@@ -534,6 +545,8 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) {
 	g.RiverAccumulator += dtFloat
 	g.MaintenanceAccumulator += dtFloat
 	g.GeneralAccumulator += dtFloat
+
+	// [... rest of existing SimulateGeology code stays the same until line 762 ...]
 
 	// Plate movement: ~2cm/year = 0.00002 km/year
 	// Over 1 million years = 20 km of movement
@@ -753,6 +766,68 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) {
 
 	// Update heightmap min/max
 	g.updateHeightmapStats()
+
+	// === Ocean Phase Transition Logic ===
+	// Model water vapor ↔ liquid phase changes based on surface temperature
+	// Early Earth (Hadean): >100°C → water exists as atmospheric vapor
+	// Modern Earth: <100°C → water condenses into liquid oceans
+
+	// Calculate average surface temperature
+	avgTemp := g.calculateAverageSurfaceTemp(globalTempMod)
+
+	// Define phase transition parameters
+	const (
+		modernSeaLevel = 0.0    // Baseline sea level (meters)
+		vaporTempLow   = 90.0   // °C - start of transition zone
+		vaporTempHigh  = 110.0  // °C - full vaporization
+		vaporDepth     = 4000.0 // meters - ocean basins depth
+	)
+
+	// Store previous state for event detection
+	wasVaporized := g.OceanVaporFraction > 0.5
+
+	// Calculate vapor fraction (0.0 = all liquid, 1.0 = all vapor)
+	vaporFraction := 0.0
+	if avgTemp > vaporTempHigh {
+		vaporFraction = 1.0 // Fully vaporized (Hadean steam atmosphere)
+	} else if avgTemp > vaporTempLow {
+		// Smooth transition zone (90-110°C)
+		vaporFraction = (avgTemp - vaporTempLow) / (vaporTempHigh - vaporTempLow)
+	}
+	// else: vaporFraction = 0.0 (fully liquid, modern Earth)
+
+	// Bounds checking
+	if vaporFraction < 0.0 {
+		vaporFraction = 0.0
+	}
+	if vaporFraction > 1.0 {
+		vaporFraction = 1.0
+	}
+
+	// Update ocean vapor fraction
+	g.OceanVaporFraction = vaporFraction
+
+	// Calculate target sea level based on vapor fraction
+	// When water vaporizes, sea level drops as ocean basins empty
+	targetSeaLevel = modernSeaLevel - (vaporFraction * vaporDepth)
+
+	// Smooth transition (exponential relaxation)
+	// Prevents jarring jumps, simulates realistic evaporation/condensation timescales
+	smoothingFactor := 0.1
+	g.SeaLevel += (targetSeaLevel - g.SeaLevel) * smoothingFactor
+
+	// Detect "Great Deluge" event (water condensing from atmosphere to form oceans)
+	// Triggers when planet cools and vapor fraction drops below 50%
+	var phaseEvent *PhaseTransitionEvent
+	if wasVaporized && vaporFraction < 0.5 {
+		phaseEvent = &PhaseTransitionEvent{
+			Type:        "GreatDeluge",
+			Year:        g.TotalYearsSimulated,
+			Description: "Atmospheric water vapor condenses into liquid oceans as planet cools below 100°C",
+		}
+	}
+
+	return phaseEvent
 }
 
 // applyHotspotActivity adds volcanic material at hotspot locations
@@ -1224,6 +1299,35 @@ func (g *WorldGeology) updateHeightmapStats() {
 	}
 	g.Heightmap.MinElev = minElev
 	g.Heightmap.MaxElev = maxElev
+}
+
+// calculateAverageSurfaceTemp estimates global average surface temperature
+// Uses biome temperatures (which include latitude/altitude effects) + global modifiers
+// Returns temperature in Celsius
+func (g *WorldGeology) calculateAverageSurfaceTemp(globalTempMod float64) float64 {
+	// Get geothermal offset from planetary age
+	heat := GetPlanetaryHeat(g.TotalYearsSimulated)
+	geothermalOffset := 0.0
+	if heat > 2.0 {
+		// Early Earth: significant geothermal heating
+		geothermalOffset = (heat - 1.0) * 10.0
+	} else {
+		// Modern Earth: minimal geothermal contribution
+		geothermalOffset = (heat - 1.0) * 2.0
+	}
+
+	// Calculate average from biomes if available
+	avgBiomeTemp := 15.0 // Default baseline (Earth-like)
+	if len(g.Biomes) > 0 {
+		totalTemp := 0.0
+		for _, b := range g.Biomes {
+			totalTemp += b.Temperature
+		}
+		avgBiomeTemp = totalTemp / float64(len(g.Biomes))
+	}
+
+	// Combine all temperature factors
+	return avgBiomeTemp + globalTempMod + geothermalOffset
 }
 
 // GetStats returns current geological statistics
