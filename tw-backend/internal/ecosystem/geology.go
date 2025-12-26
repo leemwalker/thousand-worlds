@@ -558,21 +558,33 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 	// Over 1 million years = 20 km of movement
 	// We accumulate movement and apply tectonic effects periodically
 
-	// Apply plate tectonics every 100,000 years for efficiency
+	// Apply plate tectonics with adaptive frequency
+	// Optimization: Reduce frequency during molten Hadean eon to save performance
 	tectonicStart := time.Now()
-	tectonicInterval := 100_000.0
+
+	tectonicInterval := 100_000.0 // Default (modern precision)
+	if heat > 4.0 {
+		tectonicInterval = 1_000_000.0 // Hadean: Every 1M years (10x less frequent)
+	} else if heat > 1.5 {
+		tectonicInterval = 500_000.0 // Archean: Every 500k years (5x less frequent)
+	}
+
 	if g.TectonicStressAccumulator >= tectonicInterval {
 		// Calculate how many intervals passed
 		intervals := int64(g.TectonicStressAccumulator / tectonicInterval)
 
 		// Run tectonic updates
+		// Since we scaled the interval, we also scale the tectonic effect
+		scaleFactor := tectonicInterval / 100_000.0
+
 		for i := int64(0); i < intervals; i++ {
 			g.advancePlates(tectonicInterval)
 
 			// Fix 1: Re-enable Equilibrium Tectonics
 			// Uses asymptotic approach to prevent runaway elevation
 			if g.SphereHeightmap != nil && g.Topology != nil {
-				g.SphereHeightmap = geography.SimulateTectonics(g.Plates, g.SphereHeightmap, g.Topology)
+				// Pass scaleFactor to apply stronger effects for longer intervals
+				g.SphereHeightmap = geography.SimulateTectonics(g.Plates, g.SphereHeightmap, g.Topology, scaleFactor)
 				g.syncSphereToFlat()
 			}
 		}

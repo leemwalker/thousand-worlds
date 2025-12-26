@@ -181,7 +181,7 @@ func TestSimulateTectonics_Spherical(t *testing.T) {
 	}
 
 	// Simulate tectonics
-	SimulateTectonics(plates, hm, topology)
+	SimulateTectonics(plates, hm, topology, 1.0)
 
 	// Check that some elevations changed (boundaries should have effects)
 	changedCells := 0

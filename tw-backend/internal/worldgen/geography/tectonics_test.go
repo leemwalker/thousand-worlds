@@ -54,7 +54,7 @@ func TestSimulateTectonics(t *testing.T) {
 		}
 	}
 
-	result := SimulateTectonics(plates, hm, topology)
+	result := SimulateTectonics(plates, hm, topology, 1.0)
 
 	assert.NotNil(t, result)
 

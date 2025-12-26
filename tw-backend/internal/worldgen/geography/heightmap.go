@@ -34,7 +34,7 @@ func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereH
 	}
 
 	// 2. Apply Tectonic Modifiers
-	SimulateTectonics(plates, heightmap, topology)
+	SimulateTectonics(plates, heightmap, topology, 1.0)
 
 	// 2a. Apply Volcanic Hotspots (scaled by tidal stress and planetary heat)
 	ApplyHotspots(heightmap, plates, topology, seed, tidalStress, heatMultiplier)

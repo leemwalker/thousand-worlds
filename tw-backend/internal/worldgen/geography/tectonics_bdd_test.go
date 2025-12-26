@@ -128,7 +128,7 @@ func TestBDD_Tectonics_HeightmapGeneration(t *testing.T) {
 		}
 	}
 
-	result := geography.SimulateTectonics(plates, heightmap, topology)
+	result := geography.SimulateTectonics(plates, heightmap, topology, 1.0)
 
 	require.NotNil(t, result, "Heightmap should be generated")
 
