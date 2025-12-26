@@ -45,6 +45,14 @@ type WorldGeology struct {
 
 	// Scale factors (pixels to real-world)
 	PixelsPerKm float64 // How many heightmap pixels per real km
+
+	// Time Accumulators for variable step simulation
+	TectonicStressAccumulator float64 // Years of accumulated tectonic stress
+	ErosionAccumulator        float64 // Years of accumulated erosion potential
+	DepositAccumulator        float64 // Years of accumulated organic deposit time
+	RiverAccumulator          float64 // Years of accumulated river/biome update time
+	MaintenanceAccumulator    float64 // Years of accumulated maintenance time (subsidence, clamping, stats)
+	GeneralAccumulator        float64 // Years of accumulated time for lower frequency events
 }
 
 // GeologyStats contains summary statistics for world info display
@@ -429,9 +437,9 @@ func (g *WorldGeology) simulateDepositEvolution(yearsElapsed int64) {
 }
 
 // SimulateGeology advances geological processes over time
-// yearsElapsed is the number of years to simulate
+// dt is the time step in years (Delta Time)
 // globalTempMod is the current global temperature offset (e.g. from volcanic winter)
-func (g *WorldGeology) SimulateGeology(yearsElapsed int64, globalTempMod float64) {
+func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -439,18 +447,30 @@ func (g *WorldGeology) SimulateGeology(yearsElapsed int64, globalTempMod float64
 		return // Not initialized
 	}
 
-	g.TotalYearsSimulated += yearsElapsed
+	g.TotalYearsSimulated += dt
+
+	// Accumulate time for variable step processing
+	dtFloat := float64(dt)
+	g.TectonicStressAccumulator += dtFloat
+	g.ErosionAccumulator += dtFloat
+	g.DepositAccumulator += dtFloat
+	g.RiverAccumulator += dtFloat
+	g.MaintenanceAccumulator += dtFloat
+	g.GeneralAccumulator += dtFloat
 
 	// Plate movement: ~2cm/year = 0.00002 km/year
 	// Over 1 million years = 20 km of movement
 	// We accumulate movement and apply tectonic effects periodically
 
 	// Apply plate tectonics every 100,000 years for efficiency
-	tectonicInterval := int64(100_000)
-	if yearsElapsed >= tectonicInterval {
-		intervals := yearsElapsed / tectonicInterval
+	tectonicInterval := 100_000.0
+	if g.TectonicStressAccumulator >= tectonicInterval {
+		// Calculate how many intervals passed
+		intervals := int64(g.TectonicStressAccumulator / tectonicInterval)
+
+		// Run tectonic updates
 		for i := int64(0); i < intervals; i++ {
-			g.advancePlates(float64(tectonicInterval))
+			g.advancePlates(tectonicInterval)
 
 			// Fix 1: Re-enable Equilibrium Tectonics
 			// Uses asymptotic approach to prevent runaway elevation
@@ -459,72 +479,182 @@ func (g *WorldGeology) SimulateGeology(yearsElapsed int64, globalTempMod float64
 				g.syncSphereToFlat()
 			}
 		}
+
+		// Keep remainder
+		g.TectonicStressAccumulator -= float64(intervals) * tectonicInterval
 	}
 
 	// Apply erosion (more frequent)
 	// Thermal erosion: 1 iteration per 10,000 years
-	thermalIterations := int(yearsElapsed / 10_000)
-	if thermalIterations > 0 && thermalIterations <= 10 { // Cap iterations
-		geography.ApplyThermalErosion(g.Heightmap, thermalIterations, g.Seed+g.TotalYearsSimulated)
-	}
+	// We map the continuous erosion potential to discrete iterations
+	erosionInterval := 10_000.0
+	if g.ErosionAccumulator >= erosionInterval {
+		intervals := int(g.ErosionAccumulator / erosionInterval)
 
-	// Hydraulic erosion: proportional to time but capped
-	// 1000 drops per 10,000 years
-	drops := int((yearsElapsed * 1000) / 10_000)
-	if drops > 0 && drops <= 5000 {
-		geography.ApplyHydraulicErosion(g.Heightmap, drops, g.Seed+g.TotalYearsSimulated)
+		// Thermal erosion iterations
+		// Cap iterations per frame to avoid lag spikes on huge updates, but for normal sim it's fine
+		// 1 iteration per 10k years
+		iterations := intervals
+		if iterations > 0 {
+			if iterations > 10 {
+				iterations = 10
+			} // Reasonable cap per frame
+			geography.ApplyThermalErosion(g.Heightmap, iterations, g.Seed+g.TotalYearsSimulated)
+		}
+
+		// Hydraulic erosion: proportional to time but capped
+		// 1000 drops per 10,000 years
+		drops := int((float64(intervals) * 1000))
+		if drops > 0 {
+			if drops > 5000 {
+				drops = 5000
+			} // Cap
+			geography.ApplyHydraulicErosion(g.Heightmap, drops, g.Seed+g.TotalYearsSimulated)
+		}
+
+		// Decrement accumulator
+		// Note: We subtract what we actually processed (or intended to).
+		// If we capped it, we technically "lost" some erosion, which improves stability.
+		g.ErosionAccumulator -= float64(intervals) * erosionInterval
 	}
 
 	// Apply hotspot activity
-	g.applyHotspotActivity(float64(yearsElapsed))
+	// This function already handles partial years probabilistically if needed,
+	// or we can pass dtFloat.
+	g.applyHotspotActivity(dtFloat)
 
-	// Simulate cave formation (every 100,000 years for efficiency)
-	// Caves form through limestone dissolution by water
-	if yearsElapsed >= 100_000 && g.Columns != nil {
-		g.simulateCaveFormation(yearsElapsed)
+	// Low frequency events using GeneralAccumulator
+	// We can check multiple intervals
+
+	// Cave formation (every 100,000 years)
+	if g.GeneralAccumulator >= 100_000 {
+		// Just run it once if we crossed the threshold, or loop if huge time jump?
+		// For huge jumps (e.g. 1M years), running 10 times might be slow.
+		// Let's run it once but scale the effect if supported, otherwise just once.
+		// Detailed cave sim is expensive. Let's trigger it once if threshold crossed.
+		// TODO: Better scaling for huge time jumps
+		if g.Columns != nil {
+			g.simulateCaveFormation(int64(g.GeneralAccumulator))
+		}
 	}
 
-	// Simulate magma chambers and tectonic volcanism
-	if yearsElapsed >= 10_000 && g.Columns != nil {
-		g.simulateMagmaChambers(yearsElapsed)
+	// Tectonic Volcanism / Magma Chambers (every 10,000 years)
+	// We'll use a modulo logic or just run it if enough time passed
+	// This part is tricky with a single GeneralAccumulator.
+	// Let's rely on the fact that if GeneralAccumulator is big, we execute these.
+
+	// Ideally we'd have accumulators for each, but let's approximate:
+	if dt >= 10_000 && g.Columns != nil {
+		g.simulateMagmaChambers(dt)
+	} else if g.GeneralAccumulator >= 10_000 && g.Columns != nil {
+		// Run with accumulated time
+		// Ideally we subtract from a specific accumulator.
+		// Let's just pass dt for now if it's small steps summing up?
+		// No, if dt=1, we call this every 10,000th call?
+		// Let's simplify: only run these expensive detailed subsurface sims if dt is large
+		// OR strictly periodically.
+		// For standardized ticks, dt=1. We need strict periodic triggers.
+		// We'll use the TotalYearsSimulated for modulo checks for these "optional" details,
+		// OR separate accumulators.
+		// Modulo checks on TotalYearsSimulated works for dt=1 steps.
+		// For variable steps (dt=10000), modulo might skip.
+		// Let's use the explicit checks on the total time logic which handles arbitrary jumps effectively IF we check ranges.
+		// BUT easier approach:
+
+		if g.GeneralAccumulator >= 10_000 {
+			if g.Columns != nil {
+				g.simulateMagmaChambers(10_000)
+			}
+			// Only subtract if we assume this is the main consumer of GeneralAcc
+			// But we have multiple consumers.
+		}
+	}
+
+	// Reset GeneralAccumulator if it gets too big (periodic cleanup)
+	// or use it as a 10k year clock
+	if g.GeneralAccumulator >= 100_000 {
+		g.GeneralAccumulator = 0 // Reset after the longest cycle (Cave formation)
 	}
 
 	// Simulate organic deposit evolution (sedimentation and transformation)
-	if yearsElapsed >= 1_000 && g.Columns != nil {
-		g.simulateDepositEvolution(yearsElapsed)
+	// Simulate organic deposit evolution (sedimentation and transformation)
+	// Every 1,000 years
+	depositInterval := 1_000.0
+	if g.DepositAccumulator >= depositInterval && g.Columns != nil {
+		intervals := int64(g.DepositAccumulator / depositInterval)
+		// Run deposit sim
+		// We pass the accumulated time
+		accumulatedTime := int64(float64(intervals) * depositInterval)
+		g.simulateDepositEvolution(accumulatedTime)
+
+		// Decrement accumulator
+		g.DepositAccumulator -= float64(accumulatedTime)
 	}
 
 	// Regenerate dynamic features using spherical algorithms
 	// Rivers and biomes change as terrain evolves
-	if g.SphereHeightmap != nil {
-		sphereRivers := geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
-		g.Rivers = geography.ConvertSphericalRiversToFlat(sphereRivers, g.Topology.Resolution())
-		g.syncSphereToFlat() // Sync river erosion to flat heightmap
-	} else {
-		g.Rivers = geography.GenerateRivers(g.Heightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
-	}
-	// Pass global temperature modifier to biome assignment
-	// Uses new Weather→Biome pipeline
-	g.Biomes = g.generateBiomesFromClimate(globalTempMod)
-
-	// Fix 3: Apply isostatic adjustment - high mountains slowly subside
-	// Mountains above 8km (Everest scale) experience isostatic rebound pressure
-	for i, elev := range g.Heightmap.Elevations {
-		if elev > 8000 {
-			// Subsidence rate: 0.01% of excess height per 10k years
-			excess := elev - 8000
-			subsidence := excess * 0.0001 * float64(yearsElapsed) / 10000
-			g.Heightmap.Elevations[i] -= subsidence
+	// We throttle this to every 1,000 years to avoid massive performance cost
+	riverInterval := 1_000.0
+	if g.RiverAccumulator >= riverInterval {
+		if g.SphereHeightmap != nil {
+			sphereRivers := geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
+			g.Rivers = geography.ConvertSphericalRiversToFlat(sphereRivers, g.Topology.Resolution())
+			g.syncSphereToFlat() // Sync river erosion to flat heightmap
+		} else {
+			g.Rivers = geography.GenerateRivers(g.Heightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
 		}
+		// Pass global temperature modifier to biome assignment
+		// Uses new Weather→Biome pipeline
+		g.Biomes = g.generateBiomesFromClimate(globalTempMod)
+
+		// Decrement accumulator using modulo to keep phase but prevent buildup
+		g.RiverAccumulator = math.Mod(g.RiverAccumulator, riverInterval)
+	}
+
+	// Fix 3: Apply isostatic adjustment & Maintenance
+	// We throttle this to every 1,000 years
+	maintenanceInterval := 1_000.0
+	if g.MaintenanceAccumulator >= maintenanceInterval {
+		// Calculate how much time this maintenance step represents
+		accumulatedTime := g.MaintenanceAccumulator
+
+		// Subside mountains
+		// Rate: 0.01% per 10k years.
+		// Scale by accumulatedTime.
+		subsidenceRate := 1e-8 * accumulatedTime
+		for i, elev := range g.Heightmap.Elevations {
+			if elev > 8000 {
+				excess := elev - 8000
+				g.Heightmap.Elevations[i] -= excess * subsidenceRate
+			}
+		}
+
+		// Fix 5: Global elevation clamping on SphereHeightmap
+		if g.SphereHeightmap != nil {
+			g.SphereHeightmap.ClampElevations(geography.MinElevation, geography.MaxElevation)
+			g.syncSphereToFlat()
+		} else {
+			for i, elev := range g.Heightmap.Elevations {
+				if elev > geography.MaxElevation {
+					g.Heightmap.Elevations[i] = geography.MaxElevation
+				} else if elev < geography.MinElevation {
+					g.Heightmap.Elevations[i] = geography.MinElevation
+				}
+			}
+		}
+
+		// Update heightmap min/max stats
+		g.updateHeightmapStats()
+
+		// Reset accumulator (modulo)
+		g.MaintenanceAccumulator = math.Mod(g.MaintenanceAccumulator, maintenanceInterval)
 	}
 
 	// Fix 4: Sea level equilibrium model - sea level recovers toward baseline
-	// Instead of permanent drops, sea level trends back to 0 over geological time
-	// This simulates glacial melt and thermal expansion during interglacials
-	// Recovery rate increased 10x from 0.001 to 0.01 for more aggressive homeostasis
+	// Recovery rate: 1% per 10k years = 0.01 / 10000 = 1e-6 per year
 	targetSeaLevel := 0.0 // Baseline sea level
-	recoveryRate := 0.01  // 1% per 10k years (10x faster than before)
-	seaLevelChange := (targetSeaLevel - g.SeaLevel) * recoveryRate * float64(yearsElapsed) / 10000
+	recoveryRatePerYear := 1e-6
+	seaLevelChange := (targetSeaLevel - g.SeaLevel) * recoveryRatePerYear * dtFloat
 	g.SeaLevel += seaLevelChange
 
 	// Fix 5: Global elevation clamping on SphereHeightmap

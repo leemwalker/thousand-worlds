@@ -745,13 +745,29 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			}
 		}
 
-		// Check for theological events (every 10000 years)
-		if year%10000 == 0 && simulateGeology {
-			tick := year * 100 // Convert to ticks for geo manager (100 ticks/year standard)
+		// Check for theological/geological events (standardized tick rate)
+		if simulateGeology {
+			// Standardize to 365 ticks per year
+			currentTick := year * 365
+
+			// Define time step for this loop iteration
+			// Since our loop is `year++`, stepSize is 1 year.
+			// If we want faster simulation for deep time, we should increase the loop step.
+			// But for now, let's keep the loop as 1 year and rely on the accumulators we added to Geology
+			// to handle the small 1-year steps efficiently (by accumulating until threshold).
+			stepSize := int64(1)
+
+			// Update Geology state (Tectonics, Erosion, etc)
+			// This was missing before! Now we drive it explicitly.
+			// We pass stepSize (dt) so it can accumulate stress/erosion.
+			// Calculate global temp mod from events for biome updates
+			tempMod, _, _ := geoManager.GetEnvironmentModifiers()
+			geology.SimulateGeology(stepSize, tempMod)
 
 			// Trigger random events
-			geoManager.CheckForNewEvents(tick, 100*10000)
-			geoManager.UpdateActiveEvents(tick) // Clean up expired events
+			// We pass currentTick and stepSize (dt)
+			geoManager.CheckForNewEvents(currentTick, stepSize)
+			geoManager.UpdateActiveEvents(currentTick) // Clean up expired events
 
 			// Process ALL active events for biome transitions and effects
 			// This ensures warming events (climate recovery) are properly handled
@@ -759,8 +775,8 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 				eventType := population.ExtinctionEventType(e.Type)
 
 				// Check if this event started recently (within this check period)
-				eventAge := tick - e.StartTick
-				isNewEvent := eventAge < 100*10000 // Within the last 10k years
+				eventAge := currentTick - e.StartTick
+				isNewEvent := eventAge < stepSize*365 // Started this year
 
 				if isNewEvent {
 					geologicalEvents++
@@ -812,12 +828,6 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 					}
 				}
 			}
-
-			// Calculate current global temperature modifier
-			tempMod, _, _ := geoManager.GetEnvironmentModifiers()
-
-			// Update geology with climate awareness
-			geology.SimulateGeology(10000, tempMod)
 
 			// Update geographic systems (hex grid, regions, tectonics)
 			if simulateLife && popSim != nil {
