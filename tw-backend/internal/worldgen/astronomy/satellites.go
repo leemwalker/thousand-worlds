@@ -50,17 +50,17 @@ type SatelliteConfig struct {
 // Satellite represents a natural satellite (moon) orbiting a planet
 type Satellite struct {
 	// ID is a unique identifier for this satellite
-	ID uuid.UUID
+	ID uuid.UUID `json:"id"`
 	// Name is the display name for this satellite
-	Name string
+	Name string `json:"name"`
 	// Mass in kilograms (Earth's Moon: 7.342e22 kg)
-	Mass float64
+	Mass float64 `json:"mass"`
 	// Distance from planet center in meters (Moon: 384,400 km)
-	Distance float64
+	Distance float64 `json:"distance"`
 	// Period is the orbital period in seconds (Moon: ~27.3 days)
-	Period float64
+	Period float64 `json:"period"`
 	// Radius in meters (Moon: 1,737.4 km)
-	Radius float64
+	Radius float64 `json:"radius"`
 }
 
 // PlanetarySystem holds the planet and its natural satellites

@@ -1212,6 +1212,13 @@ func (p *GameProcessor) handleWorldMap(ctx context.Context, client websocket.Gam
 		"world_name":   mapData.WorldName,
 	}
 
+	// Add satellites if available (Natural Satellites Phase 4)
+	if p.lookService != nil {
+		if worldData, ok := p.lookService.GetCachedWorldData(char.WorldID); ok && worldData != nil {
+			payload["satellites"] = worldData.Satellites
+		}
+	}
+
 	client.SendGameMessage("world_map_data", "", payload)
 	return nil
 }
@@ -1240,6 +1247,14 @@ func (p *GameProcessor) getOrCreateRunner(worldID uuid.UUID) *ecosystem.Simulati
 
 	// Initialize (this handles loading snapshot if available)
 	runner.InitializePopulationSimulator(seed)
+
+	// Configure satellite physics (Natural Satellites Phase 4)
+	// Look up cached world data to get satellites
+	if p.lookService != nil {
+		if worldData, ok := p.lookService.GetCachedWorldData(worldID); ok && worldData != nil {
+			runner.ConfigureSatellitePhysics(worldData.Satellites)
+		}
+	}
 
 	// Set handlers
 	runner.SetEventBroadcastHandler(func(event ecosystem.RunnerEvent) {
