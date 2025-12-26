@@ -564,9 +564,12 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 
 	tectonicInterval := 100_000.0 // Default (modern precision)
 	if heat > 4.0 {
-		tectonicInterval = 1_000_000.0 // Hadean: Every 1M years (10x less frequent)
+		// Hadean: Heat is ~10.0, so accumulator grows 10x faster.
+		// To run once every 10 steps (1M real years), we need a 10M threshold.
+		tectonicInterval = 10_000_000.0
 	} else if heat > 1.5 {
-		tectonicInterval = 500_000.0 // Archean: Every 500k years (5x less frequent)
+		// Archean: Heat is ~2-4. To run every ~500k real years:
+		tectonicInterval = 2_000_000.0
 	}
 
 	if g.TectonicStressAccumulator >= tectonicInterval {
