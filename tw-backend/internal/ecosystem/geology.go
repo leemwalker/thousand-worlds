@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"sync"
 	"tw-backend/internal/spatial"
+	"tw-backend/internal/worldgen/astronomy"
 	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/underground"
 	"tw-backend/internal/worldgen/weather"
@@ -33,9 +34,10 @@ type WorldGeology struct {
 	Composition string                  // "volcanic", "continental", "oceanic", "ancient"
 
 	// Dynamic geographic features
-	Hotspots []geography.Point // Fixed mantle plume locations
-	Rivers   [][]geography.Point
-	Biomes   []geography.Biome
+	Hotspots   []geography.Point // Fixed mantle plume locations
+	Rivers     [][]geography.Point
+	Biomes     []geography.Biome
+	Satellites []astronomy.Satellite // Natural satellites
 
 	// Simulation state
 	TotalYearsSimulated int64

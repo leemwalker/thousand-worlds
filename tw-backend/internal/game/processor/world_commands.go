@@ -270,6 +270,9 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	satellites := astronomy.GenerateMoons(seedFlag, astronomy.EarthMassKg, satConfig)
 	impactShielding := astronomy.CalculateImpactShielding(satellites)
 
+	// Set satellites in geology for map retrieval
+	geology.Satellites = satellites
+
 	// Handle Water Level Override
 	if waterLevelFlag != "" {
 		minElev, maxElev := geology.Heightmap.MinElev, geology.Heightmap.MaxElev
@@ -1262,12 +1265,33 @@ func (p *GameProcessor) handleWorldMap(ctx context.Context, client websocket.Gam
 		"player_y":     mapData.PlayerY,
 		"world_id":     mapData.WorldID.String(),
 		"world_name":   mapData.WorldName,
+		"is_simulated": mapData.IsSimulated,
+
+		// Planetary stats
+		"simulated_years": mapData.SimulatedYears,
+		"avg_temperature": mapData.AvgTemperature,
+		"max_elevation":   mapData.MaxElevation,
+		"sea_level":       mapData.SeaLevel,
+		"land_coverage":   mapData.LandCoverage,
+		"seed":            mapData.Seed,
+
+		// Add basic history log (events not available in sync mode)
+		"history": []string{"Simulation data retrieved successfully."},
 	}
 
 	// Add satellites if available (Natural Satellites Phase 4)
+	// First try lookService cache (orchestrator flow)
 	if p.lookService != nil {
 		if worldData, ok := p.lookService.GetCachedWorldData(char.WorldID); ok && worldData != nil {
 			payload["satellites"] = worldData.Satellites
+		}
+	}
+
+	// If not found in lookService cache, check mapService geology (world simulate flow)
+	if payload["satellites"] == nil && p.mapService != nil {
+		// Geology cache in map service is populated after simulation
+		if geo := p.mapService.GetWorldGeology(char.WorldID); geo != nil {
+			payload["satellites"] = geo.Satellites
 		}
 	}
 

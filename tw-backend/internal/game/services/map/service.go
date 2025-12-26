@@ -104,6 +104,11 @@ func (s *Service) getWorldGeology(worldID uuid.UUID) *ecosystem.WorldGeology {
 	return s.worldGeology[worldID]
 }
 
+// GetWorldGeology retrieves cached geology data (exported)
+func (s *Service) GetWorldGeology(worldID uuid.UUID) *ecosystem.WorldGeology {
+	return s.getWorldGeology(worldID)
+}
+
 // worldToGrid converts world coordinates to heightmap grid indices
 // World coordinates can be very large (e.g., spherical world with circumference 17M)
 // but heightmap is typically 512x512 or similar
