@@ -747,89 +747,86 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 
 		// Check for theological events (every 10000 years)
 		if year%10000 == 0 && simulateGeology {
-			tick := year * 365 // Convert to ticks for geo manager
-			previousEventCount := len(geoManager.ActiveEvents)
-			geoManager.CheckForNewEvents(tick, 365*10000)
+			tick := year * 100 // Convert to ticks for geo manager (100 ticks/year standard)
+
+			// Trigger random events
+			geoManager.CheckForNewEvents(tick, 100*10000)
 			geoManager.UpdateActiveEvents(tick) // Clean up expired events
-			newEvents := len(geoManager.ActiveEvents) - previousEventCount
 
-			if newEvents > 0 {
-				geologicalEvents += newEvents
-				// Process ALL active events for biome transitions and effects
-				// This ensures warming events (climate recovery) are properly handled
-				for _, e := range geoManager.ActiveEvents {
-					eventType := population.ExtinctionEventType(e.Type)
+			// Process ALL active events for biome transitions and effects
+			// This ensures warming events (climate recovery) are properly handled
+			for _, e := range geoManager.ActiveEvents {
+				eventType := population.ExtinctionEventType(e.Type)
 
-					// Check if this event started recently (within this check period)
-					eventAge := tick - e.StartTick
-					isNewEvent := eventAge < 365*10000 // Within the last 10k years
+				// Check if this event started recently (within this check period)
+				eventAge := tick - e.StartTick
+				isNewEvent := eventAge < 100*10000 // Within the last 10k years
 
-					if isNewEvent {
-						geologicalEvents++
-						eventCounts[e.Type]++
-						// Log the event
-						client.SendGameMessage("system", fmt.Sprintf("⚠️ GEOLOGICAL EVENT: %s (severity: %.0f%%)", e.Type, e.Severity*100), nil)
-						geology.ApplyEvent(e)
+				if isNewEvent {
+					geologicalEvents++
+					eventCounts[e.Type]++
+					// Log the event
+					client.SendGameMessage("system", fmt.Sprintf("⚠️ GEOLOGICAL EVENT: %s (severity: %.0f%%)", e.Type, e.Severity*100), nil)
+					geology.ApplyEvent(e)
 
-						// Apply extinction event to populations based on event type
-						if simulateLife {
-							deaths := popSim.ApplyExtinctionEvent(eventType, e.Severity)
-							if deaths > 100 {
-								client.SendGameMessage("system", fmt.Sprintf("   💀 %d organisms perished", deaths), nil)
-							}
-						}
-					}
-
-					// Apply biome transitions for ALL active events (cooling AND warming)
-					// This is what allows climate recovery to work!
-					if simulateLife && popSim != nil {
-						transitioned := popSim.ApplyBiomeTransitions(eventType, e.Severity)
-						if transitioned > 0 {
-							if e.Type == ecosystem.EventWarming || e.Type == ecosystem.EventGreenhouseSpike {
-								client.SendGameMessage("system", fmt.Sprintf("   🌡️ %d biomes warming! Climate recovery in progress", transitioned), nil)
-							} else {
-								client.SendGameMessage("system", fmt.Sprintf("   🌍 %d biomes shifted due to climate change", transitioned), nil)
-							}
-						}
-					}
-
-					// Update continental configuration for drift events
-					if eventType == population.EventContinentalDrift && isNewEvent && popSim != nil {
-						oldFrag := popSim.ContinentalFragmentation
-						newFrag := popSim.UpdateContinentalConfiguration(true, e.Severity)
-						popSim.ApplyContinentalEffects()
-
-						// Report significant configuration changes
-						fragChange := math.Abs(newFrag - oldFrag)
-						if fragChange > 0.05 {
-							var status string
-							if newFrag > 0.7 {
-								status = "fragmented (high endemism)"
-							} else if newFrag < 0.3 {
-								status = "unified (supercontinent forming)"
-							} else {
-								status = "moderate"
-							}
-							client.SendGameMessage("system", fmt.Sprintf("   🗺️ Continental configuration: %s (%.0f%%)", status, newFrag*100), nil)
+					// Apply extinction event to populations based on event type
+					if simulateLife {
+						deaths := popSim.ApplyExtinctionEvent(eventType, e.Severity)
+						if deaths > 100 {
+							client.SendGameMessage("system", fmt.Sprintf("   💀 %d organisms perished", deaths), nil)
 						}
 					}
 				}
 
-				// Calculate current global temperature modifier
-				tempMod, _, _ := geoManager.GetEnvironmentModifiers()
-
-				// Update geology with climate awareness
-				geology.SimulateGeology(10000, tempMod)
-
-				// Update geographic systems (hex grid, regions, tectonics)
+				// Apply biome transitions for ALL active events (cooling AND warming)
+				// This is what allows climate recovery to work!
 				if simulateLife && popSim != nil {
-					popSim.UpdateGeographicSystems(10000)
-
-					// Apply isolation effects (gigantism/dwarfism) to isolated regions
-					isolationAffected := popSim.ApplyIsolationEffects()
-					if isolationAffected > 0 && year%100000 == 0 {
-						client.SendGameMessage("system", fmt.Sprintf("🏝️ Island effects: %d species affected by isolation", isolationAffected), nil)
+					transitioned := popSim.ApplyBiomeTransitions(eventType, e.Severity)
+					if transitioned > 0 {
+						if e.Type == ecosystem.EventWarming || e.Type == ecosystem.EventGreenhouseSpike {
+							client.SendGameMessage("system", fmt.Sprintf("   🌡️ %d biomes warming! Climate recovery in progress", transitioned), nil)
+						} else {
+							client.SendGameMessage("system", fmt.Sprintf("   🌍 %d biomes shifted due to climate change", transitioned), nil)
+						}
 					}
+				}
+
+				// Update continental configuration for drift events
+				if eventType == population.EventContinentalDrift && isNewEvent && popSim != nil {
+					oldFrag := popSim.ContinentalFragmentation
+					newFrag := popSim.UpdateContinentalConfiguration(true, e.Severity)
+					popSim.ApplyContinentalEffects()
+
+					// Report significant configuration changes
+					fragChange := math.Abs(newFrag - oldFrag)
+					if fragChange > 0.05 {
+						var status string
+						if newFrag > 0.7 {
+							status = "fragmented (high endemism)"
+						} else if newFrag < 0.3 {
+							status = "unified (supercontinent forming)"
+						} else {
+							status = "moderate"
+						}
+						client.SendGameMessage("system", fmt.Sprintf("   🗺️ Continental configuration: %s (%.0f%%)", status, newFrag*100), nil)
+					}
+				}
+			}
+
+			// Calculate current global temperature modifier
+			tempMod, _, _ := geoManager.GetEnvironmentModifiers()
+
+			// Update geology with climate awareness
+			geology.SimulateGeology(10000, tempMod)
+
+			// Update geographic systems (hex grid, regions, tectonics)
+			if simulateLife && popSim != nil {
+				popSim.UpdateGeographicSystems(10000)
+
+				// Apply isolation effects (gigantism/dwarfism) to isolated regions
+				isolationAffected := popSim.ApplyIsolationEffects()
+				if isolationAffected > 0 && year%100000 == 0 {
+					client.SendGameMessage("system", fmt.Sprintf("🏝️ Island effects: %d species affected by isolation", isolationAffected), nil)
 				}
 			}
 
