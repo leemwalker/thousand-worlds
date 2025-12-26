@@ -14,29 +14,47 @@ import (
 //   - 1.0 = Earth-Moon baseline
 //   - >1.0 = Multiple/close moons, increased volcanic activity
 //
+// The heatMultiplier parameter scales volcanic activity based on planetary age:
+//   - 10.0 = Early Earth (Hadean), extreme volcanism
+//   - 4.0 = End of Hadean period
+//   - 1.0 = Modern Earth baseline
+//
 // Effects of tidal stress on volcanism:
 //   - Hotspot count scales: base * (0.5 + 0.5 * stress)
 //   - Intensity scales: base * (0.7 + 0.3 * stress)
-func ApplyHotspots(hm *SphereHeightmap, plates []TectonicPlate, topology spatial.Topology, seed int64, tidalStress float64) {
+//
+// Effects of planetary heat on volcanism:
+//   - Hotspot count scales: base * sqrt(heat) (moderate scaling)
+//   - Intensity scales: base * heat (strong scaling)
+func ApplyHotspots(hm *SphereHeightmap, plates []TectonicPlate, topology spatial.Topology, seed int64, tidalStress float64, heatMultiplier float64) {
 	r := rand.New(rand.NewSource(seed))
 	resolution := topology.Resolution()
 
-	// Base number of hotspots, modified by tidal stress
+	// Base number of hotspots, modified by tidal stress AND planetary heat
 	// At stress=0: count * 0.5 (half as many)
 	// At stress=1: count * 1.0 (normal)
 	// At stress=2: count * 1.5 (50% more)
 	stressFactor := 0.5 + 0.5*clampFloat(tidalStress, 0.0, 4.0)
+
+	// Heat scaling: Use square root to moderate the effect
+	// heat=1.0 → 1.0x, heat=4.0 → 2.0x, heat=10.0 → 3.16x
+	heatFactor := math.Sqrt(heatMultiplier)
+
 	baseHotspots := 2 + r.Intn(4)
-	numHotspots := int(float64(baseHotspots) * stressFactor)
+	numHotspots := int(float64(baseHotspots) * stressFactor * heatFactor)
 	if numHotspots < 1 {
 		numHotspots = 1 // Ensure at least one hotspot
 	}
 
-	// Intensity scaling based on tidal stress
+	// Intensity scaling based on tidal stress AND planetary heat
 	// At stress=0: intensity * 0.7 (30% weaker)
 	// At stress=1: intensity * 1.0 (normal)
 	// At stress=2: intensity * 1.3 (30% stronger)
 	intensityFactor := 0.7 + 0.3*clampFloat(tidalStress, 0.0, 4.0)
+
+	// Heat directly multiplies intensity (linear scaling)
+	// heat=10.0 → 10x stronger eruptions in early Earth
+	totalIntensityFactor := intensityFactor * heatMultiplier
 
 	for i := 0; i < numHotspots; i++ {
 		// Pick a random location for the hotspot (mantle plume)
@@ -45,9 +63,9 @@ func ApplyHotspots(hm *SphereHeightmap, plates []TectonicPlate, topology spatial
 		y := r.Intn(resolution)
 		hotspotCoord := spatial.Coordinate{Face: face, X: x, Y: y}
 
-		// Intensity and size - scaled by tidal stress
+		// Intensity and size - scaled by tidal stress AND planetary heat
 		baseIntensity := 2000.0 + r.Float64()*3000.0
-		intensity := baseIntensity * intensityFactor
+		intensity := baseIntensity * totalIntensityFactor
 		coneRadius := 2.0 + r.Float64()*3.0
 
 		// Find which plate is over this spot

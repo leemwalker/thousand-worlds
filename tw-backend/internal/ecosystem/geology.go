@@ -91,6 +91,78 @@ func (g *WorldGeology) SetComposition(composition string) {
 	g.Composition = composition
 }
 
+// GetPlanetaryHeat returns a heat multiplier based on planetary age.
+// Models Earth's thermal evolution from Hadean magma ocean to modern stable planet.
+//
+// Physics:
+//   - Hadean period (0-500M years): Rapid cooling as magma ocean solidifies
+//     Linear decay: 10.0 → 4.0 (represents ~150°C/My cooling rate)
+//   - Radiogenic period (500M-4.5B years): Exponential decay from radioactive isotopes
+//     Exponential decay: 4.0 → 1.0 (U-238, Th-232, K-40 half-lives)
+//
+// Returns:
+//   - 10.0 at formation (year 0): Extreme volcanism, tectonics, geothermal flux
+//   - 4.0 at Hadean boundary (500M years): Late heavy bombardment ending
+//   - 1.0 at modern age (4.5B years): Current Earth baseline
+//   - Never falls below 1.0 (residual heat + tidal heating)
+func GetPlanetaryHeat(year int64) float64 {
+	// Handle edge cases
+	if year < 0 {
+		year = 0
+	}
+
+	const (
+		hadeanEnd      = 500_000_000   // 500 million years
+		modernAge      = 4_500_000_000 // 4.5 billion years
+		hadeanHeat     = 10.0          // Initial heat multiplier
+		transitionHeat = 4.0           // Heat at end of Hadean
+		modernHeat     = 1.0           // Baseline modern heat
+	)
+
+	if year < hadeanEnd {
+		// Hadean regime: Linear cooling from 10.0 to 4.0
+		// Represents rapid surface cooling and magma ocean solidification
+		progress := float64(year) / float64(hadeanEnd)
+		return hadeanHeat - (hadeanHeat-transitionHeat)*progress
+	}
+
+	// Radiogenic regime: Exponential decay from 4.0 to 1.0
+	// Solve for decay constant λ such that Heat(4.5B) = 1.0
+	// Formula: H(t) = (H₀ - H∞)e^(-λt) + H∞
+	// Where H∞ = 1.0 (asymptotic minimum)
+	// At t=0 (relative to Hadean end): H = 4.0
+	// At t=4.0B: H = 1.0
+	//
+	// 1.0 = (4.0 - 1.0)e^(-λ * 4.0B) + 1.0
+	// 0 = 3.0 * e^(-λ * 4.0B)
+	// This doesn't work (can't reach exactly 1.0)
+	//
+	// Better formula: H(t) = H∞ + (H₀ - H∞)e^(-λt)
+	// 1.0 = 1.0 + (4.0 - 1.0)e^(-λ * 4.0B)
+	// 0 = 3.0 * e^(-λ * 4.0B)
+	// Still problematic. Use alternate approach:
+	//
+	// Let's use: H(t) = 1.0 + 3.0 * e^(-λt)
+	// At t=0: H = 1.0 + 3.0 = 4.0 ✓
+	// At t=4.0B: H = 1.0 + 3.0 * e^(-λ * 4.0B) ≈ 1.0
+	// We want: 3.0 * e^(-λ * 4.0B) ≈ 0
+	// e^(-λ * 4.0B) = 0.01 (1% remaining)
+	// -λ * 4.0B = ln(0.01) = -4.605
+	// λ = 4.605 / 4.0B = 1.15125e-9
+
+	const decayConstant = 1.15125e-9 // per year
+	yearsPostHadean := float64(year - hadeanEnd)
+
+	heat := modernHeat + (transitionHeat-modernHeat)*math.Exp(-decayConstant*yearsPostHadean)
+
+	// Ensure heat never falls below baseline
+	if heat < modernHeat {
+		return modernHeat
+	}
+
+	return heat
+}
+
 // InitializeGeology creates the baseline terrain from scratch
 // This should be called when a world is first simulated
 func (g *WorldGeology) InitializeGeology() {
@@ -449,9 +521,14 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) {
 
 	g.TotalYearsSimulated += dt
 
+	// Calculate planetary heat multiplier for this time period
+	// This drives tectonic and volcanic activity rates
+	heat := GetPlanetaryHeat(g.TotalYearsSimulated)
+
 	// Accumulate time for variable step processing
+	// Tectonic stress scales with planetary heat (10x faster in early Earth)
 	dtFloat := float64(dt)
-	g.TectonicStressAccumulator += dtFloat
+	g.TectonicStressAccumulator += dtFloat * heat
 	g.ErosionAccumulator += dtFloat
 	g.DepositAccumulator += dtFloat
 	g.RiverAccumulator += dtFloat
@@ -679,11 +756,20 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) {
 }
 
 // applyHotspotActivity adds volcanic material at hotspot locations
+// Eruption frequency scales with planetary heat (early Earth has 10x more eruptions)
 func (g *WorldGeology) applyHotspotActivity(years float64) {
-	// Probability of eruption per year at a hotspot
-	// say 1 eruption every 1000 years
-	numEruptions := int(years / 1000.0)
-	if numEruptions == 0 && g.rng.Float64() < (years/1000.0) {
+	// Get current planetary heat to scale volcanic activity
+	heat := GetPlanetaryHeat(g.TotalYearsSimulated)
+
+	// Base rate: 1 eruption per 1000 years at modern Earth (heat=1.0)
+	// Early Earth (heat=10.0): 1 eruption per 100 years
+	// Formula: baseRate / heat
+	baseRate := 1000.0
+	eruptionRate := baseRate / heat
+
+	// Calculate number of eruptions for this time period
+	numEruptions := int(years / eruptionRate)
+	if numEruptions == 0 && g.rng.Float64() < (years/eruptionRate) {
 		numEruptions = 1
 	}
 

@@ -8,13 +8,14 @@ import (
 // Uses SphereHeightmap and spherical topology for all calculations.
 // DEPRECATED: Use GenerateHeightmapWithTidalStress for satellite-aware generation.
 func GenerateHeightmap(plates []TectonicPlate, heightmap *SphereHeightmap, topology spatial.Topology, seed int64, erosionRate float64, rainfallFactor float64) *SphereHeightmap {
-	// Default to Earth-Moon baseline tidal stress for backward compatibility
-	return GenerateHeightmapWithTidalStress(plates, heightmap, topology, seed, erosionRate, rainfallFactor, 1.0)
+	// Default to Earth-Moon baseline tidal stress and modern Earth heat for backward compatibility
+	return GenerateHeightmapWithTidalStress(plates, heightmap, topology, seed, erosionRate, rainfallFactor, 1.0, 1.0)
 }
 
 // GenerateHeightmapWithTidalStress creates the final heightmap with satellite-aware volcanism.
 // The tidalStress parameter affects volcanic activity (0.0 = no moons, 1.0 = Earth-Moon, >1.0 = multiple/close moons).
-func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereHeightmap, topology spatial.Topology, seed int64, erosionRate float64, rainfallFactor float64, tidalStress float64) *SphereHeightmap {
+// The heatMultiplier parameter scales volcanic activity based on planetary age (1.0 = modern, 10.0 = early Earth).
+func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereHeightmap, topology spatial.Topology, seed int64, erosionRate float64, rainfallFactor float64, tidalStress float64, heatMultiplier float64) *SphereHeightmap {
 	noise := NewPerlinGenerator(seed)
 	resolution := topology.Resolution()
 
@@ -35,8 +36,8 @@ func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereH
 	// 2. Apply Tectonic Modifiers
 	SimulateTectonics(plates, heightmap, topology)
 
-	// 2a. Apply Volcanic Hotspots (scaled by tidal stress from satellites)
-	ApplyHotspots(heightmap, plates, topology, seed, tidalStress)
+	// 2a. Apply Volcanic Hotspots (scaled by tidal stress and planetary heat)
+	ApplyHotspots(heightmap, plates, topology, seed, tidalStress, heatMultiplier)
 
 	// 3. Apply Noise for variation
 	for face := 0; face < 6; face++ {

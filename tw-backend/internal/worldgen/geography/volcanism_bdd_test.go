@@ -62,7 +62,7 @@ func TestBDD_Hotspots_ChainCreation(t *testing.T) {
 	// Create plates using spherical API
 	plates := geography.GeneratePlates(3, topology, testSeed)
 
-	geography.ApplyHotspots(hm, plates, topology, testSeed, 1.0)
+	geography.ApplyHotspots(hm, plates, topology, testSeed, 1.0, 1.0)
 
 	// Check that some elevation was added (hotspots created volcanoes)
 	maxElev := 0.0
@@ -95,8 +95,8 @@ func TestBDD_Hotspots_Determinism(t *testing.T) {
 	hm1 := geography.NewSphereHeightmap(topology)
 	hm2 := geography.NewSphereHeightmap(topology)
 
-	geography.ApplyHotspots(hm1, plates, topology, testSeed, 1.0)
-	geography.ApplyHotspots(hm2, plates, topology, testSeed, 1.0)
+	geography.ApplyHotspots(hm1, plates, topology, testSeed, 1.0, 1.0)
+	geography.ApplyHotspots(hm2, plates, topology, testSeed, 1.0, 1.0)
 
 	// Compare heightmaps
 	matches := true
@@ -468,15 +468,15 @@ func TestBDD_TidalHeatingEffect(t *testing.T) {
 
 	// Test 1: No moons (tidalStress = 0.0)
 	hmNoMoons := geography.NewSphereHeightmap(topology)
-	geography.ApplyHotspots(hmNoMoons, plates, topology, testSeed, 0.0)
+	geography.ApplyHotspots(hmNoMoons, plates, topology, testSeed, 0.0, 1.0)
 
 	// Test 2: Earth-Moon baseline (tidalStress = 1.0)
 	hmEarthMoon := geography.NewSphereHeightmap(topology)
-	geography.ApplyHotspots(hmEarthMoon, plates, topology, testSeed, 1.0)
+	geography.ApplyHotspots(hmEarthMoon, plates, topology, testSeed, 1.0, 1.0)
 
 	// Test 3: High tidal stress (tidalStress = 3.0) - multiple close moons
 	hmHighStress := geography.NewSphereHeightmap(topology)
-	geography.ApplyHotspots(hmHighStress, plates, topology, testSeed, 3.0)
+	geography.ApplyHotspots(hmHighStress, plates, topology, testSeed, 3.0, 1.0)
 
 	// Measure total volcanic elevation for each scenario
 	measureTotalElevation := func(hm *geography.SphereHeightmap) float64 {

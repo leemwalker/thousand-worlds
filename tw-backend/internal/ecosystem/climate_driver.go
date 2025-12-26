@@ -37,6 +37,11 @@ type ClimateDriver struct {
 	// Affects the amplitude of obliquity oscillations
 	ObliquityStability float64
 
+	// GeothermalOffset is the temperature increase from planetary internal heat
+	// High during early Earth (Hadean), approaches zero in modern era
+	// Represents geothermal flux from mantle/core cooling
+	GeothermalOffset float64
+
 	// eventManager is the geological event system
 	eventManager *GeologicalEventManager
 }
@@ -49,16 +54,32 @@ func NewClimateDriver(eventManager *GeologicalEventManager) *ClimateDriver {
 		IceAgeActive:       false,
 		IceAgeStartYear:    0,
 		ObliquityStability: 1.0, // Default to Earth-like stability
+		GeothermalOffset:   0.0, // Will be calculated on first Update
 	}
 }
 
 // Update checks the orbital state and triggers/ends ice ages based on insolation.
 // This should be called periodically (e.g., every 100,000 simulation years).
 // Uses ObliquityStability to scale obliquity variance for chaotic/stable worlds.
+// Calculates GeothermalOffset from planetary age for early Earth heating.
 func (cd *ClimateDriver) Update(year int64) {
 	// Calculate current orbital state with stability-adjusted obliquity
 	cd.CurrentState = astronomy.CalculateOrbitalStateWithStability(year, cd.ObliquityStability)
 	cd.CurrentInsolation = astronomy.CalculateInsolation(cd.CurrentState)
+
+	// Calculate geothermal contribution from planetary internal heat
+	// Uses the same thermal evolution model as geology
+	heat := GetPlanetaryHeat(year)
+	if heat > 2.0 {
+		// Early Earth (Hadean/early Archean): significant geothermal heating
+		// heat=10.0 → +90°C, heat=4.0 → +30°C, heat=2.0 → +10°C
+		// This is geothermal flux reaching the surface from thin/fractured crust
+		cd.GeothermalOffset = (heat - 1.0) * 10.0
+	} else {
+		// Transitional to modern Earth: gradually declining geothermal contribution
+		// heat=2.0 → +2°C, heat=1.0 → +0°C
+		cd.GeothermalOffset = (heat - 1.0) * 2.0
+	}
 
 	// Check for ice age transitions using hysteresis
 	if !cd.IceAgeActive && cd.CurrentInsolation < IceAgeInsolationThreshold {
@@ -152,4 +173,10 @@ func (cd *ClimateDriver) GetOrbitalState() astronomy.OrbitalState {
 // IsIceAge returns true if an ice age is currently active.
 func (cd *ClimateDriver) IsIceAge() bool {
 	return cd.IceAgeActive
+}
+
+// GetGeothermalOffset returns the current temperature offset from internal planetary heat.
+// This value decreases from ~90°C in early Earth to ~0°C in modern Earth.
+func (cd *ClimateDriver) GetGeothermalOffset() float64 {
+	return cd.GeothermalOffset
 }
