@@ -32,17 +32,22 @@ const ENTITY_IDS: Record<string, number> = {
     'plant': 7,
 };
 
-// Vertex shader - pass-through with texture coordinates
+// Vertex shader - camera transform with texture coordinates
 const VERTEX_SHADER = `#version 300 es
 precision highp float;
 
 in vec4 a_position;
 in vec2 a_texCoord;
 
+uniform vec2 u_offset;  // Camera offset in NDC (-1 to 1)
+uniform vec2 u_scale;   // Camera scale (1.0 = no zoom)
+
 out vec2 v_texCoord;
 
 void main() {
-    gl_Position = a_position;
+    // Apply camera transform: scale then offset
+    vec2 pos = a_position.xy * u_scale + u_offset;
+    gl_Position = vec4(pos, a_position.zw);
     v_texCoord = a_texCoord;
 }
 `;
@@ -59,8 +64,10 @@ uniform float u_worldRadius;
 uniform vec2 u_playerPos;     // Player position in normalized coords (0-1)
 uniform float u_time;          // For animation
 uniform float u_isSimulated;   // 1.0 = simulated world, 0.0 = lobby/unsimulated
-uniform vec2 u_scale;          // Zoom/Scale factor (X, Y). >1.0 = zoomed out
-uniform vec2 u_center;         // Center of view in normalized coords (0-1)
+uniform vec2 u_texScale;       // Texture sampling scale (X, Y). >1.0 = zoomed out
+uniform vec2 u_texCenter;      // Center of view in texture coords (0-1)
+uniform float u_seaLevel;      // Sea level in meters (for bathymetry)
+uniform float u_minElevation;  // Minimum elevation (deepest ocean) in meters
 
 // Earth elevation color stops (hypsometric + bathymetric)
 const vec3 COLOR_DEEP_OCEAN = vec3(0.02, 0.05, 0.1);      // -6000m
@@ -82,16 +89,30 @@ const vec3 COLOR_PLAYER = vec3(1.0, 0.2, 0.2);            // Player marker
 const vec3 COLOR_LOBBY = vec3(0.85, 0.82, 0.78);          // Marble-like
 const vec3 COLOR_UNSIMULATED = vec3(0.3, 0.3, 0.35);      // Gray fog
 
-vec3 getElevationColor(float elevation) {
+// Dynamic bathymetry: calculate depth relative to sea level
+vec3 getBathymetricColor(float depthFactor) {
+    // depthFactor: 0.0 = at sea level, 1.0 = deepest ocean
+    // Smooth gradient from shallow turquoise to deep navy
+    vec3 shallow = vec3(0.0, 0.6, 0.8);   // Turquoise
+    vec3 mid = vec3(0.0, 0.3, 0.5);       // Ocean blue
+    vec3 deep = vec3(0.0, 0.1, 0.2);      // Deep navy
+    
+    if (depthFactor < 0.3) {
+        return mix(shallow, mid, depthFactor / 0.3);
+    }
+    return mix(mid, deep, (depthFactor - 0.3) / 0.7);
+}
+
+vec3 getElevationColor(float elevation, float rawElevation) {
     float e = elevation;
     
-    // Bathymetric (underwater)
+    // Bathymetric (underwater) - use dynamic sea level
     if (e < 0.5) {
-        float depth = (0.5 - e) * 2.0;
-        if (depth > 0.83) return mix(COLOR_ABYSSAL, COLOR_DEEP_OCEAN, (depth - 0.83) / 0.17);
-        if (depth > 0.67) return mix(COLOR_SLOPE, COLOR_ABYSSAL, (depth - 0.67) / 0.16);
-        if (depth > 0.33) return mix(COLOR_SHELF, COLOR_SLOPE, (depth - 0.33) / 0.34);
-        return mix(COLOR_COAST, COLOR_SHELF, depth / 0.33);
+        // Calculate actual depth below sea level
+        float depthBelowSea = max(u_seaLevel - rawElevation, 0.0);
+        float maxDepth = max(u_seaLevel - u_minElevation, 1.0); // Prevent div by zero
+        float depthFactor = clamp(depthBelowSea / maxDepth, 0.0, 1.0);
+        return getBathymetricColor(depthFactor);
     }
     
     // Hypsometric (land)
@@ -135,10 +156,9 @@ vec3 getEntityColor(float entityId) {
 }
 
 void main() {
-    // Apply zoom by scaling texture coordinates around center
-    // When zoomed out, we sample a larger area of the texture
-    // u_scale > 1.0 means we sample a larger area (Zoom Out)
-    vec2 zoomedCoord = u_center + (v_texCoord - vec2(0.5)) * u_scale;
+    // Apply texture zoom by scaling coordinates around center
+    // u_texScale > 1.0 means we sample a larger area (Zoom Out)
+    vec2 zoomedCoord = u_texCenter + (v_texCoord - vec2(0.5)) * u_texScale;
     
     // Check if zoomed coordinates are out of bounds
     if (zoomedCoord.x < 0.0 || zoomedCoord.x > 1.0 || 
@@ -150,9 +170,20 @@ void main() {
     vec4 data = texture(u_dataTexture, zoomedCoord);
     vec3 color;
     
+    // Decode raw elevation from normalized value
+    // R channel stores: 0.0 = min elev, 0.5 = sea level, 1.0 = max elev
+    float rawElevation;
+    if (data.r < 0.5) {
+        // Below sea level: map 0.0-0.5 to minElevation-seaLevel
+        rawElevation = mix(u_minElevation, u_seaLevel, data.r * 2.0);
+    } else {
+        // Above sea level: map 0.5-1.0 to seaLevel-8848m
+        rawElevation = mix(u_seaLevel, 8848.0, (data.r - 0.5) * 2.0);
+    }
+    
     if (u_isSimulated > 0.5) {
-        // Simulated world - use elevation-based coloring
-        color = getElevationColor(data.r);
+        // Simulated world - use elevation-based coloring with dynamic bathymetry
+        color = getElevationColor(data.r, rawElevation);
     } else {
         // Lobby/unsimulated - use flat biome colors
         color = getBiomeColor(data.g);
@@ -167,10 +198,10 @@ void main() {
     
     // Player marker - circle at player position
     // v_texCoord is screen coordinate (0-1), u_playerPos is texture space position
-    vec2 playerScreenPos = vec2(0.5) + (u_playerPos - u_center) / u_scale;
+    vec2 playerScreenPos = vec2(0.5) + (u_playerPos - u_texCenter) / u_texScale;
     float markerDist = distance(v_texCoord, playerScreenPos);
     
-    float zoomFactor = max(u_scale.x, u_scale.y);
+    float zoomFactor = max(u_texScale.x, u_texScale.y);
     float markerSize = 0.02 / zoomFactor; // Scale marker with zoom (larger when zoomed in)
     if (markerDist < markerSize) {
         float alpha = smoothstep(markerSize, markerSize * 0.5, markerDist);
@@ -263,11 +294,16 @@ export class WebGLMapRenderer {
     // Whether this is a simulated world (has geology) or lobby/unsimulated
     private isSimulated: boolean = false;
 
-    // View Transform
-    private scaleX: number = 1.0;
-    private scaleY: number = 1.0;
+    // View Transform (texture space)
+    private texScaleX: number = 1.0;
+    private texScaleY: number = 1.0;
     private centerX: number = 0.5;
     private centerY: number = 0.5;
+
+    // Camera state (public-facing)
+    private cameraX: number = 0.5;  // Center in texture coords (0-1)
+    private cameraY: number = 0.5;
+    private zoom: number = 1.0;     // 1.0 = fit to view, <1 = zoomed in, >1 = zoomed out
 
     private positionBuffer: WebGLBuffer | null = null;
     private texCoordBuffer: WebGLBuffer | null = null;
@@ -561,11 +597,11 @@ export class WebGLMapRenderer {
             // Zoom out by 0.01 per meter above 100, capped at 5x zoom
             // Zoom out by 0.01 per meter above 100, capped at 5x zoom
             const zoom = Math.min(1.0 + (altitude - 100) * 0.01, 5.0);
-            this.scaleX = zoom;
-            this.scaleY = zoom;
+            this.texScaleX = zoom;
+            this.texScaleY = zoom;
         } else {
-            this.scaleX = 1.0;
-            this.scaleY = 1.0;
+            this.texScaleX = 1.0;
+            this.texScaleY = 1.0;
         }
 
         this.centerX = 0.5;
@@ -666,13 +702,28 @@ export class WebGLMapRenderer {
         const simulatedUniform = gl.getUniformLocation(this.program, 'u_isSimulated');
         gl.uniform1f(simulatedUniform, this.isSimulated ? 1.0 : 0.0);
 
-        // Set scale uniform
+        // Vertex shader camera uniforms
+        // u_offset: camera offset in NDC space
+        // u_scale: camera scale factor (for zoom)
+        const offsetUniform = gl.getUniformLocation(this.program, 'u_offset');
         const scaleUniform = gl.getUniformLocation(this.program, 'u_scale');
-        gl.uniform2f(scaleUniform, this.scaleX, this.scaleY);
+        // For now, keep vertex positions unchanged (we do the transform in texture space)
+        gl.uniform2f(offsetUniform, 0.0, 0.0);
+        gl.uniform2f(scaleUniform, 1.0, 1.0);
 
-        // Set center uniform
-        const centerUniform = gl.getUniformLocation(this.program, 'u_center');
-        gl.uniform2f(centerUniform, this.centerX, this.centerY);
+        // Fragment shader texture sampling uniforms
+        const texScaleUniform = gl.getUniformLocation(this.program, 'u_texScale');
+        gl.uniform2f(texScaleUniform, this.texScaleX, this.texScaleY);
+
+        const texCenterUniform = gl.getUniformLocation(this.program, 'u_texCenter');
+        gl.uniform2f(texCenterUniform, this.centerX, this.centerY);
+
+        // Bathymetry uniforms
+        const seaLevelUniform = gl.getUniformLocation(this.program, 'u_seaLevel');
+        gl.uniform1f(seaLevelUniform, this.seaLevel);
+
+        const minElevUniform = gl.getUniformLocation(this.program, 'u_minElevation');
+        gl.uniform1f(minElevUniform, this.elevationMin);
 
         // Draw full-screen quad
         gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -746,8 +797,8 @@ export class WebGLMapRenderer {
             // ScaleY = 1.0 * (WorldAspect / CanvasAspect)
             // 2:1 World, 1:1 Canvas => ScaleY = 2.0. Correct (Zoom Out Y, show more vertical space -> black bars).
 
-            this.scaleX = 1.0;
-            this.scaleY = worldAspect / canvasAspect;
+            this.texScaleX = 1.0;
+            this.texScaleY = worldAspect / canvasAspect;
         } else {
             // World is taller (or canvas is wider)
             // Fit Height: ScaleY = 1.0
@@ -755,13 +806,110 @@ export class WebGLMapRenderer {
             // Formula above: ScaleX = ScaleY * (CanvasWidth/CanvasHeight) * (GridHeight/GridWidth)
             // ScaleX = ScaleY * (CanvasAspect / WorldAspect)
 
-            this.scaleY = 1.0;
-            this.scaleX = canvasAspect / worldAspect;
+            this.texScaleY = 1.0;
+            this.texScaleX = canvasAspect / worldAspect;
         }
 
         this.centerX = 0.5;
         this.centerY = 0.5;
+        this.zoom = 1.0;
+        this.cameraX = 0.5;
+        this.cameraY = 0.5;
         this.dirty = true;
+    }
+
+    /**
+     * Set camera position and zoom level.
+     * @param x - Camera center X in texture coords (0-1)
+     * @param y - Camera center Y in texture coords (0-1)
+     * @param zoom - Zoom level (1.0 = fit to world, <1.0 = zoomed in, >1.0 = zoomed out)
+     */
+    setCamera(x: number, y: number, zoom: number): void {
+        // Clamp zoom to reasonable bounds
+        this.zoom = Math.max(0.1, Math.min(10.0, zoom));
+
+        // Calculate aspect-ratio-preserving texture scale
+        const canvasAspect = this.canvas.width / this.canvas.height;
+        const worldAspect = this.gridWidth / this.gridHeight;
+
+        // Base scale for "fit to world" (when zoom = 1.0)
+        let baseScaleX: number, baseScaleY: number;
+        if (worldAspect > canvasAspect) {
+            // World is wider - fit width
+            baseScaleX = 1.0;
+            baseScaleY = worldAspect / canvasAspect;
+        } else {
+            // World is taller - fit height
+            baseScaleY = 1.0;
+            baseScaleX = canvasAspect / worldAspect;
+        }
+
+        // Apply zoom: zoom < 1 = zoomed in (smaller scale = smaller texture sample area)
+        this.texScaleX = baseScaleX * this.zoom;
+        this.texScaleY = baseScaleY * this.zoom;
+
+        // Clamp camera position to prevent viewing outside texture bounds
+        // When zoomed in, we need to keep the view within [0, 1]
+        const halfViewX = this.texScaleX * 0.5;
+        const halfViewY = this.texScaleY * 0.5;
+
+        // Clamp center so view stays within texture
+        this.cameraX = Math.max(halfViewX, Math.min(1.0 - halfViewX, x));
+        this.cameraY = Math.max(halfViewY, Math.min(1.0 - halfViewY, y));
+
+        // Update center for fragment shader
+        this.centerX = this.cameraX;
+        this.centerY = this.cameraY;
+
+        this.dirty = true;
+    }
+
+    /**
+     * Get the current zoom level
+     */
+    getZoom(): number {
+        return this.zoom;
+    }
+
+    /**
+     * Get the current camera center position
+     */
+    getCameraPosition(): { x: number; y: number } {
+        return { x: this.cameraX, y: this.cameraY };
+    }
+
+    /**
+     * Convert screen coordinates to grid index.
+     * @param screenX - X position in screen pixels (0 = left edge of canvas)
+     * @param screenY - Y position in screen pixels (0 = top edge of canvas)
+     * @returns Grid index {gridX, gridY} or null if out of bounds
+     */
+    getGridIndexFromScreen(screenX: number, screenY: number): { gridX: number; gridY: number } | null {
+        // 1. Screen to normalized canvas (0-1)
+        const ndcX = screenX / this.canvas.width;
+        const ndcY = screenY / this.canvas.height;
+
+        // 2. Apply inverse camera transform (same as fragment shader)
+        // zoomedCoord = center + (texCoord - 0.5) * scale
+        // So: texCoord = center + (ndc - 0.5) * scale
+        const texX = this.centerX + (ndcX - 0.5) * this.texScaleX;
+        const texY = this.centerY + (ndcY - 0.5) * this.texScaleY;
+
+        // 3. Bounds check
+        if (texX < 0 || texX > 1 || texY < 0 || texY > 1) {
+            return null;
+        }
+
+        // 4. Convert to grid index
+        const gridX = Math.floor(texX * this.gridWidth);
+        const gridY = Math.floor(texY * this.gridHeight);
+
+        // Clamp to valid range
+        if (gridX < 0 || gridX >= this.gridWidth || gridY < 0 || gridY >= this.gridHeight) {
+            return null;
+        }
+
+        return { gridX, gridY };
     }
 
     destroy(): void {
