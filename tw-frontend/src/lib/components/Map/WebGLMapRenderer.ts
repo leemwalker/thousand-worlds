@@ -172,10 +172,9 @@ void main() {
     // u_texScale > 1.0 means we sample a larger area (Zoom Out)
     vec2 zoomedCoord = u_texCenter + (v_texCoord - vec2(0.5)) * u_texScale;
     
-    // Check if zoomed coordinates are out of bounds
-    if (zoomedCoord.x < 0.0 || zoomedCoord.x > 1.0 || 
-        zoomedCoord.y < 0.0 || zoomedCoord.y > 1.0) {
-        fragColor = vec4(0.05, 0.05, 0.1, 1.0); // Dark edge
+    // Only check Y bounds (poles - no wrapping). X wraps seamlessly via gl.REPEAT texture mode.
+    if (zoomedCoord.y < 0.0 || zoomedCoord.y > 1.0) {
+        fragColor = vec4(0.05, 0.05, 0.1, 1.0); // Dark polar edge
         return;
     }
     
