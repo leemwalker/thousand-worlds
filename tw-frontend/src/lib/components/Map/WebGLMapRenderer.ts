@@ -19,6 +19,11 @@ const BIOME_IDS: Record<string, number> = {
     'Default': 8,
     'Lobby': 9,
     'Void': 10,
+    'River': 11,
+    'Lake': 12,
+    'Wetland': 13,
+    'Mountain': 14,
+    'Savanna': 15,
 };
 
 // Entity type ID mapping for texture encoding (stored in B channel)
@@ -131,16 +136,21 @@ vec3 getElevationColor(float elevation, float rawElevation) {
 // Biome-based flat colors for unsimulated worlds
 vec3 getBiomeColor(float biomeId) {
     int id = int(biomeId * 255.0);
-    if (id == 0) return vec3(0.1, 0.3, 0.6);     // Ocean - blue
-    if (id == 1) return vec3(0.4, 0.6, 0.3);     // Grassland - green
-    if (id == 2) return vec3(0.9, 0.8, 0.5);     // Desert - tan
-    if (id == 3) return vec3(0.2, 0.5, 0.3);     // Rainforest - dark green
-    if (id == 4) return vec3(0.5, 0.6, 0.4);     // Deciduous - olive
-    if (id == 5) return vec3(0.3, 0.5, 0.4);     // Taiga - blue-green
-    if (id == 6) return vec3(0.8, 0.85, 0.9);    // Tundra - icy white
-    if (id == 7) return vec3(0.6, 0.55, 0.5);    // Alpine - gray brown
-    if (id == 9) return COLOR_LOBBY;              // Lobby - marble
-    return COLOR_UNSIMULATED;                     // Default - gray fog
+    if (id == 0) return vec3(0.1, 0.3, 0.6);      // Ocean - blue
+    if (id == 1) return vec3(0.4, 0.6, 0.3);      // Grassland - green
+    if (id == 2) return vec3(0.9, 0.8, 0.5);      // Desert - tan
+    if (id == 3) return vec3(0.2, 0.5, 0.3);      // Rainforest - dark green
+    if (id == 4) return vec3(0.5, 0.6, 0.4);      // Deciduous - olive
+    if (id == 5) return vec3(0.3, 0.5, 0.4);      // Taiga - blue-green
+    if (id == 6) return vec3(0.8, 0.85, 0.9);     // Tundra - icy white
+    if (id == 7) return vec3(0.6, 0.55, 0.5);     // Alpine - gray brown
+    if (id == 9) return COLOR_LOBBY;               // Lobby - marble
+    if (id == 11) return vec3(0.2, 0.6, 1.0);     // River - bright blue
+    if (id == 12) return vec3(0.15, 0.4, 0.7);    // Lake - deep blue
+    if (id == 13) return vec3(0.3, 0.55, 0.5);    // Wetland - blue-green
+    if (id == 14) return vec3(0.5, 0.45, 0.4);    // Mountain - gray-brown
+    if (id == 15) return vec3(0.7, 0.65, 0.35);   // Savanna - golden
+    return COLOR_UNSIMULATED;                      // Default - gray fog
 }
 
 // Entity-based colors (encoded in B channel)
@@ -184,8 +194,21 @@ void main() {
     }
     
     if (u_isSimulated > 0.5) {
-        // Simulated world - use elevation-based coloring with dynamic bathymetry
-        color = getElevationColor(data.r, rawElevation);
+        // Check for water biomes that should override elevation color
+        int biomeId = int(data.g * 255.0);
+        if (biomeId == 11) {
+            // River - bright blue
+            color = vec3(0.2, 0.6, 1.0);
+        } else if (biomeId == 12) {
+            // Lake - deep blue
+            color = vec3(0.15, 0.4, 0.7);
+        } else if (biomeId == 13) {
+            // Wetland - blue-green
+            color = vec3(0.3, 0.55, 0.5);
+        } else {
+            // Standard simulated world - use elevation-based coloring with dynamic bathymetry
+            color = getElevationColor(data.r, rawElevation);
+        }
     } else {
         // Lobby/unsimulated - use flat biome colors
         color = getBiomeColor(data.g);
