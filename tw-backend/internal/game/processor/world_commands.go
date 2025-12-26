@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 	"tw-backend/cmd/game-server/websocket"
+	"tw-backend/internal/debug"
 	"tw-backend/internal/ecosystem"
 	"tw-backend/internal/ecosystem/atmosphere"
 	"tw-backend/internal/ecosystem/pathogen"
@@ -113,6 +114,14 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		case "--migration":
 			enableMigration = true
 			anyFlagSet = true
+		case "--debug-perf":
+			debug.Enable(debug.Perf)
+		case "--debug-logic":
+			debug.Enable(debug.Logic)
+		case "--debug-geo":
+			debug.Enable(debug.Geology | debug.Tectonics)
+		case "--debug-all":
+			debug.SetFlags(debug.All)
 		case "--all":
 			enableGeology, enableWeather, enableLife = true, true, true
 			enableDisease, enableSapience, enableMigration = true, true, true

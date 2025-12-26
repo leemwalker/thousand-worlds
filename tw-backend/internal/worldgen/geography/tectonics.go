@@ -3,6 +3,7 @@ package geography
 import (
 	"math/rand"
 
+	"tw-backend/internal/debug"
 	"tw-backend/internal/spatial"
 
 	"github.com/google/uuid"
@@ -138,6 +139,11 @@ func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology) {
 // Returns a SphereHeightmap with elevation modifiers.
 // scaleFactor allows adjusting the intensity based on time step (1.0 = standard 100k year interval)
 func SimulateTectonics(plates []TectonicPlate, heightmap *SphereHeightmap, topology spatial.Topology, scaleFactor float64) *SphereHeightmap {
+	// Debug timing
+	if debug.Is(debug.Perf) {
+		defer debug.Time(debug.Perf, "SimulateTectonics(Internal)")()
+	}
+
 	resolution := topology.Resolution()
 	totalCells := 6 * resolution * resolution
 

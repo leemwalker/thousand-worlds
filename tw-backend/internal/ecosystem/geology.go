@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"sync"
 	"time"
+	"tw-backend/internal/debug"
 	"tw-backend/internal/spatial"
 	"tw-backend/internal/worldgen/astronomy"
 	"tw-backend/internal/worldgen/geography"
@@ -586,6 +587,11 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 			// Fix 1: Re-enable Equilibrium Tectonics
 			// Uses asymptotic approach to prevent runaway elevation
 			if g.SphereHeightmap != nil && g.Topology != nil {
+				// Debug timing for tectonics specifically
+				if debug.Is(debug.Tectonics | debug.Perf) {
+					defer debug.Time(debug.Tectonics, "TectonicsUpdate")()
+				}
+
 				// Pass scaleFactor to apply stronger effects for longer intervals
 				g.SphereHeightmap = geography.SimulateTectonics(g.Plates, g.SphereHeightmap, g.Topology, scaleFactor)
 				g.syncSphereToFlat()
