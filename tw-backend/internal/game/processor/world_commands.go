@@ -13,6 +13,7 @@ import (
 	"tw-backend/internal/ecosystem/pathogen"
 	"tw-backend/internal/ecosystem/population"
 	"tw-backend/internal/ecosystem/sapience"
+	"tw-backend/internal/worldgen/astronomy"
 	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/weather"
 
@@ -260,6 +261,14 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	if p.mapService != nil {
 		p.mapService.SetWorldGeology(char.WorldID, geology)
 	}
+
+	// Generate natural satellites (moons) based on moonsFlag
+	satConfig := astronomy.SatelliteConfig{
+		Override: moonsFlag >= 0,
+		Count:    moonsFlag,
+	}
+	satellites := astronomy.GenerateMoons(seedFlag, astronomy.EarthMassKg, satConfig)
+	impactShielding := astronomy.CalculateImpactShielding(satellites)
 
 	// Handle Water Level Override
 	if waterLevelFlag != "" {
@@ -905,6 +914,49 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	sb.WriteString(fmt.Sprintf("Max Elevation: %.0fm\n", geoStats.MaxElevation))
 	sb.WriteString(fmt.Sprintf("Sea Level: %.0fm\n", geoStats.SeaLevel))
 	sb.WriteString(fmt.Sprintf("Land Coverage: %.1f%%\n", geoStats.LandPercent))
+
+	// Natural Satellites section
+	sb.WriteString("--- Natural Satellites ---\n")
+	if len(satellites) == 0 {
+		sb.WriteString("Moons: None\n")
+		sb.WriteString("Climate Stability: Chaotic (no stabilizing moon)\n")
+	} else {
+		sb.WriteString(fmt.Sprintf("Moons: %d\n", len(satellites)))
+		for _, sat := range satellites {
+			// Mass in Luna units (Earth's Moon = 1.0 Luna)
+			massInLunas := sat.Mass / astronomy.MoonMassKg
+			// Distance in thousands of km
+			distanceKm := sat.Distance / 1000.0
+			sb.WriteString(fmt.Sprintf("  🌙 %s: %.2fx Luna, %.0f km\n", sat.Name, massInLunas, distanceKm))
+		}
+
+		// Calculate effects
+		tidalStress := astronomy.CalculateTidalStress(satellites)
+		obliquityStability := astronomy.CalculateObliquityStability(satellites, astronomy.EarthMassKg)
+
+		sb.WriteString(fmt.Sprintf("Tidal Stress: %.2fx Earth\n", tidalStress))
+		if obliquityStability > 0.5 {
+			sb.WriteString("Climate Stability: Stable (large moon stabilizes axis)\n")
+		} else {
+			sb.WriteString("Climate Stability: Variable (small moons)\n")
+		}
+		sb.WriteString(fmt.Sprintf("Impact Shielding: %.0f%%\n", impactShielding*100))
+
+		// Calculate asteroid impacts prevented
+		// Formula: actual_impacts × (shielding / (1 - shielding))
+		// This represents impacts that WOULD have occurred without moons
+		actualImpacts := eventCounts[ecosystem.EventAsteroidImpact]
+		if actualImpacts > 0 && impactShielding > 0 {
+			// Inverse calculation: if shielding = 10%, and we had 100 impacts,
+			// then without moons we'd have had 100 / (1 - 0.10) = 111 impacts
+			// So prevented = 111 - 100 = 11
+			unshieldedImpacts := float64(actualImpacts) / (1.0 - impactShielding)
+			impactsPrevented := int(unshieldedImpacts) - actualImpacts
+			if impactsPrevented > 0 {
+				sb.WriteString(fmt.Sprintf("Asteroids Deflected: %d (would have hit without moons)\n", impactsPrevented))
+			}
+		}
+	}
 
 	// Species breakdown grouped by biome type
 	sb.WriteString("--- Species by Biome Type ---\n")
