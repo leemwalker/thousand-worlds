@@ -542,6 +542,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	// Run simulation year by year (fast!)
 	// Run simulation year by year (fast!) or with larger steps
 	year := int64(0)
+	iterationCount := int64(0) // Debug counter
 	for year < years {
 		// Progress reporting
 		if year-lastProgress >= progressInterval && progressInterval > 0 {
@@ -1007,6 +1008,16 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		}
 
 		year += increment
+
+		// Debug: Log iteration count every 100 iterations
+		if year == 0 {
+			iterationCount = 0
+		}
+		iterationCount++
+		if iterationCount%100 == 0 {
+			log.Printf("[PERF] Iteration #%d: year=%d, increment=%d, heat=%.2f",
+				iterationCount, year, increment, ecosystem.GetPlanetaryHeat(year))
+		}
 	}
 
 	// Get final statistics
