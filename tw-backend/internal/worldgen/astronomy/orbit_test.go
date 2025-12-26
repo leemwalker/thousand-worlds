@@ -197,6 +197,138 @@ func TestIceAgeThreshold(t *testing.T) {
 	}
 }
 
+// -----------------------------------------------------------------------------
+// Obliquity Chaos Tests - Natural Satellites Phase 3
+// -----------------------------------------------------------------------------
+
+// TestObliquityChaos_StableWorld verifies Earth-like stability (stability=1.0)
+// results in small obliquity variance (~2.4° total swing).
+func TestObliquityChaos_StableWorld(t *testing.T) {
+	stability := 1.0 // Earth with Moon
+
+	minObliquity := 100.0
+	maxObliquity := 0.0
+
+	// Sample over 100k years to capture cycle extremes
+	for year := int64(0); year < 100000; year += 1000 {
+		state := CalculateOrbitalStateWithStability(year, stability)
+		if state.Obliquity < minObliquity {
+			minObliquity = state.Obliquity
+		}
+		if state.Obliquity > maxObliquity {
+			maxObliquity = state.Obliquity
+		}
+	}
+
+	obliquityRange := maxObliquity - minObliquity
+	t.Logf("Stable (1.0): Obliquity range = %.2f° (min=%.2f, max=%.2f)",
+		obliquityRange, minObliquity, maxObliquity)
+
+	// Stable worlds should have small range (~2.4° for Earth-Moon)
+	if obliquityRange > 3.0 {
+		t.Errorf("Stable world obliquity range too large: %.2f° (expected <3°)", obliquityRange)
+	}
+	if obliquityRange < 1.0 {
+		t.Errorf("Stable world obliquity range too small: %.2f° (expected >1°)", obliquityRange)
+	}
+}
+
+// TestObliquityChaos_ChaoticWorld verifies moonless chaos (stability=0.0)
+// results in large obliquity variance (>10° swing, Mars-like).
+func TestObliquityChaos_ChaoticWorld(t *testing.T) {
+	stability := 0.0 // No moons, Mars-like chaos
+
+	minObliquity := 100.0
+	maxObliquity := 0.0
+
+	// Sample over 100k years to capture cycle extremes
+	for year := int64(0); year < 100000; year += 1000 {
+		state := CalculateOrbitalStateWithStability(year, stability)
+		if state.Obliquity < minObliquity {
+			minObliquity = state.Obliquity
+		}
+		if state.Obliquity > maxObliquity {
+			maxObliquity = state.Obliquity
+		}
+	}
+
+	obliquityRange := maxObliquity - minObliquity
+	t.Logf("Chaotic (0.0): Obliquity range = %.2f° (min=%.2f, max=%.2f)",
+		obliquityRange, minObliquity, maxObliquity)
+
+	// Chaotic worlds should have large range (>10° for Mars-like behavior)
+	if obliquityRange < 10.0 {
+		t.Errorf("Chaotic world obliquity range too small: %.2f° (expected >10°)", obliquityRange)
+	}
+}
+
+// TestObliquityChaos_Gradient verifies obliquity variance scales with stability
+func TestObliquityChaos_Gradient(t *testing.T) {
+	// With chaos multiplier = 1 + (1-stability)*10:
+	// stability=1.0: multiplier=1, variance=2.4°
+	// stability=0.5: multiplier=6, variance=14.4°
+	// stability=0.2: multiplier=9, variance=21.6°
+	// stability=0.0: multiplier=11, variance=26.4°
+	tests := []struct {
+		name           string
+		stability      float64
+		expectedMinVar float64
+		expectedMaxVar float64
+	}{
+		{"Full stability", 1.0, 2.0, 3.0},
+		{"Partial stability", 0.5, 13.0, 16.0},
+		{"Low stability", 0.2, 20.0, 24.0},
+		{"No stability", 0.0, 24.0, 28.0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			minObl := 100.0
+			maxObl := 0.0
+
+			for year := int64(0); year < 100000; year += 1000 {
+				state := CalculateOrbitalStateWithStability(year, tt.stability)
+				if state.Obliquity < minObl {
+					minObl = state.Obliquity
+				}
+				if state.Obliquity > maxObl {
+					maxObl = state.Obliquity
+				}
+			}
+
+			oblRange := maxObl - minObl
+			t.Logf("Stability %.1f: range = %.2f°", tt.stability, oblRange)
+
+			if oblRange < tt.expectedMinVar || oblRange > tt.expectedMaxVar {
+				t.Errorf("Stability %.1f: range %.2f° outside expected [%.1f, %.1f]",
+					tt.stability, oblRange, tt.expectedMinVar, tt.expectedMaxVar)
+			}
+		})
+	}
+}
+
+// TestCalculateOrbitalStateWithStability_BackwardCompatible verifies stability=1.0
+// produces approximately the same results as the original CalculateOrbitalState.
+func TestCalculateOrbitalStateWithStability_BackwardCompatible(t *testing.T) {
+	for year := int64(0); year < 100000; year += 10000 {
+		original := CalculateOrbitalState(year)
+		withStability := CalculateOrbitalStateWithStability(year, 1.0)
+
+		// Should be nearly identical for stability=1.0
+		if original.Eccentricity != withStability.Eccentricity {
+			t.Errorf("Year %d: Eccentricity mismatch", year)
+		}
+		if original.Precession != withStability.Precession {
+			t.Errorf("Year %d: Precession mismatch", year)
+		}
+		// Obliquity should be identical for stability=1.0
+		if original.Obliquity != withStability.Obliquity {
+			t.Errorf("Year %d: Obliquity mismatch: original=%.4f, withStability=%.4f",
+				year, original.Obliquity, withStability.Obliquity)
+		}
+	}
+}
+
 // BenchmarkCalculateOrbitalState measures performance of orbital calculations.
 func BenchmarkCalculateOrbitalState(b *testing.B) {
 	for i := 0; i < b.N; i++ {

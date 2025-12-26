@@ -36,6 +36,7 @@ type GeologicalEventManager struct {
 	TectonicActivity        float64 // 0.0-1.0: represents geological instability (volcanism, earthquakes)
 	GlobalTemperatureOffset float64 // Cumulative temperature offset from baseline
 	RecentCoolingYears      int64   // Track how long world has been cooled
+	ImpactShielding         float64 // From satellites (0.0-0.2): reduces asteroid impact probability
 	rng                     *rand.Rand
 }
 
@@ -45,6 +46,7 @@ func NewGeologicalEventManager() *GeologicalEventManager {
 		TectonicActivity:        0.1, // Start with low baseline activity
 		GlobalTemperatureOffset: 0,
 		RecentCoolingYears:      0,
+		ImpactShielding:         0.0, // Default to no moon shielding
 		rng:                     rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
@@ -92,7 +94,10 @@ func (g *GeologicalEventManager) CheckForNewEvents(currentTick, ticksElapsed int
 		}
 
 		// Asteroid impact: 0.005% per check (~1 per 5.5M years)
-		if g.rng.Float64() < 0.00005*(float64(chunkSize)/float64(stepSize)) {
+		// Impact probability reduced by moon shielding (up to 20%)
+		baseAsteroidChance := 0.00005
+		asteroidChance := baseAsteroidChance * (1.0 - g.ImpactShielding)
+		if g.rng.Float64() < asteroidChance*(float64(chunkSize)/float64(stepSize)) {
 			g.ActiveEvents = append(g.ActiveEvents, GeologicalEvent{
 				Type:           EventAsteroidImpact,
 				StartTick:      currentTick,

@@ -32,6 +32,11 @@ type ClimateDriver struct {
 	// IceAgeStartYear is when the current ice age began (0 if none)
 	IceAgeStartYear int64
 
+	// ObliquityStability is the satellite-derived stability factor (0.0-1.0)
+	// 0.0 = chaotic (no moons), 1.0 = stable (Earth-Moon)
+	// Affects the amplitude of obliquity oscillations
+	ObliquityStability float64
+
 	// eventManager is the geological event system
 	eventManager *GeologicalEventManager
 }
@@ -39,18 +44,20 @@ type ClimateDriver struct {
 // NewClimateDriver creates a climate driver connected to the event system.
 func NewClimateDriver(eventManager *GeologicalEventManager) *ClimateDriver {
 	return &ClimateDriver{
-		CurrentState:    astronomy.CalculateOrbitalState(0),
-		eventManager:    eventManager,
-		IceAgeActive:    false,
-		IceAgeStartYear: 0,
+		CurrentState:       astronomy.CalculateOrbitalState(0),
+		eventManager:       eventManager,
+		IceAgeActive:       false,
+		IceAgeStartYear:    0,
+		ObliquityStability: 1.0, // Default to Earth-like stability
 	}
 }
 
 // Update checks the orbital state and triggers/ends ice ages based on insolation.
 // This should be called periodically (e.g., every 100,000 simulation years).
+// Uses ObliquityStability to scale obliquity variance for chaotic/stable worlds.
 func (cd *ClimateDriver) Update(year int64) {
-	// Calculate current orbital state
-	cd.CurrentState = astronomy.CalculateOrbitalState(year)
+	// Calculate current orbital state with stability-adjusted obliquity
+	cd.CurrentState = astronomy.CalculateOrbitalStateWithStability(year, cd.ObliquityStability)
 	cd.CurrentInsolation = astronomy.CalculateInsolation(cd.CurrentState)
 
 	// Check for ice age transitions using hysteresis
