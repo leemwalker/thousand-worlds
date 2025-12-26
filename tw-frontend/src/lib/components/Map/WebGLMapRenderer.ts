@@ -466,7 +466,9 @@ export class WebGLMapRenderer {
         // Texture parameters for smooth sampling
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        // REPEAT on X-axis for seamless horizontal (East/West) wrapping
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        // CLAMP on Y-axis to prevent viewing past poles
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     }
 
@@ -845,14 +847,11 @@ export class WebGLMapRenderer {
 
     /**
      * Set camera position and zoom level.
-     * @param x - Camera center X in texture coords (0-1)
+     * @param x - Camera center X in texture coords (can exceed 0-1 for wrapping)
      * @param y - Camera center Y in texture coords (0-1)
-     * @param zoom - Zoom level (1.0 = fit to world, <1.0 = zoomed in, >1.0 = zoomed out)
+     * @param zoom - Zoom level (1.0 = fit to world, <1.0 = zoomed in)
      */
     setCamera(x: number, y: number, zoom: number): void {
-        // Clamp zoom to reasonable bounds
-        this.zoom = Math.max(0.1, Math.min(10.0, zoom));
-
         // Calculate aspect-ratio-preserving texture scale
         const canvasAspect = this.canvas.width / this.canvas.height;
         const worldAspect = this.gridWidth / this.gridHeight;
@@ -869,17 +868,21 @@ export class WebGLMapRenderer {
             baseScaleX = canvasAspect / worldAspect;
         }
 
+        // Clamp zoom: minimum 0.1, maximum constrained so texScaleX <= 1.0 (no tiling)
+        // If zoom > 1/baseScaleX, we'd see >100% of world width, causing visual tiling
+        const maxZoom = 1.0 / baseScaleX;
+        this.zoom = Math.max(0.1, Math.min(maxZoom, zoom));
+
         // Apply zoom: zoom < 1 = zoomed in (smaller scale = smaller texture sample area)
         this.texScaleX = baseScaleX * this.zoom;
         this.texScaleY = baseScaleY * this.zoom;
 
-        // Clamp camera position to prevent viewing outside texture bounds
-        // When zoomed in, we need to keep the view within [0, 1]
-        const halfViewX = this.texScaleX * 0.5;
-        const halfViewY = this.texScaleY * 0.5;
+        // X-axis: Apply modulo wrapping for seamless globe panning
+        // Keeps internal value normalized to prevent float precision loss
+        this.cameraX = ((x % 1.0) + 1.0) % 1.0;
 
-        // Clamp center so view stays within texture
-        this.cameraX = Math.max(halfViewX, Math.min(1.0 - halfViewX, x));
+        // Y-axis: Strict clamping to prevent viewing past poles
+        const halfViewY = this.texScaleY * 0.5;
         this.cameraY = Math.max(halfViewY, Math.min(1.0 - halfViewY, y));
 
         // Update center for fragment shader
@@ -934,16 +937,19 @@ export class WebGLMapRenderer {
         const texX = this.centerX + (ndcX - 0.5) * this.texScaleX;
         const texY = this.centerY + (ndcY - 0.5) * this.texScaleY;
 
-        // 3. Bounds check
-        if (texX < 0 || texX > 1 || texY < 0 || texY > 1) {
+        // 3. Y bounds check (poles - no wrapping)
+        if (texY < 0 || texY > 1) {
             return null;
         }
 
-        // 4. Convert to grid index
-        const gridX = Math.floor(texX * this.gridWidth);
+        // 4. X wrapping for seamless globe (matches texture REPEAT mode)
+        const wrappedTexX = ((texX % 1.0) + 1.0) % 1.0;
+
+        // 5. Convert to grid index
+        const gridX = Math.floor(wrappedTexX * this.gridWidth);
         const gridY = Math.floor(texY * this.gridHeight);
 
-        // Clamp to valid range
+        // Clamp to valid range (gridX should always be valid due to wrapping)
         if (gridX < 0 || gridX >= this.gridWidth || gridY < 0 || gridY >= this.gridHeight) {
             return null;
         }
