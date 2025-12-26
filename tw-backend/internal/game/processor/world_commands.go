@@ -468,6 +468,15 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	// Track statistics
 	geologicalEvents := 0
 	geoManager := ecosystem.NewGeologicalEventManager()
+	geoManager.ImpactShielding = impactShielding
+
+	// Calculate obliquity stability for climate driver
+	obliquityStability := astronomy.CalculateObliquityStability(satellites, astronomy.EarthMassKg)
+
+	// Initialize Climate Driver (Milankovitch Cycles)
+	climateDriver := ecosystem.NewClimateDriver(geoManager)
+	climateDriver.ObliquityStability = obliquityStability
+
 	progressInterval := years / 10
 	lastProgress := int64(0)
 
@@ -536,10 +545,13 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		}
 
 		// Simulate population dynamics + evolution + speciation
-		// Simulate population dynamics + evolution + speciation
 		if simulateLife {
 			popSim.SimulateYear()
 		}
+
+		// Update Climate Driver (Milankovitch Cycles)
+		// Triggers ice ages/interglacials based on orbital mechanics
+		climateDriver.Update(year)
 
 		// Apply evolution every 1000 years
 		if simulateLife && popSim.CurrentYear%1000 == 0 {
