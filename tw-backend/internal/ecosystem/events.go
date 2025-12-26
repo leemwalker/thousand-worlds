@@ -53,7 +53,7 @@ func NewGeologicalEventManager() *GeologicalEventManager {
 
 // CheckForNewEvents probabilistically triggers new geological events based on time scale
 // ticksElapsed is the number of ticks since last check
-// At 100 ticks = 1 year, major events happen roughly every 100k-1M years
+// At 365 ticks = 1 year, major events happen roughly every 100k-1M years
 func (g *GeologicalEventManager) CheckForNewEvents(currentTick, ticksElapsed int64) {
 	// Tectonic activity decays slowly over time (half-life ~50k years)
 	g.TectonicActivity *= 0.9999
@@ -64,9 +64,9 @@ func (g *GeologicalEventManager) CheckForNewEvents(currentTick, ticksElapsed int
 	}
 
 	// Scale probability by ticks elapsed
-	// Check every 100,000 ticks (~274 years) instead of 10,000 ticks (~27 years)
-	// This reduces the number of checks by 10x
-	stepSize := int64(100000)
+	// Check every 365,000 ticks (~1000 years at 365/year)
+	// This maintains the same frequency as before (100k ticks @ 100/year)
+	stepSize := int64(365000)
 
 	for i := int64(0); i < ticksElapsed; i += stepSize {
 		chunkSize := stepSize
@@ -206,7 +206,7 @@ func (g *GeologicalEventManager) updateClimateRecovery(currentTick, chunkSize in
 
 	// Track cumulative cooling
 	if currentCooling < -5 {
-		g.RecentCoolingYears += chunkSize / 100 // Convert ticks to years
+		g.RecentCoolingYears += chunkSize / 365 // Convert ticks to years
 	} else if currentCooling > 0 {
 		g.RecentCoolingYears = 0 // Reset if warming
 	} else {

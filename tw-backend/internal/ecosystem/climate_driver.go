@@ -95,7 +95,7 @@ func (cd *ClimateDriver) startIceAge(year int64) {
 	// We estimate duration based on insolation cycle
 	iceAgeEvent := GeologicalEvent{
 		Type:           EventIceAge,
-		StartTick:      year * 100, // Convert years to ticks (100 ticks/year)
+		StartTick:      year * 365, // Convert years to ticks (365 ticks/year)
 		DurationTicks:  100000,     // Initial estimate, will be extended by orbital state
 		Severity:       severity,
 		TemperatureMod: -8 - severity*12, // -8 to -20 degrees
@@ -121,7 +121,7 @@ func (cd *ClimateDriver) endIceAge(year int64) {
 	for _, e := range cd.eventManager.ActiveEvents {
 		if e.Type == EventIceAge {
 			// Truncate this ice age event to current year
-			e.DurationTicks = year*100 - e.StartTick
+			e.DurationTicks = year*365 - e.StartTick
 			if e.DurationTicks > 0 {
 				filtered = append(filtered, e)
 			}
