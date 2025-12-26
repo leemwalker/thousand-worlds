@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"tw-backend/internal/spatial"
+	"tw-backend/internal/worldgen/astronomy"
 	"tw-backend/internal/worldgen/evolution"
 	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/minerals"
@@ -71,17 +72,22 @@ func (s *GeneratorService) GenerateWorld(
 		},
 	}
 
-	// Check context before geography generation
+	// Check context before astronomy/geography generation
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
+
+	// 1.5. Generate natural satellites (moons)
+	// This must happen before geography as tidal stress affects volcanism
+	satellites := astronomy.GenerateMoons(params.Seed, astronomy.EarthMassKg, params.SatelliteConfig)
+	generated.Satellites = satellites
 
 	// 2. Generate geography
 	if params.SeaLevelOverride != nil {
 		params.LandWaterRatio = 1.0 - clamp(*params.SeaLevelOverride, 0.0, 1.0)
 	}
 
-	geoMap, seaLevel, err := s.geoGen.GenerateGeography(params)
+	geoMap, seaLevel, err := s.geoGen.GenerateGeography(params, satellites)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate geography: %w", err)
 	}

@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"tw-backend/internal/spatial"
+	"tw-backend/internal/worldgen/astronomy"
 	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/ocean"
 	"tw-backend/internal/worldgen/weather"
@@ -15,7 +16,7 @@ import (
 
 // GeographyGenerator generates terrain and biomes
 type GeographyGenerator interface {
-	GenerateGeography(params *GenerationParams) (*geography.WorldMap, float64, error)
+	GenerateGeography(params *GenerationParams, satellites []astronomy.Satellite) (*geography.WorldMap, float64, error)
 }
 
 // DefaultGeographyGenerator is the production implementation
@@ -23,17 +24,21 @@ type DefaultGeographyGenerator struct{}
 
 // GenerateGeography creates terrain using geographic subsystem.
 // Pipeline order: Tectonics → Topography → Ocean Currents → Weather/Climate → Biomes
-func (g *DefaultGeographyGenerator) GenerateGeography(params *GenerationParams) (*geography.WorldMap, float64, error) {
+// Satellites affect volcanic activity via tidal stress.
+func (g *DefaultGeographyGenerator) GenerateGeography(params *GenerationParams, satellites []astronomy.Satellite) (*geography.WorldMap, float64, error) {
 	// Create spherical topology for the world
 	// Resolution = Height as the face grid size (faces are square)
 	topology := spatial.NewCubeSphereTopology(params.Height)
 
+	// Calculate tidal stress from satellites for volcanic activity
+	tidalStress := astronomy.CalculateTidalStress(satellites)
+
 	// 1. Generate tectonic plates on the sphere
 	plates := geography.GeneratePlates(params.PlateCount, topology, params.Seed)
 
-	// 2. Create sphere heightmap and apply tectonics
+	// 2. Create sphere heightmap and apply tectonics (with tidal stress for volcanism)
 	sphereHeightmap := geography.NewSphereHeightmap(topology)
-	sphereHeightmap = geography.GenerateHeightmap(plates, sphereHeightmap, topology, params.Seed, params.ErosionRate, params.RainfallFactor)
+	sphereHeightmap = geography.GenerateHeightmapWithTidalStress(plates, sphereHeightmap, topology, params.Seed, params.ErosionRate, params.RainfallFactor, tidalStress)
 
 	// 3. Convert to flat heightmap for legacy consumers
 	heightmap := sphereHeightmap.ToFlatHeightmap(params.Width, params.Height)

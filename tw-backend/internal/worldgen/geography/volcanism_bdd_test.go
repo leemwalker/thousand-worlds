@@ -62,7 +62,7 @@ func TestBDD_Hotspots_ChainCreation(t *testing.T) {
 	// Create plates using spherical API
 	plates := geography.GeneratePlates(3, topology, testSeed)
 
-	geography.ApplyHotspots(hm, plates, topology, testSeed)
+	geography.ApplyHotspots(hm, plates, topology, testSeed, 1.0)
 
 	// Check that some elevation was added (hotspots created volcanoes)
 	maxElev := 0.0
@@ -95,8 +95,8 @@ func TestBDD_Hotspots_Determinism(t *testing.T) {
 	hm1 := geography.NewSphereHeightmap(topology)
 	hm2 := geography.NewSphereHeightmap(topology)
 
-	geography.ApplyHotspots(hm1, plates, topology, testSeed)
-	geography.ApplyHotspots(hm2, plates, topology, testSeed)
+	geography.ApplyHotspots(hm1, plates, topology, testSeed, 1.0)
+	geography.ApplyHotspots(hm2, plates, topology, testSeed, 1.0)
 
 	// Compare heightmaps
 	matches := true
@@ -450,4 +450,86 @@ func TestBDD_Volcanism_EdgeBoundary(t *testing.T) {
 
 	// Verify some elevation was applied where valid
 	assert.Greater(t, hm.Get(0, 0), 0.0, "Corner should have some elevation")
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Tidal Heating Effect on Volcanism
+// -----------------------------------------------------------------------------
+// Given: A world with different levels of tidal stress from satellites
+// When: ApplyHotspots is called with varying tidalStress values
+// Then: Higher stress should result in more and/or stronger volcanic activity
+//
+//	AND Total volcanic elevation should be measurably higher
+func TestBDD_TidalHeatingEffect(t *testing.T) {
+	resolution := 32
+	topology := spatial.NewCubeSphereTopology(resolution)
+
+	plates := geography.GeneratePlates(3, topology, testSeed)
+
+	// Test 1: No moons (tidalStress = 0.0)
+	hmNoMoons := geography.NewSphereHeightmap(topology)
+	geography.ApplyHotspots(hmNoMoons, plates, topology, testSeed, 0.0)
+
+	// Test 2: Earth-Moon baseline (tidalStress = 1.0)
+	hmEarthMoon := geography.NewSphereHeightmap(topology)
+	geography.ApplyHotspots(hmEarthMoon, plates, topology, testSeed, 1.0)
+
+	// Test 3: High tidal stress (tidalStress = 3.0) - multiple close moons
+	hmHighStress := geography.NewSphereHeightmap(topology)
+	geography.ApplyHotspots(hmHighStress, plates, topology, testSeed, 3.0)
+
+	// Measure total volcanic elevation for each scenario
+	measureTotalElevation := func(hm *geography.SphereHeightmap) float64 {
+		total := 0.0
+		for face := 0; face < 6; face++ {
+			for y := 0; y < resolution; y++ {
+				for x := 0; x < resolution; x++ {
+					val := hm.Get(spatial.Coordinate{Face: face, X: x, Y: y})
+					if val > 0 {
+						total += val
+					}
+				}
+			}
+		}
+		return total
+	}
+
+	totalNoMoons := measureTotalElevation(hmNoMoons)
+	totalEarthMoon := measureTotalElevation(hmEarthMoon)
+	totalHighStress := measureTotalElevation(hmHighStress)
+
+	t.Logf("Total volcanic elevation - No moons: %.0f, Earth-Moon: %.0f, High stress: %.0f",
+		totalNoMoons, totalEarthMoon, totalHighStress)
+
+	// Assertions: Higher tidal stress should produce more volcanic activity
+	assert.Greater(t, totalEarthMoon, totalNoMoons,
+		"Earth-Moon stress should produce more volcanic activity than no moons")
+	assert.Greater(t, totalHighStress, totalEarthMoon,
+		"High tidal stress should produce more volcanic activity than Earth-Moon baseline")
+
+	// Also verify peak elevation follows the pattern
+	measureMaxElevation := func(hm *geography.SphereHeightmap) float64 {
+		maxElev := 0.0
+		for face := 0; face < 6; face++ {
+			for y := 0; y < resolution; y++ {
+				for x := 0; x < resolution; x++ {
+					val := hm.Get(spatial.Coordinate{Face: face, X: x, Y: y})
+					if val > maxElev {
+						maxElev = val
+					}
+				}
+			}
+		}
+		return maxElev
+	}
+
+	maxNoMoons := measureMaxElevation(hmNoMoons)
+	maxEarthMoon := measureMaxElevation(hmEarthMoon)
+	maxHighStress := measureMaxElevation(hmHighStress)
+
+	t.Logf("Max volcanic peak - No moons: %.0f, Earth-Moon: %.0f, High stress: %.0f",
+		maxNoMoons, maxEarthMoon, maxHighStress)
+
+	assert.Greater(t, maxHighStress, maxNoMoons,
+		"High stress worlds should have taller volcanic peaks than moonless worlds")
 }

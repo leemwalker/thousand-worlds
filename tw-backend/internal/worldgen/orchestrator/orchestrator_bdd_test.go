@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"tw-backend/internal/worldgen/astronomy"
 	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/orchestrator"
 
@@ -216,7 +217,7 @@ func TestBDD_Orchestrator_PipelineFailure(t *testing.T) {
 // mockFailingGeoGenerator implements orchestrator.GeographyGenerator for testing
 type mockFailingGeoGenerator struct{}
 
-func (m *mockFailingGeoGenerator) GenerateGeography(params *orchestrator.GenerationParams) (*geography.WorldMap, float64, error) {
+func (m *mockFailingGeoGenerator) GenerateGeography(params *orchestrator.GenerationParams, _ []astronomy.Satellite) (*geography.WorldMap, float64, error) {
 	return nil, 0, errors.New("simulated geography failure")
 }
 

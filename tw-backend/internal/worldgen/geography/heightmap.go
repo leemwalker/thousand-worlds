@@ -6,7 +6,15 @@ import (
 
 // GenerateHeightmap creates the final heightmap for a spherical world.
 // Uses SphereHeightmap and spherical topology for all calculations.
+// DEPRECATED: Use GenerateHeightmapWithTidalStress for satellite-aware generation.
 func GenerateHeightmap(plates []TectonicPlate, heightmap *SphereHeightmap, topology spatial.Topology, seed int64, erosionRate float64, rainfallFactor float64) *SphereHeightmap {
+	// Default to Earth-Moon baseline tidal stress for backward compatibility
+	return GenerateHeightmapWithTidalStress(plates, heightmap, topology, seed, erosionRate, rainfallFactor, 1.0)
+}
+
+// GenerateHeightmapWithTidalStress creates the final heightmap with satellite-aware volcanism.
+// The tidalStress parameter affects volcanic activity (0.0 = no moons, 1.0 = Earth-Moon, >1.0 = multiple/close moons).
+func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereHeightmap, topology spatial.Topology, seed int64, erosionRate float64, rainfallFactor float64, tidalStress float64) *SphereHeightmap {
 	noise := NewPerlinGenerator(seed)
 	resolution := topology.Resolution()
 
@@ -27,8 +35,8 @@ func GenerateHeightmap(plates []TectonicPlate, heightmap *SphereHeightmap, topol
 	// 2. Apply Tectonic Modifiers
 	SimulateTectonics(plates, heightmap, topology)
 
-	// 2a. Apply Volcanic Hotspots
-	ApplyHotspots(heightmap, plates, topology, seed)
+	// 2a. Apply Volcanic Hotspots (scaled by tidal stress from satellites)
+	ApplyHotspots(heightmap, plates, topology, seed, tidalStress)
 
 	// 3. Apply Noise for variation
 	for face := 0; face < 6; face++ {

@@ -169,7 +169,7 @@ func TestGenerateGeography(t *testing.T) {
 		ErosionRate:    1.0,
 	}
 
-	geoMap, seaLevel, err := geoGen.GenerateGeography(params)
+	geoMap, seaLevel, err := geoGen.GenerateGeography(params, nil)
 	require.NoError(t, err)
 	require.NotNil(t, geoMap)
 

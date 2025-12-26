@@ -7,13 +7,36 @@ import (
 	"tw-backend/internal/spatial"
 )
 
-// ApplyHotspots creates volcanic chains over moving plates (spherical version)
-func ApplyHotspots(hm *SphereHeightmap, plates []TectonicPlate, topology spatial.Topology, seed int64) {
+// ApplyHotspots creates volcanic chains over moving plates (spherical version).
+//
+// The tidalStress parameter scales volcanic activity based on satellite configuration:
+//   - 0.0 = No moons, minimal tidal heating
+//   - 1.0 = Earth-Moon baseline
+//   - >1.0 = Multiple/close moons, increased volcanic activity
+//
+// Effects of tidal stress on volcanism:
+//   - Hotspot count scales: base * (0.5 + 0.5 * stress)
+//   - Intensity scales: base * (0.7 + 0.3 * stress)
+func ApplyHotspots(hm *SphereHeightmap, plates []TectonicPlate, topology spatial.Topology, seed int64, tidalStress float64) {
 	r := rand.New(rand.NewSource(seed))
 	resolution := topology.Resolution()
 
-	// Number of hotspots based on total area
-	numHotspots := 2 + r.Intn(4)
+	// Base number of hotspots, modified by tidal stress
+	// At stress=0: count * 0.5 (half as many)
+	// At stress=1: count * 1.0 (normal)
+	// At stress=2: count * 1.5 (50% more)
+	stressFactor := 0.5 + 0.5*clampFloat(tidalStress, 0.0, 4.0)
+	baseHotspots := 2 + r.Intn(4)
+	numHotspots := int(float64(baseHotspots) * stressFactor)
+	if numHotspots < 1 {
+		numHotspots = 1 // Ensure at least one hotspot
+	}
+
+	// Intensity scaling based on tidal stress
+	// At stress=0: intensity * 0.7 (30% weaker)
+	// At stress=1: intensity * 1.0 (normal)
+	// At stress=2: intensity * 1.3 (30% stronger)
+	intensityFactor := 0.7 + 0.3*clampFloat(tidalStress, 0.0, 4.0)
 
 	for i := 0; i < numHotspots; i++ {
 		// Pick a random location for the hotspot (mantle plume)
@@ -22,9 +45,10 @@ func ApplyHotspots(hm *SphereHeightmap, plates []TectonicPlate, topology spatial
 		y := r.Intn(resolution)
 		hotspotCoord := spatial.Coordinate{Face: face, X: x, Y: y}
 
-		// Intensity and size
-		intensity := 2000.0 + r.Float64()*3000.0 // Height of volcanoes
-		coneRadius := 2.0 + r.Float64()*3.0      // Width of cones
+		// Intensity and size - scaled by tidal stress
+		baseIntensity := 2000.0 + r.Float64()*3000.0
+		intensity := baseIntensity * intensityFactor
+		coneRadius := 2.0 + r.Float64()*3.0
 
 		// Find which plate is over this spot
 		var closestPlate *TectonicPlate
@@ -63,6 +87,17 @@ func ApplyHotspots(hm *SphereHeightmap, plates []TectonicPlate, topology spatial
 			}
 		}
 	}
+}
+
+// clampFloat constrains a value between min and max
+func clampFloat(value, min, max float64) float64 {
+	if value < min {
+		return min
+	}
+	if value > max {
+		return max
+	}
+	return value
 }
 
 // velocityToDirection converts a 3D velocity vector to the best local grid direction
