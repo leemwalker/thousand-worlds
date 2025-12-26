@@ -197,6 +197,17 @@ export interface WorldMapData {
     land_coverage?: number;
     simulated_years?: number;
     seed?: number;
+    // Natural Satellites (Phase 4)
+    satellites?: Satellite[];
+}
+
+// Natural Satellite matching Go astronomy.Satellite struct
+export interface Satellite {
+    name: string;            // Generated name (e.g., "Luna", "Io", "Europa")
+    mass: number;            // Mass relative to Earth Moon (0.0 - 2.0)
+    distance: number;        // Orbital distance in km
+    radius: number;          // Radius in km
+    period: number;          // Orbital period in days
 }
 
 export interface WorldMapTile {

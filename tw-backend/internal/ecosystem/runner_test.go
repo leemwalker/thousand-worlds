@@ -5,8 +5,101 @@ import (
 	"testing"
 	"time"
 
+	"tw-backend/internal/worldgen/astronomy"
+
 	"github.com/google/uuid"
 )
+
+// -----------------------------------------------------------------------------
+// Natural Satellites Phase 4: Satellite Physics Integration Tests
+// -----------------------------------------------------------------------------
+
+// TestConfigureSatellitePhysics_NoMoons verifies that no moons results in
+// chaotic obliquity (0.1) and no impact shielding (0.0).
+func TestConfigureSatellitePhysics_NoMoons(t *testing.T) {
+	config := DefaultConfig(uuid.New())
+	runner := NewSimulationRunner(config, nil, nil)
+	runner.InitializePopulationSimulator(12345)
+
+	// Configure with no satellites
+	runner.ConfigureSatellitePhysics(nil)
+
+	driver := runner.GetClimateDriver()
+	if driver == nil {
+		t.Fatal("ClimateDriver is nil")
+	}
+
+	// No moons = chaotic obliquity (0.1)
+	if driver.ObliquityStability != 0.1 {
+		t.Errorf("ObliquityStability = %.2f, want 0.1 (chaotic)", driver.ObliquityStability)
+	}
+
+	// No moons = no shielding (0.0)
+	if driver.eventManager.ImpactShielding != 0.0 {
+		t.Errorf("ImpactShielding = %.2f, want 0.0", driver.eventManager.ImpactShielding)
+	}
+}
+
+// TestConfigureSatellitePhysics_EarthMoon verifies that an Earth-Moon system
+// results in stable obliquity (1.0) and 5% impact shielding.
+func TestConfigureSatellitePhysics_EarthMoon(t *testing.T) {
+	config := DefaultConfig(uuid.New())
+	runner := NewSimulationRunner(config, nil, nil)
+	runner.InitializePopulationSimulator(12345)
+
+	// Configure with one large moon (Earth-Moon system, mass=0.012 Earth masses)
+	satellites := []astronomy.Satellite{
+		{Name: "Luna", Mass: 0.012, Distance: 384400, Radius: 1737},
+	}
+	runner.ConfigureSatellitePhysics(satellites)
+
+	driver := runner.GetClimateDriver()
+	if driver == nil {
+		t.Fatal("ClimateDriver is nil")
+	}
+
+	// Large moon exceeds stability threshold (1% of Earth mass) = stable (1.0)
+	if driver.ObliquityStability != 1.0 {
+		t.Errorf("ObliquityStability = %.2f, want 1.0 (stable)", driver.ObliquityStability)
+	}
+
+	// One moon = 5% shielding
+	if driver.eventManager.ImpactShielding != 0.05 {
+		t.Errorf("ImpactShielding = %.2f, want 0.05", driver.eventManager.ImpactShielding)
+	}
+}
+
+// TestConfigureSatellitePhysics_MultipleMoons verifies shielding caps at 20%.
+func TestConfigureSatellitePhysics_MultipleMoons(t *testing.T) {
+	config := DefaultConfig(uuid.New())
+	runner := NewSimulationRunner(config, nil, nil)
+	runner.InitializePopulationSimulator(12345)
+
+	// Configure with 5 moons (should cap at 20% shielding)
+	satellites := []astronomy.Satellite{
+		{Name: "Moon1", Mass: 0.005, Distance: 300000},
+		{Name: "Moon2", Mass: 0.005, Distance: 400000},
+		{Name: "Moon3", Mass: 0.005, Distance: 500000},
+		{Name: "Moon4", Mass: 0.005, Distance: 600000},
+		{Name: "Moon5", Mass: 0.005, Distance: 700000},
+	}
+	runner.ConfigureSatellitePhysics(satellites)
+
+	driver := runner.GetClimateDriver()
+	if driver == nil {
+		t.Fatal("ClimateDriver is nil")
+	}
+
+	// Total mass = 0.025 > 1% = stable
+	if driver.ObliquityStability != 1.0 {
+		t.Errorf("ObliquityStability = %.2f, want 1.0", driver.ObliquityStability)
+	}
+
+	// 5 moons but capped at 20%
+	if driver.eventManager.ImpactShielding != 0.20 {
+		t.Errorf("ImpactShielding = %.2f, want 0.20 (capped)", driver.eventManager.ImpactShielding)
+	}
+}
 
 func TestSimulationRunner_BasicFlow(t *testing.T) {
 	config := DefaultConfig(uuid.New())

@@ -436,7 +436,87 @@
                 <div
                     class="w-72 bg-gray-850 border-l border-gray-800 flex flex-col"
                 >
-                    <!-- Old Stats removed, now in HUD -->
+                    <!-- Natural Satellites Section -->
+                    {#if worldMapData?.satellites?.length > 0}
+                        <div class="p-4 border-b border-gray-800">
+                            <h3
+                                class="font-bold text-gray-300 mb-3 flex items-center gap-2"
+                            >
+                                <span class="text-lg">🌙</span>
+                                Natural Satellites
+                            </h3>
+                            <div class="space-y-2 text-sm">
+                                {#each worldMapData.satellites as sat}
+                                    <div
+                                        class="flex justify-between items-center"
+                                    >
+                                        <span class="text-gray-300"
+                                            >{sat.name}</span
+                                        >
+                                        <span class="text-gray-500 text-xs">
+                                            {sat.mass.toFixed(2)}x Luna
+                                        </span>
+                                    </div>
+                                {/each}
+                            </div>
+                            <!-- Climate Stability -->
+                            <div
+                                class="mt-3 pt-3 border-t border-gray-700 text-xs"
+                            >
+                                <div class="flex justify-between">
+                                    <span class="text-gray-500"
+                                        >Climate Stability</span
+                                    >
+                                    <span
+                                        class={worldMapData.satellites.reduce(
+                                            (a, s) => a + s.mass,
+                                            0,
+                                        ) > 0.01
+                                            ? "text-green-400"
+                                            : "text-yellow-400"}
+                                    >
+                                        {worldMapData.satellites.reduce(
+                                            (a, s) => a + s.mass,
+                                            0,
+                                        ) > 0.01
+                                            ? "Stable"
+                                            : "Variable"}
+                                    </span>
+                                </div>
+                                <div class="flex justify-between mt-1">
+                                    <span class="text-gray-500"
+                                        >Impact Shield</span
+                                    >
+                                    <span class="text-blue-400">
+                                        {Math.min(
+                                            worldMapData.satellites.length * 5,
+                                            20,
+                                        )}%
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    {:else}
+                        <div class="p-4 border-b border-gray-800">
+                            <h3
+                                class="font-bold text-gray-300 mb-2 flex items-center gap-2"
+                            >
+                                <span class="text-lg">🌙</span>
+                                Natural Satellites
+                            </h3>
+                            <div class="text-gray-500 text-sm italic">
+                                No moons detected
+                            </div>
+                            <div class="mt-2 text-xs flex justify-between">
+                                <span class="text-gray-500"
+                                    >Climate Stability</span
+                                >
+                                <span class="text-red-400">Chaotic</span>
+                            </div>
+                        </div>
+                    {/if}
+
+                    <!-- Event Log -->
                     <div class="flex-1 flex flex-col overflow-hidden">
                         <h3 class="font-bold text-gray-300 p-4 pb-2">
                             Event Log

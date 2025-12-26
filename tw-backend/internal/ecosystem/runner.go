@@ -12,6 +12,7 @@ import (
 	"tw-backend/internal/ecosystem/pathogen"
 	"tw-backend/internal/ecosystem/population"
 	"tw-backend/internal/ecosystem/sapience"
+	"tw-backend/internal/worldgen/astronomy"
 
 	"github.com/google/uuid"
 )
@@ -882,4 +883,40 @@ func (sr *SimulationRunner) GetSapienceDetector() *sapience.SapienceDetector {
 	sr.mu.RLock()
 	defer sr.mu.RUnlock()
 	return sr.sapienceDetector
+}
+
+// ConfigureSatellitePhysics sets up satellite-derived physics effects.
+// This should be called after InitializePopulationSimulator and before Start().
+//
+// Effects:
+//   - ObliquityStability is injected into ClimateDriver (affects obliquity chaos)
+//   - ImpactShielding is injected into GeologicalEventManager (reduces asteroid impacts)
+//
+// If satellites is nil or empty, defaults are used (no stability, no shielding).
+func (sr *SimulationRunner) ConfigureSatellitePhysics(satellites []astronomy.Satellite) {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+
+	// Calculate satellite-derived physics values
+	// Use normalized Earth mass (1.0) as the planet mass baseline
+	stability := astronomy.CalculateObliquityStability(satellites, 1.0)
+	shielding := astronomy.CalculateImpactShielding(satellites)
+
+	// Inject into ClimateDriver (affects obliquity chaos)
+	if sr.climateDriver != nil {
+		sr.climateDriver.ObliquityStability = stability
+	}
+
+	// Inject into EventManager's ImpactShielding (reduces asteroid probability)
+	// The EventManager is created internally by ClimateDriver, so access via it
+	if sr.climateDriver != nil && sr.climateDriver.eventManager != nil {
+		sr.climateDriver.eventManager.ImpactShielding = shielding
+	}
+}
+
+// GetClimateDriver returns the climate driver for external access
+func (sr *SimulationRunner) GetClimateDriver() *ClimateDriver {
+	sr.mu.RLock()
+	defer sr.mu.RUnlock()
+	return sr.climateDriver
 }
