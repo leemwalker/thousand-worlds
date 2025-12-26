@@ -240,6 +240,7 @@ var CommandRegistry = map[string]CommandMetadata{
 					"--all":                 "Enable all subsystems (default if no flags)",
 					"--seed <number>":       "Custom random seed (default: random 1-12 digit)",
 					"--water-level <level>": "Set water level (high, low, medium, %, or meters)",
+					"--moons <count>":       "Number of moons (0=none, 1+, omit=random). Affects tidal stress, axial stability, impact shielding",
 				},
 			},
 			"info": {
