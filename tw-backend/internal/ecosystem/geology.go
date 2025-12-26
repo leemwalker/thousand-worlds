@@ -723,27 +723,26 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 			}
 			g.RiverAccumulator -= riverInterval
 		}
-	} // End river check
+		// Regenerate dynamic features using spherical algorithms
+		// Rivers and biomes change as terrain evolves
+		// We throttle this to every 1,000 years to avoid massive performance cost
+		riverInterval = 1_000.0
+		if g.RiverAccumulator >= riverInterval {
+			if g.SphereHeightmap != nil {
+				sphereRivers := geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
+				g.Rivers = geography.ConvertSphericalRiversToFlat(sphereRivers, g.Topology.Resolution())
+				g.syncSphereToFlat() // Sync river erosion to flat heightmap
+			} else {
+				g.Rivers = geography.GenerateRivers(g.Heightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
+			}
+			// Pass global temperature modifier to biome assignment
+			// Uses new Weather→Biome pipeline
+			g.Biomes = g.generateBiomesFromClimate(globalTempMod)
 
-	// Regenerate dynamic features using spherical algorithms
-	// Rivers and biomes change as terrain evolves
-	// We throttle this to every 1,000 years to avoid massive performance cost
-	riverInterval := 1_000.0
-	if g.RiverAccumulator >= riverInterval {
-		if g.SphereHeightmap != nil {
-			sphereRivers := geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
-			g.Rivers = geography.ConvertSphericalRiversToFlat(sphereRivers, g.Topology.Resolution())
-			g.syncSphereToFlat() // Sync river erosion to flat heightmap
-		} else {
-			g.Rivers = geography.GenerateRivers(g.Heightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
+			// Decrement accumulator using modulo to keep phase but prevent buildup
+			g.RiverAccumulator = math.Mod(g.RiverAccumulator, riverInterval)
 		}
-		// Pass global temperature modifier to biome assignment
-		// Uses new Weather→Biome pipeline
-		g.Biomes = g.generateBiomesFromClimate(globalTempMod)
-
-		// Decrement accumulator using modulo to keep phase but prevent buildup
-		g.RiverAccumulator = math.Mod(g.RiverAccumulator, riverInterval)
-	}
+	} // End river check (heat <= 4.0)
 
 	// Fix 3: Apply isostatic adjustment & Maintenance
 	// We throttle this to every 1,000 years
