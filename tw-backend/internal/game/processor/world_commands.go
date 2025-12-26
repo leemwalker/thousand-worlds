@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 	"tw-backend/cmd/game-server/websocket"
 	"tw-backend/internal/ecosystem"
 	"tw-backend/internal/ecosystem/atmosphere"
@@ -543,6 +544,11 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	// Run simulation year by year (fast!) or with larger steps
 	year := int64(0)
 	iterationCount := int64(0) // Debug counter
+
+	// Performance profiling
+	var totalCarbonTime, totalEventTime, totalGeologyTime, totalOtherTime time.Duration
+	var profileSamples int64
+
 	for year < years {
 		// Progress reporting
 		if year-lastProgress >= progressInterval && progressInterval > 0 {
@@ -780,15 +786,18 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 
 				if heat > 4.0 {
 					// Hadean era (year 0-500M): Extremely fast geological activity
-					// Use 10k year steps (reduces 500M iterations → 50k iterations)
-					stepSize = 10_000
+					// AGGRESSIVE: Use 100k year steps (was 10k)
+					// Rationale: Molten planet doesn't need fine-grained erosion
+					// Reduces 500M iterations → 5k iterations (100× speedup!)
+					stepSize = 100_000
 				} else if heat > 1.5 {
 					// Archean/Proterozoic (year 500M-3B): Moderate activity
-					// Use 1k year steps
-					stepSize = 1_000
+					// AGGRESSIVE: Use 10k year steps (was 1k)
+					// Still captures major geological transitions
+					stepSize = 10_000
 				} else {
 					// Phanerozoic/Modern (year 3B+): Precision needed for recent geology
-					// Use 100 year steps
+					// Keep 100 year steps for detailed recent history
 					stepSize = 100
 				}
 
@@ -811,34 +820,62 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			// If stepSize > 1, skipped years shouldn't trigger expensive checks unless accumulators handle them
 			// (which they now do!)
 
+			iterationStart := time.Now()
+
 			// === CARBON-SILICATE CYCLE ===
-			// Simulate atmospheric composition changes
-			// This creates a self-regulating climate thermostat:
-			// - Volcanism adds CO2 (proportional to planetary heat)
-			// - Weathering removes CO2 (proportional to temp × precipitation × CO2)
-			// - Negative feedback: Warming → More weathering → Less CO2 → Cooling
+			// Update atmospheric composition every 100,000 years
+			// The carbon-silicate cycle operates on million-year timescales
+			// More frequent updates don't improve accuracy but waste CPU
+			carbonStart := time.Now()
+			if year%100_000 == 0 || year == 0 {
+				// Simulate atmospheric composition changes
+				// This creates a self-regulating climate thermostat:
+				// - Volcanism adds CO2 (proportional to planetary heat)
+				// - Weathering removes CO2 (proportional to temp × precipitation × CO2)
+				// - Negative feedback: Warming → More weathering → Less CO2 → Cooling
 
-			// Calculate volcanic CO2 emissions (source)
-			heat := ecosystem.GetPlanetaryHeat(year)
-			volcanicRate := atmosphere.CalculateVolcanicOutgassing(heat)
+				// Calculate volcanic CO2 emissions (source)
+				heat := ecosystem.GetPlanetaryHeat(year)
+				volcanicRate := atmosphere.CalculateVolcanicOutgassing(heat)
 
-			// Calculate weathering CO2 removal (sink)
-			geoStats := geology.GetStats()
-			weatheringRate := atmosphere.CalculateWeatheringRate(
-				geoStats.AverageTemperature,
-				1000.0, // TODO: Get actual global average precipitation from weather system
-				geoStats.LandPercent/100.0,
-				atm.CO2Mass,
-			)
+				// Calculate weathering CO2 removal (sink)
+				geoStats := geology.GetStats()
+				weatheringRate := atmosphere.CalculateWeatheringRate(
+					geoStats.AverageTemperature,
+					1000.0, // TODO: Get actual global average precipitation from weather system
+					geoStats.LandPercent/100.0,
+					atm.CO2Mass,
+				)
 
-			// Update atmospheric CO2 (mass balance)
-			atm.SimulateCarbonCycle(stepSize, volcanicRate, weatheringRate)
+				// Update atmospheric CO2 (mass balance)
+				// Apply the rates for 100k years of accumulated change
+				atmosphereStepSize := int64(100_000)
+				if year == 0 {
+					atmosphereStepSize = stepSize // First iteration uses actual stepSize
+				}
+				atm.SimulateCarbonCycle(atmosphereStepSize, volcanicRate, weatheringRate)
 
-			// Update climate driver with greenhouse effect from atmosphere
-			atmosphereStats := atm.GetStats()
-			climateDriver.SetGreenhouseOffset(atmosphereStats.GreenhouseOffset)
+				// Update climate driver with greenhouse effect from atmosphere
+				atmosphereStats := atm.GetStats()
+				climateDriver.SetGreenhouseOffset(atmosphereStats.GreenhouseOffset)
+			}
+			carbonTime := time.Since(carbonStart)
+			totalCarbonTime += carbonTime
+
+			// === GEOLOGICAL EVENTS ===
+			eventStart := time.Now()
+
+			// Trigger random events
+			// We pass currentTick and stepSize (dt)
+			geoManager.CheckForNewEvents(currentTick, stepSize)
+			geoManager.UpdateActiveEvents(currentTick) // Clean up expired events
+
+			eventTime := time.Since(eventStart)
+			totalEventTime += eventTime
 
 			// === GEOLOGY SIMULATION ===
+			geologyStart := time.Now()
+
 			// Update Geology state (Tectonics, Erosion, etc)
 			// Apply combined temperature modifiers:
 			// - Geological events (volcanic winter, etc)
@@ -854,10 +891,29 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 					phaseEvent.Type, phaseEvent.Description, phaseEvent.Year), nil)
 			}
 
-			// Trigger random events
-			// We pass currentTick and stepSize (dt)
-			geoManager.CheckForNewEvents(currentTick, stepSize)
-			geoManager.UpdateActiveEvents(currentTick) // Clean up expired events
+			geologyTime := time.Since(geologyStart)
+			totalGeologyTime += geologyTime
+
+			// === PROFILING ===
+			otherTime := time.Since(iterationStart) - carbonTime - eventTime - geologyTime
+			totalOtherTime += otherTime
+			profileSamples++
+
+			// Log performance breakdown every 100 iterations
+			if profileSamples > 0 && profileSamples%100 == 0 {
+				avgCarbon := totalCarbonTime / time.Duration(profileSamples)
+				avgEvent := totalEventTime / time.Duration(profileSamples)
+				avgGeology := totalGeologyTime / time.Duration(profileSamples)
+				avgOther := totalOtherTime / time.Duration(profileSamples)
+				avgTotal := avgCarbon + avgEvent + avgGeology + avgOther
+
+				log.Printf("[PERF] Avg/Iter: %v | Geo: %v (%.0f%%) | Carbon: %v (%.0f%%) | Event: %v (%.0f%%) | Other: %v (%.0f%%)",
+					avgTotal,
+					avgGeology, float64(avgGeology)/float64(avgTotal)*100,
+					avgCarbon, float64(avgCarbon)/float64(avgTotal)*100,
+					avgEvent, float64(avgEvent)/float64(avgTotal)*100,
+					avgOther, float64(avgOther)/float64(avgTotal)*100)
+			}
 
 			// Process ALL active events for biome transitions and effects
 			// This ensures warming events (climate recovery) are properly handled
@@ -994,11 +1050,11 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			heat := ecosystem.GetPlanetaryHeat(year)
 
 			if heat > 4.0 {
-				increment = 10_000
+				increment = 100_000 // Aggressive Hadean stepping
 			} else if heat > 1.5 {
-				increment = 1_000
+				increment = 10_000 // Aggressive Archean stepping
 			} else {
-				increment = 100
+				increment = 100 // Fine-grained modern
 			}
 
 			// Ensure we don't overshoot
