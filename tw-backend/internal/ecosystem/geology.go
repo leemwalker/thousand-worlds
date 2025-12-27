@@ -258,6 +258,9 @@ func (g *WorldGeology) InitializeGeology() {
 // syncSphereToFlat updates the flat Heightmap from the SphereHeightmap
 // Call this after making changes to SphereHeightmap to keep both in sync
 func (g *WorldGeology) syncSphereToFlat() {
+	if debug.Is(debug.Perf | debug.Geology) {
+		defer debug.Time(debug.Perf, "syncSphereToFlat")()
+	}
 	if g.SphereHeightmap == nil || g.Heightmap == nil {
 		return
 	}
@@ -535,7 +538,7 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 
 	// === DEEP PROFILING ===
 	var tectonicTime, biomeTime, oceanPhaseTime, statsTime time.Duration
-	profilingEnabled := g.TotalYearsSimulated%10_000_000 == 0 // Log every 10M years
+	profilingEnabled := g.TotalYearsSimulated%1_000_000 == 0 // Log every 1M years (was 10M)
 
 	g.TotalYearsSimulated += dt
 
@@ -734,6 +737,7 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 		// We throttle this to every 1,000 years to avoid massive performance cost
 		riverInterval = 1_000.0
 		if g.RiverAccumulator >= riverInterval {
+			riverStart := time.Now()
 			if g.SphereHeightmap != nil {
 				sphereRivers := geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
 				g.Rivers = geography.ConvertSphericalRiversToFlat(sphereRivers, g.Topology.Resolution())
@@ -741,9 +745,19 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 			} else {
 				g.Rivers = geography.GenerateRivers(g.Heightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
 			}
+			riverTime := time.Since(riverStart)
+
+			// Biome generation timing
+			biomeStart := time.Now()
 			// Pass global temperature modifier to biome assignment
 			// Uses new Weather→Biome pipeline
 			g.Biomes = g.generateBiomesFromClimate(globalTempMod)
+			biomeTime = time.Since(biomeStart)
+
+			// Log river/biome performance when expensive
+			if debug.Is(debug.Perf | debug.Geology) {
+				log.Printf("[GEO PERF] River: %v | Biome: %v", riverTime, biomeTime)
+			}
 
 			// Decrement accumulator using modulo to keep phase but prevent buildup
 			g.RiverAccumulator = math.Mod(g.RiverAccumulator, riverInterval)

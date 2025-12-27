@@ -1,7 +1,9 @@
 package geography
 
 import (
+	"log"
 	"math/rand"
+	"time"
 
 	"tw-backend/internal/debug"
 	"tw-backend/internal/spatial"
@@ -139,13 +141,16 @@ func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology) {
 // Returns a SphereHeightmap with elevation modifiers.
 // scaleFactor allows adjusting the intensity based on time step (1.0 = standard 100k year interval)
 func SimulateTectonics(plates []TectonicPlate, heightmap *SphereHeightmap, topology spatial.Topology, scaleFactor float64) *SphereHeightmap {
-	// Debug timing
+	// Debug timing for overall function
 	if debug.Is(debug.Perf) {
-		defer debug.Time(debug.Perf, "SimulateTectonics(Internal)")()
+		defer debug.Time(debug.Perf, "SimulateTectonics(Total)")()
 	}
 
 	resolution := topology.Resolution()
 	totalCells := 6 * resolution * resolution
+
+	// === Phase 1: Grid Population ===
+	gridStart := time.Now()
 
 	// OPTIMIZATION: Use flat slice for O(1) plate lookup instead of map
 	// Initialize with -1 (no plate)
@@ -164,6 +169,11 @@ func SimulateTectonics(plates []TectonicPlate, heightmap *SphereHeightmap, topol
 			}
 		}
 	}
+
+	gridTime := time.Since(gridStart)
+
+	// === Phase 2: Boundary Processing ===
+	boundaryStart := time.Now()
 
 	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
 	resSq := resolution * resolution
@@ -216,6 +226,15 @@ func SimulateTectonics(plates []TectonicPlate, heightmap *SphereHeightmap, topol
 
 			applyBoundaryEffectSpherical(heightmap, coord, elevationDelta, topology)
 		}
+	}
+
+	boundaryTime := time.Since(boundaryStart)
+
+	// Log phase breakdown (only when --debug-perf is set)
+	if debug.Is(debug.Perf | debug.Geology) {
+		log.Printf("[TECTONICS PERF] Grid: %v (%.0f%%) | Boundary: %v (%.0f%%)",
+			gridTime, float64(gridTime)/float64(gridTime+boundaryTime)*100,
+			boundaryTime, float64(boundaryTime)/float64(gridTime+boundaryTime)*100)
 	}
 
 	return heightmap
