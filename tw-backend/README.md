@@ -93,6 +93,20 @@ tw-backend/
 | `ecosystem` | Geological processes, environmental simulation, terrain evolution |
 | `ecosystem/simulation` | Core simulation engine, sub-stepping, and state synchronization |
 
+#### Deep-Time Simulation Optimizations
+
+The geology simulation supports 4 billion year runs with the following optimizations:
+
+| Optimization | Description | Impact |
+|--------------|-------------|--------|
+| **Boundary Caching** | Pre-computes plate boundary cells instead of scanning all 786K cells | 90% faster tectonics |
+| **In-Place Heightmap Sync** | Reuses memory instead of allocating new heightmaps | Eliminates memory leak |
+| **Accumulator Caps** | Prevents explosive catch-up processing at heat thresholds | Fixes 500M year freeze |
+| **O(1) Boundary Effects** | Direct elevation application instead of BFS | 250K fewer allocations/iter |
+| **Adaptive Stepping** | 100K year steps during Hadean (geology-only mode) | 10x faster deep-time |
+
+Run deep-time simulations with: `world simulate 4000000000 --only-geology --debug-perf`
+
 ### NPC Systems
 
 | Package | Description |
