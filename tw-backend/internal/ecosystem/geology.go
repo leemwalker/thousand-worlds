@@ -1723,37 +1723,27 @@ func (g *WorldGeology) GetTectonicMap() []int {
 
 	width := g.Heightmap.Width
 	height := g.Heightmap.Height
-	plateGrid := make([]int, width*height)
 
-	// Initialize with -1 (no plate)
-	for i := range plateGrid {
-		plateGrid[i] = -1
-	}
+	// Build a lookup map of coordinate -> plate ID for O(1) access during projection
+	// This is necessary because the SphereHeightmap projection iterates pixels and looks up coordinates,
+	// whereas plates are stored as regions of coordinates.
+	plateLookup := make(map[spatial.Coordinate]int)
 
-	// Populate from plate regions (O(N) where N = total cells)
-	if g.Topology != nil {
-		resolution := g.Topology.Resolution()
-		faceWidth := width / 6
-		for plateIdx, plate := range g.Plates {
-			for coord := range plate.Region {
-				// Convert spherical coordinate to flat map position
-				// Flat X = Face offset + local X within face
-				flatX := coord.Face*faceWidth + coord.X
-				flatY := coord.Y
-
-				// Bounds check
-				if flatY < 0 || flatY >= height || flatX < 0 || flatX >= width {
-					continue
-				}
-
-				idx := flatY*width + flatX
-				if idx >= 0 && idx < len(plateGrid) {
-					plateGrid[idx] = plateIdx
-				}
-			}
+	// We are under RLock (from top of function). building a local map is safe.
+	for plateIdx, plate := range g.Plates {
+		for coord := range plate.Region {
+			plateLookup[coord] = plateIdx
 		}
-		_ = resolution // Used for face calculation
 	}
+
+	// Use the SphereHeightmap to project the plate IDs onto a flat grid
+	// matching the main map's projection.
+	plateGrid := g.SphereHeightmap.MapIntToFlat(width, height, func(c spatial.Coordinate) int {
+		if id, ok := plateLookup[c]; ok {
+			return id
+		}
+		return -1
+	})
 
 	return plateGrid
 }
