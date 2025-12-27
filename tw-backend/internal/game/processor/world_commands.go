@@ -1521,7 +1521,7 @@ func (p *GameProcessor) handleWorldMap(ctx context.Context, client websocket.Gam
 		overlays := make(map[string]interface{})
 
 		// Tectonic plate overlay - array of plate IDs for each cell
-		if tectonicMap := geo.GetTectonicMap(); tectonicMap != nil {
+		if tectonicMap := geo.GetTectonicMap(mapData.GridWidth, mapData.GridHeight); tectonicMap != nil {
 			overlays["tectonics"] = tectonicMap
 			log.Printf("[WORLDMAP] Added tectonics overlay: %d cells", len(tectonicMap))
 		} else {

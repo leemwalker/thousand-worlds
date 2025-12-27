@@ -1713,7 +1713,8 @@ func (g *WorldGeology) UpdateBiomes(globalTempMod float64) []geography.Biome {
 // Returns nil if plates haven't been generated.
 // The array is indexed as [y*width + x] where x is longitude and y is latitude.
 // Plate IDs are 0-indexed integers; cells with no assigned plate have value -1.
-func (g *WorldGeology) GetTectonicMap() []int {
+// width and height invoke MapIntToFlat to project to the desired resolution.
+func (g *WorldGeology) GetTectonicMap(width, height int) []int {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
@@ -1721,8 +1722,13 @@ func (g *WorldGeology) GetTectonicMap() []int {
 		return nil
 	}
 
-	width := g.Heightmap.Width
-	height := g.Heightmap.Height
+	// Use default dimensions if 0 provided
+	if width <= 0 {
+		width = g.Heightmap.Width
+	}
+	if height <= 0 {
+		height = g.Heightmap.Height
+	}
 
 	// Build a lookup map of coordinate -> plate ID for O(1) access during projection
 	// This is necessary because the SphereHeightmap projection iterates pixels and looks up coordinates,
