@@ -775,39 +775,19 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 	// This provides ~100× speedup for deep time simulations
 	if heat <= 4.0 {
 		erosionStart = time.Now()
-		// === EROSION (Only for cool planets with solid crust) ===
-		// Apply erosion (more frequent)
-		// Thermal erosion: 1 iteration per 10,000 years
-		// We map the continuous erosion potential to discrete iterations
-		erosionInterval := 10_000.0
+
+		// === EROSION (Throttled for deep-time - every 10M years) ===
+		// Surface processes only matter on cooled planets with solid crust
+		erosionInterval := 10_000_000.0 // 10M years (was 10K)
 		if g.ErosionAccumulator >= erosionInterval {
-			intervals := int(g.ErosionAccumulator / erosionInterval)
+			// Thermal erosion: Limited iterations to prevent lag
+			geography.ApplyThermalErosion(g.Heightmap, 3, g.Seed+g.TotalYearsSimulated)
 
-			// Thermal erosion iterations
-			// Cap iterations per frame to avoid lag spikes on huge updates, but for normal sim it's fine
-			// 1 iteration per 10k years
-			iterations := intervals
-			if iterations > 0 {
-				if iterations > 10 {
-					iterations = 10
-				} // Reasonable cap per frame
-				geography.ApplyThermalErosion(g.Heightmap, iterations, g.Seed+g.TotalYearsSimulated)
-			}
+			// Hydraulic erosion: Limited drops to prevent lag
+			geography.ApplyHydraulicErosion(g.Heightmap, 500, g.Seed+g.TotalYearsSimulated)
 
-			// Hydraulic erosion: proportional to time but capped
-			// 1000 drops per 10,000 years
-			drops := int((float64(intervals) * 1000))
-			if drops > 0 {
-				if drops > 5000 {
-					drops = 5000
-				} // Cap
-				geography.ApplyHydraulicErosion(g.Heightmap, drops, g.Seed+g.TotalYearsSimulated)
-			}
-
-			// Decrement accumulator
-			// Note: We subtract what we actually processed (or intended to).
-			// If we capped it, we technically "lost" some erosion, which improves stability.
-			g.ErosionAccumulator -= float64(intervals) * erosionInterval
+			// Reset accumulator
+			g.ErosionAccumulator -= erosionInterval
 		}
 
 		// Apply hotspot activity
