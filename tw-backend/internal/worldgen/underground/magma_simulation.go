@@ -127,7 +127,9 @@ func SimulateMagmaChambers(
 			prob = 0.005 * boundary.Intensity // Rare at transform
 		}
 
-		if rng.Float64() < prob*float64(years)/1000 {
+		// Scale probability with time, but cap at 1.0 to prevent runaway with large timesteps
+		scaledProb := math.Min(1.0, prob*float64(years)/1000)
+		if rng.Float64() < scaledProb {
 			newChamber := createMagmaChamber(columns, boundary, rng)
 			if newChamber != nil {
 				chambers = append(chambers, newChamber)
