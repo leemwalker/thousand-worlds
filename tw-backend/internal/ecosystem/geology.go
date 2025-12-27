@@ -818,19 +818,19 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 		// Low frequency events using GeneralAccumulator
 		// We can check multiple intervals
 
-		// THROTTLED: Cave formation (every 1,000,000 years instead of 100K)
+		// THROTTLED: Cave formation (every 10,000,000 years)
 		// Deep-time optimization: Underground simulation is expensive and not essential every frame
-		if g.TotalYearsSimulated%1_000_000 == 0 && g.Columns != nil {
+		if g.TotalYearsSimulated%10_000_000 == 0 && g.Columns != nil {
 			caveStart := time.Now()
-			g.simulateCaveFormation(1_000_000) // Fixed interval
+			g.simulateCaveFormation(10_000_000) // Fixed interval
 			caveTime += time.Since(caveStart)
 		}
 
-		// THROTTLED: Magma Chambers (every 1,000,000 years instead of 10K)
-		// Deep-time optimization: Reduces call frequency by 100x
-		if g.TotalYearsSimulated%1_000_000 == 0 && g.Columns != nil {
+		// THROTTLED: Magma Chambers (every 10,000,000 years)
+		// Deep-time optimization: Reduces call frequency by 1000x vs original
+		if g.TotalYearsSimulated%10_000_000 == 0 && g.Columns != nil {
 			magmaStart := time.Now()
-			g.simulateMagmaChambers(1_000_000) // Fixed interval matching throttle
+			g.simulateMagmaChambers(10_000_000) // Fixed interval matching throttle
 			magmaTime += time.Since(magmaStart)
 		}
 

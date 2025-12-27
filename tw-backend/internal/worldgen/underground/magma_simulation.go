@@ -18,7 +18,11 @@ type MagmaChamber struct {
 	Age          int64       // Simulation years since formation
 	LastEruption int64       // Year of last eruption
 	Connected    []uuid.UUID // Lava tubes connecting to surface
+	Solidified   bool        // True if chamber has cooled and been processed
 }
+
+// MaxActiveMagmaChambers limits chamber accumulation to prevent O(N²) explosion
+const MaxActiveMagmaChambers = 500
 
 // TectonicBoundary represents a plate boundary for magma generation
 type TectonicBoundary struct {
@@ -74,6 +78,14 @@ func SimulateMagmaChambers(
 
 		// Check if solidified
 		if chamber.Temperature < 1000 {
+			// Skip if already processed (prevents infinite tube creation)
+			if chamber.Solidified {
+				continue
+			}
+
+			// Mark as solidified BEFORE processing to prevent re-entry
+			chamber.Solidified = true
+
 			// Magma has solidified - determine if cave forms or collapses
 			resultCave := processSolidifiedChamber(columns, chamber, rng, config)
 			if resultCave != nil {
@@ -110,7 +122,20 @@ func SimulateMagmaChambers(
 	}
 
 	// 2. Generate new magma chambers at active boundaries
+	// CAP: Prevent unbounded chamber growth
+	activeChamberCount := 0
+	for _, c := range chambers {
+		if !c.Solidified {
+			activeChamberCount++
+		}
+	}
+
 	for _, boundary := range boundaries {
+		// Skip if at capacity
+		if activeChamberCount >= MaxActiveMagmaChambers {
+			break
+		}
+
 		// Only active boundaries generate new chambers
 		if boundary.Intensity < 0.5 {
 			continue
@@ -133,6 +158,7 @@ func SimulateMagmaChambers(
 			newChamber := createMagmaChamber(columns, boundary, rng)
 			if newChamber != nil {
 				chambers = append(chambers, newChamber)
+				activeChamberCount++ // Track new additions
 				// Register in column
 				col := columns.Get(boundary.X, boundary.Y)
 				if col != nil {
