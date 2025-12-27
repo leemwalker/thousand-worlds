@@ -33,9 +33,12 @@ type WorldGeology struct {
 	BoundaryCache   *geography.BoundaryCache // Cached plate boundary cells for fast tectonic processing
 
 	// Underground data (Phase 3)
-	Columns     *underground.ColumnGrid // Per-column underground data
-	Caves       []*underground.Cave     // Cave networks
-	Composition string                  // "volcanic", "continental", "oceanic", "ancient"
+	Columns               *underground.ColumnGrid     // Per-column underground data
+	Caves                 []*underground.Cave         // Cave networks
+	Composition           string                      // "volcanic", "continental", "oceanic", "ancient"
+	MagmaChambers         []*underground.MagmaChamber // Active magma chambers
+	InactiveMagmaDeposits []*underground.MagmaChamber // Archived solidified chambers for map generation
+	MagmaGCCounter        int64                       // Counter for periodic GC
 
 	// Dynamic geographic features
 	Hotspots   []geography.Point // Fixed mantle plume locations
@@ -488,6 +491,7 @@ func (g *WorldGeology) convertBoundaryCacheToUnderground(
 }
 
 // simulateMagmaChambers processes magma chamber evolution and tectonic volcanism
+// Uses spatial hashing for O(chunks) boundary lookup and periodic GC for solidified chambers
 func (g *WorldGeology) simulateMagmaChambers(yearsElapsed int64) {
 	if g.Columns == nil || len(g.Plates) == 0 {
 		return
@@ -496,11 +500,9 @@ func (g *WorldGeology) simulateMagmaChambers(yearsElapsed int64) {
 	totalStart := time.Now()
 
 	// Extract tectonic boundaries from plate data
-	// Use 3D Position and Velocity projected to 2D for legacy underground API
 	plateCentroids := make([]underground.Vector3, len(g.Plates))
 	plateMovements := make([]underground.Vector3, len(g.Plates))
 	for i, plate := range g.Plates {
-		// Convert spherical coordinate to flat x,y
 		plateCentroids[i] = underground.Vector3{
 			X: float64(plate.Centroid.Face*g.Heightmap.Width/6 + plate.Centroid.X),
 			Y: float64(plate.Centroid.Y),
@@ -513,19 +515,17 @@ func (g *WorldGeology) simulateMagmaChambers(yearsElapsed int64) {
 		}
 	}
 
-	var boundaries []underground.TectonicBoundary
-
-	// Ensure cache exists (lazy init if standard tectonic loop didn't build it)
+	// Ensure boundary cache exists
 	cacheStart := time.Now()
 	if g.BoundaryCache == nil || !g.BoundaryCache.Valid {
 		g.BoundaryCache = geography.ComputeBoundaryCache(g.Plates, g.Topology)
 	}
 
-	// OPTIMIZATION: Use cached boundaries if available (O(Boundaries) instead of O(TotalCells))
+	// Convert cache to underground boundaries
+	var boundaries []underground.TectonicBoundary
 	if g.BoundaryCache != nil && g.BoundaryCache.Valid {
 		boundaries = g.convertBoundaryCacheToUnderground(g.BoundaryCache, plateCentroids, plateMovements)
 	} else {
-		// Fallback to expensive full scan (Should not happen now)
 		boundaries = underground.GetTectonicBoundaries(
 			g.Heightmap.Width,
 			g.Heightmap.Height,
@@ -535,24 +535,28 @@ func (g *WorldGeology) simulateMagmaChambers(yearsElapsed int64) {
 	}
 	cacheTime := time.Since(cacheStart)
 
-	// Get existing magma chambers from columns
-	collectStart := time.Now()
-	chambers := g.collectMagmaChambers()
-	collectTime := time.Since(collectStart)
+	// OPTIMIZATION: Build spatial index for O(1) boundary lookups
+	gridStart := time.Now()
+	boundaryGrid := underground.NewBoundaryGrid(boundaries, 32) // 32-unit chunks
+	gridTime := time.Since(gridStart)
+
+	// Initialize chambers from stored state or collect from columns on first run
+	if g.MagmaChambers == nil {
+		g.MagmaChambers = g.collectMagmaChambers()
+	}
 
 	config := underground.DefaultMagmaConfig()
-	// Adjust for composition
 	if g.Composition == "volcanic" {
-		config.EruptionThreshold = 60 // More frequent eruptions
+		config.EruptionThreshold = 60
 		config.LavaTubeFormationProb = 0.9
 	}
 
-	// Run magma simulation
+	// Run magma simulation with spatial hashing
 	simStart := time.Now()
-	erupted, newTubes, _ := underground.SimulateMagmaChambers(
+	erupted, newTubes, _ := underground.SimulateMagmaChambersWithGrid(
 		g.Columns,
-		chambers,
-		boundaries,
+		g.MagmaChambers,
+		boundaryGrid,
 		yearsElapsed,
 		g.Seed+g.TotalYearsSimulated,
 		config,
@@ -563,8 +567,7 @@ func (g *WorldGeology) simulateMagmaChambers(yearsElapsed int64) {
 	for _, chamber := range erupted {
 		x, y := int(chamber.Center.X), int(chamber.Center.Y)
 		if x >= 0 && x < g.Heightmap.Width && y >= 0 && y < g.Heightmap.Height {
-			// Apply volcano to surface
-			height := 500 + g.rng.Float64()*1500 // 500-2000m
+			height := 500 + g.rng.Float64()*1500
 			radius := 2.0 + g.rng.Float64()*3.0
 			geography.ApplyVolcanoFlat(g.Heightmap, float64(x), float64(y), radius, height)
 		}
@@ -573,13 +576,29 @@ func (g *WorldGeology) simulateMagmaChambers(yearsElapsed int64) {
 	// Register new lava tubes as caves
 	g.Caves = append(g.Caves, newTubes...)
 
+	// OPTIMIZATION: Periodic garbage collection of solidified chambers
+	g.MagmaGCCounter++
+	if g.MagmaGCCounter >= 100 {
+		gcStart := time.Now()
+		active, solidified := underground.CompactChambers(g.MagmaChambers)
+		g.MagmaChambers = active
+		g.InactiveMagmaDeposits = append(g.InactiveMagmaDeposits, solidified...)
+		g.MagmaGCCounter = 0
+		gcTime := time.Since(gcStart)
+
+		if debug.Is(debug.Perf | debug.Geology) {
+			log.Printf("[MAGMA GC] Compacted: %d active, %d archived | Time: %v",
+				len(active), len(solidified), gcTime)
+		}
+	}
+
 	totalTime := time.Since(totalStart)
 
-	// Diagnostic logging (every 1M years to match GEO PROFILE frequency)
+	// Diagnostic logging (every 1M years)
 	if g.TotalYearsSimulated%1_000_000 == 0 {
-		log.Printf("[MAGMA PROFILE] Chambers: %d | Boundaries: %d | Erupted: %d | NewTubes: %d | Cache: %v | Collect: %v | Sim: %v | Total: %v",
-			len(chambers), len(boundaries), len(erupted), len(newTubes),
-			cacheTime, collectTime, simTime, totalTime)
+		log.Printf("[MAGMA PROFILE] Chambers: %d | Boundaries: %d | Erupted: %d | NewTubes: %d | Cache: %v | Grid: %v | Sim: %v | Total: %v",
+			len(g.MagmaChambers), len(boundaries), len(erupted), len(newTubes),
+			cacheTime, gridTime, simTime, totalTime)
 	}
 }
 

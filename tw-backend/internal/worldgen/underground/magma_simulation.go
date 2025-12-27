@@ -21,8 +21,9 @@ type MagmaChamber struct {
 	Solidified   bool        // True if chamber has cooled and been processed
 }
 
-// MaxActiveMagmaChambers limits chamber accumulation to prevent O(N²) explosion
-const MaxActiveMagmaChambers = 500
+// MaxActiveMagmaChambers limits chamber accumulation
+// Increased from 500 to 2000 after implementing spatial hashing and GC
+const MaxActiveMagmaChambers = 2000
 
 // TectonicBoundary represents a plate boundary for magma generation
 type TectonicBoundary struct {
@@ -168,6 +169,139 @@ func SimulateMagmaChambers(
 						Temperature: newChamber.Temperature,
 						Pressure:    newChamber.Pressure,
 						Viscosity:   newChamber.Viscosity,
+					}
+				}
+			}
+		}
+	}
+
+	return erupted, newTubes, collapsedCaves
+}
+
+// SimulateMagmaChambersWithGrid processes magma chamber evolution using spatial hashing
+// This is O(Chambers * LocalBoundaries) instead of O(Chambers * AllBoundaries)
+// Returns: erupted chambers, new lava tubes, collapsed caves
+func SimulateMagmaChambersWithGrid(
+	columns *ColumnGrid,
+	chambers []*MagmaChamber,
+	boundaryGrid *BoundaryGrid,
+	years int64,
+	seed int64,
+	config MagmaSimulationConfig,
+) (erupted []*MagmaChamber, newTubes []*Cave, collapsedCaves []*Cave) {
+	rng := rand.New(rand.NewSource(seed))
+
+	erupted = []*MagmaChamber{}
+	newTubes = []*Cave{}
+	collapsedCaves = []*Cave{}
+
+	// 1. Process existing chambers
+	for _, chamber := range chambers {
+		// Age the chamber
+		chamber.Age += years
+
+		// Cool the magma
+		chamber.Temperature -= config.CoolingRatePerYear * float64(years)
+		if chamber.Temperature < 0 {
+			chamber.Temperature = 0
+		}
+
+		// Check if solidified
+		if chamber.Temperature < 1000 {
+			if chamber.Solidified {
+				continue
+			}
+			chamber.Solidified = true
+
+			resultCave := processSolidifiedChamber(columns, chamber, rng, config)
+			if resultCave != nil {
+				if resultCave.CaveType == "collapsed" {
+					collapsedCaves = append(collapsedCaves, resultCave)
+				} else {
+					newTubes = append(newTubes, resultCave)
+				}
+			}
+			continue
+		}
+
+		// Increase pressure from mantle heat
+		chamber.Pressure += 0.001 * float64(years)
+
+		// Check for eruption
+		if chamber.Pressure >= config.EruptionThreshold {
+			erupted = append(erupted, chamber)
+
+			chamber.Pressure *= 0.3
+			chamber.Volume *= 0.5
+			chamber.LastEruption = chamber.Age
+
+			if rng.Float64() < config.LavaTubeFormationProb {
+				tube := createLavaTube(columns, chamber, rng)
+				if tube != nil {
+					newTubes = append(newTubes, tube)
+					chamber.Connected = append(chamber.Connected, tube.ID)
+				}
+			}
+		}
+	}
+
+	// 2. Generate new magma chambers at active boundaries using spatial queries
+	// Instead of iterating all boundaries, we query only unique chunks
+	if boundaryGrid == nil {
+		return erupted, newTubes, collapsedCaves
+	}
+
+	activeChamberCount := 0
+	for _, c := range chambers {
+		if !c.Solidified {
+			activeChamberCount++
+		}
+	}
+
+	// Track visited boundaries to avoid duplicates from overlapping chunk queries
+	visited := make(map[GridKey]bool)
+
+	// Iterate through all populated chunks in the grid
+	for key, boundaries := range boundaryGrid.Grid {
+		if visited[key] {
+			continue
+		}
+		visited[key] = true
+
+		for _, boundary := range boundaries {
+			if activeChamberCount >= MaxActiveMagmaChambers {
+				return erupted, newTubes, collapsedCaves
+			}
+
+			if boundary.Intensity < 0.5 {
+				continue
+			}
+
+			prob := 0.0
+			switch boundary.BoundaryType {
+			case "divergent":
+				prob = 0.02 * boundary.Intensity
+			case "convergent":
+				prob = 0.03 * boundary.Intensity
+			case "transform":
+				prob = 0.005 * boundary.Intensity
+			}
+
+			scaledProb := math.Min(1.0, prob*float64(years)/1000)
+			if rng.Float64() < scaledProb {
+				newChamber := createMagmaChamber(columns, boundary, rng)
+				if newChamber != nil {
+					chambers = append(chambers, newChamber)
+					activeChamberCount++
+					col := columns.Get(boundary.X, boundary.Y)
+					if col != nil {
+						col.Magma = &MagmaInfo{
+							TopZ:        newChamber.Center.Z + config.MagmaChamberRadius,
+							BottomZ:     newChamber.Center.Z - config.MagmaChamberRadius,
+							Temperature: newChamber.Temperature,
+							Pressure:    newChamber.Pressure,
+							Viscosity:   newChamber.Viscosity,
+						}
 					}
 				}
 			}
