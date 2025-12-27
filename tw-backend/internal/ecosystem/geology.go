@@ -422,6 +422,71 @@ func (g *WorldGeology) simulateCaveFormation(yearsElapsed int64) {
 	g.Caves = append(g.Caves, newCaves...)
 }
 
+// convertBoundaryCacheToUnderground converts cached boundary cells to the underground format
+// avoiding expensive re-calculation of Voronoi regions
+func (g *WorldGeology) convertBoundaryCacheToUnderground(
+	cache *geography.BoundaryCache,
+	centroids []underground.Vector3,
+	movements []underground.Vector3,
+) []underground.TectonicBoundary {
+	boundaries := make([]underground.TectonicBoundary, 0, len(cache.Cells))
+	faceWidth := g.Heightmap.Width / 6
+
+	for _, cell := range cache.Cells {
+		// Calculate intensity based on relative velocity (same logic as underground.GetTectonicBoundaries)
+		plateIdx := cell.PlateIdx
+		neighborIdx := cell.NeighborIdx
+
+		// Skip invalid indices
+		if plateIdx < 0 || plateIdx >= len(centroids) || neighborIdx < 0 || neighborIdx >= len(centroids) {
+			continue
+		}
+
+		// Vectors
+		p1 := centroids[plateIdx]
+		p2 := centroids[neighborIdx]
+		v1 := movements[plateIdx]
+		v2 := movements[neighborIdx]
+
+		// Direction vector between centroids
+		dx := p2.X - p1.X
+		dy := p2.Y - p1.Y
+		dist := math.Sqrt(dx*dx + dy*dy)
+		if dist == 0 {
+			continue
+		}
+		dx, dy = dx/dist, dy/dist
+
+		// Relative velocity projected onto direction vector
+		relVel := (v2.X-v1.X)*dx + (v2.Y-v1.Y)*dy
+
+		// Determine type and intensity
+		// Logic matches underground.GetTectonicBoundaries
+		intensity := 0.5
+		if relVel < -0.2 {
+			// Convergent
+			intensity = math.Min(1.0, math.Abs(relVel))
+		} else if relVel > 0.2 {
+			// Divergent
+			intensity = math.Min(1.0, relVel)
+		} else {
+			// Transform (default)
+		}
+
+		// Convert coordinate to flat map
+		flatX := cell.Coord.Face*faceWidth + cell.Coord.X
+		flatY := cell.Coord.Y
+
+		boundaries = append(boundaries, underground.TectonicBoundary{
+			X:            flatX,
+			Y:            flatY,
+			BoundaryType: string(cell.BoundaryType),
+			Intensity:    intensity,
+		})
+	}
+	return boundaries
+}
+
 // simulateMagmaChambers processes magma chamber evolution and tectonic volcanism
 func (g *WorldGeology) simulateMagmaChambers(yearsElapsed int64) {
 	if g.Columns == nil || len(g.Plates) == 0 {
@@ -446,12 +511,20 @@ func (g *WorldGeology) simulateMagmaChambers(yearsElapsed int64) {
 		}
 	}
 
-	boundaries := underground.GetTectonicBoundaries(
-		g.Heightmap.Width,
-		g.Heightmap.Height,
-		plateCentroids,
-		plateMovements,
-	)
+	var boundaries []underground.TectonicBoundary
+
+	// OPTIMIZATION: Use cached boundaries if available (O(Boundaries) instead of O(TotalCells))
+	if g.BoundaryCache != nil && g.BoundaryCache.Valid {
+		boundaries = g.convertBoundaryCacheToUnderground(g.BoundaryCache, plateCentroids, plateMovements)
+	} else {
+		// Fallback to expensive full scan
+		boundaries = underground.GetTectonicBoundaries(
+			g.Heightmap.Width,
+			g.Heightmap.Height,
+			plateCentroids,
+			plateMovements,
+		)
+	}
 
 	// Get existing magma chambers from columns
 	chambers := g.collectMagmaChambers()
@@ -733,7 +806,7 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 			if g.Columns != nil {
 				caveStart := time.Now()
 				g.simulateCaveFormation(int64(g.GeneralAccumulator))
-				caveTime = time.Since(caveStart)
+				caveTime += time.Since(caveStart)
 			}
 		}
 
@@ -746,7 +819,7 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 		if dt >= 10_000 && g.Columns != nil {
 			magmaStart := time.Now()
 			g.simulateMagmaChambers(dt)
-			magmaTime = time.Since(magmaStart)
+			magmaTime += time.Since(magmaStart)
 		} else if g.GeneralAccumulator >= 10_000 && g.Columns != nil {
 			// Run with accumulated time
 			// Ideally we subtract from a specific accumulator.
@@ -766,7 +839,7 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 				if g.Columns != nil {
 					magmaStart := time.Now()
 					g.simulateMagmaChambers(10_000)
-					magmaTime = time.Since(magmaStart)
+					magmaTime += time.Since(magmaStart)
 				}
 				// Only subtract if we assume this is the main consumer of GeneralAcc
 				// But we have multiple consumers.
@@ -833,7 +906,7 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 			g.RiverAccumulator = math.Mod(g.RiverAccumulator, riverInterval)
 		}
 		if !erosionStart.IsZero() {
-			erosionTime = time.Since(erosionStart)
+			erosionTime += time.Since(erosionStart)
 		}
 	} // End river check (heat <= 4.0)
 
