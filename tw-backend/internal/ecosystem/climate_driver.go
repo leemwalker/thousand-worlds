@@ -103,12 +103,18 @@ func (cd *ClimateDriver) Update(year int64) {
 	}
 
 	// Check for ice age transitions using hysteresis
-	if !cd.IceAgeActive && cd.CurrentInsolation < IceAgeInsolationThreshold {
-		cd.startIceAge(year)
-	} else if cd.IceAgeActive && cd.CurrentInsolation > IceAgeRecoveryThreshold {
-		// Only end if minimum duration has passed
-		if year-cd.IceAgeStartYear >= IceAgeDurationBase {
-			cd.endIceAge(year)
+	// IMPORTANT: Skip ice age logic during early Earth (heat > 2.0)
+	// The Faint Young Sun paradox is resolved by high geothermal + greenhouse warming,
+	// which kept early Earth warm despite low solar luminosity. Ice ages only became
+	// possible after the planet cooled (~2-3 billion years in).
+	if heat <= 2.0 {
+		if !cd.IceAgeActive && cd.CurrentInsolation < IceAgeInsolationThreshold {
+			cd.startIceAge(year)
+		} else if cd.IceAgeActive && cd.CurrentInsolation > IceAgeRecoveryThreshold {
+			// Only end if minimum duration has passed
+			if year-cd.IceAgeStartYear >= IceAgeDurationBase {
+				cd.endIceAge(year)
+			}
 		}
 	}
 }
