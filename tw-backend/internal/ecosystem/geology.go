@@ -493,6 +493,8 @@ func (g *WorldGeology) simulateMagmaChambers(yearsElapsed int64) {
 		return
 	}
 
+	totalStart := time.Now()
+
 	// Extract tectonic boundaries from plate data
 	// Use 3D Position and Velocity projected to 2D for legacy underground API
 	plateCentroids := make([]underground.Vector3, len(g.Plates))
@@ -514,6 +516,7 @@ func (g *WorldGeology) simulateMagmaChambers(yearsElapsed int64) {
 	var boundaries []underground.TectonicBoundary
 
 	// Ensure cache exists (lazy init if standard tectonic loop didn't build it)
+	cacheStart := time.Now()
 	if g.BoundaryCache == nil || !g.BoundaryCache.Valid {
 		g.BoundaryCache = geography.ComputeBoundaryCache(g.Plates, g.Topology)
 	}
@@ -530,9 +533,12 @@ func (g *WorldGeology) simulateMagmaChambers(yearsElapsed int64) {
 			plateMovements,
 		)
 	}
+	cacheTime := time.Since(cacheStart)
 
 	// Get existing magma chambers from columns
+	collectStart := time.Now()
 	chambers := g.collectMagmaChambers()
+	collectTime := time.Since(collectStart)
 
 	config := underground.DefaultMagmaConfig()
 	// Adjust for composition
@@ -542,6 +548,7 @@ func (g *WorldGeology) simulateMagmaChambers(yearsElapsed int64) {
 	}
 
 	// Run magma simulation
+	simStart := time.Now()
 	erupted, newTubes, _ := underground.SimulateMagmaChambers(
 		g.Columns,
 		chambers,
@@ -550,6 +557,7 @@ func (g *WorldGeology) simulateMagmaChambers(yearsElapsed int64) {
 		g.Seed+g.TotalYearsSimulated,
 		config,
 	)
+	simTime := time.Since(simStart)
 
 	// Handle eruptions - apply surface effects
 	for _, chamber := range erupted {
@@ -564,6 +572,15 @@ func (g *WorldGeology) simulateMagmaChambers(yearsElapsed int64) {
 
 	// Register new lava tubes as caves
 	g.Caves = append(g.Caves, newTubes...)
+
+	totalTime := time.Since(totalStart)
+
+	// Diagnostic logging (every 1M years to match GEO PROFILE frequency)
+	if g.TotalYearsSimulated%1_000_000 == 0 {
+		log.Printf("[MAGMA PROFILE] Chambers: %d | Boundaries: %d | Erupted: %d | NewTubes: %d | Cache: %v | Collect: %v | Sim: %v | Total: %v",
+			len(chambers), len(boundaries), len(erupted), len(newTubes),
+			cacheTime, collectTime, simTime, totalTime)
+	}
 }
 
 // collectMagmaChambers gathers magma chambers from column data
@@ -801,54 +818,20 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 		// Low frequency events using GeneralAccumulator
 		// We can check multiple intervals
 
-		// Cave formation (every 100,000 years)
-		if g.GeneralAccumulator >= 100_000 {
-			// Just run it once if we crossed the threshold, or loop if huge time jump?
-			// For huge jumps (e.g. 1M years), running 10 times might be slow.
-			// Let's run it once but scale the effect if supported, otherwise just once.
-			// Detailed cave sim is expensive. Let's trigger it once if threshold crossed.
-			// TODO: Better scaling for huge time jumps
-			if g.Columns != nil {
-				caveStart := time.Now()
-				g.simulateCaveFormation(int64(g.GeneralAccumulator))
-				caveTime += time.Since(caveStart)
-			}
+		// THROTTLED: Cave formation (every 1,000,000 years instead of 100K)
+		// Deep-time optimization: Underground simulation is expensive and not essential every frame
+		if g.TotalYearsSimulated%1_000_000 == 0 && g.Columns != nil {
+			caveStart := time.Now()
+			g.simulateCaveFormation(1_000_000) // Fixed interval
+			caveTime += time.Since(caveStart)
 		}
 
-		// Tectonic Volcanism / Magma Chambers (every 10,000 years)
-		// We'll use a modulo logic or just run it if enough time passed
-		// This part is tricky with a single GeneralAccumulator.
-		// Let's rely on the fact that if GeneralAccumulator is big, we execute these.
-
-		// Ideally we'd have accumulators for each, but let's approximate:
-		if dt >= 10_000 && g.Columns != nil {
+		// THROTTLED: Magma Chambers (every 1,000,000 years instead of 10K)
+		// Deep-time optimization: Reduces call frequency by 100x
+		if g.TotalYearsSimulated%1_000_000 == 0 && g.Columns != nil {
 			magmaStart := time.Now()
-			g.simulateMagmaChambers(dt)
+			g.simulateMagmaChambers(1_000_000) // Fixed interval matching throttle
 			magmaTime += time.Since(magmaStart)
-		} else if g.GeneralAccumulator >= 10_000 && g.Columns != nil {
-			// Run with accumulated time
-			// Ideally we subtract from a specific accumulator.
-			// Let's just pass dt for now if it's small steps summing up?
-			// No, if dt=1, we call this every 10,000th call?
-			// Let's simplify: only run these expensive detailed subsurface sims if dt is large
-			// OR strictly periodically.
-			// For standardized ticks, dt=1. We need strict periodic triggers.
-			// We'll use the TotalYearsSimulated for modulo checks for these "optional" details,
-			// OR separate accumulators.
-			// Modulo checks on TotalYearsSimulated works for dt=1 steps.
-			// For variable steps (dt=10000), modulo might skip.
-			// Let's use the explicit checks on the total time logic which handles arbitrary jumps effectively IF we check ranges.
-			// BUT easier approach:
-
-			if g.GeneralAccumulator >= 10_000 {
-				if g.Columns != nil {
-					magmaStart := time.Now()
-					g.simulateMagmaChambers(10_000)
-					magmaTime += time.Since(magmaStart)
-				}
-				// Only subtract if we assume this is the main consumer of GeneralAcc
-				// But we have multiple consumers.
-			}
 		}
 
 		// Reset GeneralAccumulator if it gets too big (periodic cleanup)
