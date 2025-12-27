@@ -276,7 +276,8 @@ func (g *WorldGeology) syncSphereToFlat() {
 	if g.SphereHeightmap == nil || g.Heightmap == nil {
 		return
 	}
-	g.Heightmap = g.SphereHeightmap.ToFlatHeightmap(g.Heightmap.Width, g.Heightmap.Height)
+	// Use in-place version to avoid memory allocation each sync
+	g.SphereHeightmap.ToFlatHeightmapInPlace(g.Heightmap)
 	g.sphereNeedsSync = false
 }
 

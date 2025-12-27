@@ -99,8 +99,19 @@ func (s *SphereHeightmap) Topology() spatial.Topology {
 // ToFlatHeightmap converts this spherical heightmap to a flat equirectangular projection.
 // Uses latitude/longitude mapping for proper global coverage of all 6 cube-sphere faces.
 // width and height specify the dimensions of the output heightmap.
+// NOTE: This allocates a new heightmap. For repeated calls, use ToFlatHeightmapInPlace.
 func (s *SphereHeightmap) ToFlatHeightmap(width, height int) *Heightmap {
 	flat := NewHeightmap(width, height)
+	s.ToFlatHeightmapInPlace(flat)
+	return flat
+}
+
+// ToFlatHeightmapInPlace converts this spherical heightmap to a flat equirectangular projection,
+// writing directly into the provided heightmap to avoid memory allocation.
+// The destination heightmap must already be the correct size.
+func (s *SphereHeightmap) ToFlatHeightmapInPlace(dest *Heightmap) {
+	width := dest.Width
+	height := dest.Height
 
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
@@ -127,14 +138,12 @@ func (s *SphereHeightmap) ToFlatHeightmap(width, height int) *Heightmap {
 			// Use topology to find the correct cube-sphere face and coordinate
 			coord := s.topology.FromVector(sphereX, sphereY, sphereZ)
 			elev := s.Get(coord)
-			flat.Set(x, y, elev)
+			dest.Set(x, y, elev)
 		}
 	}
 
-	flat.MinElev = s.MinElev
-	flat.MaxElev = s.MaxElev
-
-	return flat
+	dest.MinElev = s.MinElev
+	dest.MaxElev = s.MaxElev
 }
 
 // cosineApprox provides cosine using math package
