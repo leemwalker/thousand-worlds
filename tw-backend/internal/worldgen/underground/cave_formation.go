@@ -40,10 +40,22 @@ func SimulateCaveFormation(
 	rng := rand.New(rand.NewSource(seed))
 	newCaves := []*Cave{}
 
+	// OPTIMIZATION: Limit new caves per tick to prevent O(N²) in ConnectAdjacentCaves
+	const maxNewCavesPerTick = 50
+
 	// Track dissolution progress per column
 	for _, col := range columns.AllColumns() {
+		// Early exit if we hit per-tick limit
+		if len(newCaves) >= maxNewCavesPerTick {
+			break
+		}
+
 		// Find limestone strata
 		for i := range col.Strata {
+			if len(newCaves) >= maxNewCavesPerTick {
+				break
+			}
+
 			stratum := &col.Strata[i]
 			if stratum.Material != "limestone" && stratum.Material != "chalk" {
 				continue
@@ -93,7 +105,10 @@ func SimulateCaveFormation(
 	}
 
 	// Connect nearby caves into networks
-	ConnectAdjacentCaves(newCaves, 30.0) // 30m max connection distance
+	// Only do this if we have a reasonable number of caves (O(N²))
+	if len(newCaves) > 0 && len(newCaves) <= maxNewCavesPerTick {
+		ConnectAdjacentCaves(newCaves, 30.0) // 30m max connection distance
+	}
 
 	return newCaves
 }
