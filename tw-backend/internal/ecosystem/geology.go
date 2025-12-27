@@ -578,6 +578,27 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 	g.MaintenanceAccumulator += dtFloat
 	g.GeneralAccumulator += dtFloat
 
+	// OPTIMIZATION: Cap all accumulators to prevent explosion when crossing heat thresholds
+	// During Hadean (heat > 4.0), erosion/river/maintenance are skipped but accumulators grow.
+	// When heat drops to 4.0, they'd trigger millions of catch-up operations.
+	// Cap each to a reasonable maximum (10 intervals worth).
+	const maxAccumulatorValue = 1_000_000.0 // Max 1M years of accumulated time
+	if g.TectonicStressAccumulator > maxAccumulatorValue*10 {
+		g.TectonicStressAccumulator = maxAccumulatorValue * 10
+	}
+	if g.ErosionAccumulator > maxAccumulatorValue {
+		g.ErosionAccumulator = maxAccumulatorValue
+	}
+	if g.RiverAccumulator > maxAccumulatorValue {
+		g.RiverAccumulator = maxAccumulatorValue
+	}
+	if g.MaintenanceAccumulator > maxAccumulatorValue {
+		g.MaintenanceAccumulator = maxAccumulatorValue
+	}
+	if g.GeneralAccumulator > maxAccumulatorValue {
+		g.GeneralAccumulator = maxAccumulatorValue
+	}
+
 	// [... rest of existing SimulateGeology code stays the same until line 762 ...]
 
 	// Plate movement: ~2cm/year = 0.00002 km/year
