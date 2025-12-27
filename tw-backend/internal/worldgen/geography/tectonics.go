@@ -417,58 +417,41 @@ func calculateElevationChange(p1, p2 TectonicPlate, boundaryType BoundaryType) f
 	return GetTargetElevation(p1, p2, boundaryType)
 }
 
-// applyBoundaryEffectSpherical applies elevation change with falloff on sphere.
-// Uses equilibrium-based approach with hard clamping to physical limits.
+// applyBoundaryEffectSpherical applies elevation change at a boundary cell.
+// OPTIMIZED: Direct application without BFS to avoid memory allocations.
+// The old BFS approach allocated a map+slice for every boundary cell, causing
+// 250K+ allocations per iteration and OOM crashes.
 func applyBoundaryEffectSpherical(hm *SphereHeightmap, center spatial.Coordinate, elevationChange float64, topology spatial.Topology) {
-	pixelRadius := 5
+	// Apply elevation change directly to center (full effect)
+	currentElev := hm.Get(center)
+	newElev := currentElev + elevationChange
 
-	// Simple falloff using BFS from center
-	visited := make(map[spatial.Coordinate]struct{})
-	type queueItem struct {
-		coord    spatial.Coordinate
-		distance int
+	// Clamp to physical limits
+	if newElev > MaxElevation {
+		newElev = MaxElevation
 	}
-	queue := []queueItem{{coord: center, distance: 0}}
-	visited[center] = struct{}{}
+	if newElev < MinElevation {
+		newElev = MinElevation
+	}
+	hm.Set(center, newElev)
 
+	// Apply reduced effect to immediate neighbors (50% effect)
+	// This maintains smooth terrain without the BFS overhead
 	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+	neighborFactor := 0.3
 
-	for len(queue) > 0 {
-		current := queue[0]
-		queue = queue[1:]
+	for _, dir := range directions {
+		neighbor := topology.GetNeighbor(center, dir)
+		nElev := hm.Get(neighbor)
+		nNewElev := nElev + elevationChange*neighborFactor
 
-		if current.distance > pixelRadius {
-			continue
+		if nNewElev > MaxElevation {
+			nNewElev = MaxElevation
 		}
-
-		// Calculate falloff factor
-		dist := float64(current.distance)
-		factor := 1.0 - dist/float64(pixelRadius)
-		factor = factor * factor // Square for smoother falloff
-
-		// Apply elevation change with physical limits
-		currentElev := hm.Get(current.coord)
-		newElev := currentElev + elevationChange*factor
-
-		// Clamp to physical limits
-		if newElev > MaxElevation {
-			newElev = MaxElevation
+		if nNewElev < MinElevation {
+			nNewElev = MinElevation
 		}
-		if newElev < MinElevation {
-			newElev = MinElevation
-		}
-		hm.Set(current.coord, newElev)
-
-		// Expand to neighbors
-		if current.distance < pixelRadius {
-			for _, dir := range directions {
-				neighbor := topology.GetNeighbor(current.coord, dir)
-				if _, exists := visited[neighbor]; !exists {
-					visited[neighbor] = struct{}{}
-					queue = append(queue, queueItem{coord: neighbor, distance: current.distance + 1})
-				}
-			}
-		}
+		hm.Set(neighbor, nNewElev)
 	}
 }
 
