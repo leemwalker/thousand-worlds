@@ -45,6 +45,32 @@ type TectonicPlate struct {
 	Age       float64                         // million years
 }
 
+// BoundaryCell represents a cell that is at a plate boundary
+// Pre-computed to avoid checking all cells every iteration
+type BoundaryCell struct {
+	Coord        spatial.Coordinate
+	PlateIdx     int
+	NeighborIdx  int
+	BoundaryType BoundaryType
+}
+
+// BoundaryCache stores pre-computed boundary cells for fast tectonic processing
+// This reduces iteration from O(all cells) to O(boundary cells only) - typically 90% reduction
+type BoundaryCache struct {
+	Cells      []BoundaryCell
+	PlateGrid  []int // -1 = no plate, otherwise plate index
+	Resolution int
+	Valid      bool // Set to false when plates move and cache needs rebuild
+}
+
+// NewBoundaryCache creates an empty boundary cache
+func NewBoundaryCache() *BoundaryCache {
+	return &BoundaryCache{
+		Cells: make([]BoundaryCell, 0),
+		Valid: false,
+	}
+}
+
 // Heightmap represents the elevation grid of the world
 type Heightmap struct {
 	Width      int

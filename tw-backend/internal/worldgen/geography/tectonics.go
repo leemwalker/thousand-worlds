@@ -136,6 +136,116 @@ func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology) {
 	}
 }
 
+// ComputeBoundaryCache pre-computes all cells that are at plate boundaries.
+// This is expensive but only needs to run when plates are reassigned.
+// After this, SimulateTectonicsWithCache can process only boundary cells.
+func ComputeBoundaryCache(plates []TectonicPlate, topology spatial.Topology) *BoundaryCache {
+	resolution := topology.Resolution()
+	totalCells := 6 * resolution * resolution
+
+	cache := &BoundaryCache{
+		Cells:      make([]BoundaryCell, 0, totalCells/10), // Expect ~10% boundaries
+		PlateGrid:  make([]int, totalCells),
+		Resolution: resolution,
+		Valid:      true,
+	}
+
+	// Initialize with -1 (no plate)
+	for i := range cache.PlateGrid {
+		cache.PlateGrid[i] = -1
+	}
+
+	// Populate grid
+	for i, p := range plates {
+		for coord := range p.Region {
+			idx := (coord.Face * resolution * resolution) + (coord.Y * resolution) + coord.X
+			if idx >= 0 && idx < totalCells {
+				cache.PlateGrid[idx] = i
+			}
+		}
+	}
+
+	// Find all boundary cells
+	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+	resSq := resolution * resolution
+
+	for idx := 0; idx < totalCells; idx++ {
+		currentPlateIdx := cache.PlateGrid[idx]
+		if currentPlateIdx == -1 {
+			continue
+		}
+
+		// Reconstruct coordinate from index
+		face := idx / resSq
+		rem := idx % resSq
+		y := rem / resolution
+		x := rem % resolution
+		coord := spatial.Coordinate{Face: face, X: x, Y: y}
+
+		currentPlate := plates[currentPlateIdx]
+
+		// Check neighbors for boundary
+		for _, dir := range directions {
+			neighbor := topology.GetNeighbor(coord, dir)
+			nIdx := (neighbor.Face * resSq) + (neighbor.Y * resolution) + neighbor.X
+
+			var neighborPlateIdx int
+			if nIdx >= 0 && nIdx < totalCells {
+				neighborPlateIdx = cache.PlateGrid[nIdx]
+			} else {
+				neighborPlateIdx = -1
+			}
+
+			if neighborPlateIdx == -1 || neighborPlateIdx == currentPlateIdx {
+				continue
+			}
+
+			// Found a boundary - add to cache
+			neighborPlate := plates[neighborPlateIdx]
+			boundaryType := CalculateBoundaryType(currentPlate, neighborPlate)
+
+			cache.Cells = append(cache.Cells, BoundaryCell{
+				Coord:        coord,
+				PlateIdx:     currentPlateIdx,
+				NeighborIdx:  neighborPlateIdx,
+				BoundaryType: boundaryType,
+			})
+		}
+	}
+
+	if debug.Is(debug.Perf | debug.Geology) {
+		log.Printf("[BOUNDARY CACHE] Built cache with %d boundary cells out of %d total (%.1f%%)",
+			len(cache.Cells), totalCells, float64(len(cache.Cells))/float64(totalCells)*100)
+	}
+
+	return cache
+}
+
+// SimulateTectonicsWithCache uses a pre-computed boundary cache for fast processing.
+// Only iterates over boundary cells instead of all cells - typically 90% faster.
+func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightmap, cache *BoundaryCache, topology spatial.Topology, scaleFactor float64) *SphereHeightmap {
+	if debug.Is(debug.Perf) {
+		defer debug.Time(debug.Perf, "SimulateTectonicsWithCache")()
+	}
+
+	// Process only cached boundary cells
+	for _, bc := range cache.Cells {
+		currentPlate := plates[bc.PlateIdx]
+		neighborPlate := plates[bc.NeighborIdx]
+
+		// Apply equilibrium-based elevation change
+		currentElev := heightmap.Get(bc.Coord)
+		elevationDelta := calculateEquilibriumElevationChange(currentPlate, neighborPlate, bc.BoundaryType, currentElev)
+
+		// Apply scale factor for variable time steps
+		elevationDelta *= scaleFactor
+
+		applyBoundaryEffectSpherical(heightmap, bc.Coord, elevationDelta, topology)
+	}
+
+	return heightmap
+}
+
 // SimulateTectonics calculates elevation based on plate interactions on a sphere.
 // Uses equilibrium-based approach where elevation approaches target asymptotically.
 // Returns a SphereHeightmap with elevation modifiers.

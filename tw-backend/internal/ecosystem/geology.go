@@ -28,8 +28,9 @@ type WorldGeology struct {
 	Heightmap       *geography.Heightmap       // Flat heightmap for legacy consumers
 	SphereHeightmap *geography.SphereHeightmap // Spherical heightmap for proper 3D operations
 	Plates          []geography.TectonicPlate
-	SeaLevel        float64          // meters (0 = baseline, positive = higher sea level)
-	Topology        spatial.Topology // Spherical topology for plate operations
+	SeaLevel        float64                  // meters (0 = baseline, positive = higher sea level)
+	Topology        spatial.Topology         // Spherical topology for plate operations
+	BoundaryCache   *geography.BoundaryCache // Cached plate boundary cells for fast tectonic processing
 
 	// Underground data (Phase 3)
 	Columns     *underground.ColumnGrid // Per-column underground data
@@ -648,8 +649,14 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 					defer debug.Time(debug.Tectonics, "TectonicsUpdate")()
 				}
 
-				// Pass scaleFactor to apply stronger effects for longer intervals
-				g.SphereHeightmap = geography.SimulateTectonics(g.Plates, g.SphereHeightmap, g.Topology, scaleFactor)
+				// Use cached version if available
+				// Cache is built once and persists until plates are reassigned
+				// (advancePlates moves plates slightly but doesn't change which cells are at boundaries)
+				if g.BoundaryCache == nil || !g.BoundaryCache.Valid {
+					// Rebuild cache (expensive, but only needed when regions change)
+					g.BoundaryCache = geography.ComputeBoundaryCache(g.Plates, g.Topology)
+				}
+				g.SphereHeightmap = geography.SimulateTectonicsWithCache(g.Plates, g.SphereHeightmap, g.BoundaryCache, g.Topology, scaleFactor)
 				g.markSphereNeedsSync()
 			}
 		}
