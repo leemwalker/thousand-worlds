@@ -254,7 +254,7 @@ func (g *WorldGeology) InitializeGeology() {
 	}
 
 	// Initialize biomes using Weather→Biome pipeline (no latitude coupling)
-	g.Biomes = g.generateBiomesFromClimate(0.0) // No global temp modifier initially
+	g.Biomes = g.UpdateBiomes(0.0) // No global temp modifier initially
 
 	// Initialize underground column grid (Phase 3)
 	g.initializeColumns(width, height)
@@ -561,7 +561,8 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 	}
 
 	// === DEEP PROFILING ===
-	var tectonicTime, biomeTime, oceanPhaseTime, statsTime time.Duration
+	var tectonicTime, biomeTime, oceanPhaseTime, statsTime, erosionTime time.Duration
+	var erosionStart time.Time
 	profilingEnabled := g.TotalYearsSimulated%1_000_000 == 0 // Log every 1M years (was 10M)
 
 	g.TotalYearsSimulated += dt
@@ -654,6 +655,9 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 				// (advancePlates moves plates slightly but doesn't change which cells are at boundaries)
 				if g.BoundaryCache == nil || !g.BoundaryCache.Valid {
 					// Rebuild cache (expensive, but only needed when regions change)
+					if debug.Is(debug.Perf | debug.Geology) {
+						log.Printf("[BOUNDARY CACHE] Rebuilding... (Reason: Nil=%v, Valid=%v)", g.BoundaryCache == nil, g.BoundaryCache != nil && g.BoundaryCache.Valid)
+					}
 					g.BoundaryCache = geography.ComputeBoundaryCache(g.Plates, g.Topology)
 				}
 				g.SphereHeightmap = geography.SimulateTectonicsWithCache(g.Plates, g.SphereHeightmap, g.BoundaryCache, g.Topology, scaleFactor)
@@ -672,6 +676,7 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 	// No solid crust for erosion, no caves, no rivers - only plate tectonics matter
 	// This provides ~100× speedup for deep time simulations
 	if heat <= 4.0 {
+		erosionStart = time.Now()
 		// === EROSION (Only for cool planets with solid crust) ===
 		// Apply erosion (more frequent)
 		// Thermal erosion: 1 iteration per 10,000 years
@@ -808,21 +813,18 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 				g.Rivers = geography.GenerateRivers(g.Heightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
 			}
 			riverTime := time.Since(riverStart)
+			_ = riverTime // Silencing unused variable error
 
-			// Biome generation timing
-			biomeStart := time.Now()
-			// Pass global temperature modifier to biome assignment
-			// Uses new Weather→Biome pipeline
-			g.Biomes = g.generateBiomesFromClimate(globalTempMod)
-			biomeTime = time.Since(biomeStart)
-
-			// Log river/biome performance when expensive
-			if debug.Is(debug.Perf | debug.Geology) {
-				log.Printf("[GEO PERF] River: %v | Biome: %v", riverTime, biomeTime)
-			}
+			// Biome generation moved to external orchestrator (world_commands.go)
+			// to prevent excessive memory allocation during geology-only simulation.
+			// Was: g.Biomes = g.generateBiomesFromClimate(globalTempMod)
+			biomeTime = 0
 
 			// Decrement accumulator using modulo to keep phase but prevent buildup
 			g.RiverAccumulator = math.Mod(g.RiverAccumulator, riverInterval)
+		}
+		if !erosionStart.IsZero() {
+			erosionTime = time.Since(erosionStart)
 		}
 	} // End river check (heat <= 4.0)
 
@@ -946,11 +948,12 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 
 	// Log deep profiling every 10M years
 	if profilingEnabled {
-		totalProfiled := tectonicTime + biomeTime + oceanPhaseTime + statsTime
-		log.Printf("[GEO PROFILE] Year %d | Tectonic: %v (%.0f%%) | OceanPhase: %v (%.0f%%) | Stats: %v (%.0f%%) | Biome: %v (%.0f%%)",
+		totalProfiled := tectonicTime + biomeTime + oceanPhaseTime + statsTime + erosionTime
+		log.Printf("[GEO PROFILE] Year %d | Tectonic: %v (%.0f%%) | OceanPhase: %v (%.0f%%) | Erosion: %v (%.0f%%) | Stats: %v (%.0f%%) | Biome: %v (%.0f%%)",
 			g.TotalYearsSimulated,
 			tectonicTime, float64(tectonicTime)/float64(totalProfiled)*100,
 			oceanPhaseTime, float64(oceanPhaseTime)/float64(totalProfiled)*100,
+			erosionTime, float64(erosionTime)/float64(totalProfiled)*100,
 			statsTime, float64(statsTime)/float64(totalProfiled)*100,
 			biomeTime, float64(biomeTime)/float64(totalProfiled)*100)
 	}
@@ -1594,7 +1597,10 @@ func (g *WorldGeology) ShiftTemperature(shift float64) {
 // generateBiomesFromClimate uses the Weather→Biome pipeline.
 // This is the correct causal chain: Weather determines temperature,
 // which determines biome type (no latitude math in biomes.go).
-func (g *WorldGeology) generateBiomesFromClimate(globalTempMod float64) []geography.Biome {
+// UpdateBiomes updates the biomes based on the current heightmap and climate.
+// This is now decoupled from SimulateGeology loop to prevent excessive memory allocations.
+// Should be called periodically by the simulation orchestrator if life is enabled.
+func (g *WorldGeology) UpdateBiomes(globalTempMod float64) []geography.Biome {
 	seed := g.Seed + g.TotalYearsSimulated
 
 	// 1. Generate climate data from Weather service

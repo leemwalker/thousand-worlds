@@ -11,6 +11,12 @@ func ApplyThermalErosion(hm *Heightmap, iterations int, seed int64) {
 	threshold := 40.0
 	width, height := hm.Width, hm.Height
 
+	// Pre-define neighbors to avoid allocation in inner loop
+	neighbors := [][2]int{
+		{0, 1}, {0, -1}, {1, 0}, {-1, 0},
+		{1, 1}, {1, -1}, {-1, 1}, {-1, -1},
+	}
+
 	for iter := 0; iter < iterations; iter++ {
 		for y := 0; y < height; y++ {
 			for x := 0; x < width; x++ {
@@ -19,10 +25,6 @@ func ApplyThermalErosion(hm *Heightmap, iterations int, seed int64) {
 				var bestNeighX, bestNeighY int
 
 				// Check neighbors
-				neighbors := [][2]int{
-					{0, 1}, {0, -1}, {1, 0}, {-1, 0},
-					{1, 1}, {1, -1}, {-1, 1}, {-1, -1},
-				}
 
 				// Find lowest neighbor
 				for _, n := range neighbors {

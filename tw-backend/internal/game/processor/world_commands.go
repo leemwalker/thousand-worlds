@@ -889,6 +889,14 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			totalTempMod := eventTempMod + climateDriver.GetGeothermalOffset() + climateDriver.GetGreenhouseOffset()
 			phaseEvent := geology.SimulateGeology(stepSize, totalTempMod)
 
+			// MANUALLY TRIGGER BIOME GENERATION
+			// Refactored to occur here instead of inside SimulateGeology to prevent memory leaks in geology-only runs.
+			// Only update biomes if life is being simulated (to feed populations), or very rarely.
+			// 10M year interval matches the previous internal logic but is now conditional.
+			if simulateLife && year%10_000_000 == 0 {
+				geology.UpdateBiomes(totalTempMod)
+			}
+
 			// Log phase transition events (e.g., Great Deluge)
 			if phaseEvent != nil {
 				client.SendGameMessage("system", fmt.Sprintf("🌊 %s: %s (Year %d)",
@@ -1052,6 +1060,12 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 				iterationCount, year, stepSize, ecosystem.GetPlanetaryHeat(year))
 		}
 	}
+
+	// Update biomes one last time to ensure final map state is correct
+	// Calculate final temp mod
+	eventTempMod, _, _ := geoManager.GetEnvironmentModifiers()
+	finalTempMod := eventTempMod + climateDriver.GetGeothermalOffset() + climateDriver.GetGreenhouseOffset()
+	geology.UpdateBiomes(finalTempMod)
 
 	// Get final statistics
 	geoStats := geology.GetStats()
