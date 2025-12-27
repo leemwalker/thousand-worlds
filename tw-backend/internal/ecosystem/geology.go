@@ -794,9 +794,10 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 		}
 		// Regenerate dynamic features using spherical algorithms
 		// Rivers and biomes change as terrain evolves
-		// OPTIMIZATION: Throttle to every 100,000 years for deep-time simulation
-		// (was 1,000 years which triggered every iteration with 100K steps)
-		riverInterval = 100_000.0
+		// OPTIMIZATION: Throttle to every 10M years for deep-time simulation
+		// Previous 100K interval caused biome regen every iteration, allocating
+		// ~17MB per call (climate + biomes + 131K UUIDs) = 500MB/sec allocation rate
+		riverInterval = 10_000_000.0 // 10M years - only ~400 regenerations in 4B year run
 		if g.RiverAccumulator >= riverInterval {
 			riverStart := time.Now()
 			if g.SphereHeightmap != nil {
