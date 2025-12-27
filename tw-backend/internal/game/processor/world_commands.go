@@ -196,6 +196,10 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	simulateLife := enableLife
 	simulateDiseases := enableDisease
 
+	// DEBUG: Log parsed flags state
+	log.Printf("[DEBUG-FLAGS] Args: %v", args)
+	log.Printf("[DEBUG-FLAGS] Flags detected: anyFlagSet=%v, Geology=%v, Life=%v, Weather=%v", anyFlagSet, enableGeology, enableLife, enableWeather)
+
 	// Build enabled subsystems list for display
 	var enabledSystems []string
 	if enableGeology {
@@ -559,6 +563,38 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	var profileSamples int64
 
 	for year < years {
+		// Calculate adaptive step size at the START of the loop
+		// Default to 1 year (required if life is enabled for reproduction/death cycles)
+		stepSize := int64(1)
+
+		if simulateGeology && !simulateLife {
+			heat := ecosystem.GetPlanetaryHeat(year)
+
+			if heat > 4.0 {
+				// Hadean era (year 0-500M): Molten/Violent
+				// AGGRESSIVE: Use 100k year steps
+				stepSize = 100_000
+			} else if heat > 1.5 {
+				// Archean/Proterozoic (year 500M-3B): Cooling
+				// Use 10k year steps
+				stepSize = 10_000
+			} else {
+				// Phanerozoic/Modern (year 3B+): Stable
+				// Use 100 year steps for detailed recent history
+				stepSize = 100
+			}
+
+			// Ensure we don't overshoot the end
+			if year+stepSize > years {
+				stepSize = years - year
+			}
+
+			// Debug logging (first iteration only)
+			if year == 0 {
+				log.Printf("[ADAPTIVE STEPPING] Year 0: heat=%.2f, stepSize=%d, simulateLife=%v", heat, stepSize, simulateLife)
+			}
+		}
+
 		// Progress reporting
 		if year-lastProgress >= progressInterval && progressInterval > 0 {
 			percent := (year * 100) / years
@@ -781,53 +817,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			// Standardize to 365 ticks per year
 			currentTick := year * 365
 
-			// === ADAPTIVE HEAT-BASED TIME STEPPING ===
-			// Use planetary heat to determine optimal step size
-			// Early Earth (high heat) moves 10× faster → use larger steps for performance
-			// Modern Earth (low heat) needs precision → use smaller steps
-			//
-			// Performance impact: 4.5B year simulation goes from ~4.5B iterations → ~2M iterations
-			// Expected speedup: ~2000× for geology-only deep time simulations
-			stepSize := int64(1)
-
-			if !simulateLife { // Only use large steps when no biology (year-by-year needed for life)
-				heat := ecosystem.GetPlanetaryHeat(year)
-
-				if heat > 4.0 {
-					// Hadean era (year 0-500M): Extremely fast geological activity
-					// AGGRESSIVE: Use 100k year steps (was 10k)
-					// Rationale: Molten planet doesn't need fine-grained erosion
-					// Reduces 500M iterations → 5k iterations (100× speedup!)
-					stepSize = 100_000
-				} else if heat > 1.5 {
-					// Archean/Proterozoic (year 500M-3B): Moderate activity
-					// AGGRESSIVE: Use 10k year steps (was 1k)
-					// Still captures major geological transitions
-					stepSize = 10_000
-				} else {
-					// Phanerozoic/Modern (year 3B+): Precision needed for recent geology
-					// Keep 100 year steps for detailed recent history
-					stepSize = 100
-				}
-
-				// Ensure we don't overshoot the end
-				if year+stepSize > years {
-					stepSize = years - year
-				}
-
-				// Debug logging (first iteration only)
-				if year == 0 {
-					log.Printf("[ADAPTIVE STEPPING] Year 0: heat=%.2f, stepSize=%d, simulateLife=%v", heat, stepSize, simulateLife)
-				}
-			} else {
-				// Debug logging for non-adaptive path
-				if year == 0 {
-					log.Printf("[ADAPTIVE STEPPING] DISABLED: simulateLife=true, forcing stepSize=1")
-				}
-			}
-
-			// If stepSize > 1, skipped years shouldn't trigger expensive checks unless accumulators handle them
-			// (which they now do!)
+			// stepSize is calculated at the beginning of the loop
 
 			iterationStart := time.Now()
 
@@ -1045,34 +1035,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			}
 		}
 
-		// Increment loop variable manually due to variable step size
-		// We use the stepSize calculated for this iteration (or 1 if Life is active or fallback)
-		// Since stepSize isn't visible here (declared in if-block), we must re-derive or just use 1?
-		// Wait, I messed up the scope. `stepSize` was declared inside `if simulateGeology`.
-		// If `simulateGeology` is false, `stepSize` is undefined.
-		// If `simulateLife` is true, we need step=1.
-
-		// Calculate loop increment using heat-based adaptive stepping
-		// Must match the step size logic from geology block above
-		increment := int64(1)
-		if simulateGeology && !simulateLife {
-			heat := ecosystem.GetPlanetaryHeat(year)
-
-			if heat > 4.0 {
-				increment = 100_000 // Aggressive Hadean stepping
-			} else if heat > 1.5 {
-				increment = 10_000 // Aggressive Archean stepping
-			} else {
-				increment = 100 // Fine-grained modern
-			}
-
-			// Ensure we don't overshoot
-			if year+increment > years {
-				increment = years - year
-			}
-		}
-
-		year += increment
+		year += stepSize
 
 		// Debug: Log iteration count every 100 iterations
 		if year == 0 {
@@ -1081,7 +1044,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		iterationCount++
 		if iterationCount%100 == 0 {
 			log.Printf("[PERF] Iteration #%d: year=%d, increment=%d, heat=%.2f",
-				iterationCount, year, increment, ecosystem.GetPlanetaryHeat(year))
+				iterationCount, year, stepSize, ecosystem.GetPlanetaryHeat(year))
 		}
 	}
 
