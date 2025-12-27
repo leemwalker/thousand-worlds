@@ -513,11 +513,16 @@ func (g *WorldGeology) simulateMagmaChambers(yearsElapsed int64) {
 
 	var boundaries []underground.TectonicBoundary
 
+	// Ensure cache exists (lazy init if standard tectonic loop didn't build it)
+	if g.BoundaryCache == nil || !g.BoundaryCache.Valid {
+		g.BoundaryCache = geography.ComputeBoundaryCache(g.Plates, g.Topology)
+	}
+
 	// OPTIMIZATION: Use cached boundaries if available (O(Boundaries) instead of O(TotalCells))
 	if g.BoundaryCache != nil && g.BoundaryCache.Valid {
 		boundaries = g.convertBoundaryCacheToUnderground(g.BoundaryCache, plateCentroids, plateMovements)
 	} else {
-		// Fallback to expensive full scan
+		// Fallback to expensive full scan (Should not happen now)
 		boundaries = underground.GetTectonicBoundaries(
 			g.Heightmap.Width,
 			g.Heightmap.Height,
