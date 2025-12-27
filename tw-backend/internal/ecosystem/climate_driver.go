@@ -23,8 +23,12 @@ type ClimateDriver struct {
 	// CurrentState holds the current orbital parameters
 	CurrentState astronomy.OrbitalState
 
-	// CurrentInsolation is the calculated solar energy factor
+	// CurrentInsolation is the calculated solar energy factor (Orbital * Luminosity)
 	CurrentInsolation float64
+
+	// OrbitalInsolation is the normalized insolation from orbital mechanics (nominally ~1.0)
+	// Triggers ice ages when finding Milankovitch lows, independent of solar luminosity
+	OrbitalInsolation float64
 
 	// IceAgeActive indicates whether an ice age is currently in progress
 	IceAgeActive bool
@@ -66,6 +70,7 @@ func NewClimateDriver(eventManager *GeologicalEventManager) *ClimateDriver {
 		ObliquityStability: 1.0,  // Default to Earth-like stability
 		GeothermalOffset:   0.0,  // Will be calculated on first Update
 		SolarLuminosity:    0.71, // Early Earth baseline
+		OrbitalInsolation:  1.0,  // Initial value
 		GreenhouseOffset:   0.0,  // Will be set by atmosphere
 	}
 }
@@ -79,6 +84,7 @@ func (cd *ClimateDriver) Update(year int64) {
 	// Calculate current orbital state with stability-adjusted obliquity
 	cd.CurrentState = astronomy.CalculateOrbitalStateWithStability(year, cd.ObliquityStability)
 	baseInsolation := astronomy.CalculateInsolation(cd.CurrentState)
+	cd.OrbitalInsolation = baseInsolation
 
 	// Calculate solar luminosity evolution (Faint Young Sun)
 	// Year 0: ~71% modern brightness → Year 4.5B: 100% brightness (Gough 1981)
@@ -108,9 +114,12 @@ func (cd *ClimateDriver) Update(year int64) {
 	// which kept early Earth warm despite low solar luminosity. Ice ages only became
 	// possible after the planet cooled (~2-3 billion years in).
 	if heat <= 2.0 {
-		if !cd.IceAgeActive && cd.CurrentInsolation < IceAgeInsolationThreshold {
+		// Check 'OrbitalInsolation' instead of 'CurrentInsolation' to trigger based on
+		// Milankovitch cycles rather than absolute solar brightness. This assumes the
+		// Carbon Cycle compensates for the long-term trend of the Faint Young Sun.
+		if !cd.IceAgeActive && cd.OrbitalInsolation < IceAgeInsolationThreshold {
 			cd.startIceAge(year)
-		} else if cd.IceAgeActive && cd.CurrentInsolation > IceAgeRecoveryThreshold {
+		} else if cd.IceAgeActive && cd.OrbitalInsolation > IceAgeRecoveryThreshold {
 			// Only end if minimum duration has passed
 			if year-cd.IceAgeStartYear >= IceAgeDurationBase {
 				cd.endIceAge(year)
@@ -128,9 +137,9 @@ func (cd *ClimateDriver) startIceAge(year int64) {
 		return
 	}
 
-	// Calculate severity based on how far below threshold we are
+	// Calculate severity based on how far below threshold we are (using OrbitalInsolation)
 	// Insolation of 0.95 → severity 1.0, insolation of 0.98 → severity 0.3
-	severity := (IceAgeInsolationThreshold - cd.CurrentInsolation) / 0.03
+	severity := (IceAgeInsolationThreshold - cd.OrbitalInsolation) / 0.03
 	if severity > 1.0 {
 		severity = 1.0
 	}

@@ -27,23 +27,39 @@ func TestClimateDriver_IceAgeTrigger(t *testing.T) {
 	eventManager := NewGeologicalEventManager()
 	cd := NewClimateDriver(eventManager)
 
-	// Find a year with low insolation (obliquity trough)
-	// At year 30750 (3/4 of 41k cycle), obliquity is minimum
-	lowInsolationYear := int64(30750)
+	// We must search for a low insolation year safely in the "modern" era
+	// Ice ages are suppressed when heat > 2.0 (early Earth).
+	// Heat drops below 2.0 around 2.5 billion years.
+	// Start search at 3 billion years.
+	startSearch := int64(3000000000)
+	var lowInsolationYear int64
+
+	for year := startSearch; year < startSearch+100000; year += 100 {
+		state := astronomy.CalculateOrbitalState(year)
+		insolation := astronomy.CalculateInsolation(state)
+		if insolation < IceAgeInsolationThreshold {
+			lowInsolationYear = year
+			break
+		}
+	}
+
+	if lowInsolationYear == 0 {
+		t.Skip("Could not find year with insolation below threshold in search range")
+	}
 
 	cd.Update(lowInsolationYear)
 
-	// Check that insolation is below threshold
-	if cd.CurrentInsolation >= IceAgeInsolationThreshold {
-		t.Logf("Insolation at year %d: %.4f (threshold: %.4f)",
-			lowInsolationYear, cd.CurrentInsolation, IceAgeInsolationThreshold)
-		t.Skip("Insolation not below threshold at this year - orbital formula may need adjustment")
+	// Check that orbital insolation is below threshold
+	if cd.OrbitalInsolation >= IceAgeInsolationThreshold {
+		t.Logf("Orbital Insolation at year %d: %.4f (threshold: %.4f)",
+			lowInsolationYear, cd.OrbitalInsolation, IceAgeInsolationThreshold)
+		t.Skip("Insolation not below threshold at this year")
 	}
 
 	// Ice age should now be active
 	if !cd.IceAgeActive {
-		t.Errorf("Ice age should be active at low insolation year %d (insolation=%.4f)",
-			lowInsolationYear, cd.CurrentInsolation)
+		t.Errorf("Ice age should be active at low insolation year %d (OrbitalInsolation=%.4f). Heat=%.2f",
+			lowInsolationYear, cd.OrbitalInsolation, cd.GeothermalOffset/2.0+1.0)
 	}
 
 	// Event should be in the manager
@@ -66,10 +82,10 @@ func TestClimateDriver_IceAgeRecovery(t *testing.T) {
 
 	// Manually trigger an ice age
 	cd.IceAgeActive = true
-	cd.IceAgeStartYear = 0
+	cd.IceAgeStartYear = 3000000000 // Start in late Earth era
 	eventManager.ActiveEvents = append(eventManager.ActiveEvents, GeologicalEvent{
 		Type:           EventIceAge,
-		StartTick:      0,
+		StartTick:      3000000000 * 365,
 		DurationTicks:  1000000,
 		Severity:       0.5,
 		TemperatureMod: -10,
@@ -79,8 +95,11 @@ func TestClimateDriver_IceAgeRecovery(t *testing.T) {
 
 	// Find a year with high insolation by scanning through years
 	// We need insolation > 0.995 (recovery threshold)
+	// Start searching after the ice age duration base (10000 years)
+	startSearch := int64(3000000000 + IceAgeDurationBase + 1000)
 	var highInsolationYear int64 = -1
-	for year := int64(IceAgeDurationBase); year < 100000; year += 1000 {
+
+	for year := startSearch; year < startSearch+100000; year += 100 {
 		state := astronomy.CalculateOrbitalState(year)
 		insolation := astronomy.CalculateInsolation(state)
 		if insolation > IceAgeRecoveryThreshold {
@@ -90,15 +109,15 @@ func TestClimateDriver_IceAgeRecovery(t *testing.T) {
 	}
 
 	if highInsolationYear < 0 {
-		t.Skip("Could not find year with insolation above recovery threshold in first 100k years")
+		t.Skip("Could not find year with insolation above recovery threshold in search range")
 	}
 
 	cd.Update(highInsolationYear)
 
 	// Ice age should now be ended
 	if cd.IceAgeActive {
-		t.Errorf("Ice age should have ended at high insolation year %d (insolation=%.4f)",
-			highInsolationYear, cd.CurrentInsolation)
+		t.Errorf("Ice age should have ended at high insolation year %d (OrbitalInsolation=%.4f). Heat=%.2f",
+			highInsolationYear, cd.OrbitalInsolation, cd.GeothermalOffset/2.0+1.0)
 	}
 }
 
