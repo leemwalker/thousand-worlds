@@ -811,22 +811,9 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 	seaLevelChange := (targetSeaLevel - g.SeaLevel) * recoveryRatePerYear * dtFloat
 	g.SeaLevel += seaLevelChange
 
-	// Fix 5: Global elevation clamping on SphereHeightmap
-	// Ensures no runaway elevation accumulation over geological time
-	if g.SphereHeightmap != nil {
-		g.SphereHeightmap.ClampElevations(geography.MinElevation, geography.MaxElevation)
-		// Sync to flat heightmap after clamping
-		g.syncSphereToFlat()
-	} else {
-		// Fallback: clamp flat heightmap directly
-		for i, elev := range g.Heightmap.Elevations {
-			if elev > geography.MaxElevation {
-				g.Heightmap.Elevations[i] = geography.MaxElevation
-			} else if elev < geography.MinElevation {
-				g.Heightmap.Elevations[i] = geography.MinElevation
-			}
-		}
-	}
+	// NOTE: Elevation clamping and syncSphereToFlat is now ONLY done inside
+	// the maintenance block above (every 100K years) to avoid performance overhead.
+	// The old duplicate clamping that ran every iteration was removed.
 
 	// Update heightmap min/max
 	statsStart := time.Now()
