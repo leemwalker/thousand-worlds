@@ -561,7 +561,7 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 	}
 
 	// === DEEP PROFILING ===
-	var tectonicTime, biomeTime, oceanPhaseTime, statsTime, erosionTime time.Duration
+	var tectonicTime, biomeTime, oceanPhaseTime, statsTime, erosionTime, magmaTime, caveTime time.Duration
 	var erosionStart time.Time
 	profilingEnabled := g.TotalYearsSimulated%1_000_000 == 0 // Log every 1M years (was 10M)
 
@@ -646,9 +646,8 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 			// Uses asymptotic approach to prevent runaway elevation
 			if g.SphereHeightmap != nil && g.Topology != nil {
 				// Debug timing for tectonics specifically
-				if debug.Is(debug.Tectonics | debug.Perf) {
-					defer debug.Time(debug.Tectonics, "TectonicsUpdate")()
-				}
+				// Debug timing for tectonics specifically
+				tectonicUpdateStart := time.Now()
 
 				// Use cached version if available
 				// Cache is built once and persists until plates are reassigned
@@ -662,6 +661,10 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 				}
 				g.SphereHeightmap = geography.SimulateTectonicsWithCache(g.Plates, g.SphereHeightmap, g.BoundaryCache, g.Topology, scaleFactor)
 				g.markSphereNeedsSync()
+
+				if debug.Is(debug.Tectonics | debug.Perf) {
+					log.Printf("[Perf] TectonicsUpdate took %v", time.Since(tectonicUpdateStart))
+				}
 			}
 		}
 
@@ -728,7 +731,9 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 			// Detailed cave sim is expensive. Let's trigger it once if threshold crossed.
 			// TODO: Better scaling for huge time jumps
 			if g.Columns != nil {
+				caveStart := time.Now()
 				g.simulateCaveFormation(int64(g.GeneralAccumulator))
+				caveTime = time.Since(caveStart)
 			}
 		}
 
@@ -739,7 +744,9 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 
 		// Ideally we'd have accumulators for each, but let's approximate:
 		if dt >= 10_000 && g.Columns != nil {
+			magmaStart := time.Now()
 			g.simulateMagmaChambers(dt)
+			magmaTime = time.Since(magmaStart)
 		} else if g.GeneralAccumulator >= 10_000 && g.Columns != nil {
 			// Run with accumulated time
 			// Ideally we subtract from a specific accumulator.
@@ -757,7 +764,9 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 
 			if g.GeneralAccumulator >= 10_000 {
 				if g.Columns != nil {
+					magmaStart := time.Now()
 					g.simulateMagmaChambers(10_000)
+					magmaTime = time.Since(magmaStart)
 				}
 				// Only subtract if we assume this is the main consumer of GeneralAcc
 				// But we have multiple consumers.
@@ -948,14 +957,16 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 
 	// Log deep profiling every 10M years
 	if profilingEnabled {
-		totalProfiled := tectonicTime + biomeTime + oceanPhaseTime + statsTime + erosionTime
-		log.Printf("[GEO PROFILE] Year %d | Tectonic: %v (%.0f%%) | OceanPhase: %v (%.0f%%) | Erosion: %v (%.0f%%) | Stats: %v (%.0f%%) | Biome: %v (%.0f%%)",
+		totalProfiled := tectonicTime + biomeTime + oceanPhaseTime + statsTime + erosionTime + magmaTime + caveTime
+		log.Printf("[GEO PROFILE] Year %d | Tectonic: %v (%.0f%%) | Ocean: %v (%.0f%%) | Eros: %v (%.0f%%) | Mag: %v (%.0f%%) | Cave: %v (%.0f%%) | Stats: %v (%.0f%%) | Bio: %v",
 			g.TotalYearsSimulated,
 			tectonicTime, float64(tectonicTime)/float64(totalProfiled)*100,
 			oceanPhaseTime, float64(oceanPhaseTime)/float64(totalProfiled)*100,
 			erosionTime, float64(erosionTime)/float64(totalProfiled)*100,
+			magmaTime, float64(magmaTime)/float64(totalProfiled)*100,
+			caveTime, float64(caveTime)/float64(totalProfiled)*100,
 			statsTime, float64(statsTime)/float64(totalProfiled)*100,
-			biomeTime, float64(biomeTime)/float64(totalProfiled)*100)
+			biomeTime)
 	}
 
 	// OPTIMIZATION: Batch all sphere-to-flat syncs into a single operation
