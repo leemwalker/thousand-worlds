@@ -25,6 +25,9 @@ func DefaultCaveConfig() CaveFormationConfig {
 	}
 }
 
+// MaxActiveCaves limits cave accumulation to prevent memory growth
+const MaxActiveCaves = 5000
+
 // SimulateCaveFormation processes cave formation over time
 // Returns newly formed caves
 func SimulateCaveFormation(

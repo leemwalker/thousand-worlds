@@ -372,9 +372,14 @@ func (g *WorldGeology) generateStrata(col *underground.WorldColumn, surface floa
 }
 
 // simulateCaveFormation generates caves through limestone dissolution
-// Called during SimulateGeology every 100,000+ years
+// Called during SimulateGeology every 10M years
 func (g *WorldGeology) simulateCaveFormation(yearsElapsed int64) {
 	if g.Columns == nil {
+		return
+	}
+
+	// CAP: Skip if at capacity
+	if len(g.Caves) >= underground.MaxActiveCaves {
 		return
 	}
 
@@ -817,13 +822,12 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 		// Low frequency events using GeneralAccumulator
 		// We can check multiple intervals
 
-		// DISABLED FOR DEBUGGING: Cave formation
-		// TODO: Re-enable after fixing underlying performance issues
-		// if g.TotalYearsSimulated%10_000_000 == 0 && g.Columns != nil {
-		// 	caveStart := time.Now()
-		// 	g.simulateCaveFormation(10_000_000)
-		// 	caveTime += time.Since(caveStart)
-		// }
+		// Cave formation - now with cap to prevent unbounded growth
+		if g.TotalYearsSimulated%10_000_000 == 0 && g.Columns != nil {
+			caveStart := time.Now()
+			g.simulateCaveFormation(10_000_000)
+			caveTime += time.Since(caveStart)
+		}
 
 		// Magma Chambers - now optimized with spatial hashing and GC
 		if g.TotalYearsSimulated%10_000_000 == 0 && g.Columns != nil {
