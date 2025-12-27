@@ -1035,11 +1035,10 @@ func (g *WorldGeology) advancePlates(years float64) {
 		}
 	}
 
-	// Re-assign plate regions after significant movement
-	// Only do this every 10M years to avoid excessive computation
-	if int64(years)%10_000_000 == 0 && g.Topology != nil {
-		geography.ReassignPlateRegions(g.Plates, g.Topology)
-	}
+	// NOTE: Plate region reassignment was causing memory issues and excessive computation.
+	// The boundary cache already handles efficient tectonic processing.
+	// If full reassignment is needed, call geography.ReassignPlateRegions explicitly
+	// and invalidate the boundary cache.
 }
 
 // ApplyEvent handles geological events that affect terrain

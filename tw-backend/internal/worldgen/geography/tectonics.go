@@ -103,6 +103,11 @@ func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology) {
 	resolution := topology.Resolution()
 	totalCells := 6 * resolution * resolution
 
+	// IMPORTANT: Clear existing regions before reassignment to prevent memory leak
+	for i := range plates {
+		plates[i].Region = make(map[spatial.Coordinate]struct{})
+	}
+
 	// Track which cells are assigned
 	assigned := make(map[spatial.Coordinate]int, totalCells)
 
