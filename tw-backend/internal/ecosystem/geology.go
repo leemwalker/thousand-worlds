@@ -1708,3 +1708,86 @@ func (g *WorldGeology) UpdateBiomes(globalTempMod float64) []geography.Biome {
 
 	return biomes
 }
+
+// GetTectonicMap returns a flat array of plate IDs for each heightmap cell.
+// Returns nil if plates haven't been generated.
+// The array is indexed as [y*width + x] where x is longitude and y is latitude.
+// Plate IDs are 0-indexed integers; cells with no assigned plate have value -1.
+func (g *WorldGeology) GetTectonicMap() []int {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	if g.Heightmap == nil || len(g.Plates) == 0 {
+		return nil
+	}
+
+	width := g.Heightmap.Width
+	height := g.Heightmap.Height
+	plateGrid := make([]int, width*height)
+
+	// Initialize with -1 (no plate)
+	for i := range plateGrid {
+		plateGrid[i] = -1
+	}
+
+	// Populate from plate regions (O(N) where N = total cells)
+	if g.Topology != nil {
+		resolution := g.Topology.Resolution()
+		faceWidth := width / 6
+		for plateIdx, plate := range g.Plates {
+			for coord := range plate.Region {
+				// Convert spherical coordinate to flat map position
+				// Flat X = Face offset + local X within face
+				flatX := coord.Face*faceWidth + coord.X
+				flatY := coord.Y
+
+				// Bounds check
+				if flatY < 0 || flatY >= height || flatX < 0 || flatX >= width {
+					continue
+				}
+
+				idx := flatY*width + flatX
+				if idx >= 0 && idx < len(plateGrid) {
+					plateGrid[idx] = plateIdx
+				}
+			}
+		}
+		_ = resolution // Used for face calculation
+	}
+
+	return plateGrid
+}
+
+// GetMineralDeposits returns all mineral deposits from underground columns.
+// Returns a slice of deposit info maps for JSON serialization.
+func (g *WorldGeology) GetMineralDeposits() []map[string]interface{} {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	if g.Columns == nil {
+		return nil
+	}
+
+	var deposits []map[string]interface{}
+	for _, col := range g.Columns.AllColumns() {
+		// Use the Resources field which contains actual mineral deposits
+		for _, deposit := range col.Resources {
+			info := map[string]interface{}{
+				"x":          col.X,
+				"y":          col.Y,
+				"type":       deposit.Type,
+				"depth":      col.Surface - deposit.DepthZ,
+				"quantity":   deposit.Quantity,
+				"discovered": deposit.Discovered,
+			}
+			// Include organic source info if available (fossils, oil)
+			if deposit.Source != nil {
+				info["species"] = deposit.Source.Species
+				info["death_year"] = deposit.Source.DeathYear
+			}
+			deposits = append(deposits, info)
+		}
+	}
+
+	return deposits
+}

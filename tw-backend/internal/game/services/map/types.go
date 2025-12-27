@@ -96,4 +96,8 @@ type WorldMapData struct {
 	LandCoverage   float64 `json:"land_coverage,omitempty"`   // Percentage of land above sea level
 	SimulatedYears int64   `json:"simulated_years,omitempty"` // Total years simulated
 	Seed           int64   `json:"seed,omitempty"`            // Simulation seed used
+
+	// Overlays contains optional data layers for visualization
+	// Keys: "tectonics" ([]int plate IDs), "minerals" ([]map[string]interface{})
+	Overlays map[string]interface{} `json:"overlays,omitempty"`
 }

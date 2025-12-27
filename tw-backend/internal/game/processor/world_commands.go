@@ -497,6 +497,32 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	// Modern Earth: Low CO2 after billions of years of weathering
 	atm := atmosphere.NewAtmosphere(0) // Start at year 0
 
+	// === PRE-WARM CLIMATE PHYSICS ===
+	// Initialize climate state BEFORE first map generation to avoid "Instant Ice Age" bug.
+	// The simulation starts frozen if we don't calculate initial greenhouse/geothermal offsets.
+	// Physics: Early Earth had high CO2 (~50 atm) and high geothermal flux to compensate for
+	// the Faint Young Sun (only ~70% modern luminosity).
+	initialHeat := ecosystem.GetPlanetaryHeat(0)
+	climateDriver.Update(0) // This calculates GeothermalOffset from initialHeat
+
+	// Pre-calculate initial atmospheric greenhouse effect
+	geoStats := geology.GetStats()
+	volcanicRate := atmosphere.CalculateVolcanicOutgassing(initialHeat)
+	weatheringRate := atmosphere.CalculateWeatheringRate(
+		geoStats.AverageTemperature,
+		1000.0, // Default precipitation (mm/yr)
+		geoStats.LandPercent/100.0,
+		atm.CO2Mass,
+	)
+	atm.SimulateCarbonCycle(0, volcanicRate, weatheringRate) // Initialize derived stats
+	atmosphereStats := atm.GetStats()
+	climateDriver.SetGreenhouseOffset(atmosphereStats.GreenhouseOffset)
+
+	// Log initial climate state for verification
+	// Expected at Year 0: Heat=10.0, Geothermal=+90°C, Greenhouse=+50°C (compensates for 0.7 solar)
+	log.Printf("[CLIMATE INIT] Year 0: Heat=%.2f, Geothermal=+%.1f°C, Greenhouse=+%.1f°C, SolarLum=%.2f",
+		initialHeat, climateDriver.GetGeothermalOffset(), climateDriver.GetGreenhouseOffset(), climateDriver.GetSolarLuminosity())
+
 	progressInterval := years / 10
 	// Cap progress interval to 10M years for better responsiveness on long simulations
 	if progressInterval > 10_000_000 {
@@ -1068,7 +1094,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	geology.UpdateBiomes(finalTempMod)
 
 	// Get final statistics
-	geoStats := geology.GetStats()
+	geoStats = geology.GetStats()
 	var totalPop, totalSpecies, totalExtinct int64
 	if popSim != nil {
 		totalPop, totalSpecies, totalExtinct = popSim.GetStats()
@@ -1487,6 +1513,25 @@ func (p *GameProcessor) handleWorldMap(ctx context.Context, client websocket.Gam
 		// Geology cache in map service is populated after simulation
 		if geo := p.mapService.GetWorldGeology(char.WorldID); geo != nil {
 			payload["satellites"] = geo.Satellites
+		}
+	}
+
+	// Add overlays if geology data is available
+	if geo := p.mapService.GetWorldGeology(char.WorldID); geo != nil {
+		overlays := make(map[string]interface{})
+
+		// Tectonic plate overlay - array of plate IDs for each cell
+		if tectonicMap := geo.GetTectonicMap(); tectonicMap != nil {
+			overlays["tectonics"] = tectonicMap
+		}
+
+		// Mineral deposit overlay - list of discovered and undiscovered deposits
+		if minerals := geo.GetMineralDeposits(); minerals != nil {
+			overlays["minerals"] = minerals
+		}
+
+		if len(overlays) > 0 {
+			payload["overlays"] = overlays
 		}
 	}
 

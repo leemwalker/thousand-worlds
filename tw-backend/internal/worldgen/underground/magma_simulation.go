@@ -195,6 +195,10 @@ func SimulateMagmaChambersWithGrid(
 	newTubes = []*Cave{}
 	collapsedCaves = []*Cave{}
 
+	// Shuffle chambers to prevent directional bias in processing order
+	// Fisher-Yates shuffle ensures uniform random permutation
+	shuffleChambers(chambers, rng)
+
 	// 1. Process existing chambers
 	for _, chamber := range chambers {
 		// Age the chamber
@@ -309,6 +313,17 @@ func SimulateMagmaChambersWithGrid(
 	}
 
 	return erupted, newTubes, collapsedCaves
+}
+
+// shuffleChambers implements Fisher-Yates shuffle for uniform random permutation.
+// This prevents directional bias patterns from emerging when processing chambers
+// in a consistent order (e.g., always processing chambers left-to-right could
+// cause systematic drift in magma activity).
+func shuffleChambers(chambers []*MagmaChamber, rng *rand.Rand) {
+	for i := len(chambers) - 1; i > 0; i-- {
+		j := rng.Intn(i + 1)
+		chambers[i], chambers[j] = chambers[j], chambers[i]
+	}
 }
 
 // processSolidifiedChamber handles a cooled magma chamber
