@@ -734,8 +734,9 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 		}
 		// Regenerate dynamic features using spherical algorithms
 		// Rivers and biomes change as terrain evolves
-		// We throttle this to every 1,000 years to avoid massive performance cost
-		riverInterval = 1_000.0
+		// OPTIMIZATION: Throttle to every 100,000 years for deep-time simulation
+		// (was 1,000 years which triggered every iteration with 100K steps)
+		riverInterval = 100_000.0
 		if g.RiverAccumulator >= riverInterval {
 			riverStart := time.Now()
 			if g.SphereHeightmap != nil {
@@ -765,8 +766,8 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 	} // End river check (heat <= 4.0)
 
 	// Fix 3: Apply isostatic adjustment & Maintenance
-	// We throttle this to every 1,000 years
-	maintenanceInterval := 1_000.0
+	// OPTIMIZATION: Throttle to every 100,000 years (was 1,000)
+	maintenanceInterval := 100_000.0
 	if g.MaintenanceAccumulator >= maintenanceInterval {
 		// Calculate how much time this maintenance step represents
 		accumulatedTime := g.MaintenanceAccumulator

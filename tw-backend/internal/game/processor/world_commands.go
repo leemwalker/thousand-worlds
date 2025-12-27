@@ -570,18 +570,23 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		if simulateGeology && !simulateLife {
 			heat := ecosystem.GetPlanetaryHeat(year)
 
+			// GEOLOGY-ONLY OPTIMIZATION: Use aggressive stepping throughout
+			// Since we don't need year-by-year resolution for biology,
+			// we can use much larger steps even in later eons
 			if heat > 4.0 {
 				// Hadean era (year 0-500M): Molten/Violent
 				// AGGRESSIVE: Use 100k year steps
 				stepSize = 100_000
 			} else if heat > 1.5 {
 				// Archean/Proterozoic (year 500M-3B): Cooling
-				// Use 10k year steps
-				stepSize = 10_000
+				// AGGRESSIVE for geology-only: Use 100k year steps (was 10k)
+				// Surface features still don't need fine resolution
+				stepSize = 100_000
 			} else {
 				// Phanerozoic/Modern (year 3B+): Stable
-				// Use 100 year steps for detailed recent history
-				stepSize = 100
+				// Use 10k year steps for geology-only (was 100)
+				// Only need fine resolution when biology is active
+				stepSize = 10_000
 			}
 
 			// Ensure we don't overshoot the end
