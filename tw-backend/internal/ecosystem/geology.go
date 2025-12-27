@@ -825,13 +825,12 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 		// 	caveTime += time.Since(caveStart)
 		// }
 
-		// DISABLED FOR DEBUGGING: Magma Chambers
-		// TODO: Re-enable after fixing underlying performance issues
-		// if g.TotalYearsSimulated%10_000_000 == 0 && g.Columns != nil {
-		// 	magmaStart := time.Now()
-		// 	g.simulateMagmaChambers(10_000_000)
-		// 	magmaTime += time.Since(magmaStart)
-		// }
+		// Magma Chambers - now optimized with spatial hashing and GC
+		if g.TotalYearsSimulated%10_000_000 == 0 && g.Columns != nil {
+			magmaStart := time.Now()
+			g.simulateMagmaChambers(10_000_000)
+			magmaTime += time.Since(magmaStart)
+		}
 
 		// Reset GeneralAccumulator if it gets too big (periodic cleanup)
 		// or use it as a 10k year clock
