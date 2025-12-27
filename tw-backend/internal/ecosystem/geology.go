@@ -57,6 +57,10 @@ type WorldGeology struct {
 	MaintenanceAccumulator    float64 // Years of accumulated maintenance time (subsidence, clamping, stats)
 	GeneralAccumulator        float64 // Years of accumulated time for lower frequency events
 
+	// Sync optimization: track when sphere heightmap needs to be synced to flat
+	// Set by event handlers, cleared after actual sync
+	sphereNeedsSync bool
+
 	// Ocean phase state (Hadean vapor → Modern liquid transition)
 	OceanVaporFraction float64 // 0.0 = all liquid (cool planet), 1.0 = all vapor (hot planet)
 }
@@ -243,7 +247,7 @@ func (g *WorldGeology) InitializeGeology() {
 		sphereRivers := geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed)
 		g.Rivers = geography.ConvertSphericalRiversToFlat(sphereRivers, g.Topology.Resolution())
 		// Sync sphere heightmap changes from river erosion
-		g.syncSphereToFlat()
+		g.markSphereNeedsSync()
 	} else {
 		g.Rivers = geography.GenerateRivers(g.Heightmap, g.SeaLevel, g.Seed)
 	}
@@ -255,8 +259,16 @@ func (g *WorldGeology) InitializeGeology() {
 	g.initializeColumns(width, height)
 }
 
+// markSphereNeedsSync marks that the sphere heightmap has been modified
+// and needs to be synced to the flat heightmap. The actual sync will happen
+// at the end of the iteration when flushSync is called.
+func (g *WorldGeology) markSphereNeedsSync() {
+	g.sphereNeedsSync = true
+}
+
 // syncSphereToFlat updates the flat Heightmap from the SphereHeightmap
 // Call this after making changes to SphereHeightmap to keep both in sync
+// DEPRECATED: Use markSphereNeedsSync() instead and let flushSync() handle it
 func (g *WorldGeology) syncSphereToFlat() {
 	if debug.Is(debug.Perf | debug.Geology) {
 		defer debug.Time(debug.Perf, "syncSphereToFlat")()
@@ -265,6 +277,16 @@ func (g *WorldGeology) syncSphereToFlat() {
 		return
 	}
 	g.Heightmap = g.SphereHeightmap.ToFlatHeightmap(g.Heightmap.Width, g.Heightmap.Height)
+	g.sphereNeedsSync = false
+}
+
+// flushSync performs a batched sync if the sphere heightmap has been modified
+// Call this once at the end of SimulateGeology instead of syncing after each operation
+func (g *WorldGeology) flushSync() {
+	if !g.sphereNeedsSync {
+		return
+	}
+	g.syncSphereToFlat()
 }
 
 // initializeColumns creates the underground column grid and generates strata
@@ -597,7 +619,7 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 
 				// Pass scaleFactor to apply stronger effects for longer intervals
 				g.SphereHeightmap = geography.SimulateTectonics(g.Plates, g.SphereHeightmap, g.Topology, scaleFactor)
-				g.syncSphereToFlat()
+				g.markSphereNeedsSync()
 			}
 		}
 
@@ -742,7 +764,7 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 			if g.SphereHeightmap != nil {
 				sphereRivers := geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
 				g.Rivers = geography.ConvertSphericalRiversToFlat(sphereRivers, g.Topology.Resolution())
-				g.syncSphereToFlat() // Sync river erosion to flat heightmap
+				g.markSphereNeedsSync() // Sync river erosion to flat heightmap
 			} else {
 				g.Rivers = geography.GenerateRivers(g.Heightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
 			}
@@ -786,7 +808,7 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 		// Fix 5: Global elevation clamping on SphereHeightmap
 		if g.SphereHeightmap != nil {
 			g.SphereHeightmap.ClampElevations(geography.MinElevation, geography.MaxElevation)
-			g.syncSphereToFlat()
+			g.markSphereNeedsSync()
 		} else {
 			for i, elev := range g.Heightmap.Elevations {
 				if elev > geography.MaxElevation {
@@ -893,6 +915,11 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 			statsTime, float64(statsTime)/float64(totalProfiled)*100,
 			biomeTime, float64(biomeTime)/float64(totalProfiled)*100)
 	}
+
+	// OPTIMIZATION: Batch all sphere-to-flat syncs into a single operation
+	// Instead of syncing after each tectonic/volcanic/crater operation,
+	// we mark dirty and flush once at the end
+	g.flushSync()
 
 	return phaseEvent
 }
@@ -1032,7 +1059,7 @@ func (g *WorldGeology) applyVolcanicMountains(severity float64) {
 			geography.ApplyVolcanoSpherical(g.SphereHeightmap, center, g.Topology, radius, height)
 		}
 		// Sync to flat heightmap
-		g.syncSphereToFlat()
+		g.markSphereNeedsSync()
 	} else {
 		// Fallback to flat heightmap
 		for i := 0; i < numVolcanoes; i++ {
@@ -1107,7 +1134,7 @@ func (g *WorldGeology) applyImpactCrater(severity float64) {
 				}
 			}
 		}
-		g.syncSphereToFlat()
+		g.markSphereNeedsSync()
 	} else {
 		// Fallback to flat heightmap
 		centerX := g.rng.Intn(g.Heightmap.Width)
@@ -1158,7 +1185,7 @@ func (g *WorldGeology) applyIceAgeEffects(severity float64) {
 				}
 			}
 		}
-		g.syncSphereToFlat()
+		g.markSphereNeedsSync()
 	} else {
 		// Fallback to flat heightmap
 		threshold := g.Heightmap.MaxElev * 0.6
@@ -1188,7 +1215,7 @@ func (g *WorldGeology) applyContinentalDrift(severity float64) {
 		// Apply minor boundary uplift based on severity (max 100m per event)
 		g.applyMinorBoundaryUplift(severity * 100)
 		// Sync to flat heightmap for legacy consumers
-		g.syncSphereToFlat()
+		g.markSphereNeedsSync()
 	} else {
 		// Fallback: simple uplift for when spherical data isn't available
 		// Capped at 50m per event to prevent runaway growth
@@ -1330,7 +1357,7 @@ func (g *WorldGeology) applyFloodBasalt(severity float64) {
 				}
 			}
 		}
-		g.syncSphereToFlat()
+		g.markSphereNeedsSync()
 	} else {
 		// Fallback to flat heightmap
 		centerX := g.rng.Intn(g.Heightmap.Width)
