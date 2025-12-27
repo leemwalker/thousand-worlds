@@ -602,6 +602,15 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 		// Calculate how many intervals passed
 		intervals := int64(g.TectonicStressAccumulator / tectonicInterval)
 
+		// OPTIMIZATION: Cap intervals per iteration to prevent accumulator explosion
+		// When crossing heat thresholds (e.g., 500M years), the interval changes
+		// dramatically, which could cause hundreds of tectonic updates in one iteration.
+		// Cap at 5 updates per iteration to keep things responsive.
+		const maxIntervalsPerIteration = 5
+		if intervals > maxIntervalsPerIteration {
+			intervals = maxIntervalsPerIteration
+		}
+
 		// Run tectonic updates
 		// Since we scaled the interval, we also scale the tectonic effect
 		scaleFactor := tectonicInterval / 100_000.0
