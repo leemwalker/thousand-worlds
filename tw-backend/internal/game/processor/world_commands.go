@@ -322,12 +322,18 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		client.SendGameMessage("system", fmt.Sprintf("🌊 Water level set to %.0fm (%s)", newSeaLevel, waterLevelFlag), nil)
 	}
 
+	// Track recent event logs to prevent spam
+	sentEventLogs := make(map[string]int64)
+
 	// Use population-based simulation for efficiency
 	if enableLife {
 		client.SendGameMessage("system", fmt.Sprintf("Starting population simulation of %d years...", years), nil)
 	} else {
 		client.SendGameMessage("system", fmt.Sprintf("Starting geology-only simulation of %d years...", years), nil)
 	}
+
+	// Simulation Loop
+	log.Printf("[WorldSimCmd] Starting simulation loop for %d years", years)
 
 	// Report epoch and goal if specified
 	if epochFlag != "" {
@@ -963,14 +969,25 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 				isNewEvent := eventAge < stepSize*365 // Started this year
 
 				if isNewEvent {
-					geologicalEvents++
-					eventCounts[e.Type]++
-					// Log the event
-					client.SendGameMessage("system", fmt.Sprintf("⚠️ GEOLOGICAL EVENT: %s (severity: %.0f%%)", e.Type, e.Severity*100), nil)
+					// Rate limit notifications for frequent events to prevent spam
+					lastLog, known := sentEventLogs[string(e.Type)]
+					shouldLog := true
+					if known && currentTick-lastLog < 500000*365 { // Don't spam same event type within 500k years
+						shouldLog = false
+					}
+
+					if shouldLog {
+						geologicalEvents++
+						eventCounts[e.Type]++
+						// Log the event
+						client.SendGameMessage("system", fmt.Sprintf("⚠️ GEOLOGICAL EVENT: %s (severity: %.0f%%)", e.Type, e.Severity*100), nil)
+						sentEventLogs[string(e.Type)] = currentTick
+					}
+
 					geology.ApplyEvent(e)
 
 					// Apply extinction event to populations based on event type
-					if simulateLife {
+					if simulateLife && isNewEvent && shouldLog { // Only apply sudden extinction shock if it's new
 						deaths := popSim.ApplyExtinctionEvent(eventType, e.Severity)
 						if deaths > 100 {
 							client.SendGameMessage("system", fmt.Sprintf("   💀 %d organisms perished", deaths), nil)
@@ -982,11 +999,15 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 				// This is what allows climate recovery to work!
 				if simulateLife && popSim != nil {
 					transitioned := popSim.ApplyBiomeTransitions(eventType, e.Severity)
-					if transitioned > 0 {
-						if e.Type == ecosystem.EventWarming || e.Type == ecosystem.EventGreenhouseSpike {
-							client.SendGameMessage("system", fmt.Sprintf("   🌡️ %d biomes warming! Climate recovery in progress", transitioned), nil)
-						} else {
-							client.SendGameMessage("system", fmt.Sprintf("   🌍 %d biomes shifted due to climate change", transitioned), nil)
+					if transitioned > 0 && isNewEvent { // Only log transitions for new events to reduce spam
+						// Rate limit these details too
+						lastLog, _ := sentEventLogs[string(e.Type)]
+						if currentTick-lastLog < 1000*365 { // Slight grace period matching the main log
+							if e.Type == ecosystem.EventWarming || e.Type == ecosystem.EventGreenhouseSpike {
+								client.SendGameMessage("system", fmt.Sprintf("   🌡️ %d biomes warming! Climate recovery in progress", transitioned), nil)
+							} else {
+								client.SendGameMessage("system", fmt.Sprintf("   🌍 %d biomes shifted due to climate change", transitioned), nil)
+							}
 						}
 					}
 				}
