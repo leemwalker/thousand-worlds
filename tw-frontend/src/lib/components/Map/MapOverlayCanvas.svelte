@@ -85,10 +85,34 @@
 
         if (!showTectonics && !showMinerals) return;
 
-        // Calculate visible area based on camera and zoom
-        // zoom = 1.0 means full world visible, zoom < 1.0 = zoomed in
-        const visibleWidth = gridWidth * zoom;
-        const visibleHeight = gridHeight * zoom;
+        // Calculate Aspect Ratios to match WebGLMapRenderer logic
+        const canvasAspect = width / height;
+        const worldAspect = gridWidth / gridHeight;
+
+        let baseScaleX = 1.0;
+        let baseScaleY = 1.0;
+
+        if (worldAspect > canvasAspect) {
+            // World is wider than canvas - fit width
+            // ScaleY must be increased to maintain aspect ratio (showing more vertical space/black bars)
+            baseScaleX = 1.0;
+            baseScaleY = worldAspect / canvasAspect;
+        } else {
+            // World is taller than canvas - fit height
+            // ScaleX must be increased to maintain aspect ratio
+            baseScaleY = 1.0;
+            baseScaleX = canvasAspect / worldAspect;
+        }
+
+        // Apply zoom to base scales
+        // Note: zoom < 1.0 means zoomed in (smaller texture scale)
+        const effectiveScaleX = baseScaleX * zoom;
+        const effectiveScaleY = baseScaleY * zoom;
+
+        // Calculate visible area in grid units
+        // visibleWidth = gridWidth * effectiveScaleX
+        const visibleWidth = gridWidth * effectiveScaleX;
+        const visibleHeight = gridHeight * effectiveScaleY;
 
         // Calculate the top-left corner of visible area in grid coordinates
         const startX = cameraX * gridWidth - visibleWidth / 2;
