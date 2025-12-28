@@ -6,12 +6,13 @@ import (
 
 // IceAgeInsolationThreshold is the insolation value below which ice ages begin.
 // When insolation drops below this threshold, conditions favor ice accumulation.
-// Based on orbital calculations, insolation ranges from ~0.97 to ~1.03.
-const IceAgeInsolationThreshold = 0.985
+// Based on orbital calculations, insolation ranges from ~0.96 to ~1.04.
+// Threshold tuned to 0.975 to target ~20-25% active duty cycle.
+const IceAgeInsolationThreshold = 0.975
 
 // IceAgeRecoveryThreshold is the insolation value above which ice ages end.
 // Uses hysteresis to prevent rapid oscillation between states.
-const IceAgeRecoveryThreshold = 0.995
+const IceAgeRecoveryThreshold = 0.990
 
 // IceAgeDurationBase is the minimum duration of an ice age event in years.
 const IceAgeDurationBase = 10000
