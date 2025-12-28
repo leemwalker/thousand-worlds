@@ -1844,3 +1844,232 @@ func (g *WorldGeology) GetMineralDeposits() []map[string]interface{} {
 
 	return deposits
 }
+
+// ResourceNode represents a sparse resource for the map overlay
+type ResourceNode struct {
+	Type string `json:"type"` // "gold", "iron", "cave"
+	X    int    `json:"x"`
+	Y    int    `json:"y"`
+	Val  int    `json:"val"` // Optional value/richness
+}
+
+// GetTemperatureMap generates a normalized temperature map (0.0-1.0)
+// 0.0 = Cold (Poles), 1.0 = Hot (Equator)
+func (g *WorldGeology) GetTemperatureMap(width, height int) []float64 {
+	result := make([]float64, width*height)
+	// Use a seed offset so it doesn't look identical to other noise
+	noise := geography.NewPerlinGenerator(g.Seed + 123)
+
+	for y := 0; y < height; y++ {
+		// Latitude: 0 = North Pole, 0.5 = Equator, 1.0 = South Pole
+		// But for temp, we want 0.0 at poles, 1.0 at equator
+		normalizedY := float64(y) / float64(height)
+		// Distance from equator (0.0 at equator, 0.5 at poles)
+		distFromEquator := math.Abs(normalizedY - 0.5)
+		// Base temp: 1.0 at equator, 0.0 at poles
+		baseTemp := 1.0 - (distFromEquator * 2.0)
+
+		for x := 0; x < width; x++ {
+			idx := y*width + x
+
+			// Add noise for organic variation
+			// Scale coords for noise frequency
+			nx := float64(x) * 0.1
+			ny := float64(y) * 0.1
+			n := noise.Noise2D(nx, ny) // -1 to 1
+
+			// Blend base temp with noise (80% lat, 20% noise)
+			temp := baseTemp*0.8 + ((n+1)/2)*0.2
+
+			// Clamp
+			if temp < 0 {
+				temp = 0
+			}
+			if temp > 1 {
+				temp = 1
+			}
+
+			result[idx] = temp
+		}
+	}
+	return result
+}
+
+// GetMoistureMap generates a normalized moisture map (0.0-1.0)
+func (g *WorldGeology) GetMoistureMap(width, height int) []float64 {
+	result := make([]float64, width*height)
+	noise := geography.NewPerlinGenerator(g.Seed + 456)
+
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			idx := y*width + x
+
+			nx := float64(x) * 0.08
+			ny := float64(y) * 0.08
+			n := noise.Noise2D(nx, ny)
+
+			moisture := (n + 1) / 2.0
+			result[idx] = moisture
+		}
+	}
+	return result
+}
+
+// GetBiomeMap generates biome IDs based on temperature and moisture
+// 0: Ocean (Implicit in client if elevation is low, but here we output land biomes)
+// 1: Desert, 2: Savanna, 3: Jungle
+// 4: Grassland, 5: Forest, 6: Taiga
+// 7: Tundra, 8: Ice
+func (g *WorldGeology) GetBiomeMap(width, height int, tempMap, moistureMap []float64) []int {
+	result := make([]int, width*height)
+
+	for i := 0; i < len(result); i++ {
+		t := tempMap[i]
+		m := moistureMap[i]
+
+		var biome int
+
+		if t < 0.2 {
+			// Cold
+			if m < 0.5 {
+				biome = 8 // Ice/Polar
+			} else {
+				biome = 7 // Tundra
+			}
+		} else if t < 0.5 {
+			// Cool
+			if m < 0.4 {
+				biome = 4 // Grassland/Steppe
+			} else if m < 0.7 {
+				biome = 6 // Taiga
+			} else {
+				biome = 5 // Forest
+			}
+		} else if t < 0.8 {
+			// Temperate/Warm
+			if m < 0.3 {
+				biome = 1 // Desert
+			} else if m < 0.6 {
+				biome = 2 // Savanna
+			} else {
+				biome = 5 // Forest
+			}
+		} else {
+			// Hot
+			if m < 0.3 {
+				biome = 1 // Desert
+			} else if m < 0.6 {
+				biome = 2 // Savanna
+			} else {
+				biome = 3 // Jungle
+			}
+		}
+
+		result[i] = biome
+	}
+
+	return result
+}
+
+// GetResourceMap generates sparse resource nodes
+func (g *WorldGeology) GetResourceMap(width, height int, elevMap []float64) []ResourceNode {
+	var resources []ResourceNode
+	rng := rand.New(rand.NewSource(g.Seed + 789))
+
+	// Create a density map or just random scatter
+	// Approx 1 resource per 100 pixels
+	count := (width * height) / 100
+
+	for i := 0; i < count; i++ {
+		x := rng.Intn(width)
+		y := rng.Intn(height)
+
+		// If we have elevation data (projected), we can use it rules
+		// For now, simple random types
+		rType := "iron"
+		roll := rng.Float64()
+		if roll < 0.1 {
+			rType = "gold"
+		} else if roll < 0.3 {
+			rType = "cave"
+		} else if roll < 0.6 {
+			rType = "coal"
+		}
+
+		// Check elevation if available (simple flat index)
+		if len(elevMap) > 0 {
+			idx := y*width + x
+			if idx < len(elevMap) {
+				elev := elevMap[idx]
+				// Caves only in high areas (assuming >0.6 is high)
+				if rType == "cave" && elev < 0.6 {
+					continue
+				}
+				// Minerals only on land (assuming 0.5 is sea level)
+				if elev < 0.5 {
+					continue
+				}
+			}
+		}
+
+		resources = append(resources, ResourceNode{
+			Type: rType,
+			X:    x,
+			Y:    y,
+		})
+	}
+
+	return resources
+}
+
+// GetElevationMap returns a flat projected elevation map (0.0-1.0)
+func (g *WorldGeology) GetElevationMap(width, height int) []float64 {
+	// Re-use MapIntToFlat logic but for floats
+
+	result := make([]float64, width*height)
+	// We assume SphereHeightmap is populated
+	if g.SphereHeightmap == nil {
+		return result
+	}
+
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			// Map pixel coordinates to longitude and latitude
+			lon := (float64(x) / float64(width)) * 2 * math.Pi
+			lat := (0.5 - float64(y)/float64(height)) * math.Pi
+
+			// Spherical conversion
+			cosLat := math.Cos(lat)
+			sinLat := math.Sin(lat)
+			cosLon := math.Cos(lon)
+			sinLon := math.Sin(lon)
+
+			sx := cosLat * cosLon
+			sy := sinLat
+			sz := cosLat * sinLon
+
+			coord := g.SphereHeightmap.Topology().FromVector(sx, sy, sz)
+
+			// Nearest neighbor
+			val := g.SphereHeightmap.Get(coord)
+
+			// Normalize based on Min/Max
+			minElev := g.SphereHeightmap.MinElev
+			maxElev := g.SphereHeightmap.MaxElev
+			if maxElev == minElev {
+				result[y*width+x] = 0.5
+			} else {
+				norm := (val - minElev) / (maxElev - minElev)
+				// Clamp
+				if norm < 0 {
+					norm = 0
+				}
+				if norm > 1 {
+					norm = 1
+				}
+				result[y*width+x] = norm
+			}
+		}
+	}
+	return result
+}

@@ -1550,6 +1550,27 @@ func (p *GameProcessor) handleWorldMap(ctx context.Context, client websocket.Gam
 			log.Printf("[WORLDMAP] No tectonic map available (plates=%d, topology=%v)", len(geo.Plates), geo.Topology != nil)
 		}
 
+		// Calculate environmental data for overlays
+		// We calculate these on demand for the requested grid size
+		width, height := mapData.GridWidth, mapData.GridHeight
+
+		tempMap := geo.GetTemperatureMap(width, height)
+		overlays["temp"] = tempMap
+
+		moistureMap := geo.GetMoistureMap(width, height)
+		overlays["moisture"] = moistureMap
+
+		elevMap := geo.GetElevationMap(width, height)
+		overlays["elevation"] = elevMap
+
+		biomeMap := geo.GetBiomeMap(width, height, tempMap, moistureMap)
+		overlays["biome"] = biomeMap
+
+		resourceMap := geo.GetResourceMap(width, height, elevMap)
+		overlays["resources"] = resourceMap
+
+		log.Printf("[WORLDMAP] Added env overlays: Temp/Moist/Elev/Biome/Res (grid %dx%d)", width, height)
+
 		// Mineral deposit overlay - list of discovered and undiscovered deposits
 		if minerals := geo.GetMineralDeposits(); minerals != nil && len(minerals) > 0 {
 			overlays["minerals"] = minerals

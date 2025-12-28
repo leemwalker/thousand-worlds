@@ -7,6 +7,7 @@
     import { fade, fly } from "svelte/transition";
     import { mapStore } from "$lib/stores/map";
     import { gameWebSocket } from "$lib/services/websocket";
+    import type { OverlayMode } from "$lib/types/overlays";
 
     export let isOpen = false;
     export let onClose: () => void;
@@ -41,9 +42,9 @@
     // Graphics mode toggle (WebGL vs ASCII)
     let useGraphicsMode = true;
 
-    // Overlay toggle state
-    let showTectonicsOverlay = false;
-    let showMineralsOverlay = false;
+    // Overlay state
+    let activeLayer: OverlayMode = "none";
+    let showMineralsOverlay = false; // Kept as separate toggle for resources
 
     // Simulation stats (from events or world data)
     let simStats = {
@@ -509,17 +510,15 @@
                         on:mouseleave={handleMapMouseLeave}
                     ></canvas>
 
-                    <!-- Overlay Canvas (Tectonics / Minerals) -->
-                    {#if worldMapData?.overlays && (showTectonicsOverlay || showMineralsOverlay)}
+                    <!-- Overlay Canvas (Tectonics / Minerals / Env) -->
+                    {#if worldMapData?.overlays && (activeLayer !== "none" || showMineralsOverlay)}
                         <MapOverlayCanvas
                             width={containerWidth}
                             height={containerHeight}
                             gridWidth={worldMapData.grid_width}
                             gridHeight={worldMapData.grid_height}
-                            tectonicsData={worldMapData.overlays?.tectonics}
-                            plateInfo={worldMapData.overlays?.plate_info}
-                            mineralsData={worldMapData.overlays?.minerals}
-                            showTectonics={showTectonicsOverlay}
+                            overlayData={worldMapData.overlays}
+                            {activeLayer}
                             showMinerals={showMineralsOverlay}
                             {cameraX}
                             {cameraY}
@@ -623,9 +622,11 @@
                     <!-- Legend (Bottom Left) -->
                     <div class="absolute bottom-4 left-4" transition:fade>
                         <WorldMapLegend
-                            mode={worldMapData?.is_simulated
-                                ? "terrain"
-                                : "biome"}
+                            mode={activeLayer === "none"
+                                ? worldMapData?.is_simulated
+                                    ? "terrain"
+                                    : "biome"
+                                : activeLayer}
                         />
                     </div>
 
@@ -636,42 +637,69 @@
                         <!-- Overlay Toggles -->
                         {#if worldMapData?.overlays}
                             <div
-                                class="bg-gray-800/90 p-3 rounded-lg border border-gray-700 space-y-2"
+                                class="bg-gray-800/90 p-3 rounded-lg border border-gray-700 space-y-3 min-w-[200px]"
                             >
                                 <div
-                                    class="text-xs text-gray-400 font-bold uppercase mb-2"
+                                    class="text-xs text-gray-400 font-bold uppercase border-b border-gray-700 pb-1"
                                 >
-                                    Overlays
+                                    Data Layers
                                 </div>
-                                {#if worldMapData.overlays.tectonics}
-                                    <label
-                                        class="flex items-center gap-2 cursor-pointer hover:bg-gray-700/50 px-2 py-1 rounded transition-colors"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            bind:checked={showTectonicsOverlay}
-                                            class="w-4 h-4 accent-purple-500"
-                                        />
-                                        <span class="text-sm text-gray-300"
-                                            >Tectonic Plates</span
+
+                                <!-- Layer Selection (Radio-like behavior) -->
+                                <div class="space-y-1">
+                                    {#each [{ id: "none", label: "None", icon: "🚫" }, { id: "tectonics", label: "Tectonics", icon: "🌋" }, { id: "elevation", label: "Elevation", icon: "🏔️" }, { id: "temp", label: "Temperature", icon: "🌡️" }, { id: "moisture", label: "Moisture", icon: "💧" }, { id: "biome", label: "Biomes", icon: "🌿" }] as layer}
+                                        <button
+                                            class="w-full text-left px-2 py-1.5 rounded text-xs flex items-center justify-between transition-colors {activeLayer ===
+                                            layer.id
+                                                ? 'bg-blue-600/30 text-blue-200 border border-blue-500/30'
+                                                : 'hover:bg-gray-700 text-gray-300'}"
+                                            on:click={() =>
+                                                (activeLayer = layer.id as OverlayMode)}
                                         >
-                                    </label>
-                                {/if}
-                                {#if worldMapData.overlays.minerals && worldMapData.overlays.minerals.length > 0}
-                                    <label
-                                        class="flex items-center gap-2 cursor-pointer hover:bg-gray-700/50 px-2 py-1 rounded transition-colors"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            bind:checked={showMineralsOverlay}
-                                            class="w-4 h-4 accent-yellow-500"
-                                        />
-                                        <span class="text-sm text-gray-300"
-                                            >Mineral Deposits ({worldMapData
-                                                .overlays.minerals
-                                                .length})</span
+                                            <span
+                                                class="flex items-center gap-2"
+                                            >
+                                                <span>{layer.icon}</span>
+                                                {layer.label}
+                                            </span>
+                                            {#if activeLayer === layer.id}
+                                                <span
+                                                    class="w-1.5 h-1.5 rounded-full bg-blue-400"
+                                                ></span>
+                                            {/if}
+                                        </button>
+                                    {/each}
+                                </div>
+
+                                <!-- Resources Toggle (Independent) -->
+                                {#if worldMapData.overlays.resources || worldMapData.overlays.minerals}
+                                    <div class="pt-2 border-t border-gray-700">
+                                        <label
+                                            class="flex items-center gap-2 cursor-pointer hover:bg-gray-700/50 px-2 py-1 rounded transition-colors group"
                                         >
-                                    </label>
+                                            <input
+                                                type="checkbox"
+                                                bind:checked={
+                                                    showMineralsOverlay
+                                                }
+                                                class="w-4 h-4 accent-yellow-500 rounded border-gray-600 bg-gray-700"
+                                            />
+                                            <div class="flex flex-col">
+                                                <span
+                                                    class="text-xs text-gray-300 group-hover:text-white"
+                                                    >Show Resources</span
+                                                >
+                                                {#if worldMapData.overlays.resources}
+                                                    <span
+                                                        class="text-[10px] text-gray-500"
+                                                    >
+                                                        {worldMapData.overlays
+                                                            .resources.length} nodes
+                                                    </span>
+                                                {/if}
+                                            </div>
+                                        </label>
+                                    </div>
                                 {/if}
                             </div>
                         {/if}

@@ -1,0 +1,35 @@
+export type OverlayMode = 'none' | 'tectonics' | 'temp' | 'moisture' | 'elevation' | 'biome' | 'resources';
+
+export interface ResourceNode {
+    type: string; // "gold", "iron", "cave", etc.
+    x: number;
+    y: number;
+    val?: number;
+}
+
+export interface PlateMetadata {
+    id: number;
+    name: string;
+    type: string;
+    center_x: number;
+    center_y: number;
+    area: number;
+}
+
+export interface OverlayData {
+    // Tectonics
+    tectonics?: number[]; // Grid of Plate IDs
+    plate_info?: PlateMetadata[];
+
+    // Environment Heatmaps (0.0 - 1.0)
+    temp?: number[];
+    moisture?: number[];
+    elevation?: number[]; // Projected elevation map
+
+    // Biomes (ID grid)
+    biome?: number[];
+
+    // Sparse Resources
+    resources?: ResourceNode[];
+    minerals?: any[]; // Legacy mineral format if needed
+}
