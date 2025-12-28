@@ -442,6 +442,10 @@
         tooltipData = null;
     }
 
+    function setActiveLayer(id: string) {
+        activeLayer = id as OverlayMode;
+    }
+
     onDestroy(() => {
         if (renderer) renderer.stop();
     });
@@ -654,7 +658,7 @@
                                                 ? 'bg-blue-600/30 text-blue-200 border border-blue-500/30'
                                                 : 'hover:bg-gray-700 text-gray-300'}"
                                             on:click={() =>
-                                                (activeLayer = layer.id as OverlayMode)}
+                                                setActiveLayer(layer.id)}
                                         >
                                             <span
                                                 class="flex items-center gap-2"
