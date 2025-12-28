@@ -1,6 +1,7 @@
 package ecosystem
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"math/rand"
@@ -1709,49 +1710,105 @@ func (g *WorldGeology) UpdateBiomes(globalTempMod float64) []geography.Biome {
 	return biomes
 }
 
-// GetTectonicMap returns a flat array of plate IDs for each heightmap cell.
-// Returns nil if plates haven't been generated.
-// The array is indexed as [y*width + x] where x is longitude and y is latitude.
-// Plate IDs are 0-indexed integers; cells with no assigned plate have value -1.
-// width and height invoke MapIntToFlat to project to the desired resolution.
-func (g *WorldGeology) GetTectonicMap(width, height int) []int {
+// GetTectonicMap returns a flat map of tectonic plate IDs and metadata for visualization.
+// width/height: the dimensions of the target grid (usually matches frontend display)
+func (g *WorldGeology) GetTectonicMap(width, height int) ([]int, []map[string]interface{}) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	if g.Heightmap == nil || len(g.Plates) == 0 {
-		return nil
+	if len(g.Plates) == 0 {
+		return nil, nil
 	}
 
 	// Use default dimensions if 0 provided
-	if width <= 0 {
+	if width == 0 {
 		width = g.Heightmap.Width
 	}
-	if height <= 0 {
+	if height == 0 {
 		height = g.Heightmap.Height
 	}
 
-	// Build a lookup map of coordinate -> plate ID for O(1) access during projection
-	// This is necessary because the SphereHeightmap projection iterates pixels and looks up coordinates,
-	// whereas plates are stored as regions of coordinates.
-	plateLookup := make(map[spatial.Coordinate]int)
+	// 1. Prepare dense source array for projection
+	sourceResolution := g.SphereHeightmap.Resolution()
+	sourceSize := sourceResolution * sourceResolution * 6
+	sourceData := make([]int, sourceSize)
 
-	// We are under RLock (from top of function). building a local map is safe.
-	for plateIdx, plate := range g.Plates {
+	// Initialize with -1
+	for i := range sourceData {
+		sourceData[i] = -1
+	}
+
+	// Fill source data from plates
+	for i, plate := range g.Plates {
+		id := i + 1 // 1-based ID for visualization
 		for coord := range plate.Region {
-			plateLookup[coord] = plateIdx
+			// Calculate index
+			idx := coord.Face*sourceResolution*sourceResolution + coord.Y*sourceResolution + coord.X
+			if idx >= 0 && idx < sourceSize {
+				sourceData[idx] = id
+			}
 		}
 	}
 
-	// Use the SphereHeightmap to project the plate IDs onto a flat grid
-	// matching the main map's projection.
-	plateGrid := g.SphereHeightmap.MapIntToFlat(width, height, func(c spatial.Coordinate) int {
-		if id, ok := plateLookup[c]; ok {
-			return id
+	// 2. Project to flat grid using closure
+	grid := g.SphereHeightmap.MapIntToFlat(width, height, func(coord spatial.Coordinate) int {
+		idx := coord.Face*sourceResolution*sourceResolution + coord.Y*sourceResolution + coord.X
+		if idx >= 0 && idx < sourceSize {
+			return sourceData[idx]
 		}
 		return -1
 	})
 
-	return plateGrid
+	// 3. Calculate centroids on the projected grid
+	plateCentersX := make(map[int]int)
+	plateCentersY := make(map[int]int)
+	platePixelCounts := make(map[int]int)
+
+	for i, plateID := range grid {
+		if plateID > 0 {
+			x := i % width
+			y := i / width
+
+			plateCentersX[plateID] += x
+			plateCentersY[plateID] += y
+			platePixelCounts[plateID]++
+		}
+	}
+
+	// 4. Prepare metadata
+	metadata := make([]map[string]interface{}, 0)
+	for i, plate := range g.Plates {
+		id := i + 1
+		count := platePixelCounts[id]
+
+		// Determine visual center
+		centerX := 0
+		centerY := 0
+		if count > 0 {
+			centerX = plateCentersX[id] / count
+			centerY = plateCentersY[id] / count
+		} else {
+			continue // Skip invisible plates
+		}
+
+		name := fmt.Sprintf("Plate %d", id)
+		if plate.Type == geography.PlateOceanic {
+			name = fmt.Sprintf("Oceanic %d", id)
+		} else {
+			name = fmt.Sprintf("Continental %d", id)
+		}
+
+		metadata = append(metadata, map[string]interface{}{
+			"id":       id,
+			"name":     name,
+			"type":     string(plate.Type),
+			"center_x": centerX,
+			"center_y": centerY,
+			"area":     count,
+		})
+	}
+
+	return grid, metadata
 }
 
 // GetMineralDeposits returns all mineral deposits from underground columns.

@@ -6,6 +6,7 @@
     export let gridWidth: number;
     export let gridHeight: number;
     export let tectonicsData: number[] | null = null;
+    export let plateInfo: any[] = [];
     export let mineralsData: any[] | null = null;
     export let showTectonics = false;
     export let showMinerals = false;
@@ -15,20 +16,36 @@
 
     let canvas: HTMLCanvasElement;
 
-    // Plate color palette (10 distinct colors with semi-transparency)
+    // Plate color palette (10 distinct colors with low opacity for shading)
     const PLATE_COLORS = [
-        "rgba(147, 51, 234, 0.4)", // Purple
-        "rgba(59, 130, 246, 0.4)", // Blue
-        "rgba(16, 185, 129, 0.4)", // Green
-        "rgba(245, 158, 11, 0.4)", // Orange
-        "rgba(239, 68, 68, 0.4)", // Red
-        "rgba(236, 72, 153, 0.4)", // Pink
-        "rgba(6, 182, 212, 0.4)", // Cyan
-        "rgba(132, 204, 22, 0.4)", // Lime
-        "rgba(168, 85, 247, 0.4)", // Violet
-        "rgba(251, 191, 36, 0.4)", // Amber
-        "rgba(99, 102, 241, 0.4)", // Indigo
-        "rgba(14, 165, 233, 0.4)", // Sky
+        "rgba(147, 51, 234, 0.2)", // Purple
+        "rgba(59, 130, 246, 0.2)", // Blue
+        "rgba(16, 185, 129, 0.2)", // Green
+        "rgba(245, 158, 11, 0.2)", // Orange
+        "rgba(239, 68, 68, 0.2)", // Red
+        "rgba(236, 72, 153, 0.2)", // Pink
+        "rgba(6, 182, 212, 0.2)", // Cyan
+        "rgba(132, 204, 22, 0.2)", // Lime
+        "rgba(168, 85, 247, 0.2)", // Violet
+        "rgba(251, 191, 36, 0.2)", // Amber
+        "rgba(99, 102, 241, 0.2)", // Indigo
+        "rgba(14, 165, 233, 0.2)", // Sky
+    ];
+
+    // Border colors (same palette but fully opaque)
+    const PLATE_BORDERS = [
+        "rgb(147, 51, 234)",
+        "rgb(59, 130, 246)",
+        "rgb(16, 185, 129)",
+        "rgb(245, 158, 11)",
+        "rgb(239, 68, 68)",
+        "rgb(236, 72, 153)",
+        "rgb(6, 182, 212)",
+        "rgb(132, 204, 22)",
+        "rgb(168, 85, 247)",
+        "rgb(251, 191, 36)",
+        "rgb(99, 102, 241)",
+        "rgb(14, 165, 233)",
     ];
 
     // Mineral type colors
@@ -54,6 +71,7 @@
         width,
         height,
         tectonicsData,
+        plateInfo,
         mineralsData,
         drawOverlays();
 
@@ -80,9 +98,9 @@
         const cellW = width / visibleWidth;
         const cellH = height / visibleHeight;
 
-        // Draw tectonic plate boundaries
+        // Draw tectonic plates (fill and labels)
         if (showTectonics && tectonicsData && tectonicsData.length > 0) {
-            drawTectonicBoundaries(ctx, startX, startY, cellW, cellH);
+            drawTectonicPlates(ctx, startX, startY, cellW, cellH);
         }
 
         // Draw mineral deposits
@@ -91,7 +109,7 @@
         }
     }
 
-    function drawTectonicBoundaries(
+    function drawTectonicPlates(
         ctx: CanvasRenderingContext2D,
         startX: number,
         startY: number,
@@ -100,9 +118,7 @@
     ) {
         if (!tectonicsData) return;
 
-        // Draw boundary lines where plate IDs differ
-        ctx.lineWidth = Math.max(1, cellW * 0.1);
-
+        // 1. Draw Plate Fills (Shaded Area)
         for (let gy = 0; gy < gridHeight; gy++) {
             for (let gx = 0; gx < gridWidth; gx++) {
                 const idx = gy * gridWidth + gx;
@@ -113,7 +129,7 @@
                 const screenX = (gx - startX) * cellW;
                 const screenY = (gy - startY) * cellH;
 
-                // Skip if completely off-screen
+                // Optimization: skip if completely off-screen
                 if (
                     screenX + cellW < 0 ||
                     screenX > width ||
@@ -123,43 +139,84 @@
                     continue;
                 }
 
-                // Check right neighbor for boundary
-                if (gx < gridWidth - 1) {
-                    const rightPlate = tectonicsData[idx + 1];
+                // Fill color
+                const color =
+                    PLATE_COLORS[(plateId - 1) % PLATE_COLORS.length] ||
+                    PLATE_COLORS[0] ||
+                    "rgba(0,0,0,0.5)";
+                ctx.fillStyle = color;
+                ctx.fillRect(
+                    Math.floor(screenX),
+                    Math.floor(screenY),
+                    Math.ceil(cellW),
+                    Math.ceil(cellH),
+                );
+
+                // Draw borders if edge
+                let isEdge = false;
+                if (gx < gridWidth - 1 && tectonicsData[idx + 1] !== plateId)
+                    isEdge = true;
+                if (
+                    gy < gridHeight - 1 &&
+                    tectonicsData[idx + gridWidth] !== plateId
+                )
+                    isEdge = true;
+
+                // Optional: Draw explicit border lines for sharper definition
+                if (isEdge) {
+                    const borderColor =
+                        PLATE_BORDERS[(plateId - 1) % PLATE_BORDERS.length] ||
+                        PLATE_BORDERS[0] ||
+                        "black";
+                    ctx.fillStyle = borderColor;
+                    // Draw a thin border on the edge side
                     if (
-                        rightPlate !== undefined &&
-                        rightPlate >= 0 &&
-                        rightPlate !== plateId
+                        gx < gridWidth - 1 &&
+                        tectonicsData[idx + 1] !== plateId
                     ) {
-                        const color =
-                            PLATE_COLORS[plateId % PLATE_COLORS.length] ??
-                            PLATE_COLORS[0];
-                        ctx.strokeStyle = color;
-                        ctx.beginPath();
-                        ctx.moveTo(screenX + cellW, screenY);
-                        ctx.lineTo(screenX + cellW, screenY + cellH);
-                        ctx.stroke();
+                        ctx.fillRect(screenX + cellW - 1, screenY, 1, cellH);
                     }
+                    if (
+                        gy < gridHeight - 1 &&
+                        tectonicsData[idx + gridWidth] !== plateId
+                    ) {
+                        ctx.fillRect(screenX, screenY + cellH - 1, cellW, 1);
+                    }
+                }
+            }
+        }
+
+        // 2. Draw Labels
+        if (plateInfo && plateInfo.length > 0 && zoom < 5.0) {
+            // Hide labels if zoomed out too far? No, assume reasonable zoom.
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            // Scale font size
+            const fontSize = Math.max(10, Math.min(24, cellW * 2));
+            ctx.font = `bold ${fontSize}px sans-serif`;
+
+            for (const plate of plateInfo) {
+                if (!plate.name) continue;
+
+                const screenX = (plate.center_x - startX) * cellW + cellW / 2;
+                const screenY = (plate.center_y - startY) * cellH + cellH / 2;
+
+                if (
+                    screenX < -100 ||
+                    screenX > width + 100 ||
+                    screenY < -50 ||
+                    screenY > height + 50
+                ) {
+                    continue;
                 }
 
-                // Check bottom neighbor for boundary
-                if (gy < gridHeight - 1) {
-                    const bottomPlate = tectonicsData[idx + gridWidth];
-                    if (
-                        bottomPlate !== undefined &&
-                        bottomPlate >= 0 &&
-                        bottomPlate !== plateId
-                    ) {
-                        const color =
-                            PLATE_COLORS[plateId % PLATE_COLORS.length] ??
-                            PLATE_COLORS[0];
-                        ctx.strokeStyle = color;
-                        ctx.beginPath();
-                        ctx.moveTo(screenX, screenY + cellH);
-                        ctx.lineTo(screenX + cellW, screenY + cellH);
-                        ctx.stroke();
-                    }
-                }
+                // Stroke text for readability over map
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = "rgba(0, 0, 0, 0.8)";
+                ctx.strokeText(plate.name, screenX, screenY);
+
+                ctx.fillStyle = "white";
+                ctx.fillText(plate.name, screenX, screenY);
             }
         }
     }

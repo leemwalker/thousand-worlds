@@ -517,6 +517,7 @@
                             gridWidth={worldMapData.grid_width}
                             gridHeight={worldMapData.grid_height}
                             tectonicsData={worldMapData.overlays?.tectonics}
+                            plateInfo={worldMapData.overlays?.plate_info}
                             mineralsData={worldMapData.overlays?.minerals}
                             showTectonics={showTectonicsOverlay}
                             showMinerals={showMineralsOverlay}
