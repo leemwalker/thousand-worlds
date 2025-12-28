@@ -97,9 +97,12 @@
         const effectiveScaleX = baseScaleX * zoom;
         const effectiveScaleY = baseScaleY * zoom;
 
-        // Size of the world in screen pixels (could be huge if zoomed in)
-        const worldWidthPx = width * effectiveScaleX;
-        const worldHeightPx = height * effectiveScaleY;
+        // Size of the world in screen pixels
+        // Note: texScale from WebGL is "Field of View Size".
+        // texScale=1 -> View=World. texScale=2 -> View=2xWorld (ZoomOut).
+        // So World (in pixels) = Canvas / texScale.
+        const worldWidthPx = width / effectiveScaleX;
+        const worldHeightPx = height / effectiveScaleY;
 
         // Cell size on screen
         const cellW = worldWidthPx / gridWidth;
@@ -133,10 +136,13 @@
                     data,
                     (val, x, y, w, h) => {
                         if (val <= 0) return;
-                        ctx.fillStyle =
+                        const color =
                             PLATE_COLORS[(val - 1) % PLATE_COLORS.length] ||
                             PLATE_COLORS[0];
-                        ctx.fillRect(x, y, w, h);
+                        if (color) {
+                            ctx.fillStyle = color;
+                            ctx.fillRect(x, y, w, h);
+                        }
 
                         // Simple borders (optional, keeping minimal for perf)
                         // Check neighbors logic is heavy inside generic loop, skipping for now or implement separate pass
@@ -333,7 +339,15 @@
                 if (screenX > width || screenX + w < 0) continue;
 
                 // Render
-                renderer(val, Math.floor(screenX), Math.floor(screenY), w, h);
+                if (val !== undefined) {
+                    renderer(
+                        val,
+                        Math.floor(screenX),
+                        Math.floor(screenY),
+                        w,
+                        h,
+                    );
+                }
             }
         }
     }
