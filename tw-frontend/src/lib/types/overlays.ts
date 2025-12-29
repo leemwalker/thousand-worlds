@@ -1,7 +1,7 @@
-export type OverlayMode = 'none' | 'tectonics' | 'temp' | 'moisture' | 'elevation' | 'biome' | 'resources';
+export type OverlayMode = 'none' | 'tectonics' | 'temp' | 'moisture' | 'elevation' | 'biome' | 'resources' | 'features';
 
 export interface ResourceNode {
-    type: string; // "gold", "iron", "cave", etc.
+    type: string; // "gold", "iron", "cave", "peak", "volcano", "trench"
     x: number;
     y: number;
     val?: number;
@@ -32,4 +32,7 @@ export interface OverlayData {
     // Sparse Resources
     resources?: ResourceNode[];
     minerals?: any[]; // Legacy mineral format if needed
+
+    // Terrain Features
+    features?: ResourceNode[];
 }

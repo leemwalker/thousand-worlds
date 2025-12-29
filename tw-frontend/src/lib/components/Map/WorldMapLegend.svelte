@@ -99,7 +99,7 @@
         </div>
         {#if expanded}
             <div class="text-gray-500">
-                {#if isLobby}🏛️{:else if mode === "terrain" || mode === "elevation"}⛰️{:else if mode === "temp"}🌡️{:else if mode === "moisture"}💧{:else if mode === "tectonics"}🌋{:else}🌿{/if}
+                {#if isLobby}🏛️{:else if mode === "terrain" || mode === "elevation"}⛰️{:else if mode === "temp"}🌡️{:else if mode === "moisture"}💧{:else if mode === "hectonics"}🌋{:else if mode === "tectonics"}📐{:else if mode === "features"}📍{:else}🌿{/if}
             </div>
         {/if}
     </button>
@@ -178,6 +178,29 @@
                         <div class="flex items-center gap-2">
                             <div class="w-4 h-4 rounded bg-white/20"></div>
                             <span class="text-gray-300">Arid / Desert</span>
+                        </div>
+                    </div>
+                </div>
+            {:else if mode === "features"}
+                <!-- Features Mode -->
+                <div>
+                    <h4
+                        class="font-bold text-gray-400 mb-2 uppercase text-[10px] tracking-wider"
+                    >
+                        Features
+                    </h4>
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-lg">🌋</span>
+                            <span class="text-gray-300">Volcano</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-lg">🏔️</span>
+                            <span class="text-gray-300">Peak</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-lg">🕳️</span>
+                            <span class="text-gray-300">Trench</span>
                         </div>
                     </div>
                 </div>

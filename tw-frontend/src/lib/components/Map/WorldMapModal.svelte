@@ -651,7 +651,7 @@
 
                                 <!-- Layer Selection (Radio-like behavior) -->
                                 <div class="space-y-1">
-                                    {#each [{ id: "none", label: "None", icon: "🚫" }, { id: "tectonics", label: "Tectonics", icon: "🌋" }, { id: "elevation", label: "Elevation", icon: "🏔️" }, { id: "temp", label: "Temperature", icon: "🌡️" }, { id: "moisture", label: "Moisture", icon: "💧" }, { id: "biome", label: "Biomes", icon: "🌿" }] as layer}
+                                    {#each [{ id: "none", label: "None", icon: "🚫" }, { id: "tectonics", label: "Tectonics", icon: "📐" }, { id: "elevation", label: "Elevation", icon: "🏔️" }, { id: "temp", label: "Temperature", icon: "🌡️" }, { id: "moisture", label: "Moisture", icon: "💧" }, { id: "biome", label: "Biomes", icon: "🌿" }, { id: "features", label: "Terrain Features", icon: "📍" }] as layer}
                                         <button
                                             class="w-full text-left px-2 py-1.5 rounded text-xs flex items-center justify-between transition-colors {activeLayer ===
                                             layer.id

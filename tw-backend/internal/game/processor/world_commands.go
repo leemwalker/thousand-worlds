@@ -1569,6 +1569,9 @@ func (p *GameProcessor) handleWorldMap(ctx context.Context, client websocket.Gam
 		resourceMap := geo.GetResourceMap(width, height, elevMap)
 		overlays["resources"] = resourceMap
 
+		featuresMap := geo.GetTerrainFeaturesMap(width, height)
+		overlays["features"] = featuresMap
+
 		log.Printf("[WORLDMAP] Added env overlays: Temp/Moist/Elev/Biome/Res (grid %dx%d)", width, height)
 
 		// Mineral deposit overlay - list of discovered and undiscovered deposits

@@ -2073,3 +2073,138 @@ func (g *WorldGeology) GetElevationMap(width, height int) []float64 {
 	}
 	return result
 }
+
+// GetTerrainFeaturesMap returns active terrain features (peaks, volcanoes, trenches)
+func (g *WorldGeology) GetTerrainFeaturesMap(width, height int) []ResourceNode {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	var features []ResourceNode
+
+	// Project global features (Volcanoes/Magma Chambers)
+	// Magma chambers use grid coordinates matching the world heightmap resolution
+	sourceW := float64(g.Heightmap.Width)
+	sourceH := float64(g.Heightmap.Height)
+
+	// Scale factors
+	scaleX := float64(width) / sourceW
+	scaleY := float64(height) / sourceH
+
+	for _, chamber := range g.MagmaChambers {
+		if !chamber.Solidified {
+			// Chamber coordinates are in source grid space
+			srcX := chamber.Center.X
+			srcY := chamber.Center.Y
+
+			// Project to requested grid size
+			screenX := int(srcX * scaleX)
+			screenY := int(srcY * scaleY)
+
+			// Wrap X
+			screenX = screenX % width
+			if screenX < 0 {
+				screenX += width
+			}
+			// Clamp Y
+			if screenY < 0 {
+				screenY = 0
+			}
+			if screenY >= height {
+				screenY = height - 1
+			}
+
+			features = append(features, ResourceNode{
+				Type: "volcano",
+				X:    screenX,
+				Y:    screenY,
+			})
+		}
+	}
+
+	// Identify Peaks (High elevation local maxima) and Trenches
+
+	// Temporarily release lock to call GetElevationMap if strict checking,
+	// but GetElevationMap accesses shared state without locking itself?
+	// The snippet I saw showed it accesses g.SphereHeightmap.*.
+	// We ALREADY hold the lock. If GetElevationMap DOES lock, we die.
+	// Looking at lines 2026-2075: It does NOT acquire a lock. It accesses fields directly.
+	// Safe to proceed.
+
+	elevGrid := g.GetElevationMap(width, height)
+	if len(elevGrid) == 0 {
+		return features
+	}
+
+	radius := 4
+	minPeakHeight := 0.75  // Top 25% of height range (Significant peaks)
+	maxTrenchDepth := 0.35 // Lowest 35% (Deep ocean)
+
+	// Scanning logic
+	for y := radius; y < height-radius; y += radius { // Stride
+		for x := radius; x < width-radius; x += radius {
+			val := elevGrid[y*width+x]
+
+			// --- Peak Detection ---
+			if val > minPeakHeight {
+				isMax := true
+				// Check neighborhood
+				for dy := -radius; dy <= radius; dy++ {
+					for dx := -radius; dx <= radius; dx++ {
+						if dx == 0 && dy == 0 {
+							continue
+						}
+						// Wrap X
+						nx := (x + dx + width) % width
+						ny := y + dy
+						// Clamp Y
+						if ny < 0 || ny >= height {
+							continue
+						}
+
+						if elevGrid[ny*width+nx] >= val {
+							isMax = false
+							break
+						}
+					}
+					if !isMax {
+						break
+					}
+				}
+				if isMax {
+					features = append(features, ResourceNode{Type: "peak", X: x, Y: y})
+				}
+			}
+
+			// --- Trench Detection ---
+			// Only check for trenches if underwater (val < 0.5 usually)
+			if val < maxTrenchDepth {
+				isMin := true
+				for dy := -radius; dy <= radius; dy++ {
+					for dx := -radius; dx <= radius; dx++ {
+						if dx == 0 && dy == 0 {
+							continue
+						}
+						nx := (x + dx + width) % width
+						ny := y + dy
+						if ny < 0 || ny >= height {
+							continue
+						}
+
+						if elevGrid[ny*width+nx] <= val {
+							isMin = false
+							break
+						}
+					}
+					if !isMin {
+						break
+					}
+				}
+				if isMin {
+					features = append(features, ResourceNode{Type: "trench", X: x, Y: y})
+				}
+			}
+		}
+	}
+
+	return features
+}

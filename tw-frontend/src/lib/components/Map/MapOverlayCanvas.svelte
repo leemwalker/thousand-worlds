@@ -282,6 +282,20 @@
                     centerScreenY,
                 );
         }
+
+        // Features (Volcanoes, Peaks)
+        if (mode === "features" && overlayData.features) {
+            drawFeatures(
+                ctx,
+                overlayData.features,
+                centerTx,
+                centerTy,
+                cellW,
+                cellH,
+                centerScreenX,
+                centerScreenY,
+            );
+        }
     }
 
     // Generic Grid Drawer with Wrapping
@@ -472,6 +486,48 @@
             ctx.fill();
             ctx.strokeStyle = "white";
             ctx.stroke();
+        }
+    }
+
+    function drawFeatures(
+        ctx: CanvasRenderingContext2D,
+        nodes: any[],
+        centerTx: number,
+        centerTy: number,
+        cellW: number,
+        cellH: number,
+        centerScreenX: number,
+        centerScreenY: number,
+    ) {
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        // Scale icon with zoom, but cap max size so they don't block view too much
+        const fontSize = Math.min(48, Math.max(16, cellW * 1.5));
+        ctx.font = `${fontSize}px serif`;
+
+        for (const node of nodes) {
+            const deltaY = node.y - centerTy;
+            const screenY = centerScreenY + deltaY * cellH;
+            if (screenY < -50 || screenY > height + 50) continue;
+
+            let deltaX = node.x - centerTx;
+            if (deltaX < -gridWidth / 2) deltaX += gridWidth;
+            if (deltaX > gridWidth / 2) deltaX -= gridWidth;
+            const screenX = centerScreenX + deltaX * cellW;
+            if (screenX < -50 || screenX > width + 50) continue;
+
+            const drawX = screenX + cellW / 2;
+            const drawY = screenY + cellH / 2;
+
+            let icon = "📍";
+            if (node.type === "volcano") icon = "🌋";
+            if (node.type === "peak") icon = "🏔️";
+            if (node.type === "trench") icon = "🕳️";
+
+            ctx.shadowColor = "black";
+            ctx.shadowBlur = 4;
+            ctx.fillText(icon, drawX, drawY);
+            ctx.shadowBlur = 0;
         }
     }
 </script>
