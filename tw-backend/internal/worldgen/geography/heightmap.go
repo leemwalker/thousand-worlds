@@ -142,18 +142,20 @@ func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereH
 	// 6. Smooth (slight blur to blend erosion artifacts)
 	SmoothSpherical(heightmap, topology)
 
-	// 7. Normalize Land/Water Ratio to target 30%
-	// MUST happen BEFORE hypsometric curve so that 0 = coastline
-	NormalizeLandRatio(heightmap, topology, 0.30)
+	// 7. Apply Isostatic Relaxation
+	// This replaces NormalizeLandRatio - land/water ratio now comes naturally from plate physics.
+	// Continental crust floats at +150m, oceanic sinks to -4000m.
+	// The ~30% continental plate area = ~30% land (before erosion/sedimentation adjustments).
+	ApplyIsostaticRelaxation(plates, heightmap, topology, IsostaticRelaxationRate)
 
 	// 8. Apply Hypsometric Curve for continental shelf flattening
-	// Now that sea level = 0, this will correctly flatten the shelf zone
+	// Sea level is at 0 (the boundary between positive/negative elevations)
 	for face := 0; face < 6; face++ {
 		for y := 0; y < resolution; y++ {
 			for x := 0; x < resolution; x++ {
 				coord := spatial.Coordinate{Face: face, X: x, Y: y}
 				current := heightmap.Get(coord)
-				remapped := ApplyHypsometricCurve(current, 0.0) // Sea level at 0 (correct now!)
+				remapped := ApplyHypsometricCurve(current, 0.0) // Sea level at 0
 				heightmap.Set(coord, remapped)
 			}
 		}

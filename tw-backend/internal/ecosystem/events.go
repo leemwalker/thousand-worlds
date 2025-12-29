@@ -84,13 +84,11 @@ func (g *GeologicalEventManager) CheckForNewEvents(currentTick, dt int64) {
 	}
 
 	// Volcanic winter: now tied to tectonic activity
-	// Base chance ~1 per 10M years?
-	// Previous code: 0.001% per 1000 years. = 0.00001 per 1000 years.
-	// That's 1e-8 per year. Very rare.
-	// Let's standardize to annual probabilities.
-	// Old: (0.00001 + Tect*0.00014) per 1000 years.
-	// Annual: Divide by 1000.
-	baseVolcanic := (0.00001 + g.TectonicActivity*0.00014) / 1000.0
+	// Base chance ~1 per 100M years (reduced 10x from original 10M years)
+	// These should be "Epoch-ending" events, not "Tuesday" events.
+	// Previous code: (0.00001 + Tect*0.00014) per 1000 years.
+	// Reduced 10x: (0.000001 + Tect*0.000014) per 1000 years.
+	baseVolcanic := (0.000001 + g.TectonicActivity*0.000014) / 1000.0
 	if g.rng.Float64() < probabilityOverTime(baseVolcanic) {
 		g.ActiveEvents = append(g.ActiveEvents, GeologicalEvent{
 			Type:           EventVolcanicWinter,
@@ -127,8 +125,9 @@ func (g *GeologicalEventManager) CheckForNewEvents(currentTick, dt int64) {
 		})
 	}
 
-	// Ocean anoxia: 0.005% per 1000 years
-	baseAnoxia := 0.00005 / 1000.0
+	// Ocean anoxia: 0.0005% per 1000 years (reduced 10x from 0.005%)
+	// These are mass extinction events, should be rare
+	baseAnoxia := 0.000005 / 1000.0
 	if g.rng.Float64() < probabilityOverTime(baseAnoxia) {
 		g.ActiveEvents = append(g.ActiveEvents, GeologicalEvent{
 			Type:           EventOceanAnoxia,

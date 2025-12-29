@@ -26,6 +26,18 @@ const (
 	OceanicRigidity = 1
 )
 
+// Isostatic base elevations (in meters)
+// These represent the "natural floating height" of each crust type on the mantle.
+const (
+	// ContinentalBaseElevation is the natural elevation of continental crust (+150m lowlands)
+	ContinentalBaseElevation = 150.0
+	// OceanicBaseElevation is the natural elevation of oceanic crust (-4000m abyssal plain)
+	OceanicBaseElevation = -4000.0
+	// IsostaticRelaxationRate is how quickly crust drifts toward base (5% per step)
+	// This allows tectonic deformations to persist while slowly returning toward equilibrium
+	IsostaticRelaxationRate = 0.05
+)
+
 // FeatureType describes the tectonic feature created at a boundary
 type FeatureType string
 
@@ -153,12 +165,15 @@ func CalculateCollisionResult(cellPlate, neighborPlate TectonicPlate, boundaryTy
 
 // GeneratePlates creates tectonic plates using spherical topology.
 // Uses Multi-Source BFS to assign regions efficiently in O(N) time.
+// Plate types are assigned by AREA to guarantee ~30% continental coverage:
+// largest plates become continental until 30% of total area is covered.
 func GeneratePlates(count int, topology spatial.Topology, seed int64) []TectonicPlate {
 	r := rand.New(rand.NewSource(seed))
 	resolution := topology.Resolution()
 	plates := make([]TectonicPlate, count)
 
 	// 1. Initialize plates with random centroids distributed across all faces
+	// Type/Thickness will be assigned AFTER BFS based on area
 	for i := 0; i < count; i++ {
 		face := r.Intn(6)
 		x := r.Intn(resolution)
@@ -172,38 +187,72 @@ func GeneratePlates(count int, topology spatial.Topology, seed int64) []Tectonic
 		// Generate random tangent velocity (perpendicular to position)
 		velocity := randomTangentVector(position, r)
 
-		// Randomly assign type (30% continental, 70% oceanic)
-		// Previously: first N plates were always continental, now truly random
-		plateType := PlateOceanic
-		thickness := 5 + r.Float64()*5 // 5-10km oceanic crust
-		if r.Float64() < 0.3 {
-			plateType = PlateContinental
-			thickness = 30 + r.Float64()*20 // 30-50km continental crust
-		}
-
 		// Age range 0-200 million years for better density variation
 		// (older oceanic crust = denser = more likely to subduct)
 		age := r.Float64() * 200
 
+		// Initialize as Oceanic (will be reassigned after BFS)
 		plates[i] = TectonicPlate{
 			ID:        uuid.New(),
-			Type:      plateType,
+			Type:      PlateOceanic, // Default, will be reassigned
 			Centroid:  centroid,
 			Position:  position,
 			Velocity:  velocity,
 			Region:    make(map[spatial.Coordinate]struct{}),
-			Thickness: thickness,
+			Thickness: 5 + r.Float64()*5, // Default oceanic thickness
 			Age:       age,
-		}
-
-		if debug.Is(debug.Geology) {
-			log.Printf("[PLATE INIT] Plate %d: Type=%v Age=%.1fMy Thickness=%.1fkm",
-				i, plateType, age, thickness)
 		}
 	}
 
 	// 2. Multi-Source BFS to assign all cells to nearest plate
 	ReassignPlateRegions(plates, topology)
+
+	// 3. Sort plates by area (region size) descending
+	// Use a simple index sort to find largest plates
+	type plateArea struct {
+		index int
+		area  int
+	}
+	areas := make([]plateArea, count)
+	totalCells := 0
+	for i, plate := range plates {
+		areas[i] = plateArea{index: i, area: len(plate.Region)}
+		totalCells += len(plate.Region)
+	}
+
+	// Sort descending by area (bubble sort for small count, typically 5-15 plates)
+	for i := 0; i < len(areas)-1; i++ {
+		for j := i + 1; j < len(areas); j++ {
+			if areas[j].area > areas[i].area {
+				areas[i], areas[j] = areas[j], areas[i]
+			}
+		}
+	}
+
+	// 4. Assign Continental to largest plates until ~30% area
+	targetContinentalArea := float64(totalCells) * 0.30
+	coveredArea := 0.0
+
+	for _, pa := range areas {
+		if coveredArea >= targetContinentalArea {
+			break
+		}
+
+		// Assign this plate as Continental
+		plates[pa.index].Type = PlateContinental
+		plates[pa.index].Thickness = 30 + r.Float64()*20 // 30-50km continental crust
+		coveredArea += float64(pa.area)
+
+		if debug.Is(debug.Geology) {
+			log.Printf("[PLATE INIT] Plate %d: Type=Continental Area=%d (%.1f%% of target)",
+				pa.index, pa.area, coveredArea/targetContinentalArea*100)
+		}
+	}
+
+	if debug.Is(debug.Geology) {
+		log.Printf("[PLATE INIT] Continental coverage: %.1f%% (target: 30%%)",
+			coveredArea/float64(totalCells)*100)
+	}
 
 	return plates
 }
@@ -569,6 +618,61 @@ func SimulateTectonics(plates []TectonicPlate, heightmap *SphereHeightmap, topol
 	}
 
 	return heightmap
+}
+
+// ApplyIsostaticRelaxation drifts each cell toward its base elevation based on plate type.
+// This implements the physics of crustal isostasy: denser oceanic crust sinks (-4000m)
+// while lighter continental crust floats (+150m).
+// Over time, this removes "ocean wall" artifacts from old collisions while preserving
+// tectonic deformations (mountains, trenches) which are reapplied each step.
+// relaxationRate controls the speed (0.05 = 5% per step toward base).
+func ApplyIsostaticRelaxation(plates []TectonicPlate, heightmap *SphereHeightmap, topology spatial.Topology, relaxationRate float64) {
+	resolution := topology.Resolution()
+	totalCells := 6 * resolution * resolution
+	resSq := resolution * resolution
+
+	// Build plate lookup grid (same as SimulateTectonics)
+	plateGrid := make([]int, totalCells)
+	for i := range plateGrid {
+		plateGrid[i] = -1
+	}
+	for i, p := range plates {
+		for coord := range p.Region {
+			idx := (coord.Face * resSq) + (coord.Y * resolution) + coord.X
+			if idx >= 0 && idx < totalCells {
+				plateGrid[idx] = i
+			}
+		}
+	}
+
+	// Apply relaxation to each cell
+	for idx := 0; idx < totalCells; idx++ {
+		plateIdx := plateGrid[idx]
+		if plateIdx == -1 {
+			continue
+		}
+
+		// Reconstruct coordinate
+		face := idx / resSq
+		rem := idx % resSq
+		y := rem / resolution
+		x := rem % resolution
+		coord := spatial.Coordinate{Face: face, X: x, Y: y}
+
+		// Determine target base elevation from plate type
+		var baseElevation float64
+		if plates[plateIdx].Type == PlateContinental {
+			baseElevation = ContinentalBaseElevation // +150m
+		} else {
+			baseElevation = OceanicBaseElevation // -4000m
+		}
+
+		// Lerp current elevation toward base
+		// newElev = current + (target - current) * rate
+		currentElev := heightmap.Get(coord)
+		newElev := currentElev + (baseElevation-currentElev)*relaxationRate
+		heightmap.Set(coord, newElev)
+	}
 }
 
 // CalculateBoundaryType determines the type of interaction between two plates.

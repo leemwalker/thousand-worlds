@@ -35,7 +35,8 @@ func TestGenerateHeightmap(t *testing.T) {
 		for y := 0; y < resolution; y++ {
 			for x := 0; x < resolution; x++ {
 				val := hm.Get(spatial.Coordinate{Face: face, X: x, Y: y})
-				if val < -3000 {
+				// After isostatic relaxation + hypsometric curve, deep ocean is ~ -2000 to -4000
+				if val < -2000 {
 					hasOcean = true
 				}
 				if val > 0 {
@@ -44,7 +45,7 @@ func TestGenerateHeightmap(t *testing.T) {
 				if val > 2000 {
 					hasMountains = true
 				}
-				if val < -6000 {
+				if val < -5000 {
 					hasTrenches = true
 				}
 			}
