@@ -809,6 +809,11 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 					g.BoundaryCache = geography.ComputeBoundaryCache(g.Plates, g.Topology)
 				}
 				g.SphereHeightmap = geography.SimulateTectonicsWithCache(g.Plates, g.SphereHeightmap, g.BoundaryCache, g.Topology, scaleFactor)
+
+				// Apply passive margin decay - erode cells no longer at boundaries
+				// This prevents phantom mountains from persisting after plate boundaries move
+				geography.ApplyBoundaryDecay(g.Plates, g.SphereHeightmap, g.BoundaryCache, g.Topology, scaleFactor)
+
 				g.markSphereNeedsSync()
 
 				if debug.Is(debug.Tectonics | debug.Perf) {

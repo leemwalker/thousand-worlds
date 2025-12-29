@@ -114,9 +114,12 @@ func CalculateCollisionResult(cellPlate, neighborPlate TectonicPlate, boundaryTy
 				RigidityRings:   OceanicRigidity,
 			}
 		}
-		// Neighbor subducts -> this cell becomes island arc
+		// Neighbor subducts -> this cell becomes island arc (volcanic island chain)
+		// Island arcs form above sea level as volcanic peaks
+		// Base elevation is shallow shelf (-500m) with volcanic peaks rising above
+		// The actual "islands" vs "gaps" will come from noise variation
 		return CollisionResult{
-			TargetElevation: -2000, // Base level for island arc (above ocean floor)
+			TargetElevation: 200, // Just above sea level - creates island peaks
 			Feature:         FeatureIslandArc,
 			RigidityRings:   OceanicRigidity,
 		}
@@ -376,6 +379,82 @@ func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightm
 	}
 
 	return heightmap
+}
+
+// PassiveMarginDecayRate controls how fast old boundaries erode back to base elevation
+// Value of 0.02 means 2% of remaining difference per tectonic step (very slow)
+const PassiveMarginDecayRate = 0.02
+
+// ApplyBoundaryDecay erodes cells that are NO LONGER at plate boundaries toward base elevation.
+// This prevents "phantom mountains" from persisting after plate boundaries move away.
+// Should be called after SimulateTectonicsWithCache to handle passive margins.
+func ApplyBoundaryDecay(plates []TectonicPlate, heightmap *SphereHeightmap, cache *BoundaryCache, topology spatial.Topology, scaleFactor float64) {
+	if debug.Is(debug.Perf) {
+		defer debug.Time(debug.Perf, "ApplyBoundaryDecay")()
+	}
+
+	resolution := topology.Resolution()
+
+	// Build a set of boundary cells for O(1) lookup
+	boundarySet := make(map[spatial.Coordinate]struct{}, len(cache.Cells))
+	for _, bc := range cache.Cells {
+		boundarySet[bc.Coord] = struct{}{}
+	}
+
+	// Build plate lookup grid for fast plate assignment
+	plateGrid := make([]int, 6*resolution*resolution)
+	for i := range plateGrid {
+		plateGrid[i] = -1
+	}
+	for i, p := range plates {
+		for coord := range p.Region {
+			idx := coord.Face*resolution*resolution + coord.Y*resolution + coord.X
+			if idx >= 0 && idx < len(plateGrid) {
+				plateGrid[idx] = i
+			}
+		}
+	}
+
+	// Iterate all cells
+	for face := 0; face < 6; face++ {
+		for y := 0; y < resolution; y++ {
+			for x := 0; x < resolution; x++ {
+				coord := spatial.Coordinate{Face: face, X: x, Y: y}
+
+				// Skip cells that ARE at boundaries - they get tectonic uplift
+				if _, isBoundary := boundarySet[coord]; isBoundary {
+					continue
+				}
+
+				// Get plate for this cell
+				idx := face*resolution*resolution + y*resolution + x
+				plateIdx := plateGrid[idx]
+				if plateIdx < 0 {
+					continue
+				}
+				plate := plates[plateIdx]
+
+				// Determine base elevation for this plate type
+				baseElev := -4000.0 // Ocean floor
+				if plate.Type == PlateContinental {
+					baseElev = 100.0 // Continental shelf
+				}
+
+				// Get current elevation
+				currentElev := heightmap.Get(coord)
+
+				// Apply slow decay toward base elevation (isostatic rebound)
+				// This makes old mountains erode and old ocean ridges sink
+				difference := baseElev - currentElev
+				delta := difference * PassiveMarginDecayRate * scaleFactor
+
+				// Apply decay
+				newElev := currentElev + delta
+				newElev = clampElevation(newElev)
+				heightmap.Set(coord, newElev)
+			}
+		}
+	}
 }
 
 // SimulateTectonics calculates elevation based on plate interactions on a sphere.
