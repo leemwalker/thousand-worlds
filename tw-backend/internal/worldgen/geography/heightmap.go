@@ -16,7 +16,8 @@ func GenerateHeightmap(plates []TectonicPlate, heightmap *SphereHeightmap, topol
 // The tidalStress parameter affects volcanic activity (0.0 = no moons, 1.0 = Earth-Moon, >1.0 = multiple/close moons).
 // The heatMultiplier parameter scales volcanic activity based on planetary age (1.0 = modern, 10.0 = early Earth).
 func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereHeightmap, topology spatial.Topology, seed int64, erosionRate float64, rainfallFactor float64, tidalStress float64, heatMultiplier float64) *SphereHeightmap {
-	noise := NewPerlinGenerator(seed)
+	// Use FBM with domain warping for organic, non-diamond terrain
+	fbm := NewFBMGenerator(seed, DefaultTerrainFBMConfig())
 	resolution := topology.Resolution()
 
 	// 1. Base Elevation based on Plate Type
@@ -39,18 +40,19 @@ func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereH
 	// 2a. Apply Volcanic Hotspots (scaled by tidal stress and planetary heat)
 	ApplyHotspots(heightmap, plates, topology, seed, tidalStress, heatMultiplier)
 
-	// 3. Apply Noise for variation
+	// 3. Apply FBM Noise for natural terrain variation
+	// FBM with domain warping eliminates diamond/grid patterns
 	for face := 0; face < 6; face++ {
 		for y := 0; y < resolution; y++ {
 			for x := 0; x < resolution; x++ {
 				coord := spatial.Coordinate{Face: face, X: x, Y: y}
 
-				// Multiple octaves of noise using sphere position
+				// Get sphere position for 3D noise sampling
 				sx, sy, sz := topology.ToSphere(coord)
-				n1 := noise.Noise3D(sx*2, sy*2, sz*2)
-				n2 := noise.Noise3D(sx*10, sy*10, sz*10)
 
-				variation := n1*500 + n2*100
+				// FBM returns normalized [-1, 1], scale to desired elevation range
+				// 600m variation provides natural hills/valleys without overwhelming tectonics
+				variation := fbm.FBM3D(sx, sy, sz) * 600.0
 
 				current := heightmap.Get(coord)
 				heightmap.Set(coord, current+variation)
