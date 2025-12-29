@@ -478,6 +478,7 @@
     }
 
     function getColor(t: number, stops: { t: number; hex: string }[]): string {
+        if (stops.length === 0) return "#000000";
         // Clamp t
         if (t <= 0) return stops[0].hex;
         if (t >= 1) return stops[stops.length - 1].hex;
@@ -486,7 +487,7 @@
         for (let i = 0; i < stops.length - 1; i++) {
             const s1 = stops[i];
             const s2 = stops[i + 1];
-            if (t >= s1.t && t <= s2.t) {
+            if (s1 && s2 && t >= s1.t && t <= s2.t) {
                 // Interpolate
                 const localT = (t - s1.t) / (s2.t - s1.t);
                 const c1 = hexToRgb(s1.hex);
