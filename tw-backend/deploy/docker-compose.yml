@@ -78,7 +78,7 @@ services:
           memory: 512M
           cpus: '0.5'
     healthcheck:
-      test: [ "CMD", "nats-server", "-sl=ldm=/var/run/nats/nats.pid" ]
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz" ]
       interval: 10s
       timeout: 5s
       retries: 3
