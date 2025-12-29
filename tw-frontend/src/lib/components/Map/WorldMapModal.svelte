@@ -43,8 +43,13 @@
     let useGraphicsMode = true;
 
     // Overlay state
-    let activeLayer: OverlayMode = "none";
-    let showMineralsOverlay = false; // Kept as separate toggle for resources
+    let activeLayers: Set<OverlayMode> = new Set();
+    let showMineralsOverlay = false; // Kept as separate toggle for resources (legacy? or just add to set?)
+    // Actually, let's keep showMineralsOverlay for now but sync it or just use the set?
+    // The previous code had it separate. Let's just use the Set for everything in the future,
+    // but for now, let's keep the existing `showMineralsOverlay` binding if it was used elsewhere.
+    // However, the previous `MapOverlayCanvas` usage passed `showMinerals`.
+    // My new `MapOverlayCanvas` respects `activeLayers.has("resources")`.
 
     // Simulation stats (from events or world data)
     let simStats = {
@@ -442,8 +447,81 @@
         tooltipData = null;
     }
 
-    function setActiveLayer(id: string) {
-        activeLayer = id as OverlayMode;
+    function toggleLayer(id: string) {
+        if (id === "none") {
+            activeLayers.clear();
+            activeLayers = activeLayers;
+            showMineralsOverlay = false;
+            return;
+        }
+
+        const mode = id as OverlayMode;
+        if (activeLayers.has(mode)) {
+            activeLayers.delete(mode);
+        } else {
+            activeLayers.add(mode);
+        }
+        activeLayers = activeLayers; // Trigger reactivity
+    }
+
+    function handleOverlayHover(e: CustomEvent) {
+        const hit = e.detail; // ResourceNode | null
+        if (!hit) {
+            // If we are inspecting a tile via mouse move, keep showing that?
+            // Or should overlay tooltip take precedence?
+            // Current `handleMapMouseMove` sets `tooltipData`.
+            // If `hit` is null, we do nothing and let `handleMapMouseMove` control it (tile info).
+            // But if `hit` is present, we should override `tooltipData` with overlay info.
+            if (!webglRenderer) {
+                tooltipData = null;
+            }
+            return;
+        }
+
+        // Create tooltip data from ResourceNode
+        // We need screen coordinates. `handleMapMouseMove` gives us mouse coords.
+        // But `MapOverlayCanvas` doesn't pass screen coords in the event, only data.
+        // Wait, `handleMouseMove` in MapOverlayCanvas tracks `hoveredItem`.
+
+        // Actually, let's update `tooltipData` ONLY if we have a hit.
+        // We'll need a way to distinguish Tile Tooltip vs Overlay Tooltip.
+        // Let's add specific fields for Overlay info.
+
+        let label = "Unknown Feature";
+        if (hit.type === "volcano") label = "Volcano 🌋";
+        else if (hit.type === "peak") label = "Peak 🏔️";
+        else if (hit.type === "trench") label = "Trench 🕳️";
+        else if (hit.type === "gold") label = "Gold Deposit 🟡";
+        else if (hit.type === "iron") label = "Iron Deposit ⚪";
+        else if (hit.type === "coal") label = "Coal Deposit ⚫";
+        else if (hit.type === "cave") label = "Cave Entrance 🕳️";
+
+        // Enrich with `hit.data` if available
+        let details = "";
+        if (hit.data) {
+            if (hit.data.height)
+                details += `Height: ${hit.data.height.toFixed(0)}m\n`;
+            if (hit.data.depth)
+                details += `Depth: ${hit.data.depth.toFixed(0)}m\n`;
+            if (hit.data.pressure)
+                details += `Pressure: ${(hit.data.pressure * 100).toFixed(1)}%\n`;
+            if (hit.data.age)
+                details += `Age: ${(hit.data.age / 1000000).toFixed(1)}M yr\n`;
+        }
+
+        // We can hijack tooltipData or genericize it.
+        // Existing tooltipData: { x, y, elevation, biome }
+        // Let's force it.
+        tooltipData = {
+            x: Math.round(hit.x), // ResourceNode has x/y in World Coords? Or Grid?
+            // ResourceNode x/y are grid coords usually.
+            y: Math.round(hit.y),
+            biome: label,
+            elevation: hit.val ? hit.val * 3000 : 0, // Mock elevation from val if needed, or just display raw
+            // We really should change the Tooltip UI to be more generic.
+            // For now, let's just piggyback.
+            customText: details, // Add this field to tooltip handling?
+        } as any;
     }
 
     onDestroy(() => {
@@ -522,11 +600,12 @@
                             gridWidth={worldMapData.grid_width}
                             gridHeight={worldMapData.grid_height}
                             overlayData={worldMapData.overlays}
-                            {activeLayer}
+                            {activeLayers}
                             showMinerals={showMineralsOverlay}
                             {cameraX}
                             {cameraY}
                             zoom={cameraZoom}
+                            on:hover={handleOverlayHover}
                         />
                     {/if}
 
@@ -562,6 +641,13 @@
                                             )}m</span
                                         >
                                     </div>
+                                    {#if tooltipData.customText}
+                                        <div
+                                            class="text-xs text-blue-300 whitespace-pre-line mt-2 pt-2 border-t border-gray-700"
+                                        >
+                                            {tooltipData.customText}
+                                        </div>
+                                    {/if}
                                 </div>
                             </div>
                         </div>
@@ -626,11 +712,12 @@
                     <!-- Legend (Bottom Left) -->
                     <div class="absolute bottom-4 left-4" transition:fade>
                         <WorldMapLegend
-                            mode={activeLayer === "none"
+                            mode={activeLayers.size === 0
                                 ? worldMapData?.is_simulated
                                     ? "terrain"
                                     : "biome"
-                                : activeLayer}
+                                : Array.from(activeLayers).pop()}
+                            {activeLayers}
                         />
                     </div>
 
@@ -651,14 +738,17 @@
 
                                 <!-- Layer Selection (Radio-like behavior) -->
                                 <div class="space-y-1">
-                                    {#each [{ id: "none", label: "None", icon: "🚫" }, { id: "tectonics", label: "Tectonics", icon: "📐" }, { id: "elevation", label: "Elevation", icon: "🏔️" }, { id: "temp", label: "Temperature", icon: "🌡️" }, { id: "moisture", label: "Moisture", icon: "💧" }, { id: "biome", label: "Biomes", icon: "🌿" }, { id: "features", label: "Terrain Features", icon: "📍" }] as layer}
+                                    {#each [{ id: "none", label: "Clear All", icon: "🚫" }, { id: "tectonics", label: "Tectonics", icon: "📐" }, { id: "elevation", label: "Elevation", icon: "🏔️" }, { id: "temp", label: "Temperature", icon: "🌡️" }, { id: "moisture", label: "Moisture", icon: "💧" }, { id: "biome", label: "Biomes", icon: "🌿" }, { id: "features", label: "Terrain Features", icon: "📍" }] as layer}
                                         <button
-                                            class="w-full text-left px-2 py-1.5 rounded text-xs flex items-center justify-between transition-colors {activeLayer ===
-                                            layer.id
+                                            class="w-full text-left px-2 py-1.5 rounded text-xs flex items-center justify-between transition-colors {activeLayers.has(
+                                                layer.id,
+                                            ) ||
+                                            (layer.id === 'none' &&
+                                                activeLayers.size === 0)
                                                 ? 'bg-blue-600/30 text-blue-200 border border-blue-500/30'
                                                 : 'hover:bg-gray-700 text-gray-300'}"
                                             on:click={() =>
-                                                setActiveLayer(layer.id)}
+                                                toggleLayer(layer.id)}
                                         >
                                             <span
                                                 class="flex items-center gap-2"
@@ -666,7 +756,7 @@
                                                 <span>{layer.icon}</span>
                                                 {layer.label}
                                             </span>
-                                            {#if activeLayer === layer.id}
+                                            {#if activeLayers.has(layer.id)}
                                                 <span
                                                     class="w-1.5 h-1.5 rounded-full bg-blue-400"
                                                 ></span>

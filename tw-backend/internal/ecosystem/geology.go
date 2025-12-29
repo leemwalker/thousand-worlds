@@ -1847,10 +1847,11 @@ func (g *WorldGeology) GetMineralDeposits() []map[string]interface{} {
 
 // ResourceNode represents a sparse resource for the map overlay
 type ResourceNode struct {
-	Type string `json:"type"` // "gold", "iron", "cave"
-	X    int    `json:"x"`
-	Y    int    `json:"y"`
-	Val  int    `json:"val"` // Optional value/richness
+	Type string                 `json:"type"` // "gold", "iron", "cave", "volcano", "peak", "trench"
+	X    int                    `json:"x"`
+	Y    int                    `json:"y"`
+	Val  float64                `json:"val,omitempty"`  // Normalized value (0-1) or absolute (Height/Depth)
+	Data map[string]interface{} `json:"data,omitempty"` // Arbitrary metadata for tooltips
 }
 
 // GetTemperatureMap generates a normalized temperature map (0.0-1.0)
@@ -2113,10 +2114,17 @@ func (g *WorldGeology) GetTerrainFeaturesMap(width, height int) []ResourceNode {
 				screenY = height - 1
 			}
 
+			data := map[string]interface{}{
+				"age":      chamber.Age,
+				"pressure": chamber.Pressure,
+				"active":   !chamber.Solidified,
+			}
 			features = append(features, ResourceNode{
 				Type: "volcano",
 				X:    screenX,
 				Y:    screenY,
+				Val:  chamber.Pressure, // Use pressure as generic value
+				Data: data,
 			})
 		}
 	}
@@ -2171,7 +2179,19 @@ func (g *WorldGeology) GetTerrainFeaturesMap(width, height int) []ResourceNode {
 					}
 				}
 				if isMax {
-					features = append(features, ResourceNode{Type: "peak", X: x, Y: y})
+					// Approximate height in meters based on Earth (8848m)
+					// Val 0.75-1.0 maps to 3000m-8848m
+					heightM := 3000 + (val-0.75)/0.25*5848
+					features = append(features, ResourceNode{
+						Type: "peak",
+						X:    x,
+						Y:    y,
+						Val:  val,
+						Data: map[string]interface{}{
+							"height": heightM,
+							"zone":   "Alpine",
+						},
+					})
 				}
 			}
 
@@ -2200,7 +2220,18 @@ func (g *WorldGeology) GetTerrainFeaturesMap(width, height int) []ResourceNode {
 					}
 				}
 				if isMin {
-					features = append(features, ResourceNode{Type: "trench", X: x, Y: y})
+					// Approximate depth
+					depthM := -2000 - (0.35-val)/0.35*9000 // -2000m to -11000m
+					features = append(features, ResourceNode{
+						Type: "trench",
+						X:    x,
+						Y:    y,
+						Val:  val,
+						Data: map[string]interface{}{
+							"depth": depthM,
+							"zone":  "Abyssal",
+						},
+					})
 				}
 			}
 		}

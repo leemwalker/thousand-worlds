@@ -648,6 +648,9 @@ func (s *Service) GetWorldMapData(ctx context.Context, char *auth.Character, gri
 		IsSimulated: geo != nil && geo.IsInitialized(),
 	}
 
+	// Initialize Overlays map
+	overlays := make(map[string]interface{})
+
 	// Add simulation summary data if available
 	if geo != nil && geo.IsInitialized() {
 		result.SeaLevel = geo.SeaLevel
@@ -657,22 +660,73 @@ func (s *Service) GetWorldMapData(ctx context.Context, char *auth.Character, gri
 		// Calculate max elevation from heightmap
 		if geo.Heightmap != nil {
 			maxElev := 0.0
-			landCount := 0
-			totalCells := len(geo.Heightmap.Elevations)
-
-			for _, elev := range geo.Heightmap.Elevations {
-				if elev > maxElev {
-					maxElev = elev
-				}
-				if elev > geo.SeaLevel {
-					landCount++
+			minElev := 0.0 // Assuming MinElev is available or 0
+			// Use struct fields if available and reliable, otherwise scan
+			// Geography Heightmap usually has MinElev/MaxElev populated
+			if geo.Heightmap.MaxElev != 0 || geo.Heightmap.MinElev != 0 {
+				maxElev = geo.Heightmap.MaxElev
+				minElev = geo.Heightmap.MinElev
+			} else {
+				// Fallback scan
+				first := true
+				for _, elev := range geo.Heightmap.Elevations {
+					if first {
+						maxElev = elev
+						minElev = elev
+						first = false
+					} else {
+						if elev > maxElev {
+							maxElev = elev
+						}
+						if elev < minElev {
+							minElev = elev
+						}
+					}
 				}
 			}
 			result.MaxElevation = maxElev
 
+			// Calculate Land Coverage
+			landCount := 0
+			totalCells := len(geo.Heightmap.Elevations)
+			for _, elev := range geo.Heightmap.Elevations {
+				if elev > geo.SeaLevel {
+					landCount++
+				}
+			}
 			if totalCells > 0 {
 				result.LandCoverage = float64(landCount) / float64(totalCells) * 100.0
 			}
+
+			// 1. Calculate Normalized Global Water Level
+			// Range: [minElev, maxElev] -> [0.0, 1.0]
+			elevRange := maxElev - minElev
+			if elevRange == 0 {
+				elevRange = 1.0 // Avoid divide by zero
+			}
+
+			normalizedWaterLevel := (geo.SeaLevel - minElev) / elevRange
+			// Clamp to 0-1
+			if normalizedWaterLevel < 0 {
+				normalizedWaterLevel = 0
+			} else if normalizedWaterLevel > 1 {
+				normalizedWaterLevel = 1
+			}
+			overlays["globalWaterLevel"] = normalizedWaterLevel
+
+			// 2. Generate Normalized Elevation Overlay (matching the grid tiles)
+			// The Tiles slice is row-major (gy * cols + gx)
+			elevationOverlay := make([]float64, len(tiles))
+			for i, tile := range tiles {
+				norm := (tile.AvgElevation - minElev) / elevRange
+				if norm < 0 {
+					norm = 0
+				} else if norm > 1 {
+					norm = 1
+				}
+				elevationOverlay[i] = norm
+			}
+			overlays["elevation"] = elevationOverlay
 		}
 
 		// Calculate average temperature from biomes, or estimate from heightmap
@@ -712,6 +766,8 @@ func (s *Service) GetWorldMapData(ctx context.Context, char *auth.Character, gri
 			}
 		}
 	}
+
+	result.Overlays = overlays
 
 	// Store in cache
 	s.worldMapCache.Store(cacheKey, result)

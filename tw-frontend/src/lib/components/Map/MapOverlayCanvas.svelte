@@ -1,17 +1,28 @@
 <script lang="ts">
-    import { onMount, afterUpdate } from "svelte";
-    import type { OverlayMode, OverlayData } from "$lib/types/overlays";
+    import { onMount, afterUpdate, createEventDispatcher } from "svelte";
+    import type {
+        OverlayMode,
+        OverlayData,
+        ResourceNode,
+    } from "$lib/types/overlays";
+
+    const dispatch = createEventDispatcher();
 
     export let width: number;
     export let height: number;
     export let gridWidth: number;
     export let gridHeight: number;
 
-    // New Props
-    export let activeLayer: OverlayMode = "none";
+    // Multi-Layer Support
+    // We accept a Set of strings. If passing from parent, ensure it's reactive.
+    export let activeLayers: Set<OverlayMode> = new Set();
+
+    // Legacy single activeLayer support (mapped to Set internally if needed, but easier to just use new prop)
+    // We will ignore `activeLayer` prop here and expect parent to pass `activeLayers`.
+
     export let overlayData: OverlayData = {};
 
-    // Legacy Props (Backwards Compatibility)
+    // Legacy Props (Backwards Compatibility - Mapped to layers in parent or ignored)
     export let tectonicsData: number[] | null = null;
     export let plateInfo: any[] = [];
     export let mineralsData: any[] | null = null;
@@ -23,23 +34,26 @@
     export let zoom = 1.0;
 
     let canvas: HTMLCanvasElement;
+    let hoveredItem: any = null; // Track hovered item for tooltip
+
+    // Store render positions for hit detection
+    // Simple list of {x, y, radius, data}
+    let hitTargets: { x: number; y: number; r: number; node: ResourceNode }[] =
+        [];
 
     // --- Color Palettes ---
-
-    // Biomes: Whittaker-ish mapping
     const BIOME_COLORS: Record<number, string> = {
-        0: "#1e3a8a", // Ocean (Dark Blue) - Should verify ID
+        0: "#1e3a8a", // Ocean (Dark Blue)
         1: "#E6CC80", // Desert (Sand)
         2: "#DAA520", // Savanna (Goldenrod)
         3: "#2E8B57", // Jungle (SeaGreen)
-        4: "#7CFC00", // Grassland (LawnGreen) - maybe darker?
+        4: "#7CFC00", // Grassland (LawnGreen)
         5: "#228B22", // Forest (ForestGreen)
         6: "#556B2F", // Taiga (DarkOliveGreen)
         7: "#A0522D", // Tundra (Sienna)
         8: "#E0FFFF", // Ice (LightCyan)
     };
 
-    // Tectonics: 12 distinct colors with low opacity for glass effect
     const PLATE_COLORS = [
         "rgba(147, 51, 234, 0.4)",
         "rgba(59, 130, 246, 0.4)",
@@ -59,8 +73,8 @@
         drawOverlays();
     }
 
-    // Redraw on any prop change
-    $: activeLayer,
+    // React to changes
+    $: activeLayers,
         overlayData,
         showTectonics,
         showMinerals,
@@ -79,10 +93,12 @@
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
+        hitTargets = []; // Reset hit targets
+
         // Clear canvas
         ctx.clearRect(0, 0, width, height);
 
-        // --- Aspect Ratio Correction ---
+        // Aspect Ratio & Scale Logic
         const canvasAspect = width / height;
         const worldAspect = gridWidth / gridHeight;
         let baseScaleX = 1.0;
@@ -96,45 +112,99 @@
 
         const effectiveScaleX = baseScaleX * zoom;
         const effectiveScaleY = baseScaleY * zoom;
-
-        // Size of the world in screen pixels
-        // Note: texScale from WebGL is "Field of View Size".
-        // texScale=1 -> View=World. texScale=2 -> View=2xWorld (ZoomOut).
-        // So World (in pixels) = Canvas / texScale.
         const worldWidthPx = width / effectiveScaleX;
         const worldHeightPx = height / effectiveScaleY;
-
-        // Cell size on screen
         const cellW = worldWidthPx / gridWidth;
         const cellH = worldHeightPx / gridHeight;
-
-        // Center of the screen in pixels
         const centerScreenX = width / 2;
         const centerScreenY = height / 2;
-
-        // Where the camera is looking in "Grid Space" (float)
         const centerTx = cameraX * gridWidth;
         const centerTy = cameraY * gridHeight;
 
-        // Render based on active layer
-        // Legacy Support: map old boolean props to new modes if activeLayer is 'none'
-        let mode = activeLayer;
-        if (mode === "none") {
-            if (showTectonics) mode = "tectonics";
-            else if (showMinerals) mode = "resources";
+        // --- Render Layer Z-Order ---
+        // 1. Biome OR Elevation (Opaque base)
+        if (activeLayers.has("biome") && overlayData.biome) {
+            drawGrid(
+                ctx,
+                overlayData.biome,
+                (val: number, x: number, y: number, w: number, h: number) => {
+                    ctx.fillStyle = BIOME_COLORS[val] || "#000000";
+                    ctx.globalAlpha = 0.7;
+                    ctx.fillRect(x, y, w, h);
+                    ctx.globalAlpha = 1.0;
+                },
+                centerTx,
+                centerTy,
+                cellW,
+                cellH,
+                centerScreenX,
+                centerScreenY,
+            );
+        } else if (activeLayers.has("elevation") && overlayData.elevation) {
+            drawGrid(
+                ctx,
+                overlayData.elevation,
+                (val: number, x: number, y: number, w: number, h: number) => {
+                    const waterLevel = overlayData.globalWaterLevel ?? 0.5;
+
+                    let color = "#000000";
+
+                    if (val <= waterLevel) {
+                        // Water Gradient
+                        // Normalize 0..waterLevel -> 0..1
+                        const depthRatio = val / waterLevel;
+                        color = getColor(depthRatio, [
+                            { t: 0.0, hex: "#0a1a2f" }, // Abyss (Dark Navy)
+                            { t: 0.3, hex: "#1e3a8a" }, // Ocean (Standard Blue)
+                            { t: 0.8, hex: "#60a5fa" }, // Shallows (Light Blue)
+                            { t: 1.0, hex: "#60a5fa" }, // Coast (Keep Light Blue)
+                        ]);
+                    } else {
+                        // Land Gradient
+                        // Normalize waterLevel..1 -> 0..1
+                        const landRatio =
+                            (val - waterLevel) / (1.0 - waterLevel);
+                        color = getColor(landRatio, [
+                            { t: 0.0, hex: "#fde047" }, // Beach (Yellow)
+                            { t: 0.05, hex: "#166534" }, // Lowland (Green)
+                            { t: 0.55, hex: "#854d0e" }, // Highland (Brown)
+                            { t: 0.85, hex: "#525252" }, // Mountain (Grey)
+                            { t: 0.95, hex: "#ffffff" }, // Snow (White)
+                            { t: 1.0, hex: "#ffffff" },
+                        ]);
+                    }
+
+                    ctx.fillStyle = color;
+                    // Opaque for distinct viewing
+                    ctx.globalAlpha = 1.0;
+                    ctx.fillRect(x, y, w, h);
+                },
+                centerTx,
+                centerTy,
+                cellW,
+                cellH,
+                centerScreenX,
+                centerScreenY,
+            );
         }
 
-        // Consolidated Draw Loop
-        // We iterate grid cells and project them using the Wrapping Logic
-
-        if (mode === "tectonics") {
-            // Use legacy data if provided, else overlayData
+        // 2. Tectonics (Semi-transparent)
+        if (
+            (activeLayers.has("tectonics") || showTectonics) &&
+            (overlayData.tectonics || tectonicsData)
+        ) {
             const data = overlayData.tectonics || tectonicsData;
             if (data) {
                 drawGrid(
                     ctx,
                     data,
-                    (val, x, y, w, h) => {
+                    (
+                        val: number,
+                        x: number,
+                        y: number,
+                        w: number,
+                        h: number,
+                    ) => {
                         if (val <= 0) return;
                         const color =
                             PLATE_COLORS[(val - 1) % PLATE_COLORS.length] ||
@@ -143,9 +213,6 @@
                             ctx.fillStyle = color;
                             ctx.fillRect(x, y, w, h);
                         }
-
-                        // Simple borders (optional, keeping minimal for perf)
-                        // Check neighbors logic is heavy inside generic loop, skipping for now or implement separate pass
                     },
                     centerTx,
                     centerTy,
@@ -155,7 +222,6 @@
                     centerScreenY,
                 );
 
-                // Draw Labels
                 const pInfo = overlayData.plate_info || plateInfo;
                 if (pInfo && zoom < 5.0) {
                     drawPlateLabels(
@@ -170,12 +236,14 @@
                     );
                 }
             }
-        } else if (mode === "temp" && overlayData.temp) {
+        }
+
+        // 3. Heatmaps (Alpha blended)
+        if (activeLayers.has("temp") && overlayData.temp) {
             drawGrid(
                 ctx,
                 overlayData.temp,
-                (val, x, y, w, h) => {
-                    // Hue: 240 (Blue) -> 0 (Red). Value 0->1.
+                (val: number, x: number, y: number, w: number, h: number) => {
                     const hue = 240 - val * 240;
                     ctx.fillStyle = `hsla(${hue}, 80%, 50%, 0.6)`;
                     ctx.fillRect(x, y, w, h);
@@ -187,14 +255,12 @@
                 centerScreenX,
                 centerScreenY,
             );
-        } else if (mode === "moisture" && overlayData.moisture) {
+        }
+        if (activeLayers.has("moisture") && overlayData.moisture) {
             drawGrid(
                 ctx,
                 overlayData.moisture,
-                (val, x, y, w, h) => {
-                    // Hue: 40 (Dry/Brown) -> 200 (Wet/Blue)
-                    // Or just Opacity of Blue?
-                    // Let's do White->Blue
+                (val: number, x: number, y: number, w: number, h: number) => {
                     ctx.fillStyle = `rgba(0, 100, 255, ${val * 0.8})`;
                     ctx.fillRect(x, y, w, h);
                 },
@@ -205,87 +271,11 @@
                 centerScreenX,
                 centerScreenY,
             );
-        } else if (mode === "elevation" && overlayData.elevation) {
-            drawGrid(
-                ctx,
-                overlayData.elevation,
-                (val, x, y, w, h) => {
-                    // Green -> Grey -> White
-                    // 0.5 is sea level (usually)?
-                    // Let's assume 0-1 full range.
-                    const l = Math.floor(val * 100);
-                    // Simple greyscale for now
-                    ctx.fillStyle = `hsl(120, 0%, ${l}%)`; // Grey
-                    if (val < 0.5)
-                        ctx.fillStyle = `hsl(200, 80%, ${30 + val * 40}%)`; // Water
-                    else if (val < 0.6)
-                        ctx.fillStyle = `hsl(100, 60%, ${40 + (val - 0.5) * 100}%)`; // Land
-                    else
-                        ctx.fillStyle = `hsl(0, 0%, ${50 + (val - 0.6) * 200}%)`; // Mountain
-
-                    ctx.globalAlpha = 0.6;
-                    ctx.fillRect(x, y, w, h);
-                    ctx.globalAlpha = 1.0;
-                },
-                centerTx,
-                centerTy,
-                cellW,
-                cellH,
-                centerScreenX,
-                centerScreenY,
-            );
-        } else if (mode === "biome" && overlayData.biome) {
-            drawGrid(
-                ctx,
-                overlayData.biome,
-                (val, x, y, w, h) => {
-                    ctx.fillStyle = BIOME_COLORS[val] || "#000000";
-                    ctx.globalAlpha = 0.7;
-                    ctx.fillRect(x, y, w, h);
-                    ctx.globalAlpha = 1.0;
-                },
-                centerTx,
-                centerTy,
-                cellW,
-                cellH,
-                centerScreenX,
-                centerScreenY,
-            );
         }
 
-        // Resources (Icons) - drawn on top of any layer if mode is resources or forced enabled
-        if (mode === "resources" || showMinerals) {
-            const res = overlayData.resources;
-            const mins = overlayData.minerals || mineralsData;
-            // Merge or handle both?
-            // Prioritize new ResourceNode system
-            if (res)
-                drawResources(
-                    ctx,
-                    res,
-                    centerTx,
-                    centerTy,
-                    cellW,
-                    cellH,
-                    centerScreenX,
-                    centerScreenY,
-                );
-            if (mins && !res)
-                drawMineralsLegacy(
-                    ctx,
-                    mins,
-                    centerTx,
-                    centerTy,
-                    cellW,
-                    cellH,
-                    centerScreenX,
-                    centerScreenY,
-                );
-        }
-
-        // Features (Volcanoes, Peaks)
-        if (mode === "features" && overlayData.features) {
-            drawFeatures(
+        // 4. Features & Resources (Icons)
+        if (activeLayers.has("features") && overlayData.features) {
+            drawIcons(
                 ctx,
                 overlayData.features,
                 centerTx,
@@ -294,21 +284,32 @@
                 cellH,
                 centerScreenX,
                 centerScreenY,
+                "feature",
+            );
+        }
+        if (
+            (activeLayers.has("resources") || showMinerals) &&
+            overlayData.resources
+        ) {
+            drawIcons(
+                ctx,
+                overlayData.resources,
+                centerTx,
+                centerTy,
+                cellW,
+                cellH,
+                centerScreenX,
+                centerScreenY,
+                "resource",
             );
         }
     }
 
-    // Generic Grid Drawer with Wrapping
+    // Generic Grid Drawer
     function drawGrid(
         ctx: CanvasRenderingContext2D,
         data: number[],
-        renderer: (
-            val: number,
-            x: number,
-            y: number,
-            w: number,
-            h: number,
-        ) => void,
+        renderer: any,
         centerTx: number,
         centerTy: number,
         cellW: number,
@@ -316,44 +317,23 @@
         centerScreenX: number,
         centerScreenY: number,
     ) {
-        // Optimize: Only iterate visible cells?
-        // For 128x64 (8k cells), full iteration is fast enough in JS (~1-2ms).
-        // Clipping is harder with wrapping logic, simpler to iterate all and early-out content off-screen.
-
-        // To fix floating point gaps, we use ceil for width/height
         const w = Math.ceil(cellW);
         const h = Math.ceil(cellH);
-
         for (let gy = 0; gy < gridHeight; gy++) {
-            // Y wrapping? Map doesn't wrap Y (poles).
-            // Calculate screenY normally
             const deltaY = gy - centerTy;
             const screenY = centerScreenY + deltaY * cellH;
-
-            // Y Culling
             if (screenY > height || screenY + h < 0) continue;
 
             for (let gx = 0; gx < gridWidth; gx++) {
                 const idx = gy * gridWidth + gx;
                 const val = data[idx];
-
-                // === X WRAPPING LOGIC ===
                 let deltaX = gx - centerTx;
-
-                // Shortest path wrapping
-                // If map is 100 wide. Camera at 90. Point at 10.
-                // 10 - 90 = -80.
-                // -80 < -50. Add 100 -> 20. Correct (10 is to the right of 90).
                 if (deltaX < -gridWidth / 2) deltaX += gridWidth;
                 if (deltaX > gridWidth / 2) deltaX -= gridWidth;
-
                 const screenX = centerScreenX + deltaX * cellW;
-
-                // X Culling
                 if (screenX > width || screenX + w < 0) continue;
 
-                // Render
-                if (val !== undefined) {
+                if (val !== undefined)
                     renderer(
                         val,
                         Math.floor(screenX),
@@ -361,7 +341,6 @@
                         w,
                         h,
                     );
-                }
             }
         }
     }
@@ -385,16 +364,11 @@
         ctx.fillStyle = "white";
 
         for (const plate of plates) {
-            const cx = plate.center_x;
-            const cy = plate.center_y;
-
-            // Y Logic
-            const deltaY = cy - centerTy;
+            const deltaY = plate.center_y - centerTy;
             const screenY = centerScreenY + deltaY * cellH;
             if (screenY < -50 || screenY > height + 50) continue;
 
-            // X Logic (Wrapping)
-            let deltaX = cx - centerTx;
+            let deltaX = plate.center_x - centerTx;
             if (deltaX < -gridWidth / 2) deltaX += gridWidth;
             if (deltaX > gridWidth / 2) deltaX -= gridWidth;
             const screenX = centerScreenX + deltaX * cellW;
@@ -407,102 +381,22 @@
         }
     }
 
-    function drawResources(
+    function drawIcons(
         ctx: CanvasRenderingContext2D,
-        nodes: any[], // ResourceNode[]
+        nodes: ResourceNode[],
         centerTx: number,
         centerTy: number,
         cellW: number,
         cellH: number,
         centerScreenX: number,
         centerScreenY: number,
+        category: "resource" | "feature",
     ) {
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        // Scale icon with zoom
-        const fontSize = Math.max(12, cellW * 0.8);
-        ctx.font = `${fontSize}px serif`; // Emojis often render better with serif fallback or standard
-
-        for (const node of nodes) {
-            // Logic identical to labels
-            const deltaY = node.y - centerTy;
-            const screenY = centerScreenY + deltaY * cellH; // + cellH/2 to center in cell
-            if (screenY < -20 || screenY > height + 20) continue;
-
-            let deltaX = node.x - centerTx;
-            if (deltaX < -gridWidth / 2) deltaX += gridWidth;
-            if (deltaX > gridWidth / 2) deltaX -= gridWidth;
-            const screenX = centerScreenX + deltaX * cellW; // + cellW/2
-            if (screenX < -20 || screenX > width + 20) continue;
-
-            // Offset to center of cell
-            const drawX = screenX + cellW / 2;
-            const drawY = screenY + cellH / 2;
-
-            let icon = "❓";
-            if (node.type === "gold") icon = "🟡";
-            else if (node.type === "iron")
-                icon = "⚪"; // Silver/Iron
-            else if (node.type === "cave") icon = "🕳️";
-            else if (node.type === "coal") icon = "⚫";
-
-            // Shadow for visibility
-            ctx.shadowColor = "black";
-            ctx.shadowBlur = 2;
-            ctx.fillText(icon, drawX, drawY);
-            ctx.shadowBlur = 0;
-        }
-    }
-
-    // Legacy function for old mineralsData format
-    function drawMineralsLegacy(
-        ctx: CanvasRenderingContext2D,
-        deposits: any[],
-        centerTx: number,
-        centerTy: number,
-        cellW: number,
-        cellH: number,
-        centerScreenX: number,
-        centerScreenY: number,
-    ) {
-        for (const deposit of deposits) {
-            const deltaY = deposit.y - centerTy;
-            const screenY = centerScreenY + deltaY * cellH;
-            if (screenY < -20 || screenY > height + 20) continue;
-
-            let deltaX = deposit.x - centerTx;
-            if (deltaX < -gridWidth / 2) deltaX += gridWidth;
-            if (deltaX > gridWidth / 2) deltaX -= gridWidth;
-            const screenX = centerScreenX + deltaX * cellW;
-            if (screenX < -20 || screenX > width + 20) continue;
-
-            const drawX = screenX + cellW / 2;
-            const drawY = screenY + cellH / 2;
-            const radius = Math.min(cellW, cellH) * 0.4;
-
-            ctx.beginPath();
-            ctx.arc(drawX, drawY, radius, 0, Math.PI * 2);
-            ctx.fillStyle = deposit.type === "gold" ? "gold" : "brown";
-            ctx.fill();
-            ctx.strokeStyle = "white";
-            ctx.stroke();
-        }
-    }
-
-    function drawFeatures(
-        ctx: CanvasRenderingContext2D,
-        nodes: any[],
-        centerTx: number,
-        centerTy: number,
-        cellW: number,
-        cellH: number,
-        centerScreenX: number,
-        centerScreenY: number,
-    ) {
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        // Scale icon with zoom, but cap max size so they don't block view too much
-        const fontSize = Math.min(48, Math.max(16, cellW * 1.5));
+        // Scale icon logic: Features bigger than Resources
+        const scale = category === "feature" ? 1.5 : 0.8;
+        const fontSize = Math.min(48, Math.max(12, cellW * scale));
         ctx.font = `${fontSize}px serif`;
 
         for (const node of nodes) {
@@ -519,16 +413,91 @@
             const drawX = screenX + cellW / 2;
             const drawY = screenY + cellH / 2;
 
-            let icon = "📍";
-            if (node.type === "volcano") icon = "🌋";
-            if (node.type === "peak") icon = "🏔️";
-            if (node.type === "trench") icon = "🕳️";
+            let icon = "❓";
+            if (node.type === "gold") icon = "🟡";
+            else if (node.type === "iron") icon = "⚪";
+            else if (node.type === "cave") icon = "🕳️";
+            else if (node.type === "coal") icon = "⚫";
+            else if (node.type === "volcano") icon = "🌋";
+            else if (node.type === "peak") icon = "🏔️";
+            else if (node.type === "trench") icon = "🕳️";
 
             ctx.shadowColor = "black";
-            ctx.shadowBlur = 4;
+            ctx.shadowBlur = category === "feature" ? 4 : 2;
             ctx.fillText(icon, drawX, drawY);
             ctx.shadowBlur = 0;
+
+            // Register Hit Target
+            // Use slightly larger radius for easier hovering
+            hitTargets.push({
+                x: drawX,
+                y: drawY,
+                r: fontSize / 1.5,
+                node: node,
+            });
         }
+    }
+
+    function handleMouseMove(e: MouseEvent) {
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        let hit = null;
+        // Check list in reverse (draw order: top on top)
+        for (let i = hitTargets.length - 1; i >= 0; i--) {
+            const t = hitTargets[i];
+            if (!t) continue;
+            const dx = mouseX - t.x;
+            const dy = mouseY - t.y;
+            if (dx * dx + dy * dy < t.r * t.r) {
+                hit = t.node;
+                break;
+            }
+        }
+
+        if (hit !== hoveredItem) {
+            hoveredItem = hit;
+            dispatch("hover", hit); // Parent handles popup
+            canvas.style.cursor = hit ? "help" : "default";
+        }
+    }
+
+    // --- Helper Functions ---
+
+    function hexToRgb(hex: string): { r: number; g: number; b: number } {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result
+            ? {
+                  r: parseInt(result[1], 16),
+                  g: parseInt(result[2], 16),
+                  b: parseInt(result[3], 16),
+              }
+            : { r: 0, g: 0, b: 0 };
+    }
+
+    function getColor(t: number, stops: { t: number; hex: string }[]): string {
+        // Clamp t
+        if (t <= 0) return stops[0].hex;
+        if (t >= 1) return stops[stops.length - 1].hex;
+
+        // Find stops
+        for (let i = 0; i < stops.length - 1; i++) {
+            const s1 = stops[i];
+            const s2 = stops[i + 1];
+            if (t >= s1.t && t <= s2.t) {
+                // Interpolate
+                const localT = (t - s1.t) / (s2.t - s1.t);
+                const c1 = hexToRgb(s1.hex);
+                const c2 = hexToRgb(s2.hex);
+                const r = Math.round(c1.r + (c2.r - c1.r) * localT);
+                const g = Math.round(c1.g + (c2.g - c1.g) * localT);
+                const b = Math.round(c1.b + (c2.b - c1.b) * localT);
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+        }
+        return stops[stops.length - 1].hex;
     }
 </script>
 
@@ -536,5 +505,10 @@
     bind:this={canvas}
     {width}
     {height}
-    class="absolute inset-0 pointer-events-none"
+    class="absolute inset-0 pointer-events-auto"
+    on:mousemove={handleMouseMove}
+    on:mouseleave={() => {
+        hoveredItem = null;
+        dispatch("hover", null);
+    }}
 />

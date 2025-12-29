@@ -4,7 +4,8 @@ export interface ResourceNode {
     type: string; // "gold", "iron", "cave", "peak", "volcano", "trench"
     x: number;
     y: number;
-    val?: number;
+    val?: number; // Normalized value or abs height/depth
+    data?: Record<string, any>; // Metadata for tooltips
 }
 
 export interface PlateMetadata {
@@ -35,4 +36,7 @@ export interface OverlayData {
 
     // Terrain Features
     features?: ResourceNode[];
+
+    // Global Water Level (0.0 - 1.0)
+    globalWaterLevel?: number;
 }

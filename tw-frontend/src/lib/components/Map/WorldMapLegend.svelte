@@ -1,4 +1,6 @@
 <script lang="ts">
+    import type { OverlayMode } from "$lib/types/overlays";
+
     // Colors matching WebGLMapRenderer.ts shaders
     // Converted from normalized vec3 (0-1) to CSS rgb(0-255)
 
@@ -63,9 +65,20 @@
         },
     ];
 
-    export let mode: string = "terrain"; // Expanded type to string to accept all overlay modes
+    export let mode: string = "terrain"; // Fallback/Legacy
+    export let activeLayers: Set<OverlayMode> = new Set();
     export let isLobby: boolean = false;
     export let expanded = false;
+
+    // Derived: determine if specific sections should be shown
+    $: showTopography =
+        activeLayers.has("elevation") ||
+        (activeLayers.size === 0 && mode === "terrain");
+    $: showFeatures = activeLayers.has("features") || mode === "features";
+    $: showTectonics = activeLayers.has("tectonics") || mode === "tectonics";
+    $: showTemp = activeLayers.has("temp") || mode === "temp";
+    $: showMoisture = activeLayers.has("moisture") || mode === "moisture";
+    $: showBiomes = activeLayers.has("biome") || mode === "biome";
 </script>
 
 <div
@@ -98,8 +111,15 @@
             {/if}
         </div>
         {#if expanded}
-            <div class="text-gray-500">
-                {#if isLobby}🏛️{:else if mode === "terrain" || mode === "elevation"}⛰️{:else if mode === "temp"}🌡️{:else if mode === "moisture"}💧{:else if mode === "hectonics"}🌋{:else if mode === "tectonics"}📐{:else if mode === "features"}📍{:else}🌿{/if}
+            <div class="text-gray-500 flex gap-1">
+                {#if isLobby}🏛️{:else}
+                    {#if showTopography}⛰️{/if}
+                    {#if showBiomes}🌿{/if}
+                    {#if showTemp}🌡️{/if}
+                    {#if showMoisture}💧{/if}
+                    {#if showFeatures}📍{/if}
+                    {#if showTectonics}📐{/if}
+                {/if}
             </div>
         {/if}
     </button>
@@ -135,178 +155,204 @@
                         {/each}
                     </div>
                 </div>
-            {:else if mode === "temp"}
-                <!-- Temperature Mode -->
-                <div>
-                    <h4
-                        class="font-bold text-gray-400 mb-2 uppercase text-[10px] tracking-wider"
-                    >
-                        Temperature
-                    </h4>
-                    <div class="space-y-2">
-                        <div class="flex items-center gap-2">
-                            <div class="w-4 h-4 rounded bg-red-500/60"></div>
-                            <span class="text-gray-300">Hot (Equator)</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <div class="w-4 h-4 rounded bg-green-500/60"></div>
-                            <span class="text-gray-300">Temperate</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <div class="w-4 h-4 rounded bg-blue-500/60"></div>
-                            <span class="text-gray-300">Cold (Poles)</span>
-                        </div>
-                    </div>
-                </div>
-            {:else if mode === "moisture"}
-                <!-- Moisture Mode -->
-                <div>
-                    <h4
-                        class="font-bold text-gray-400 mb-2 uppercase text-[10px] tracking-wider"
-                    >
-                        Moisture
-                    </h4>
-                    <div class="space-y-2">
-                        <div class="flex items-center gap-2">
-                            <div class="w-4 h-4 rounded bg-blue-600/80"></div>
-                            <span class="text-gray-300">Wet / Rainforest</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <div class="w-4 h-4 rounded bg-blue-400/50"></div>
-                            <span class="text-gray-300">Seasonal</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <div class="w-4 h-4 rounded bg-white/20"></div>
-                            <span class="text-gray-300">Arid / Desert</span>
-                        </div>
-                    </div>
-                </div>
-            {:else if mode === "features"}
-                <!-- Features Mode -->
-                <div>
-                    <h4
-                        class="font-bold text-gray-400 mb-2 uppercase text-[10px] tracking-wider"
-                    >
-                        Features
-                    </h4>
-                    <div class="space-y-2">
-                        <div class="flex items-center gap-2">
-                            <span class="text-lg">🌋</span>
-                            <span class="text-gray-300">Volcano</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-lg">🏔️</span>
-                            <span class="text-gray-300">Peak</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-lg">🕳️</span>
-                            <span class="text-gray-300">Trench</span>
-                        </div>
-                    </div>
-                </div>
-            {:else if mode === "tectonics"}
-                <!-- Tectonics Mode -->
-                <div>
-                    <h4
-                        class="font-bold text-gray-400 mb-2 uppercase text-[10px] tracking-wider"
-                    >
-                        Tectonics
-                    </h4>
-                    <div class="space-y-1">
-                        <div class="text-gray-500 italic mb-2">
-                            Plates rely on auto-generated colors.
-                        </div>
-                        {#each tectonicLegend as item}
-                            <div class="flex items-center gap-2">
-                                <div
-                                    class="w-4 h-4 rounded shadow-sm border border-black/20"
-                                    style="background-color: {item.color}"
-                                ></div>
-                                <div class="flex-1">
-                                    <div class="text-gray-300">
-                                        {item.label}
-                                    </div>
-                                    <div class="text-gray-600 text-[10px]">
-                                        {item.desc}
-                                    </div>
-                                </div>
-                            </div>
-                        {/each}
-                    </div>
-                </div>
-            {:else if mode === "biome"}
-                <!-- Biome Mode -->
-                <div>
-                    <h4
-                        class="font-bold text-gray-400 mb-2 uppercase text-[10px] tracking-wider"
-                    >
-                        Biomes
-                    </h4>
-                    <div class="space-y-1">
-                        {#each biomeColors as item}
-                            <div class="flex items-center gap-2">
-                                <div
-                                    class="w-4 h-4 rounded shadow-sm border border-black/20"
-                                    style="background-color: {item.color}"
-                                ></div>
-                                <div class="text-gray-300">{item.label}</div>
-                            </div>
-                        {/each}
-                    </div>
-                </div>
             {:else}
+                <!-- Features Mode -->
+                {#if showFeatures}
+                    <div>
+                        <h4
+                            class="font-bold text-gray-400 mb-2 uppercase text-[10px] tracking-wider"
+                        >
+                            Features
+                        </h4>
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg">🌋</span>
+                                <span class="text-gray-300">Volcano</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg">🏔️</span>
+                                <span class="text-gray-300">Peak</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg">🕳️</span>
+                                <span class="text-gray-300">Trench</span>
+                            </div>
+                        </div>
+                    </div>
+                {/if}
+
+                <!-- Temperature Mode -->
+                {#if showTemp}
+                    <div>
+                        <h4
+                            class="font-bold text-gray-400 mb-2 uppercase text-[10px] tracking-wider"
+                        >
+                            Temperature
+                        </h4>
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-2">
+                                <div
+                                    class="w-4 h-4 rounded bg-red-500/60"
+                                ></div>
+                                <span class="text-gray-300">Hot (Equator)</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div
+                                    class="w-4 h-4 rounded bg-green-500/60"
+                                ></div>
+                                <span class="text-gray-300">Temperate</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div
+                                    class="w-4 h-4 rounded bg-blue-500/60"
+                                ></div>
+                                <span class="text-gray-300">Cold (Poles)</span>
+                            </div>
+                        </div>
+                    </div>
+                {/if}
+
+                <!-- Moisture Mode -->
+                {#if showMoisture}
+                    <div>
+                        <h4
+                            class="font-bold text-gray-400 mb-2 uppercase text-[10px] tracking-wider"
+                        >
+                            Moisture
+                        </h4>
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-2">
+                                <div
+                                    class="w-4 h-4 rounded bg-blue-600/80"
+                                ></div>
+                                <span class="text-gray-300"
+                                    >Wet / Rainforest</span
+                                >
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div
+                                    class="w-4 h-4 rounded bg-blue-400/50"
+                                ></div>
+                                <span class="text-gray-300">Seasonal</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="w-4 h-4 rounded bg-white/20"></div>
+                                <span class="text-gray-300">Arid / Desert</span>
+                            </div>
+                        </div>
+                    </div>
+                {/if}
+
+                <!-- Tectonics Mode -->
+                {#if showTectonics}
+                    <div>
+                        <h4
+                            class="font-bold text-gray-400 mb-2 uppercase text-[10px] tracking-wider"
+                        >
+                            Tectonics
+                        </h4>
+                        <div class="space-y-1">
+                            <div class="text-gray-500 italic mb-2">
+                                Plates rely on auto-generated colors.
+                            </div>
+                            {#each tectonicLegend as item}
+                                <div class="flex items-center gap-2">
+                                    <div
+                                        class="w-4 h-4 rounded shadow-sm border border-black/20"
+                                        style="background-color: {item.color}"
+                                    ></div>
+                                    <div class="flex-1">
+                                        <div class="text-gray-300">
+                                            {item.label}
+                                        </div>
+                                        <div class="text-gray-600 text-[10px]">
+                                            {item.desc}
+                                        </div>
+                                    </div>
+                                </div>
+                            {/each}
+                        </div>
+                    </div>
+                {/if}
+
+                <!-- Biome Mode -->
+                {#if showBiomes}
+                    <div>
+                        <h4
+                            class="font-bold text-gray-400 mb-2 uppercase text-[10px] tracking-wider"
+                        >
+                            Biomes
+                        </h4>
+                        <div class="space-y-1">
+                            {#each biomeColors as item}
+                                <div class="flex items-center gap-2">
+                                    <div
+                                        class="w-4 h-4 rounded shadow-sm border border-black/20"
+                                        style="background-color: {item.color}"
+                                    ></div>
+                                    <div class="text-gray-300">
+                                        {item.label}
+                                    </div>
+                                </div>
+                            {/each}
+                        </div>
+                    </div>
+                {/if}
+
                 <!-- Default / Terrain / Elevation -->
-                <div>
-                    <h4
-                        class="font-bold text-gray-400 mb-2 uppercase text-[10px] tracking-wider"
-                    >
-                        Topography
-                    </h4>
-                    <div class="space-y-1">
-                        {#each terrainColors as item}
-                            <div class="flex items-center gap-2">
-                                <div
-                                    class="w-4 h-4 rounded shadow-sm border border-black/20"
-                                    style="background-color: {item.color}"
-                                ></div>
-                                <div class="flex-1">
-                                    <div class="text-gray-300">
-                                        {item.label}
-                                    </div>
-                                    <div class="text-gray-600 text-[10px]">
-                                        {item.desc}
-                                    </div>
-                                </div>
-                            </div>
-                        {/each}
-                    </div>
-                </div>
-                <!-- Ocean for Terrain mode -->
-                <div class="mt-4">
-                    <h4
-                        class="font-bold text-gray-400 mb-2 uppercase text-[10px] tracking-wider"
-                    >
-                        Ocean
-                    </h4>
-                    <div class="space-y-1">
-                        {#each oceanColors as item}
-                            <div class="flex items-center gap-2">
-                                <div
-                                    class="w-4 h-4 rounded shadow-sm border border-black/20"
-                                    style="background-color: {item.color}"
-                                ></div>
-                                <div class="flex-1">
-                                    <div class="text-gray-300">
-                                        {item.label}
-                                    </div>
-                                    <div class="text-gray-600 text-[10px]">
-                                        {item.desc}
+                {#if showTopography}
+                    <div>
+                        <h4
+                            class="font-bold text-gray-400 mb-2 uppercase text-[10px] tracking-wider"
+                        >
+                            Topography
+                        </h4>
+                        <div class="space-y-1">
+                            {#each terrainColors as item}
+                                <div class="flex items-center gap-2">
+                                    <div
+                                        class="w-4 h-4 rounded shadow-sm border border-black/20"
+                                        style="background-color: {item.color}"
+                                    ></div>
+                                    <div class="flex-1">
+                                        <div class="text-gray-300">
+                                            {item.label}
+                                        </div>
+                                        <div class="text-gray-600 text-[10px]">
+                                            {item.desc}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        {/each}
+                            {/each}
+                        </div>
                     </div>
-                </div>
+                    <!-- Ocean for Terrain mode -->
+                    <div class="mt-4">
+                        <h4
+                            class="font-bold text-gray-400 mb-2 uppercase text-[10px] tracking-wider"
+                        >
+                            Ocean
+                        </h4>
+                        <div class="space-y-1">
+                            {#each oceanColors as item}
+                                <div class="flex items-center gap-2">
+                                    <div
+                                        class="w-4 h-4 rounded shadow-sm border border-black/20"
+                                        style="background-color: {item.color}"
+                                    ></div>
+                                    <div class="flex-1">
+                                        <div class="text-gray-300">
+                                            {item.label}
+                                        </div>
+                                        <div class="text-gray-600 text-[10px]">
+                                            {item.desc}
+                                        </div>
+                                    </div>
+                                </div>
+                            {/each}
+                        </div>
+                    </div>
+                {/if}
             {/if}
         </div>
     {/if}
