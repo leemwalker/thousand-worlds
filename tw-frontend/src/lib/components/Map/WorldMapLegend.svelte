@@ -3,14 +3,14 @@
     // Converted from normalized vec3 (0-1) to CSS rgb(0-255)
 
     const terrainColors = [
-        { label: "Summit", color: "rgb(250, 250, 250)", desc: "> 3000m" }, // 0.98, 0.98, 0.98
-        { label: "Peak", color: "rgb(158, 158, 158)", desc: "2000-3000m" }, // 0.62, 0.62, 0.62
-        { label: "High Mtn", color: "rgb(140, 110, 99)", desc: "1000-2000m" }, // 0.55, 0.43, 0.39
-        { label: "Mountain", color: "rgb(161, 135, 128)", desc: "500-1000m" }, // 0.63, 0.53, 0.5
-        { label: "Foothill", color: "rgb(196, 224, 166)", desc: "200-500m" }, // 0.77, 0.88, 0.65
-        { label: "Plain", color: "rgb(102, 186, 107)", desc: "100-200m" }, // 0.4, 0.73, 0.42
-        { label: "Lowland", color: "rgb(46, 125, 51)", desc: "0-100m" }, // 0.18, 0.49, 0.2
-        { label: "Coast", color: "rgb(79, 195, 247)", desc: "Sea Level" }, // 0.31, 0.76, 0.97
+        { label: "Summit", color: "rgb(250, 250, 250)", desc: "> 3000m" },
+        { label: "Peak", color: "rgb(179, 179, 179)", desc: "2000-3000m" },
+        { label: "High Mtn", color: "rgb(115, 102, 102)", desc: "1000-2000m" },
+        { label: "Mountain", color: "rgb(128, 115, 115)", desc: "500-1000m" },
+        { label: "Foothill", color: "rgb(140, 179, 128)", desc: "200-500m" },
+        { label: "Plain", color: "rgb(102, 186, 107)", desc: "100-200m" },
+        { label: "Lowland", color: "rgb(46, 125, 51)", desc: "0-100m" },
+        { label: "Coast", color: "rgb(79, 195, 247)", desc: "Sea Level" },
     ];
 
     // Dynamic bathymetry colors (matching getBathymetricColor in shader)

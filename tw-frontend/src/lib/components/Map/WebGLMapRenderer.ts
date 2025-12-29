@@ -83,11 +83,11 @@ const vec3 COLOR_SHELF = vec3(0.1, 0.46, 0.82);           // -200m
 const vec3 COLOR_COAST = vec3(0.31, 0.76, 0.97);          // 0m
 const vec3 COLOR_LOWLAND = vec3(0.18, 0.49, 0.2);         // 100m
 const vec3 COLOR_PLAIN = vec3(0.4, 0.73, 0.42);           // 200m
-const vec3 COLOR_FOOTHILL = vec3(0.77, 0.88, 0.65);       // 500m
-const vec3 COLOR_MOUNTAIN_LOW = vec3(0.84, 0.8, 0.78);    // 1000m
-const vec3 COLOR_MOUNTAIN_MID = vec3(0.63, 0.53, 0.5);    // 2000m
-const vec3 COLOR_MOUNTAIN_HIGH = vec3(0.55, 0.43, 0.39);  // 3000m
-const vec3 COLOR_PEAK = vec3(0.62, 0.62, 0.62);           // 5000m
+const vec3 COLOR_FOOTHILL = vec3(0.55, 0.70, 0.50);       // 500m (Darker Green)
+const vec3 COLOR_MOUNTAIN_LOW = vec3(0.60, 0.55, 0.50);   // 1000m (Earthy Grey)
+const vec3 COLOR_MOUNTAIN_MID = vec3(0.50, 0.45, 0.45);   // 2000m (Darker Grey)
+const vec3 COLOR_MOUNTAIN_HIGH = vec3(0.45, 0.40, 0.40);  // 3000m (Darkest)
+const vec3 COLOR_PEAK = vec3(0.70, 0.70, 0.70);           // 5000m (Light Grey)
 const vec3 COLOR_SUMMIT = vec3(0.98, 0.98, 0.98);         // 8848m
 const vec3 COLOR_PLAYER = vec3(1.0, 0.2, 0.2);            // Player marker
 
