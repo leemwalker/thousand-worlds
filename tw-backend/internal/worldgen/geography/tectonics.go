@@ -115,11 +115,11 @@ func CalculateCollisionResult(cellPlate, neighborPlate TectonicPlate, boundaryTy
 			}
 		}
 		// Neighbor subducts -> this cell becomes island arc (volcanic island chain)
-		// Island arcs form above sea level as volcanic peaks
-		// Base elevation is shallow shelf (-500m) with volcanic peaks rising above
-		// The actual "islands" vs "gaps" will come from noise variation
+		// Island arcs are volcanic peaks above subduction zones
+		// Base elevation 500m creates emergent islands; noise variation adds peaks (+1000m)
+		// and rigidity falloff (1 ring only) keeps features narrow, creating gaps between peaks
 		return CollisionResult{
-			TargetElevation: 200, // Just above sea level - creates island peaks
+			TargetElevation: 500, // Above sea level - volcanic peaks emerge
 			Feature:         FeatureIslandArc,
 			RigidityRings:   OceanicRigidity,
 		}
@@ -172,13 +172,18 @@ func GeneratePlates(count int, topology spatial.Topology, seed int64) []Tectonic
 		// Generate random tangent velocity (perpendicular to position)
 		velocity := randomTangentVector(position, r)
 
-		// Assign type (30% continental, 70% oceanic)
+		// Randomly assign type (30% continental, 70% oceanic)
+		// Previously: first N plates were always continental, now truly random
 		plateType := PlateOceanic
-		thickness := 5 + r.Float64()*5 // 5-10km
-		if i < int(float64(count)*0.3) {
+		thickness := 5 + r.Float64()*5 // 5-10km oceanic crust
+		if r.Float64() < 0.3 {
 			plateType = PlateContinental
-			thickness = 30 + r.Float64()*20 // 30-50km
+			thickness = 30 + r.Float64()*20 // 30-50km continental crust
 		}
+
+		// Age range 0-200 million years for better density variation
+		// (older oceanic crust = denser = more likely to subduct)
+		age := r.Float64() * 200
 
 		plates[i] = TectonicPlate{
 			ID:        uuid.New(),
@@ -188,7 +193,12 @@ func GeneratePlates(count int, topology spatial.Topology, seed int64) []Tectonic
 			Velocity:  velocity,
 			Region:    make(map[spatial.Coordinate]struct{}),
 			Thickness: thickness,
-			Age:       r.Float64() * 100, // 0-100 million years
+			Age:       age,
+		}
+
+		if debug.Is(debug.Geology) {
+			log.Printf("[PLATE INIT] Plate %d: Type=%v Age=%.1fMy Thickness=%.1fkm",
+				i, plateType, age, thickness)
 		}
 	}
 

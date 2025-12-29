@@ -49,10 +49,10 @@ type FBMConfig struct {
 func DefaultTerrainFBMConfig() FBMConfig {
 	return FBMConfig{
 		Octaves:      6,
-		Frequency:    0.6, // Continental-scale features (was 1.5)
+		Frequency:    0.3, // Low frequency for large continental features (sphere coords are -1 to 1)
 		Lacunarity:   2.0,
 		Persistence:  0.5,
-		WarpStrength: 0.4, // Moderate distortion to break patterns (was 0.5)
+		WarpStrength: 0.4, // Moderate distortion to break diamond patterns
 	}
 }
 

@@ -29,11 +29,16 @@ func TestGeneratePlates(t *testing.T) {
 		}
 		assert.NotEqual(t, 0, p.ID)
 		assert.True(t, p.Thickness > 0)
+		// Verify age range is 0-200 million years
+		assert.GreaterOrEqual(t, p.Age, 0.0)
+		assert.LessOrEqual(t, p.Age, 200.0)
 	}
 
-	// Check ratio (approx 30% continental)
-	assert.Equal(t, 3, continentalCount)
-	assert.Equal(t, 7, oceanicCount)
+	// Check ratio is approximately 30% continental (allow variance due to random assignment)
+	// With 10 plates and 30% probability, expect 1-5 continental plates
+	assert.GreaterOrEqual(t, continentalCount, 1, "Should have at least 1 continental plate")
+	assert.LessOrEqual(t, continentalCount, 6, "Should have at most 6 continental plates")
+	assert.GreaterOrEqual(t, oceanicCount, 4, "Should have at least 4 oceanic plates")
 }
 
 func TestSimulateTectonics(t *testing.T) {
