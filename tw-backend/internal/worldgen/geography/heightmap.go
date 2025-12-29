@@ -4,6 +4,53 @@ import (
 	"tw-backend/internal/spatial"
 )
 
+// =============================================================================
+// Hypsometric Curve Constants
+// =============================================================================
+
+// Shelf zone boundaries in meters (relative to sea level)
+const (
+	ShelfLowerBound  = -600.0 // Deepest part of continental shelf
+	ShelfUpperBound  = 200.0  // Coastal plain edge
+	ShelfCompression = 0.3    // Compression factor for shelf zone (0.3 = flatten to 30%)
+)
+
+// ApplyHypsometricCurve remaps height values to create realistic continental shelves.
+// The shelf zone (-600m to +200m relative to sea level) is compressed/flattened,
+// while deep ocean and high land pass through with minimal change.
+// This creates the characteristic "step" in real Earth topography.
+func ApplyHypsometricCurve(height, seaLevel float64) float64 {
+	// Calculate relative height from sea level
+	relativeHeight := height - seaLevel
+
+	// Shelf zone: compress the gradient
+	if relativeHeight > ShelfLowerBound && relativeHeight < ShelfUpperBound {
+		// How far into the shelf zone are we? (0 = lower, 1 = upper)
+		shelfRange := ShelfUpperBound - ShelfLowerBound
+		normalizedPos := (relativeHeight - ShelfLowerBound) / shelfRange
+
+		// Map back with compression
+		compressedHeight := ShelfLowerBound + (normalizedPos * shelfRange * ShelfCompression)
+		return seaLevel + compressedHeight
+	}
+
+	// Deep ocean: pass through (slightly boost depth for drama)
+	if relativeHeight <= ShelfLowerBound {
+		// Below shelf edge, keep the depth but shift by shelf compression effect
+		offset := ShelfLowerBound * (1.0 - ShelfCompression)
+		return height + offset
+	}
+
+	// Land: pass through (slightly boost height for contrast)
+	if relativeHeight >= ShelfUpperBound {
+		// Above shelf edge, keep the height but shift by shelf compression effect
+		offset := ShelfUpperBound * (1.0 - ShelfCompression)
+		return height - offset
+	}
+
+	return height
+}
+
 // GenerateHeightmap creates the final heightmap for a spherical world.
 // Uses SphereHeightmap and spherical topology for all calculations.
 // DEPRECATED: Use GenerateHeightmapWithTidalStress for satellite-aware generation.
@@ -40,8 +87,8 @@ func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereH
 	// 2a. Apply Volcanic Hotspots (scaled by tidal stress and planetary heat)
 	ApplyHotspots(heightmap, plates, topology, seed, tidalStress, heatMultiplier)
 
-	// 3. Apply FBM Noise for natural terrain variation
-	// FBM with domain warping eliminates diamond/grid patterns
+	// 3. Apply FBM/Ridge Noise for natural terrain variation
+	// Use standard FBM for mid-levels, Ridge noise for extremes (ocean floor/peaks)
 	for face := 0; face < 6; face++ {
 		for y := 0; y < resolution; y++ {
 			for x := 0; x < resolution; x++ {
@@ -50,11 +97,22 @@ func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereH
 				// Get sphere position for 3D noise sampling
 				sx, sy, sz := topology.ToSphere(coord)
 
-				// FBM returns normalized [-1, 1], scale to desired elevation range
-				// 600m variation provides natural hills/valleys without overwhelming tectonics
-				variation := fbm.FBM3D(sx, sy, sz) * 600.0
-
 				current := heightmap.Get(coord)
+
+				// Use Ridge Noise for deep ocean (< -2000m) and high peaks (> 2000m)
+				// Creates sharp ridges/valleys instead of smooth rolling terrain
+				var variation float64
+				if current < -2000.0 || current > 2000.0 {
+					// Ridge noise: creates sharp mid-ocean ridges and rugged peaks
+					// Range [0,1] * 800 - 400 gives [-400, +400] variation
+					ridgeNoise := fbm.RidgeFBM3D(sx, sy, sz)
+					variation = (ridgeNoise * 800.0) - 400.0
+				} else {
+					// Standard FBM for coastal/mid-level terrain
+					// 600m variation provides natural hills/valleys without overwhelming tectonics
+					variation = fbm.FBM3D(sx, sy, sz) * 600.0
+				}
+
 				heightmap.Set(coord, current+variation)
 			}
 		}
@@ -79,6 +137,23 @@ func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereH
 
 	// 5. Smooth
 	SmoothSpherical(heightmap, topology)
+
+	// 6. Apply Hypsometric Curve for continental shelf flattening
+	// This creates realistic shelf/coastal plain transitions
+	for face := 0; face < 6; face++ {
+		for y := 0; y < resolution; y++ {
+			for x := 0; x < resolution; x++ {
+				coord := spatial.Coordinate{Face: face, X: x, Y: y}
+				current := heightmap.Get(coord)
+				remapped := ApplyHypsometricCurve(current, 0.0) // Sea level at 0
+				heightmap.Set(coord, remapped)
+			}
+		}
+	}
+
+	// 7. Normalize Land/Water Ratio to target 30%
+	// This stabilizes land coverage across different random seeds (prevents 4% or 70% extremes)
+	NormalizeLandRatio(heightmap, topology, 0.30)
 
 	// Update Min/Max
 	heightmap.UpdateMinMax()

@@ -151,6 +151,61 @@ func (g *FBMGenerator) FBM2D(x, y float64) float64 {
 	return total / g.maxAmp
 }
 
+// RidgeFBM3D generates 3D ridge noise with domain warping.
+// Ridge noise creates sharp peaks at value 1.0 by using 1.0 - abs(noise).
+// This is ideal for mountain ranges, ocean ridges, and other sharp terrain features.
+// Returns a value normalized to approximately [0, 1].
+func (g *FBMGenerator) RidgeFBM3D(x, y, z float64) float64 {
+	// === Domain Warping ===
+	if g.config.WarpStrength > 0 {
+		warpFreq := g.config.Frequency * 0.5
+		dx := g.warpX.Noise3D(x*warpFreq, y*warpFreq, z*warpFreq) * g.config.WarpStrength
+		dy := g.warpY.Noise3D(x*warpFreq, y*warpFreq, z*warpFreq) * g.config.WarpStrength
+		dz := g.warpZ.Noise3D(x*warpFreq, y*warpFreq, z*warpFreq) * g.config.WarpStrength
+
+		x += dx
+		y += dy
+		z += dz
+	}
+
+	// === Ridge Fractal Loop ===
+	total := 0.0
+	freq := g.config.Frequency
+	amp := 1.0
+	weight := 1.0 // Weighted sum for sharper ridges
+
+	for i := 0; i < g.config.Octaves; i++ {
+		// Get base noise value [-1, 1]
+		noise := g.primary.Noise3D(x*freq, y*freq, z*freq)
+
+		// Ridge transformation: 1.0 - abs(noise)
+		// This creates peaks at 1.0 where noise crosses 0
+		signal := 1.0 - absFloat(noise)
+
+		// Square the signal to sharpen the peaks
+		signal = signal * signal
+
+		// Weight by previous octave (sharper ridges)
+		signal *= weight
+		weight = signal
+
+		total += signal * amp
+		freq *= g.config.Lacunarity
+		amp *= g.config.Persistence
+	}
+
+	// Normalize to [0, 1] range
+	return total / g.maxAmp
+}
+
+// absFloat returns the absolute value of a float64
+func absFloat(x float64) float64 {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
 // Config returns the current FBM configuration.
 func (g *FBMGenerator) Config() FBMConfig {
 	return g.config

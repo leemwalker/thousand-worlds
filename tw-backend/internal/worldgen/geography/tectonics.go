@@ -703,9 +703,11 @@ func applyBoundaryEffectSpherical(hm *SphereHeightmap, center spatial.Coordinate
 }
 
 // applyBoundaryEffectWithRigidity applies elevation change with variable propagation based on crustal rigidity.
-// Continental crust is rigid: effects propagate further (3 rings).
-// Oceanic crust is plastic: effects are localized (1 ring).
-// This creates realistic coastal mountain ranges while keeping oceanic features narrow.
+// Continental crust is rigid: effects propagate further (3 rings) with gradual falloff.
+// Oceanic crust is plastic: effects are localized (1-2 rings).
+// UPDATED: Uses non-geometric falloff for wider, more realistic mountain ranges:
+// - Continental (3 rings): 100% -> 60% -> 20% (gradual highlands/foothills)
+// - Oceanic (1 ring): 100% -> 50% (narrow ridges)
 func applyBoundaryEffectWithRigidity(hm *SphereHeightmap, center spatial.Coordinate, elevationChange float64, rigidityRings int, topology spatial.Topology) {
 	// Ring 0: Center (100% effect)
 	currentElev := hm.Get(center)
@@ -724,13 +726,31 @@ func applyBoundaryEffectWithRigidity(hm *SphereHeightmap, center spatial.Coordin
 		center: {},
 	}
 
+	// Lookup table for falloff percentages (non-geometric for realistic orogeny)
+	// Continental (3 rings): gradual transition from peaks to foothills
+	// Oceanic (1-2 rings): narrow, localized ridges
+	var falloffTable []float64
+	if rigidityRings >= 3 {
+		// Continental: 60% highlands, 20% foothills (creates wide mountain ranges)
+		falloffTable = []float64{0.60, 0.20, 0.10}
+	} else if rigidityRings == 2 {
+		// Mixed: 50%, 20%
+		falloffTable = []float64{0.50, 0.20}
+	} else {
+		// Oceanic: 50% (narrow ridge)
+		falloffTable = []float64{0.50}
+	}
+
 	// Build rings dynamically based on rigidity
 	currentRing := []spatial.Coordinate{center}
 
 	for ring := 1; ring <= rigidityRings; ring++ {
-		// Calculate falloff: each ring gets proportionally less effect
-		// Ring 1: 50%, Ring 2: 25%, Ring 3: 12.5%, etc.
-		falloff := 1.0 / float64(uint(1)<<uint(ring)) // 0.5, 0.25, 0.125...
+		// Use lookup table for falloff
+		falloffIdx := ring - 1
+		if falloffIdx >= len(falloffTable) {
+			falloffIdx = len(falloffTable) - 1
+		}
+		falloff := falloffTable[falloffIdx]
 
 		nextRing := make([]spatial.Coordinate, 0, len(currentRing)*4)
 

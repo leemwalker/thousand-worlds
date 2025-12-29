@@ -205,3 +205,96 @@ func TestFBM_DifferentSeeds(t *testing.T) {
 
 	assert.NotEqual(t, v1, v2, "Different seeds should produce different output")
 }
+
+// =============================================================================
+// Ridge Noise Tests
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Test: Ridge FBM Output Range
+// -----------------------------------------------------------------------------
+// Given: Ridge FBM generator
+// When: Sampling many points
+// Then: Output should be in [0, 1] range (ridge noise creates peaks at 1.0)
+func TestRidgeFBM_OutputRange(t *testing.T) {
+	config := geography.DefaultTerrainFBMConfig()
+	fbm := geography.NewFBMGenerator(fbmTestSeed, config)
+
+	minVal := math.MaxFloat64
+	maxVal := -math.MaxFloat64
+
+	// Sample a grid of points
+	for x := -5.0; x <= 5.0; x += 0.5 {
+		for y := -5.0; y <= 5.0; y += 0.5 {
+			for z := -5.0; z <= 5.0; z += 0.5 {
+				v := fbm.RidgeFBM3D(x, y, z)
+				if v < minVal {
+					minVal = v
+				}
+				if v > maxVal {
+					maxVal = v
+				}
+			}
+		}
+	}
+
+	// Ridge noise should be in [0, 1] range (with some tolerance)
+	assert.GreaterOrEqual(t, minVal, -0.1, "Ridge FBM min should be >= 0")
+	assert.LessOrEqual(t, maxVal, 1.1, "Ridge FBM max should be <= 1")
+}
+
+// -----------------------------------------------------------------------------
+// Test: Ridge FBM Creates Sharp Peaks
+// -----------------------------------------------------------------------------
+// Given: Ridge FBM generator
+// When: Comparing to standard FBM at same location
+// Then: Ridge version should have more values near 1.0 (peaks)
+func TestRidgeFBM_CreatesSharpPeaks(t *testing.T) {
+	config := geography.DefaultTerrainFBMConfig()
+	fbm := geography.NewFBMGenerator(fbmTestSeed, config)
+
+	peakCount := 0
+	totalSamples := 0
+
+	// Sample and count how many are near peak (> 0.7)
+	for x := -3.0; x <= 3.0; x += 0.3 {
+		for y := -3.0; y <= 3.0; y += 0.3 {
+			for z := -3.0; z <= 3.0; z += 0.3 {
+				v := fbm.RidgeFBM3D(x, y, z)
+				totalSamples++
+				if v > 0.7 {
+					peakCount++
+				}
+			}
+		}
+	}
+
+	// Ridge noise should have a reasonable distribution of peaks
+	peakRatio := float64(peakCount) / float64(totalSamples)
+	assert.Greater(t, peakRatio, 0.05, "Ridge noise should create some sharp peaks (> 0.7)")
+	t.Logf("Peak ratio (>0.7): %.2f%% (%d/%d)", peakRatio*100, peakCount, totalSamples)
+}
+
+// -----------------------------------------------------------------------------
+// Test: Ridge FBM Determinism
+// -----------------------------------------------------------------------------
+// Given: Same seed and coordinates
+// When: RidgeFBM3D is called twice
+// Then: Results should be identical
+func TestRidgeFBM_Determinism(t *testing.T) {
+	config := geography.DefaultTerrainFBMConfig()
+	fbm1 := geography.NewFBMGenerator(fbmTestSeed, config)
+	fbm2 := geography.NewFBMGenerator(fbmTestSeed, config)
+
+	testPoints := [][3]float64{
+		{0.0, 0.0, 0.0},
+		{0.5, 0.5, 0.5},
+		{1.0, 2.0, 3.0},
+	}
+
+	for _, p := range testPoints {
+		v1 := fbm1.RidgeFBM3D(p[0], p[1], p[2])
+		v2 := fbm2.RidgeFBM3D(p[0], p[1], p[2])
+		assert.Equal(t, v1, v2, "Ridge FBM should be deterministic for point %v", p)
+	}
+}

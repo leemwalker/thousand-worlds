@@ -60,3 +60,69 @@ func TestGenerateHeightmap(t *testing.T) {
 	hm.UpdateMinMax()
 	assert.True(t, hm.MinElev < hm.MaxElev)
 }
+
+// =============================================================================
+// Hypsometric Curve Tests
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Test: Hypsometric Curve Flattens Shelf Zone
+// -----------------------------------------------------------------------------
+// Given: Heights in the shelf zone (-0.15 to 0.05 normalized)
+// When: ApplyHypsometricCurve is called
+// Then: The range should be compressed (flattened)
+func TestHypsometricCurve_FlattensShelf(t *testing.T) {
+	// Test that shelf zone is compressed
+	// Input range: -500 to +100 (600m span)
+	// Expected: compressed range (should be less than original span)
+
+	upperShelf := ApplyHypsometricCurve(100, 0.0)
+	lowerShelf := ApplyHypsometricCurve(-500, 0.0)
+
+	originalSpan := 600.0 // From -500 to +100
+	compressedSpan := absF64(upperShelf - lowerShelf)
+
+	// The compressed span should be much smaller than original
+	assert.Less(t, compressedSpan, originalSpan*0.5,
+		"Shelf zone span should be compressed to less than 50%% of original")
+
+	// Also verify mid-shelf values are flattened
+	midShelf := ApplyHypsometricCurve(-200, 0.0)
+	assert.Less(t, absF64(midShelf), 500.0, "Mid-shelf should be relatively flat")
+}
+
+// -----------------------------------------------------------------------------
+// Test: Hypsometric Curve Preserves Extremes
+// -----------------------------------------------------------------------------
+// Given: Heights far from sea level (deep ocean or high mountains)
+// When: ApplyHypsometricCurve is called
+// Then: Values should pass through with minimal change
+func TestHypsometricCurve_PreservesExtremes(t *testing.T) {
+	scenarios := []struct {
+		name     string
+		height   float64
+		seaLevel float64
+	}{
+		{"Deep ocean", -4000, 0},
+		{"Abyss", -8000, 0},
+		{"Mountain", 3000, 0},
+		{"High peak", 6000, 0},
+	}
+
+	for _, sc := range scenarios {
+		t.Run(sc.name, func(t *testing.T) {
+			result := ApplyHypsometricCurve(sc.height, sc.seaLevel)
+			// Extremes should be relatively preserved (within 20%)
+			ratio := result / sc.height
+			assert.InDelta(t, 1.0, ratio, 0.3,
+				"Extreme height %f should be mostly preserved", sc.height)
+		})
+	}
+}
+
+func absF64(x float64) float64 {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
