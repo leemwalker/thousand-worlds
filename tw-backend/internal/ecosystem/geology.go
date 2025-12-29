@@ -55,12 +55,13 @@ type WorldGeology struct {
 	PixelsPerKm float64 // How many heightmap pixels per real km
 
 	// Time Accumulators for variable step simulation
-	TectonicStressAccumulator float64 // Years of accumulated tectonic stress
-	ErosionAccumulator        float64 // Years of accumulated erosion potential
-	DepositAccumulator        float64 // Years of accumulated organic deposit time
-	RiverAccumulator          float64 // Years of accumulated river/biome update time
-	MaintenanceAccumulator    float64 // Years of accumulated maintenance time (subsidence, clamping, stats)
-	GeneralAccumulator        float64 // Years of accumulated time for lower frequency events
+	TectonicStressAccumulator    float64 // Years of accumulated tectonic stress
+	ErosionAccumulator           float64 // Years of accumulated erosion potential
+	DepositAccumulator           float64 // Years of accumulated organic deposit time
+	RiverAccumulator             float64 // Years of accumulated river/biome update time
+	MaintenanceAccumulator       float64 // Years of accumulated maintenance time (subsidence, clamping, stats)
+	GeneralAccumulator           float64 // Years of accumulated time for lower frequency events
+	PlateReassignmentAccumulator float64 // Years since last plate region reassignment (triggers drift)
 
 	// Sync optimization: track when sphere heightmap needs to be synced to flat
 	// Set by event handlers, cleared after actual sync
@@ -1147,10 +1148,26 @@ func (g *WorldGeology) advancePlates(years float64) {
 		}
 	}
 
-	// NOTE: Plate region reassignment was causing memory issues and excessive computation.
-	// The boundary cache already handles efficient tectonic processing.
-	// If full reassignment is needed, call geography.ReassignPlateRegions explicitly
-	// and invalidate the boundary cache.
+	// Periodic plate region reassignment for realistic continental drift
+	// Every 50M years, reassign which cells belong to which plate based on new centroids
+	// This allows boundaries to shift as plates move, preventing permanent mountain walls
+	const reassignmentInterval = 50_000_000.0 // 50 million years
+	g.PlateReassignmentAccumulator += years
+
+	if g.PlateReassignmentAccumulator >= reassignmentInterval && g.Topology != nil {
+		if debug.Is(debug.Geology) {
+			log.Printf("[PLATE DRIFT] Reassigning plate regions after %.0fM years", g.PlateReassignmentAccumulator/1_000_000)
+		}
+
+		// Reassign cell ownership based on new plate positions
+		geography.ReassignPlateRegions(g.Plates, g.Topology)
+
+		// Invalidate boundary cache so it's recomputed with new boundaries
+		g.BoundaryCache = nil
+
+		// Reset accumulator
+		g.PlateReassignmentAccumulator = 0
+	}
 }
 
 // ApplyEvent handles geological events that affect terrain

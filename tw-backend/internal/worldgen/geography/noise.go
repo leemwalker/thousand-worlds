@@ -45,13 +45,14 @@ type FBMConfig struct {
 
 // DefaultTerrainFBMConfig returns the recommended configuration for natural terrain.
 // These values produce Earth-like terrain with organic, non-repeating patterns.
+// Tuned for visible-scale features with strong domain warping to break grid artifacts.
 func DefaultTerrainFBMConfig() FBMConfig {
 	return FBMConfig{
 		Octaves:      6,
-		Frequency:    0.02,
+		Frequency:    1.5, // Base frequency for visible features (was 0.02)
 		Lacunarity:   2.0,
 		Persistence:  0.5,
-		WarpStrength: 0.35,
+		WarpStrength: 0.5, // Strong distortion to break diamond patterns (was 0.35)
 	}
 }
 
