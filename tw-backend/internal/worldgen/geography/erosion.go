@@ -188,3 +188,129 @@ func ApplyHydraulicErosion(hm *Heightmap, drops int, seed int64) {
 		}
 	}
 }
+
+// =============================================================================
+// Differential Erosion (Phase 5: Geological Provinces)
+// =============================================================================
+
+// ApplyDifferentialErosion simulates water erosion respecting rock hardness.
+// Soft provinces erode faster creating deep valleys and jagged coastlines.
+// Sediment deposits when velocity drops, building continental shelves.
+//
+// Physics:
+//   - Erosion: MaterialRemoved = BaseRate * Velocity * (1.0 - RockHardness)
+//   - Deposition: When velocity drops or elevation <= seaLevel
+//   - Sediment tracking: Uses SphereHeightmap.AddSediment and Erode methods
+func ApplyDifferentialErosion(hm *SphereHeightmap, topology spatial.Topology, numDrops int, seed int64, seaLevel float64) {
+	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+
+	// Erosion constants
+	erosionConstant := 0.15 // Base erosion rate
+	depositionRate := 0.3   // Fraction of sediment deposited per step
+	evaporationRate := 0.02 // Water loss per step
+	minVolume := 0.05       // Minimum water volume before droplet dies
+	maxSteps := 64          // Maximum steps per droplet
+
+	for drop := 0; drop < numDrops; drop++ {
+		// Spawn droplet at random position
+		startPoint := spatial.RandomPointOnSphere(seed + int64(drop))
+		coord := topology.FromVector(startPoint.X, startPoint.Y, startPoint.Z)
+
+		// Droplet properties
+		volume := 1.0   // Water volume
+		velocity := 0.0 // Current velocity
+		sediment := 0.0 // Carried sediment
+
+		prevCoord := coord
+
+		// Trace droplet path
+		for step := 0; step < maxSteps && volume > minVolume; step++ {
+			currentElev := hm.Get(coord)
+			hardness := hm.GetRockHardness(coord)
+
+			// Find steepest descent
+			var lowestNeighbor *spatial.Coordinate
+			lowestElev := currentElev
+
+			for _, dir := range directions {
+				neighbor := topology.GetNeighbor(coord, dir)
+				neighborElev := hm.Get(neighbor)
+				if neighborElev < lowestElev {
+					lowestElev = neighborElev
+					neighborCopy := neighbor
+					lowestNeighbor = &neighborCopy
+				}
+			}
+
+			// Calculate slope and velocity
+			slope := currentElev - lowestElev
+			if slope < 0 {
+				slope = 0
+			}
+
+			// Update velocity based on slope
+			newVelocity := math.Sqrt(velocity*velocity + slope*0.5)
+			if newVelocity > 10.0 {
+				newVelocity = 10.0 // Cap velocity
+			}
+
+			// Sediment capacity based on velocity and volume
+			capacity := newVelocity * volume * 2.0
+
+			// Determine if we should erode or deposit
+			velocityDecreased := newVelocity < velocity*0.8
+			atSeaLevel := currentElev <= seaLevel
+			atLocalMinimum := lowestNeighbor == nil
+
+			if velocityDecreased || atSeaLevel || atLocalMinimum || sediment > capacity {
+				// DEPOSIT: Velocity dropped, at sea level, or over capacity
+				depositAmount := sediment * depositionRate
+				if depositAmount > sediment {
+					depositAmount = sediment
+				}
+				if depositAmount > 0 {
+					hm.AddSediment(coord, depositAmount)
+					sediment -= depositAmount
+				}
+			} else if sediment < capacity {
+				// ERODE: We have capacity to pick up more sediment
+				// Erosion scales with velocity and INVERSELY with hardness
+				// Hard rock (0.9) erodes at 10% rate, soft rock (0.2) at 80% rate
+				erosionFactor := 1.0 - hardness
+				erodeAmount := erosionConstant * newVelocity * erosionFactor * volume
+
+				// Can't erode more than the slope allows
+				if erodeAmount > slope*0.5 {
+					erodeAmount = slope * 0.5
+				}
+
+				if erodeAmount > 0 {
+					// Use the Erode method which handles sediment vs bedrock
+					actualEroded := hm.Erode(coord, erodeAmount)
+					sediment += actualEroded
+				}
+			}
+
+			// Handle local minimum - deposit all and stop
+			if lowestNeighbor == nil {
+				if sediment > 0 {
+					hm.AddSediment(coord, sediment)
+				}
+				break
+			}
+
+			// Move to next cell
+			velocity = newVelocity
+			prevCoord = coord
+			coord = *lowestNeighbor
+
+			// Evaporation
+			volume *= (1.0 - evaporationRate)
+		}
+
+		// Deposit remaining sediment at final position
+		if sediment > 0 && coord != prevCoord {
+			hm.AddSediment(coord, sediment)
+		}
+	}
+}

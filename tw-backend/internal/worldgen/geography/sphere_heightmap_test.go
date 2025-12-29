@@ -195,3 +195,210 @@ func TestSphereHeightmap_ToFlatHeightmap_SamplesAllFaces(t *testing.T) {
 	// This test will fail if fewer than 4 faces are found
 	t.Logf("Faces found in flat output: %v", facesFound)
 }
+
+// =============================================================================
+// CellData Tests (Phase 5: Geological Provinces)
+// =============================================================================
+
+func TestSphereHeightmap_CellDataInitialization(t *testing.T) {
+	topo := spatial.NewCubeSphereTopology(64)
+	shm := NewSphereHeightmap(topo)
+
+	// By default, all cells should have zero values
+	coord := spatial.Coordinate{Face: 0, X: 32, Y: 32}
+	data := shm.GetCellData(coord)
+
+	if data.RockHardness != 0.0 {
+		t.Errorf("Default RockHardness = %f, want 0.0", data.RockHardness)
+	}
+	if data.Sediment != 0.0 {
+		t.Errorf("Default Sediment = %f, want 0.0", data.Sediment)
+	}
+	if data.ProvinceID != 0 {
+		t.Errorf("Default ProvinceID = %d, want 0", data.ProvinceID)
+	}
+}
+
+func TestSphereHeightmap_SetCellData(t *testing.T) {
+	topo := spatial.NewCubeSphereTopology(64)
+	shm := NewSphereHeightmap(topo)
+
+	coord := spatial.Coordinate{Face: 2, X: 10, Y: 20}
+	data := CellData{
+		RockHardness: 0.9,
+		Sediment:     50.0,
+		ProvinceID:   42,
+	}
+	shm.SetCellData(coord, data)
+
+	got := shm.GetCellData(coord)
+	if got.RockHardness != 0.9 {
+		t.Errorf("RockHardness = %f, want 0.9", got.RockHardness)
+	}
+	if got.Sediment != 50.0 {
+		t.Errorf("Sediment = %f, want 50.0", got.Sediment)
+	}
+	if got.ProvinceID != 42 {
+		t.Errorf("ProvinceID = %d, want 42", got.ProvinceID)
+	}
+}
+
+func TestSphereHeightmap_GetRockHardness(t *testing.T) {
+	topo := spatial.NewCubeSphereTopology(64)
+	shm := NewSphereHeightmap(topo)
+
+	coord := spatial.Coordinate{Face: 1, X: 5, Y: 5}
+	shm.SetCellData(coord, CellData{RockHardness: 0.75, Sediment: 0, ProvinceID: 1})
+
+	got := shm.GetRockHardness(coord)
+	if got != 0.75 {
+		t.Errorf("GetRockHardness = %f, want 0.75", got)
+	}
+}
+
+func TestSphereHeightmap_AddSediment(t *testing.T) {
+	topo := spatial.NewCubeSphereTopology(64)
+	shm := NewSphereHeightmap(topo)
+
+	coord := spatial.Coordinate{Face: 3, X: 20, Y: 20}
+
+	// Set initial elevation
+	shm.Set(coord, 1000.0)
+
+	// Add sediment - should increase both Sediment AND TotalHeight
+	shm.AddSediment(coord, 50.0)
+
+	data := shm.GetCellData(coord)
+	if data.Sediment != 50.0 {
+		t.Errorf("Sediment after AddSediment = %f, want 50.0", data.Sediment)
+	}
+
+	newElev := shm.Get(coord)
+	if newElev != 1050.0 {
+		t.Errorf("Elevation after AddSediment = %f, want 1050.0", newElev)
+	}
+
+	// Add more sediment
+	shm.AddSediment(coord, 25.0)
+	data = shm.GetCellData(coord)
+	if data.Sediment != 75.0 {
+		t.Errorf("Sediment after second AddSediment = %f, want 75.0", data.Sediment)
+	}
+	if shm.Get(coord) != 1075.0 {
+		t.Errorf("Elevation after second AddSediment = %f, want 1075.0", shm.Get(coord))
+	}
+}
+
+func TestSphereHeightmap_Erode_SedimentFirst(t *testing.T) {
+	topo := spatial.NewCubeSphereTopology(64)
+	shm := NewSphereHeightmap(topo)
+
+	coord := spatial.Coordinate{Face: 4, X: 15, Y: 15}
+
+	// Set initial elevation and sediment
+	shm.Set(coord, 1000.0) // Total height
+	shm.SetCellData(coord, CellData{RockHardness: 0.5, Sediment: 30.0, ProvinceID: 1})
+
+	// Erode 20 meters - should only remove sediment
+	removed := shm.Erode(coord, 20.0)
+
+	if removed != 20.0 {
+		t.Errorf("Erode returned %f, want 20.0", removed)
+	}
+
+	data := shm.GetCellData(coord)
+	if data.Sediment != 10.0 {
+		t.Errorf("Sediment after eroding 20m = %f, want 10.0", data.Sediment)
+	}
+
+	newElev := shm.Get(coord)
+	if newElev != 980.0 {
+		t.Errorf("Elevation after eroding 20m = %f, want 980.0", newElev)
+	}
+}
+
+func TestSphereHeightmap_Erode_ThenBedrock(t *testing.T) {
+	topo := spatial.NewCubeSphereTopology(64)
+	shm := NewSphereHeightmap(topo)
+
+	coord := spatial.Coordinate{Face: 5, X: 25, Y: 25}
+
+	// Set initial elevation with only 10m sediment
+	shm.Set(coord, 500.0) // Total height
+	shm.SetCellData(coord, CellData{RockHardness: 0.2, Sediment: 10.0, ProvinceID: 2})
+
+	// Erode 30 meters - should remove all sediment (10m) then bedrock (20m)
+	removed := shm.Erode(coord, 30.0)
+
+	if removed != 30.0 {
+		t.Errorf("Erode returned %f, want 30.0", removed)
+	}
+
+	data := shm.GetCellData(coord)
+	if data.Sediment != 0.0 {
+		t.Errorf("Sediment after full erosion = %f, want 0.0", data.Sediment)
+	}
+
+	newElev := shm.Get(coord)
+	if newElev != 470.0 {
+		t.Errorf("Elevation after eroding 30m = %f, want 470.0 (500 - 30)", newElev)
+	}
+}
+
+func TestSphereHeightmap_Erode_NoSediment(t *testing.T) {
+	topo := spatial.NewCubeSphereTopology(64)
+	shm := NewSphereHeightmap(topo)
+
+	coord := spatial.Coordinate{Face: 0, X: 50, Y: 50}
+
+	// Set initial elevation with no sediment
+	shm.Set(coord, 2000.0)
+	shm.SetCellData(coord, CellData{RockHardness: 0.9, Sediment: 0.0, ProvinceID: 3})
+
+	// Erode 100 meters - should only remove bedrock
+	removed := shm.Erode(coord, 100.0)
+
+	if removed != 100.0 {
+		t.Errorf("Erode returned %f, want 100.0", removed)
+	}
+
+	newElev := shm.Get(coord)
+	if newElev != 1900.0 {
+		t.Errorf("Elevation after eroding bedrock = %f, want 1900.0", newElev)
+	}
+}
+
+func TestSphereHeightmap_CellData_AllFacesIndependent(t *testing.T) {
+	topo := spatial.NewCubeSphereTopology(64)
+	shm := NewSphereHeightmap(topo)
+
+	// Set different cell data on same X,Y across different faces
+	for face := 0; face < 6; face++ {
+		coord := spatial.Coordinate{Face: face, X: 10, Y: 10}
+		shm.SetCellData(coord, CellData{
+			RockHardness: float64(face) * 0.15,
+			Sediment:     float64(face) * 10.0,
+			ProvinceID:   face + 100,
+		})
+	}
+
+	// Verify independence
+	for face := 0; face < 6; face++ {
+		coord := spatial.Coordinate{Face: face, X: 10, Y: 10}
+		got := shm.GetCellData(coord)
+
+		wantHardness := float64(face) * 0.15
+		wantSediment := float64(face) * 10.0
+		wantProvinceID := face + 100
+
+		if got.RockHardness != wantHardness {
+			t.Errorf("Face %d: RockHardness = %f, want %f", face, got.RockHardness, wantHardness)
+		}
+		if got.Sediment != wantSediment {
+			t.Errorf("Face %d: Sediment = %f, want %f", face, got.Sediment, wantSediment)
+		}
+		if got.ProvinceID != wantProvinceID {
+			t.Errorf("Face %d: ProvinceID = %d, want %d", face, got.ProvinceID, wantProvinceID)
+		}
+	}
+}

@@ -45,6 +45,38 @@ type TectonicPlate struct {
 	Age       float64                         // million years
 }
 
+// =============================================================================
+// Geological Provinces (Phase 5)
+// =============================================================================
+
+// ProvinceType represents the geological classification of a province
+type ProvinceType string
+
+const (
+	ProvinceCraton   ProvinceType = "craton"    // Ancient stable cores (Canadian Shield)
+	ProvinceFoldBelt ProvinceType = "fold_belt" // Deformed metamorphic zones (Appalachians)
+	ProvinceBasin    ProvinceType = "basin"     // Sedimentary lowlands (Great Plains)
+)
+
+// Province hardness constants
+// Hardness ranges from 0.0 (soft) to 1.0 (hard)
+const (
+	CratonHardness   = 0.9 // Hard granite shields resist erosion
+	FoldBeltHardness = 0.5 // Medium metamorphic rock
+	BasinHardness    = 0.2 // Soft sedimentary rock erodes quickly
+)
+
+// GeologicalProvince represents a sub-region within a tectonic plate
+// with distinct rock properties that affect erosion rates
+type GeologicalProvince struct {
+	ID          int                // Unique province ID
+	Type        ProvinceType       // Craton, FoldBelt, or Basin
+	PlateID     uuid.UUID          // Parent plate
+	Hardness    float64            // Rock hardness (0.0-1.0)
+	Deformation float64            // Tectonic deformation level (0.0-1.0)
+	SeedCoord   spatial.Coordinate // Origin point for flood fill
+}
+
 // BoundaryCell represents a cell that is at a plate boundary
 // Pre-computed to avoid checking all cells every iteration
 type BoundaryCell struct {

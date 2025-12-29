@@ -29,9 +29,10 @@ type WorldGeology struct {
 	Heightmap       *geography.Heightmap       // Flat heightmap for legacy consumers
 	SphereHeightmap *geography.SphereHeightmap // Spherical heightmap for proper 3D operations
 	Plates          []geography.TectonicPlate
-	SeaLevel        float64                  // meters (0 = baseline, positive = higher sea level)
-	Topology        spatial.Topology         // Spherical topology for plate operations
-	BoundaryCache   *geography.BoundaryCache // Cached plate boundary cells for fast tectonic processing
+	Provinces       []geography.GeologicalProvince // Sub-regions within continental plates (Phase 5)
+	SeaLevel        float64                        // meters (0 = baseline, positive = higher sea level)
+	Topology        spatial.Topology               // Spherical topology for plate operations
+	BoundaryCache   *geography.BoundaryCache       // Cached plate boundary cells for fast tectonic processing
 
 	// Underground data (Phase 3)
 	Columns               *underground.ColumnGrid     // Per-column underground data
@@ -234,6 +235,11 @@ func (g *WorldGeology) InitializeGeology() {
 	g.SphereHeightmap = geography.NewSphereHeightmap(g.Topology)
 	g.SphereHeightmap = geography.GenerateHeightmap(g.Plates, g.SphereHeightmap, g.Topology, g.Seed, 1.0, 1.0)
 	g.Heightmap = g.SphereHeightmap.ToFlatHeightmap(width, height)
+
+	// Phase 5: Generate geological provinces within continental plates
+	// This creates Cratons (hard, flat), Fold Belts (medium), and Basins (soft, erodes fast)
+	g.Provinces = geography.GenerateProvinces(g.Plates, g.Topology, g.Seed)
+	geography.InitializeProvinceHardness(g.SphereHeightmap, g.Plates, g.Provinces, g.Topology)
 
 	// Initialize hotspots (2-5 fixed mantle plume locations)
 	numHotspots := 2 + g.rng.Intn(4)
@@ -847,8 +853,22 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 				geography.ApplyThermalErosion(g.Heightmap, 3, g.Seed+g.TotalYearsSimulated)
 			}
 
-			// Hydraulic erosion: Limited drops to prevent lag
-			geography.ApplyHydraulicErosion(g.Heightmap, 500, g.Seed+g.TotalYearsSimulated)
+			// Phase 5: Differential erosion respecting rock hardness
+			// Soft provinces (basins) erode faster, hard provinces (cratons) resist erosion
+			// Sediment deposits at coastlines building continental shelves
+			if g.SphereHeightmap != nil && g.Topology != nil {
+				resolution := g.Topology.Resolution()
+				totalCells := 6 * resolution * resolution
+				numDrops := totalCells / 20 // ~5% of cells per erosion cycle
+				if numDrops < 500 {
+					numDrops = 500
+				}
+				geography.ApplyDifferentialErosion(g.SphereHeightmap, g.Topology, numDrops, g.Seed+g.TotalYearsSimulated, g.SeaLevel)
+				g.markSphereNeedsSync()
+			} else {
+				// Fallback for flat heightmap (legacy)
+				geography.ApplyHydraulicErosion(g.Heightmap, 500, g.Seed+g.TotalYearsSimulated)
+			}
 
 			// Reset accumulator
 			g.ErosionAccumulator -= erosionInterval

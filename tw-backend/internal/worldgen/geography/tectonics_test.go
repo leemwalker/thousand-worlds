@@ -84,3 +84,99 @@ func TestSimulateTectonics(t *testing.T) {
 	}
 	assert.True(t, hasChanges, "Tectonic simulation should produce elevation changes")
 }
+
+// =============================================================================
+// Province Generation Tests (Phase 5: Geological Provinces)
+// =============================================================================
+
+func TestGenerateProvinces_OnlyContinentalPlates(t *testing.T) {
+	resolution := 32
+	topology := spatial.NewCubeSphereTopology(resolution)
+	plates := GeneratePlates(8, topology, 12345)
+
+	provinces := GenerateProvinces(plates, topology, 12345)
+
+	// Provinces should only be created for continental plates
+	assert.NotEmpty(t, provinces, "Should generate at least some provinces")
+
+	// Each province should belong to a continental plate
+	for _, prov := range provinces {
+		foundPlate := false
+		for _, plate := range plates {
+			if plate.ID == prov.PlateID && plate.Type == PlateContinental {
+				foundPlate = true
+				break
+			}
+		}
+		assert.True(t, foundPlate, "Province %d should belong to a continental plate", prov.ID)
+	}
+}
+
+func TestGenerateProvinces_HardnessValues(t *testing.T) {
+	resolution := 32
+	topology := spatial.NewCubeSphereTopology(resolution)
+	plates := GeneratePlates(8, topology, 54321)
+
+	provinces := GenerateProvinces(plates, topology, 54321)
+
+	for _, prov := range provinces {
+		switch prov.Type {
+		case ProvinceCraton:
+			assert.InDelta(t, CratonHardness, prov.Hardness, 0.01, "Craton should have hardness ~0.9")
+		case ProvinceFoldBelt:
+			assert.InDelta(t, FoldBeltHardness, prov.Hardness, 0.01, "FoldBelt should have hardness ~0.5")
+		case ProvinceBasin:
+			assert.InDelta(t, BasinHardness, prov.Hardness, 0.01, "Basin should have hardness ~0.2")
+		default:
+			t.Errorf("Unknown province type: %s", prov.Type)
+		}
+	}
+}
+
+func TestGenerateProvinces_3to5PerPlate(t *testing.T) {
+	resolution := 32
+	topology := spatial.NewCubeSphereTopology(resolution)
+	plates := GeneratePlates(8, topology, 99999)
+
+	provinces := GenerateProvinces(plates, topology, 99999)
+
+	// Count provinces per continental plate
+	provinceCount := make(map[string]int)
+	for _, prov := range provinces {
+		provinceCount[prov.PlateID.String()]++
+	}
+
+	// Each continental plate should have 3-5 provinces
+	continentalCount := 0
+	for _, plate := range plates {
+		if plate.Type == PlateContinental {
+			continentalCount++
+			count := provinceCount[plate.ID.String()]
+			assert.GreaterOrEqual(t, count, 3, "Continental plate should have at least 3 provinces")
+			assert.LessOrEqual(t, count, 5, "Continental plate should have at most 5 provinces")
+		}
+	}
+	assert.Greater(t, continentalCount, 0, "Should have at least one continental plate")
+}
+
+func TestInitializeProvinceHardness_SetsAllContinentalCells(t *testing.T) {
+	resolution := 16
+	topology := spatial.NewCubeSphereTopology(resolution)
+	plates := GeneratePlates(5, topology, 11111)
+	hm := NewSphereHeightmap(topology)
+
+	provinces := GenerateProvinces(plates, topology, 11111)
+	InitializeProvinceHardness(hm, plates, provinces, topology)
+
+	// All cells in continental plates should have non-zero hardness
+	for _, plate := range plates {
+		if plate.Type == PlateContinental {
+			for coord := range plate.Region {
+				hardness := hm.GetRockHardness(coord)
+				assert.Greater(t, hardness, 0.0,
+					"Continental cell at face %d (%d,%d) should have hardness > 0",
+					coord.Face, coord.X, coord.Y)
+			}
+		}
+	}
+}

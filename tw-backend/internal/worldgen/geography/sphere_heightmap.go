@@ -4,17 +4,33 @@ import (
 	"tw-backend/internal/spatial"
 )
 
+// =============================================================================
+// Cell Data Layer (Phase 5: Geological Provinces)
+// =============================================================================
+
+// CellData stores geological properties for a single cell.
+// Used for differential erosion based on rock hardness and sediment tracking.
+type CellData struct {
+	RockHardness float64 // 0.0 (Soft sandstone/sediment) to 1.0 (Hard granite)
+	Sediment     float64 // Depth of loose material in meters on top of bedrock
+	ProvinceID   int     // ID of the geological province (Craton, FoldBelt, Basin)
+}
+
 // SphereHeightmap wraps 6 flat Heightmaps into a spherical surface
 // using the cube-sphere topology for neighbor lookups.
+// The elevation stored is the Total Surface Height (Bedrock + Sediment).
+// Bedrock height can be derived as: BedrockHeight = TotalHeight - Sediment.
 type SphereHeightmap struct {
 	topology spatial.Topology
 	faces    [6]*Heightmap
+	cellData [6][]CellData // Parallel array for geological cell properties
 	MinElev  float64
 	MaxElev  float64
 }
 
 // NewSphereHeightmap creates a new spherical heightmap using the given topology.
 // Each face is initialized with a flat Heightmap of size Resolution x Resolution.
+// Cell data is initialized with zero values (0.0 hardness, 0.0 sediment, 0 province).
 func NewSphereHeightmap(topology spatial.Topology) *SphereHeightmap {
 	res := topology.Resolution()
 	shm := &SphereHeightmap{
@@ -23,6 +39,7 @@ func NewSphereHeightmap(topology spatial.Topology) *SphereHeightmap {
 
 	for i := 0; i < 6; i++ {
 		shm.faces[i] = NewHeightmap(res, res)
+		shm.cellData[i] = make([]CellData, res*res)
 	}
 
 	return shm
@@ -47,6 +64,101 @@ func (s *SphereHeightmap) Set(coord spatial.Coordinate, val float64) {
 		return
 	}
 	s.faces[coord.Face].Set(coord.X, coord.Y, val)
+}
+
+// =============================================================================
+// Cell Data Accessors (Phase 5: Geological Provinces)
+// =============================================================================
+
+// GetCellData returns the geological properties for a cell
+func (s *SphereHeightmap) GetCellData(coord spatial.Coordinate) CellData {
+	if coord.Face < 0 || coord.Face >= 6 {
+		return CellData{}
+	}
+	res := s.topology.Resolution()
+	idx := coord.Y*res + coord.X
+	if idx < 0 || idx >= len(s.cellData[coord.Face]) {
+		return CellData{}
+	}
+	return s.cellData[coord.Face][idx]
+}
+
+// SetCellData sets the geological properties for a cell
+func (s *SphereHeightmap) SetCellData(coord spatial.Coordinate, data CellData) {
+	if coord.Face < 0 || coord.Face >= 6 {
+		return
+	}
+	res := s.topology.Resolution()
+	idx := coord.Y*res + coord.X
+	if idx < 0 || idx >= len(s.cellData[coord.Face]) {
+		return
+	}
+	s.cellData[coord.Face][idx] = data
+}
+
+// GetRockHardness returns the rock hardness (0.0-1.0) for a cell
+// This is a convenience method for erosion calculations.
+func (s *SphereHeightmap) GetRockHardness(coord spatial.Coordinate) float64 {
+	return s.GetCellData(coord).RockHardness
+}
+
+// AddSediment adds loose sediment material to a cell.
+// This increases BOTH the Sediment depth AND the TotalHeight (surface elevation).
+// Use this when depositing eroded material.
+func (s *SphereHeightmap) AddSediment(coord spatial.Coordinate, amount float64) {
+	if coord.Face < 0 || coord.Face >= 6 || amount <= 0 {
+		return
+	}
+	res := s.topology.Resolution()
+	idx := coord.Y*res + coord.X
+	if idx < 0 || idx >= len(s.cellData[coord.Face]) {
+		return
+	}
+	// Increase sediment depth
+	s.cellData[coord.Face][idx].Sediment += amount
+	// Increase total surface height
+	currentElev := s.Get(coord)
+	s.Set(coord, currentElev+amount)
+}
+
+// Erode removes material from a cell, sediment first, then bedrock.
+// Returns the actual amount of material removed (may be less than requested).
+// This decreases TotalHeight by the removed amount.
+// Sediment is removed before bedrock to simulate realistic erosion.
+func (s *SphereHeightmap) Erode(coord spatial.Coordinate, amount float64) float64 {
+	if coord.Face < 0 || coord.Face >= 6 || amount <= 0 {
+		return 0
+	}
+	res := s.topology.Resolution()
+	idx := coord.Y*res + coord.X
+	if idx < 0 || idx >= len(s.cellData[coord.Face]) {
+		return 0
+	}
+
+	currentElev := s.Get(coord)
+	sediment := s.cellData[coord.Face][idx].Sediment
+	totalRemoved := 0.0
+
+	// Phase 1: Remove sediment first
+	if sediment > 0 {
+		sedimentToRemove := amount
+		if sedimentToRemove > sediment {
+			sedimentToRemove = sediment
+		}
+		s.cellData[coord.Face][idx].Sediment -= sedimentToRemove
+		totalRemoved += sedimentToRemove
+		amount -= sedimentToRemove
+	}
+
+	// Phase 2: Remove bedrock if sediment exhausted
+	if amount > 0 {
+		totalRemoved += amount
+	}
+
+	// Update total surface elevation
+	s.Set(coord, currentElev-totalRemoved)
+
+	return totalRemoved
 }
 
 // GetNeighborElevation returns the elevation of the neighboring cell in the given direction.

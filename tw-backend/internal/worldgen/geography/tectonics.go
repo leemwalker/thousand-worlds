@@ -929,3 +929,155 @@ func CalculateSupercontinentEffects(pangaeaIndex float64) (desertPercent float64
 	}
 	return 0.1, 1.0
 }
+
+// =============================================================================
+// Geological Province Generation (Phase 5)
+// =============================================================================
+
+// GenerateProvinces creates geological sub-regions within continental plates.
+// Each continental plate gets 3-5 provinces (Cratons, Fold Belts, Basins).
+// Uses multi-source flood fill (Voronoi-style) to assign cells to provinces.
+func GenerateProvinces(plates []TectonicPlate, topology spatial.Topology, seed int64) []GeologicalProvince {
+	r := rand.New(rand.NewSource(seed))
+	provinces := []GeologicalProvince{}
+	provinceID := 1
+
+	for _, plate := range plates {
+		// Only generate provinces for continental plates
+		if plate.Type != PlateContinental {
+			continue
+		}
+
+		// Skip plates with no region
+		if len(plate.Region) == 0 {
+			continue
+		}
+
+		// Generate 3-5 provinces per continental plate
+		numProvinces := 3 + r.Intn(3) // 3, 4, or 5
+
+		// Convert plate region to slice for random access
+		regionSlice := make([]spatial.Coordinate, 0, len(plate.Region))
+		for coord := range plate.Region {
+			regionSlice = append(regionSlice, coord)
+		}
+
+		// Pick random seeds within the plate
+		for i := 0; i < numProvinces && i < len(regionSlice); i++ {
+			// Pick random coordinate from plate region
+			idx := r.Intn(len(regionSlice))
+			seedCoord := regionSlice[idx]
+
+			// Determine province type with weighted distribution
+			// 40% Craton, 30% FoldBelt, 30% Basin
+			var provType ProvinceType
+			var hardness float64
+			var deformation float64
+
+			roll := r.Float64()
+			if roll < 0.4 {
+				provType = ProvinceCraton
+				hardness = CratonHardness
+				deformation = 0.1
+			} else if roll < 0.7 {
+				provType = ProvinceFoldBelt
+				hardness = FoldBeltHardness
+				deformation = 0.8
+			} else {
+				provType = ProvinceBasin
+				hardness = BasinHardness
+				deformation = 0.3
+			}
+
+			prov := GeologicalProvince{
+				ID:          provinceID,
+				Type:        provType,
+				PlateID:     plate.ID,
+				Hardness:    hardness,
+				Deformation: deformation,
+				SeedCoord:   seedCoord,
+			}
+			provinces = append(provinces, prov)
+			provinceID++
+		}
+	}
+
+	return provinces
+}
+
+// InitializeProvinceHardness assigns province IDs and hardness values to all cells
+// in continental plates using multi-source flood fill from province seeds.
+func InitializeProvinceHardness(hm *SphereHeightmap, plates []TectonicPlate, provinces []GeologicalProvince, topology spatial.Topology) {
+	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+
+	// Build set of all continental cells for fast lookup
+	continentalCells := make(map[spatial.Coordinate]struct{})
+	for _, plate := range plates {
+		if plate.Type == PlateContinental {
+			for coord := range plate.Region {
+				continentalCells[coord] = struct{}{}
+			}
+		}
+	}
+
+	// Track which cells have been assigned
+	assigned := make(map[spatial.Coordinate]int) // coord -> provinceID
+
+	// Initialize BFS queue with all province seeds
+	type bfsProvinceItem struct {
+		coord      spatial.Coordinate
+		provinceID int
+	}
+	queue := make([]bfsProvinceItem, 0, len(provinces))
+
+	for _, prov := range provinces {
+		queue = append(queue, bfsProvinceItem{coord: prov.SeedCoord, provinceID: prov.ID})
+		assigned[prov.SeedCoord] = prov.ID
+
+		// Set initial hardness at seed
+		data := hm.GetCellData(prov.SeedCoord)
+		data.RockHardness = prov.Hardness
+		data.ProvinceID = prov.ID
+		hm.SetCellData(prov.SeedCoord, data)
+	}
+
+	// Build province lookup for hardness
+	provinceLookup := make(map[int]float64)
+	for _, prov := range provinces {
+		provinceLookup[prov.ID] = prov.Hardness
+	}
+
+	// Multi-source BFS expansion
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		// Check all 4 neighbors
+		for _, dir := range directions {
+			neighbor := topology.GetNeighbor(current.coord, dir)
+
+			// Skip if not continental
+			if _, isContinental := continentalCells[neighbor]; !isContinental {
+				continue
+			}
+
+			// Skip if already assigned
+			if _, exists := assigned[neighbor]; exists {
+				continue
+			}
+
+			// Assign to this province
+			assigned[neighbor] = current.provinceID
+
+			// Set cell data
+			hardness := provinceLookup[current.provinceID]
+			data := hm.GetCellData(neighbor)
+			data.RockHardness = hardness
+			data.ProvinceID = current.provinceID
+			hm.SetCellData(neighbor, data)
+
+			// Add to queue
+			queue = append(queue, bfsProvinceItem{coord: neighbor, provinceID: current.provinceID})
+		}
+	}
+}
