@@ -489,3 +489,166 @@ func TestBDD_Tectonics_CrossFacePlates(t *testing.T) {
 
 	assert.True(t, crossFaceFound, "At least one plate should span multiple cube-sphere faces")
 }
+
+// =============================================================================
+// BDD Tests: Collision Physics (Crust Density)
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Scenario: Ocean-Ocean Convergence - Subduction Based on Age
+// -----------------------------------------------------------------------------
+// Given: Two oceanic plates colliding
+// When: CalculateCollisionResult is called
+// Then: The older (denser) plate should subduct (trench)
+//
+//	AND: The younger plate should form an island arc
+func TestBDD_Collision_OceanOcean(t *testing.T) {
+	oldPlate := geography.TectonicPlate{
+		Type:      geography.PlateOceanic,
+		Age:       80, // 80 million years old (denser)
+		Thickness: 7,
+	}
+	youngPlate := geography.TectonicPlate{
+		Type:      geography.PlateOceanic,
+		Age:       20, // 20 million years old (less dense)
+		Thickness: 6,
+	}
+
+	// Cell on OLD plate (should subduct = trench)
+	oldCellResult := geography.CalculateCollisionResult(oldPlate, youngPlate, geography.BoundaryConvergent)
+	assert.Equal(t, geography.FeatureTrench, oldCellResult.Feature,
+		"Older oceanic plate should form trench")
+	assert.Less(t, oldCellResult.TargetElevation, -7000.0,
+		"Trench should be very deep (-8000 to -10000m)")
+
+	// Cell on YOUNG plate (overriding = island arc)
+	youngCellResult := geography.CalculateCollisionResult(youngPlate, oldPlate, geography.BoundaryConvergent)
+	assert.Equal(t, geography.FeatureIslandArc, youngCellResult.Feature,
+		"Younger oceanic plate should form island arc")
+	assert.Greater(t, youngCellResult.TargetElevation, -4000.0,
+		"Island arc should be above deep ocean floor")
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Ocean-Continent Convergence - Ocean Always Subducts
+// -----------------------------------------------------------------------------
+// Given: An oceanic plate and a continental plate colliding
+// When: CalculateCollisionResult is called
+// Then: The oceanic side should form a trench
+//
+//	AND: The continental side should form coastal mountains (Andes-style)
+func TestBDD_Collision_OceanContinent(t *testing.T) {
+	oceanPlate := geography.TectonicPlate{
+		Type:      geography.PlateOceanic,
+		Age:       50,
+		Thickness: 7,
+	}
+	continentPlate := geography.TectonicPlate{
+		Type:      geography.PlateContinental,
+		Age:       100,
+		Thickness: 40, // km
+	}
+
+	// Cell on OCEAN plate (should subduct = trench)
+	oceanCellResult := geography.CalculateCollisionResult(oceanPlate, continentPlate, geography.BoundaryConvergent)
+	assert.Equal(t, geography.FeatureTrench, oceanCellResult.Feature,
+		"Oceanic plate should form trench")
+	assert.Less(t, oceanCellResult.TargetElevation, -5000.0,
+		"Ocean-continent trench should be deep")
+
+	// Cell on CONTINENT plate (overriding = coastal mountains)
+	continentCellResult := geography.CalculateCollisionResult(continentPlate, oceanPlate, geography.BoundaryConvergent)
+	assert.Equal(t, geography.FeatureCoastalMountain, continentCellResult.Feature,
+		"Continental plate should form coastal mountains")
+	assert.Greater(t, continentCellResult.TargetElevation, 3000.0,
+		"Coastal mountains should be 3000-5000m (Andes-scale)")
+	assert.Less(t, continentCellResult.TargetElevation, 6000.0,
+		"Coastal mountains should be less than Himalaya-scale")
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Continent-Continent Convergence - Massive Orogeny
+// -----------------------------------------------------------------------------
+// Given: Two continental plates colliding
+// When: CalculateCollisionResult is called
+// Then: Both sides should form massive orogeny (Himalayas)
+//
+//	AND: No subduction should occur (no trench)
+func TestBDD_Collision_ContinentContinent(t *testing.T) {
+	plate1 := geography.TectonicPlate{
+		Type:      geography.PlateContinental,
+		Age:       200,
+		Thickness: 45,
+	}
+	plate2 := geography.TectonicPlate{
+		Type:      geography.PlateContinental,
+		Age:       180,
+		Thickness: 40,
+	}
+
+	result1 := geography.CalculateCollisionResult(plate1, plate2, geography.BoundaryConvergent)
+	result2 := geography.CalculateCollisionResult(plate2, plate1, geography.BoundaryConvergent)
+
+	assert.Equal(t, geography.FeatureOrogeny, result1.Feature,
+		"Continental collision should form orogeny")
+	assert.Equal(t, geography.FeatureOrogeny, result2.Feature,
+		"Both sides should form orogeny")
+
+	assert.Greater(t, result1.TargetElevation, 6000.0,
+		"Orogeny should be Himalaya-scale (6000-8800m)")
+	assert.Less(t, result1.TargetElevation, 9000.0,
+		"Orogeny should not exceed Everest scale")
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Crustal Rigidity Affects Propagation
+// -----------------------------------------------------------------------------
+// Given: Different collision types
+// When: CollisionResult is calculated
+// Then: Continental crust should have higher rigidity (more rings)
+//
+//	AND: Oceanic crust should have lower rigidity (fewer rings)
+func TestBDD_Collision_CrustalRigidity(t *testing.T) {
+	oceanPlate := geography.TectonicPlate{Type: geography.PlateOceanic, Age: 50, Thickness: 7}
+	continentPlate := geography.TectonicPlate{Type: geography.PlateContinental, Age: 100, Thickness: 40}
+
+	// Oceanic collision = low rigidity
+	oceanResult := geography.CalculateCollisionResult(oceanPlate, oceanPlate, geography.BoundaryConvergent)
+	assert.Equal(t, geography.OceanicRigidity, oceanResult.RigidityRings,
+		"Oceanic crust should have low rigidity (1 ring)")
+
+	// Continental collision = high rigidity
+	continentResult := geography.CalculateCollisionResult(continentPlate, continentPlate, geography.BoundaryConvergent)
+	assert.Equal(t, geography.ContinentalRigidity, continentResult.RigidityRings,
+		"Continental crust should have high rigidity (3 rings)")
+
+	// Coastal mountains = continental rigidity
+	coastResult := geography.CalculateCollisionResult(continentPlate, oceanPlate, geography.BoundaryConvergent)
+	assert.Equal(t, geography.ContinentalRigidity, coastResult.RigidityRings,
+		"Coastal mountains should propagate with continental rigidity")
+}
+
+// -----------------------------------------------------------------------------
+// Scenario: Plate Density Calculation
+// -----------------------------------------------------------------------------
+// Given: Plates of different types and ages
+// When: GetPlateDensity is called
+// Then: Oceanic plates should be denser than continental
+//
+//	AND: Older oceanic plates should be denser than younger ones
+func TestBDD_Collision_PlateDensity(t *testing.T) {
+	youngOcean := geography.TectonicPlate{Type: geography.PlateOceanic, Age: 10}
+	oldOcean := geography.TectonicPlate{Type: geography.PlateOceanic, Age: 100}
+	continent := geography.TectonicPlate{Type: geography.PlateContinental, Age: 200}
+
+	youngDensity := geography.GetPlateDensity(youngOcean)
+	oldDensity := geography.GetPlateDensity(oldOcean)
+	continentDensity := geography.GetPlateDensity(continent)
+
+	assert.Greater(t, oldDensity, youngDensity,
+		"Older oceanic crust should be denser than younger")
+	assert.Greater(t, youngDensity, continentDensity,
+		"Even young oceanic crust should be denser than continental")
+	assert.InDelta(t, 2.7, continentDensity, 0.01,
+		"Continental crust should be ~2.7 g/cm³")
+}

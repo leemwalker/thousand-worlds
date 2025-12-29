@@ -20,7 +20,133 @@ const (
 	// TectonicConvergenceRate controls how quickly boundaries approach target elevation
 	// Value of 0.1 means 10% of remaining difference per tectonic step
 	TectonicConvergenceRate = 0.1
+	// ContinentalRigidity controls how far continental crust effects propagate (rings)
+	ContinentalRigidity = 3
+	// OceanicRigidity controls how far oceanic crust effects propagate (rings)
+	OceanicRigidity = 1
 )
+
+// FeatureType describes the tectonic feature created at a boundary
+type FeatureType string
+
+const (
+	FeatureNone            FeatureType = "none"
+	FeatureTrench          FeatureType = "trench"
+	FeatureIslandArc       FeatureType = "island_arc"
+	FeatureCoastalMountain FeatureType = "coastal_mountain"
+	FeatureOrogeny         FeatureType = "orogeny"
+	FeatureMidOceanRidge   FeatureType = "mid_ocean_ridge"
+	FeatureRiftValley      FeatureType = "rift_valley"
+)
+
+// CollisionResult describes the tectonic outcome at a specific cell
+type CollisionResult struct {
+	TargetElevation float64     // Target elevation for this cell
+	Feature         FeatureType // Type of tectonic feature created
+	RigidityRings   int         // How many rings the effect should propagate
+}
+
+// GetPlateDensity returns the density of a plate in g/cm³
+// Oceanic crust is denser (~3.0 g/cm³) than continental (~2.7 g/cm³)
+// Older oceanic crust is also denser due to cooling
+func GetPlateDensity(p TectonicPlate) float64 {
+	if p.Type == PlateOceanic {
+		// Base oceanic density + age factor (older = denser due to cooling)
+		// Age is in million years, add 0.001 g/cm³ per million years
+		return 3.0 + (p.Age * 0.001)
+	}
+	// Continental crust has lower density
+	return 2.7
+}
+
+// CalculateCollisionResult determines the tectonic outcome for a specific cell
+// at a plate boundary based on crust physics.
+// cellPlate is the plate the cell belongs to, neighborPlate is the adjacent plate.
+func CalculateCollisionResult(cellPlate, neighborPlate TectonicPlate, boundaryType BoundaryType) CollisionResult {
+	// Divergent boundaries - spreading/rifting
+	if boundaryType == BoundaryDivergent {
+		if cellPlate.Type == PlateOceanic && neighborPlate.Type == PlateOceanic {
+			return CollisionResult{
+				TargetElevation: -2500, // Mid-ocean ridge (elevated from -4000 ocean floor)
+				Feature:         FeatureMidOceanRidge,
+				RigidityRings:   OceanicRigidity,
+			}
+		}
+		if cellPlate.Type == PlateContinental && neighborPlate.Type == PlateContinental {
+			return CollisionResult{
+				TargetElevation: -200, // Continental rift valley
+				Feature:         FeatureRiftValley,
+				RigidityRings:   ContinentalRigidity,
+			}
+		}
+		// Mixed: use cell's type to determine rigidity
+		rings := OceanicRigidity
+		if cellPlate.Type == PlateContinental {
+			rings = ContinentalRigidity
+		}
+		return CollisionResult{
+			TargetElevation: 100,
+			Feature:         FeatureNone,
+			RigidityRings:   rings,
+		}
+	}
+
+	// Transform boundaries - minimal elevation change
+	if boundaryType == BoundaryTransform {
+		return CollisionResult{
+			TargetElevation: 0,
+			Feature:         FeatureNone,
+			RigidityRings:   OceanicRigidity,
+		}
+	}
+
+	// Convergent boundaries - the complex case
+	cellDensity := GetPlateDensity(cellPlate)
+	neighborDensity := GetPlateDensity(neighborPlate)
+
+	// Ocean vs Ocean: Denser (older) plate subducts
+	if cellPlate.Type == PlateOceanic && neighborPlate.Type == PlateOceanic {
+		if cellDensity >= neighborDensity {
+			// This cell's plate subducts -> this cell becomes a trench
+			return CollisionResult{
+				TargetElevation: -8000 - (cellPlate.Age * 20), // Older = deeper trench, -8000 to -10000m
+				Feature:         FeatureTrench,
+				RigidityRings:   OceanicRigidity,
+			}
+		}
+		// Neighbor subducts -> this cell becomes island arc
+		return CollisionResult{
+			TargetElevation: -2000, // Base level for island arc (above ocean floor)
+			Feature:         FeatureIslandArc,
+			RigidityRings:   OceanicRigidity,
+		}
+	}
+
+	// Ocean vs Continent: Ocean always subducts
+	if cellPlate.Type == PlateOceanic && neighborPlate.Type == PlateContinental {
+		// This cell is oceanic, it subducts -> trench
+		return CollisionResult{
+			TargetElevation: -6000,
+			Feature:         FeatureTrench,
+			RigidityRings:   OceanicRigidity,
+		}
+	}
+	if cellPlate.Type == PlateContinental && neighborPlate.Type == PlateOceanic {
+		// This cell is continental, neighbor subducts -> coastal mountains (Andes-style)
+		return CollisionResult{
+			TargetElevation: 3500 + (cellPlate.Thickness * 30), // Thicker crust = higher mountains, 3000-5000m
+			Feature:         FeatureCoastalMountain,
+			RigidityRings:   ContinentalRigidity,
+		}
+	}
+
+	// Continent vs Continent: Buckling -> massive orogeny
+	return CollisionResult{
+		TargetElevation: 6000 + (cellPlate.Thickness * 50), // Thicker = higher, 6000-8800m
+		Feature:         FeatureOrogeny,
+		RigidityRings:   ContinentalRigidity,
+	}
+}
 
 // GeneratePlates creates tectonic plates using spherical topology.
 // Uses Multi-Source BFS to assign regions efficiently in O(N) time.
@@ -238,14 +364,15 @@ func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightm
 		currentPlate := plates[bc.PlateIdx]
 		neighborPlate := plates[bc.NeighborIdx]
 
-		// Apply equilibrium-based elevation change
+		// Apply equilibrium-based elevation change with collision physics
 		currentElev := heightmap.Get(bc.Coord)
-		elevationDelta := calculateEquilibriumElevationChange(currentPlate, neighborPlate, bc.BoundaryType, currentElev)
+		elevationDelta, collisionResult := calculateEquilibriumElevationChangeV2(currentPlate, neighborPlate, bc.BoundaryType, currentElev)
 
 		// Apply scale factor for variable time steps
 		elevationDelta *= scaleFactor
 
-		applyBoundaryEffectSpherical(heightmap, bc.Coord, elevationDelta, topology)
+		// Use rigidity-aware boundary effect
+		applyBoundaryEffectWithRigidity(heightmap, bc.Coord, elevationDelta, collisionResult.RigidityRings, topology)
 	}
 
 	return heightmap
@@ -404,8 +531,10 @@ func GetTargetElevation(p1, p2 TectonicPlate, boundaryType BoundaryType) float64
 // calculateEquilibriumElevationChange returns the delta to apply using an asymptotic approach.
 // Instead of adding fixed amounts, we move toward a target elevation at a convergence rate.
 // This prevents runaway elevation accumulation over geological time.
+// Deprecated: Use calculateEquilibriumElevationChangeV2 for collision-aware physics.
 func calculateEquilibriumElevationChange(p1, p2 TectonicPlate, boundaryType BoundaryType, currentElev float64) float64 {
-	target := GetTargetElevation(p1, p2, boundaryType)
+	result := CalculateCollisionResult(p1, p2, boundaryType)
+	target := result.TargetElevation
 
 	// Calculate difference and apply convergence rate
 	// This creates an asymptotic approach: delta = (target - current) * rate
@@ -413,6 +542,19 @@ func calculateEquilibriumElevationChange(p1, p2 TectonicPlate, boundaryType Boun
 	delta := difference * TectonicConvergenceRate
 
 	return delta
+}
+
+// calculateEquilibriumElevationChangeV2 returns both the elevation delta and collision result.
+// This enables the caller to apply rigidity-aware boundary effects.
+func calculateEquilibriumElevationChangeV2(cellPlate, neighborPlate TectonicPlate, boundaryType BoundaryType, currentElev float64) (float64, CollisionResult) {
+	result := CalculateCollisionResult(cellPlate, neighborPlate, boundaryType)
+	target := result.TargetElevation
+
+	// Calculate difference and apply convergence rate
+	difference := target - currentElev
+	delta := difference * TectonicConvergenceRate
+
+	return delta, result
 }
 
 // calculateElevationChange returns the elevation modifier based on boundary type.
@@ -468,6 +610,57 @@ func applyBoundaryEffectSpherical(hm *SphereHeightmap, center spatial.Coordinate
 				hm.Set(neighbor, nNewElev)
 			}
 		}
+	}
+}
+
+// applyBoundaryEffectWithRigidity applies elevation change with variable propagation based on crustal rigidity.
+// Continental crust is rigid: effects propagate further (3 rings).
+// Oceanic crust is plastic: effects are localized (1 ring).
+// This creates realistic coastal mountain ranges while keeping oceanic features narrow.
+func applyBoundaryEffectWithRigidity(hm *SphereHeightmap, center spatial.Coordinate, elevationChange float64, rigidityRings int, topology spatial.Topology) {
+	// Ring 0: Center (100% effect)
+	currentElev := hm.Get(center)
+	newElev := currentElev + elevationChange
+	newElev = clampElevation(newElev)
+	hm.Set(center, newElev)
+
+	if rigidityRings <= 0 {
+		return
+	}
+
+	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+
+	// Track visited to prevent double-application
+	visited := map[spatial.Coordinate]struct{}{
+		center: {},
+	}
+
+	// Build rings dynamically based on rigidity
+	currentRing := []spatial.Coordinate{center}
+
+	for ring := 1; ring <= rigidityRings; ring++ {
+		// Calculate falloff: each ring gets proportionally less effect
+		// Ring 1: 50%, Ring 2: 25%, Ring 3: 12.5%, etc.
+		falloff := 1.0 / float64(uint(1)<<uint(ring)) // 0.5, 0.25, 0.125...
+
+		nextRing := make([]spatial.Coordinate, 0, len(currentRing)*4)
+
+		for _, coord := range currentRing {
+			for _, dir := range directions {
+				neighbor := topology.GetNeighbor(coord, dir)
+				if _, exists := visited[neighbor]; !exists {
+					visited[neighbor] = struct{}{}
+					nextRing = append(nextRing, neighbor)
+
+					nElev := hm.Get(neighbor)
+					nNewElev := nElev + elevationChange*falloff
+					nNewElev = clampElevation(nNewElev)
+					hm.Set(neighbor, nNewElev)
+				}
+			}
+		}
+
+		currentRing = nextRing
 	}
 }
 
