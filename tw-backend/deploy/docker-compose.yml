@@ -1,4 +1,6 @@
-version: '3.8'
+# Development/Infrastructure docker-compose
+# Mirrors production resource limits for accurate testing
+# Server: Babylon (10.0.0.17) - Intel i7-6700K (8 threads), 32GB RAM
 
 services:
   # 1. Spatial & Relational Data (The World State)
@@ -15,9 +17,16 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - mud_net
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U admin -d mud_core" ]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
 
@@ -34,6 +43,19 @@ services:
       - mongo_data:/data/db
     networks:
       - mud_net
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+    healthcheck:
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   # 3. Event Bus & Message Queue (The Nervous System)
   nats:
@@ -50,6 +72,16 @@ services:
       - nats_data:/data
     networks:
       - mud_net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    healthcheck:
+      test: [ "CMD", "nats-server", "-sl=ldm=/var/run/nats/nats.pid" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   # 4. Hot Data & Sessions (The Short-term Memory)
   redis:
@@ -61,6 +93,16 @@ services:
       - redis_data:/data
     networks:
       - mud_net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   # 5. Local LLM Inference (The Imagination)
   ollama:
@@ -80,6 +122,15 @@ services:
       resources:
         limits:
           memory: 8G
+          cpus: '3.5'
+        reservations:
+          memory: 4G
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:11434/api/version" ]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
     # GPU ACCELERATION (Optional - requires supported AMD GPU with ROCm)
     # For AMD GPUs (RDNA2+), use rocm/ollama image and add devices:
     # image: ollama/ollama:rocm
