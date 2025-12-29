@@ -47,8 +47,12 @@ func (g *DefaultGeographyGenerator) GenerateGeography(params *GenerationParams, 
 	// 4. Assign ocean/land based on desired ratio
 	seaLevel := geography.AssignOceanLand(heightmap, params.LandWaterRatio)
 
-	// 5. Generate rivers (before climate, rivers affect local moisture)
-	rivers := geography.GenerateRivers(heightmap, seaLevel, params.Seed)
+	// 5. Hydrology: Flux, Lakes, Rivers
+	geography.CalculateGlobalFlux(sphereHeightmap)
+	geography.FillDepressions(sphereHeightmap, seaLevel)
+
+	sphereRivers := geography.GenerateRiversSpherical(sphereHeightmap, seaLevel, params.Seed)
+	rivers := geography.ConvertSphericalRiversToFlat(sphereRivers, topology.Resolution())
 
 	// 6. NEW: Generate ocean currents and simulate thermodynamics
 	oceanSys := ocean.NewSystem(topology, sphereHeightmap, seaLevel)
@@ -70,7 +74,7 @@ func (g *DefaultGeographyGenerator) GenerateGeography(params *GenerationParams, 
 	climateData := convertSphereClimateToFlat(sphereClimate, topology, params.Width, params.Height)
 
 	// 8. Assign biomes using climate data
-	biomes := assignBiomesFromClimate(heightmap, seaLevel, climateData)
+	biomes := assignBiomesFromClimate(heightmap, sphereHeightmap, topology, seaLevel, climateData)
 
 	worldMap := &geography.WorldMap{
 		Heightmap: heightmap,
@@ -150,7 +154,7 @@ func sinApprox(x float64) float64 {
 }
 
 // assignBiomesFromClimate creates biomes using pre-computed climate data.
-func assignBiomesFromClimate(hm *geography.Heightmap, seaLevel float64, climateData []weather.ClimateData) []geography.Biome {
+func assignBiomesFromClimate(hm *geography.Heightmap, sphereHeightmap *geography.SphereHeightmap, topology spatial.Topology, seaLevel float64, climateData []weather.ClimateData) []geography.Biome {
 	biomes := make([]geography.Biome, hm.Width*hm.Height)
 
 	for y := 0; y < hm.Height; y++ {
@@ -159,12 +163,29 @@ func assignBiomesFromClimate(hm *geography.Heightmap, seaLevel float64, climateD
 			elev := hm.Get(x, y)
 			climate := weather.GetClimateAt(climateData, hm.Width, x, y)
 
+			// Map to spherical coordinate to get Flux/IsLake
+			// Same projection as above
+			lon := (float64(x) / float64(hm.Width)) * 2 * 3.141592653589793
+			lat := (0.5 - float64(y)/float64(hm.Height)) * 3.141592653589793
+			cosLat := cosApprox(lat)
+			sinLat := sinApprox(lat)
+			cosLon := cosApprox(lon)
+			sinLon := sinApprox(lon)
+			sphereX := cosLat * cosLon
+			sphereY := sinLat
+			sphereZ := cosLat * sinLon
+
+			coord := topology.FromVector(sphereX, sphereY, sphereZ)
+			cellData := sphereHeightmap.GetCellData(coord)
+
 			biomeType := geography.ClassifyBiome(
 				climate.Temperature,
 				climate.AnnualRainfall,
 				climate.SoilDrainage,
 				elev,
 				seaLevel,
+				cellData.Flux,
+				cellData.IsLake,
 			)
 
 			biomes[idx] = geography.Biome{

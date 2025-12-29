@@ -17,6 +17,8 @@ func TestClassifyBiome_PureClassification(t *testing.T) {
 		drainage    float64
 		elevation   float64
 		seaLevel    float64
+		flux        float64
+		isLake      bool
 		wantBiome   BiomeType
 		description string
 	}{
@@ -117,11 +119,35 @@ func TestClassifyBiome_PureClassification(t *testing.T) {
 			wantBiome:   BiomeOcean,
 			description: "Below sea level → Ocean",
 		},
+
+		// New Hydrology Features
+		{
+			name:        "lake",
+			tempC:       20.0,
+			rainfallMM:  1000.0,
+			drainage:    0.5,
+			elevation:   100.0,
+			seaLevel:    0.0,
+			isLake:      true,
+			wantBiome:   BiomeLake,
+			description: "IsLake=true → Lake Biome",
+		},
+		{
+			name:        "wetland_flux",
+			tempC:       25.0,
+			rainfallMM:  1000.0, // 0.5 moisture
+			drainage:    0.2,    // Poor drainage
+			elevation:   10.0,   // Lowland
+			seaLevel:    0.0,
+			flux:        50.0, // +0.2 moisture -> 0.7 total. >0.4 and drainage<0.3 -> Wetland
+			wantBiome:   BiomeWetland,
+			description: "High Flux + Poor Drainage → Wetland",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ClassifyBiome(tt.tempC, tt.rainfallMM, tt.drainage, tt.elevation, tt.seaLevel)
+			got := ClassifyBiome(tt.tempC, tt.rainfallMM, tt.drainage, tt.elevation, tt.seaLevel, tt.flux, tt.isLake)
 			assert.Equal(t, tt.wantBiome, got, tt.description)
 		})
 	}
@@ -138,8 +164,8 @@ func TestClassifyBiome_NoLatitudeDependency(t *testing.T) {
 	elevation := 100.0
 	seaLevel := 0.0
 
-	result1 := ClassifyBiome(tempC, rainfallMM, drainage, elevation, seaLevel)
-	result2 := ClassifyBiome(tempC, rainfallMM, drainage, elevation, seaLevel)
+	result1 := ClassifyBiome(tempC, rainfallMM, drainage, elevation, seaLevel, 0, false)
+	result2 := ClassifyBiome(tempC, rainfallMM, drainage, elevation, seaLevel, 0, false)
 
 	assert.Equal(t, result1, result2, "Same inputs must produce same output")
 	assert.Equal(t, BiomeRainforest, result1, "Hot + wet should be rainforest")
@@ -154,10 +180,10 @@ func TestClassifyBiome_TemperatureShiftChangesResult(t *testing.T) {
 	seaLevel := 0.0
 
 	// Warm climate
-	warmBiome := ClassifyBiome(25.0, rainfallMM, drainage, elevation, seaLevel)
+	warmBiome := ClassifyBiome(25.0, rainfallMM, drainage, elevation, seaLevel, 0, false)
 
 	// Cold climate (same moisture)
-	coldBiome := ClassifyBiome(-10.0, rainfallMM, drainage, elevation, seaLevel)
+	coldBiome := ClassifyBiome(-10.0, rainfallMM, drainage, elevation, seaLevel, 0, false)
 
 	assert.NotEqual(t, warmBiome, coldBiome,
 		"Temperature change must shift biome classification")

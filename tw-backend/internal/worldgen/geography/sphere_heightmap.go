@@ -14,6 +14,9 @@ type CellData struct {
 	RockHardness float64 // 0.0 (Soft sandstone/sediment) to 1.0 (Hard granite)
 	Sediment     float64 // Depth of loose material in meters on top of bedrock
 	ProvinceID   int     // ID of the geological province (Craton, FoldBelt, Basin)
+	Flux         float64 // Water flow accumulation (Phase 6)
+	IsLake       bool    // Part of a lake (Phase 6)
+	LakeID       int     // ID of the lake (Phase 6)
 }
 
 // SphereHeightmap wraps 6 flat Heightmaps into a spherical surface

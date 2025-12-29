@@ -152,6 +152,8 @@ const (
 	BiomeTaiga           BiomeType = "Taiga"
 	BiomeTundra          BiomeType = "Tundra"
 	BiomeAlpine          BiomeType = "Alpine"
+	BiomeLake            BiomeType = "Lake"
+	BiomeWetland         BiomeType = "Wetland"
 )
 
 // Biome represents a specific ecological region

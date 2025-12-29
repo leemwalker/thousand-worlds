@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"testing"
 
+	"tw-backend/internal/spatial"
 	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/weather"
 
@@ -22,13 +23,17 @@ func TestBiomesDependOnWeather(t *testing.T) {
 	seaLevel := 0.0
 	seed := int64(12345)
 
+	// Create dummy sphere data for interface compliance
+	topo := spatial.NewCubeSphereTopology(8)
+	sphereHm := geography.NewSphereHeightmap(topo)
+
 	// Generate climate with normal temperature
 	normalClimate := weather.GenerateInitialClimate(hm, seaLevel, seed, 0.0)
-	normalBiomes := assignBiomesFromClimate(hm, seaLevel, normalClimate)
+	normalBiomes := assignBiomesFromClimate(hm, sphereHm, topo, seaLevel, normalClimate)
 
 	// Generate climate with volcanic winter (-20°C global shift)
 	coldClimate := weather.GenerateInitialClimate(hm, seaLevel, seed, -20.0)
-	coldBiomes := assignBiomesFromClimate(hm, seaLevel, coldClimate)
+	coldBiomes := assignBiomesFromClimate(hm, sphereHm, topo, seaLevel, coldClimate)
 
 	// Count biomes in each scenario
 	normalCounts := countBiomeTypes(normalBiomes)
@@ -64,9 +69,13 @@ func TestBiomesUseWeatherTemperature(t *testing.T) {
 	seaLevel := 0.0
 	seed := int64(12345)
 
+	// Create dummy sphere data
+	topo := spatial.NewCubeSphereTopology(8)
+	sphereHm := geography.NewSphereHeightmap(topo)
+
 	// Generate with extremely hot modifier (+30°C)
 	hotClimate := weather.GenerateInitialClimate(hm, seaLevel, seed, 30.0)
-	hotBiomes := assignBiomesFromClimate(hm, seaLevel, hotClimate)
+	hotBiomes := assignBiomesFromClimate(hm, sphereHm, topo, seaLevel, hotClimate)
 
 	// Even at "poles", temperature should be warm due to modifier
 	// Pole is at y=0 (top edge)

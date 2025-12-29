@@ -73,6 +73,9 @@ func TestGenerateRiversSpherical(t *testing.T) {
 	sphereHm.UpdateMinMax()
 	seaLevel := sphereHm.MinElev + (sphereHm.MaxElev-sphereHm.MinElev)*0.4
 
+	// Calculate Flux for rivers to form
+	CalculateGlobalFlux(sphereHm)
+
 	// Generate rivers on sphere
 	rivers := GenerateRiversSpherical(sphereHm, seaLevel, seed)
 

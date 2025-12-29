@@ -16,10 +16,17 @@ import (
 //   - drainage: Soil drainage factor 0-1 (0=waterlogged, 1=well-drained)
 //   - elevation: Elevation in meters
 //   - seaLevel: Current sea level in meters
+//   - flux: Water flow accumulation (0-1000+)
+//   - isLake: Whether the cell is part of a lake
 //
 // Returns the appropriate BiomeType for these conditions.
-func ClassifyBiome(tempC, rainfallMM, drainage, elevation, seaLevel float64) BiomeType {
-	// 1. Check for ocean (below sea level)
+func ClassifyBiome(tempC, rainfallMM, drainage, elevation, seaLevel, flux float64, isLake bool) BiomeType {
+	// 1. Check for ocean (below sea level) - unless it's a lake?
+	// The problem is lakes are usually ON land. Ocean is global sea.
+	// If IsLake is true, it overrides biome.
+	if isLake {
+		return BiomeLake
+	}
 	if elevation <= seaLevel {
 		return BiomeOcean
 	}
@@ -36,11 +43,29 @@ func ClassifyBiome(tempC, rainfallMM, drainage, elevation, seaLevel float64) Bio
 	// 3. Convert rainfall to moisture factor (0-1 scale)
 	// Using 2000mm/year as baseline for "very wet"
 	moisture := rainfallMM / 2000.0
+
+	// Apply Flux Modifier: High flux implies wetter soil/river bank
+	// Flux 100 ~ River.
+	if flux > 10.0 {
+		moisture += 0.2
+	}
+	if flux > 100.0 {
+		moisture += 0.3
+	}
+
 	if moisture > 1.0 {
 		moisture = 1.0
 	}
 	if moisture < 0.0 {
 		moisture = 0.0
+	}
+
+	// Check for Wetlands
+	// Flat terrain + High Flux + Moderate Temp = Wetland?
+	// Let's use drainage. (drainage input exists).
+	// If drainage < 0.2 (poorly drained) and moisture > 0.5 -> Wetland
+	if drainage < 0.3 && moisture > 0.4 && tempC > 0 {
+		return BiomeWetland
 	}
 
 	// 4. Temperature + Moisture classification (Whittaker-style)

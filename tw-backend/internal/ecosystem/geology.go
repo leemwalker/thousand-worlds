@@ -254,8 +254,11 @@ func (g *WorldGeology) InitializeGeology() {
 	// Calculate initial sea level (target ~30% land coverage)
 	g.SeaLevel = geography.AssignOceanLand(g.Heightmap, 0.3)
 
-	// Generate initial rivers using spherical algorithm
+	// Generate initial rivers and hydrology
 	if g.SphereHeightmap != nil {
+		geography.CalculateGlobalFlux(g.SphereHeightmap)
+		geography.FillDepressions(g.SphereHeightmap, g.SeaLevel)
+
 		sphereRivers := geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed)
 		g.Rivers = geography.ConvertSphericalRiversToFlat(sphereRivers, g.Topology.Resolution())
 		// Sync sphere heightmap changes from river erosion
@@ -864,6 +867,15 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 					numDrops = 500
 				}
 				geography.ApplyDifferentialErosion(g.SphereHeightmap, g.Topology, numDrops, g.Seed+g.TotalYearsSimulated, g.SeaLevel)
+
+				// Re-run Hydrology to update persistence features
+				geography.CalculateGlobalFlux(g.SphereHeightmap)
+				geography.FillDepressions(g.SphereHeightmap, g.SeaLevel)
+
+				// Update rivers to match new terrain
+				sphereRivers := geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
+				g.Rivers = geography.ConvertSphericalRiversToFlat(sphereRivers, g.Topology.Resolution())
+
 				g.markSphereNeedsSync()
 			} else {
 				// Fallback for flat heightmap (legacy)
@@ -1766,12 +1778,33 @@ func (g *WorldGeology) UpdateBiomes(globalTempMod float64) []geography.Biome {
 			elev := g.Heightmap.Get(x, y)
 			climate := weather.GetClimateAt(climateData, g.Heightmap.Width, x, y)
 
+			// Hydrology Data Retrieval
+			var flux float64
+			var isLake bool
+
+			if g.Topology != nil && g.SphereHeightmap != nil {
+				// Map flat coordinates to spherical (Equirectangular)
+				lon := (float64(x) / float64(g.Heightmap.Width)) * 2 * math.Pi
+				lat := (0.5 - float64(y)/float64(g.Heightmap.Height)) * math.Pi
+
+				sphereX := math.Cos(lat) * math.Cos(lon)
+				sphereY := math.Sin(lat)
+				sphereZ := math.Cos(lat) * math.Sin(lon)
+
+				coord := g.Topology.FromVector(sphereX, sphereY, sphereZ)
+				cellData := g.SphereHeightmap.GetCellData(coord)
+				flux = cellData.Flux
+				isLake = cellData.IsLake
+			}
+
 			biomeType := geography.ClassifyBiome(
 				climate.Temperature,
 				climate.AnnualRainfall,
 				climate.SoilDrainage,
 				elev,
 				g.SeaLevel,
+				flux,
+				isLake,
 			)
 
 			biomes[idx] = geography.Biome{
