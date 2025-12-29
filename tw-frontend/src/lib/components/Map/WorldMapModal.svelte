@@ -593,7 +593,7 @@
                     ></canvas>
 
                     <!-- Overlay Canvas (Tectonics / Minerals / Env) -->
-                    {#if worldMapData?.overlays && (activeLayer !== "none" || showMineralsOverlay)}
+                    {#if worldMapData?.overlays && (activeLayers.size > 0 || showMineralsOverlay)}
                         <MapOverlayCanvas
                             width={containerWidth}
                             height={containerHeight}
