@@ -118,42 +118,73 @@ func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereH
 		}
 	}
 
-	// 4. Advanced Erosion
-	// Scale iterations by erosionRate
+	// 4. Thermal Erosion (slope stabilization)
 	iterations := int(5.0 * erosionRate)
 	if iterations < 1 {
 		iterations = 1
 	}
 	ApplyThermalErosionSpherical(heightmap, topology, iterations, seed)
 
-	// Hydraulic erosion
+	// 5. Hydraulic Erosion (rain carving valleys)
+	// Use significantly more droplets for visible valley formation
 	effectiveRainfall := rainfallFactor
 	if effectiveRainfall <= 0 {
 		effectiveRainfall = 1.0
 	}
 	totalCells := 6 * resolution * resolution
-	numDrops := int(float64(totalCells) * 0.05 * erosionRate * effectiveRainfall)
+	// Minimum 10,000 droplets, scaled with erosionRate and rainfall
+	numDrops := int(float64(totalCells) * 0.15 * erosionRate * effectiveRainfall)
+	if numDrops < 10000 {
+		numDrops = 10000
+	}
 	ApplyHydraulicErosionSpherical(heightmap, topology, numDrops, seed)
 
-	// 5. Smooth
+	// 6. Smooth (slight blur to blend erosion artifacts)
 	SmoothSpherical(heightmap, topology)
 
-	// 6. Apply Hypsometric Curve for continental shelf flattening
-	// This creates realistic shelf/coastal plain transitions
+	// 7. Normalize Land/Water Ratio to target 30%
+	// MUST happen BEFORE hypsometric curve so that 0 = coastline
+	NormalizeLandRatio(heightmap, topology, 0.30)
+
+	// 8. Apply Hypsometric Curve for continental shelf flattening
+	// Now that sea level = 0, this will correctly flatten the shelf zone
 	for face := 0; face < 6; face++ {
 		for y := 0; y < resolution; y++ {
 			for x := 0; x < resolution; x++ {
 				coord := spatial.Coordinate{Face: face, X: x, Y: y}
 				current := heightmap.Get(coord)
-				remapped := ApplyHypsometricCurve(current, 0.0) // Sea level at 0
+				remapped := ApplyHypsometricCurve(current, 0.0) // Sea level at 0 (correct now!)
 				heightmap.Set(coord, remapped)
 			}
 		}
 	}
 
-	// 7. Normalize Land/Water Ratio to target 30%
-	// This stabilizes land coverage across different random seeds (prevents 4% or 70% extremes)
-	NormalizeLandRatio(heightmap, topology, 0.30)
+	// 9. Add Micro-Roughness for land texture
+	// High-frequency noise only on land (>0) to add small hills, bumps
+	// This prevents smooth polygons on flat terrain
+	microFbm := NewFBMGenerator(seed+9999, FBMConfig{
+		Octaves:      4,
+		Frequency:    2.0, // High frequency for small detail
+		Lacunarity:   2.0,
+		Persistence:  0.5,
+		WarpStrength: 0.1,
+	})
+	for face := 0; face < 6; face++ {
+		for y := 0; y < resolution; y++ {
+			for x := 0; x < resolution; x++ {
+				coord := spatial.Coordinate{Face: face, X: x, Y: y}
+				current := heightmap.Get(coord)
+
+				// Only add micro-roughness to land (> 0)
+				if current > 0 {
+					sx, sy, sz := topology.ToSphere(coord)
+					// Small amplitude (50m) detail noise
+					microNoise := microFbm.FBM3D(sx*50, sy*50, sz*50) * 50.0
+					heightmap.Set(coord, current+microNoise)
+				}
+			}
+		}
+	}
 
 	// Update Min/Max
 	heightmap.UpdateMinMax()
