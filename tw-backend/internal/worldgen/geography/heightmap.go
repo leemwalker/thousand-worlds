@@ -123,38 +123,6 @@ func SmoothSpherical(hm *SphereHeightmap, topology spatial.Topology) {
 	}
 }
 
-// ApplyThermalErosionSpherical applies thermal erosion on a sphere
-func ApplyThermalErosionSpherical(hm *SphereHeightmap, topology spatial.Topology, iterations int, seed int64) {
-	resolution := topology.Resolution()
-	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
-	talusAngle := 0.5 // Maximum stable slope
-
-	for iter := 0; iter < iterations; iter++ {
-		for face := 0; face < 6; face++ {
-			for y := 0; y < resolution; y++ {
-				for x := 0; x < resolution; x++ {
-					coord := spatial.Coordinate{Face: face, X: x, Y: y}
-					currentElev := hm.Get(coord)
-
-					for _, dir := range directions {
-						neighbor := topology.GetNeighbor(coord, dir)
-						neighborElev := hm.Get(neighbor)
-						diff := currentElev - neighborElev
-
-						if diff > talusAngle {
-							// Transfer material
-							transfer := diff * 0.25
-							hm.Set(coord, currentElev-transfer)
-							hm.Set(neighbor, neighborElev+transfer)
-							currentElev -= transfer
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
 // ApplyHydraulicErosionSpherical simulates water erosion on a sphere
 func ApplyHydraulicErosionSpherical(hm *SphereHeightmap, topology spatial.Topology, numDrops int, seed int64) {
 	// Simplified hydraulic erosion - trace water droplets downhill

@@ -162,6 +162,15 @@ func ApplyVolcanoSpherical(hm *SphereHeightmap, center spatial.Coordinate, topol
 
 	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
 
+	// Create a local random source for deterministic noise based on coordinate
+	// This ensures the volcano shape is consistent if regenerated (though here we just want "noise")
+	// For simple visual noise, we can use a hash of the coordinate + seed, or just use math/rand if we don't care about strict determinism per-pixel re-eval
+	// User requested: heightDelta *= (0.7 + 0.6 * rand.Float64())
+	// We'll use a new rand source to not mess with the main generator flow, or just use global rand?
+	// The user suggested "simple rand if not" but we are inside a function that doesn't take a rand source.
+	// However, ApplyVolcanoFlat doesn't take one either.
+	// We'll use a hash-based noise for determinism without passing rand everywhere.
+
 	for len(queue) > 0 {
 		current := queue[0]
 		queue = queue[1:]
@@ -173,6 +182,12 @@ func ApplyVolcanoSpherical(hm *SphereHeightmap, center spatial.Coordinate, topol
 		// Bell curve shape: e^(-dist^2 / 2sigma^2)
 		dist := float64(current.distance)
 		val := height * math.Exp(-(dist*dist)/(2*radius*radius))
+
+		// Apply noise: heightDelta *= (0.7 + 0.6 * rand.Float64())
+		// deterministic noise: pseudo-random from coordinate
+		noiseHash := ((current.coord.X * 73856093) ^ (current.coord.Y * 19349663) ^ (current.coord.Face * 83492791))
+		noiseVal := float64(noiseHash%100) / 100.0 // 0.0 to 0.99
+		val *= 0.7 + 0.6*noiseVal
 
 		currentElev := hm.Get(current.coord)
 		hm.Set(current.coord, currentElev+val)

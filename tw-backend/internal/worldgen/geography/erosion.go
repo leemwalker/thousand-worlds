@@ -3,6 +3,8 @@ package geography
 import (
 	"math"
 	"math/rand"
+
+	"tw-backend/internal/spatial"
 )
 
 // ApplyThermalErosion improves slope stability by moving material from steep slopes to lower neighbors
@@ -43,6 +45,54 @@ func ApplyThermalErosion(hm *Heightmap, iterations int, seed int64) {
 					transfer := maxDiff * 0.1 // Move 10% of excess
 					hm.Set(x, y, currentElev-transfer)
 					hm.Set(bestNeighX, bestNeighY, hm.Get(bestNeighX, bestNeighY)+transfer)
+				}
+			}
+		}
+	}
+}
+
+// ApplyThermalErosionSpherical improves slope stability on the sphere heightmap
+// Uses the topology graph to find neighbors instead of 2D grid logic.
+func ApplyThermalErosionSpherical(hm *SphereHeightmap, topology spatial.Topology, iterations int, seed int64) {
+	// Talus angle approximation (max difference allowed)
+	threshold := 40.0
+	resolution := topology.Resolution()
+	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+
+	for iter := 0; iter < iterations; iter++ {
+		// Iterate over all 6 faces
+		for face := 0; face < 6; face++ {
+			for y := 0; y < resolution; y++ {
+				for x := 0; x < resolution; x++ {
+					coord := spatial.Coordinate{Face: face, X: x, Y: y}
+					currentElev := hm.Get(coord)
+
+					maxDiff := 0.0
+					var bestNeigh spatial.Coordinate
+
+					// Check 4 cardinal neighbors (diagonals are complex on sphere grid)
+					for _, dir := range directions {
+						neighbor := topology.GetNeighbor(coord, dir)
+						diff := currentElev - hm.Get(neighbor)
+						if diff > maxDiff {
+							maxDiff = diff
+							bestNeigh = neighbor
+						}
+					}
+
+					// If slope is too steep, erode
+					if maxDiff > threshold {
+						// Move material downhill
+						transfer := (maxDiff - threshold) * 0.5 // Standard talus slippage formula
+
+						// Safety clamp to prevent oscillation
+						if transfer > maxDiff {
+							transfer = maxDiff * 0.5
+						}
+
+						hm.Set(coord, currentElev-transfer)
+						hm.Set(bestNeigh, hm.Get(bestNeigh)+transfer)
+					}
 				}
 			}
 		}

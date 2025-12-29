@@ -423,41 +423,62 @@ func calculateElevationChange(p1, p2 TectonicPlate, boundaryType BoundaryType) f
 }
 
 // applyBoundaryEffectSpherical applies elevation change at a boundary cell.
-// OPTIMIZED: Direct application without BFS to avoid memory allocations.
-// The old BFS approach allocated a map+slice for every boundary cell, causing
-// 250K+ allocations per iteration and OOM crashes.
+// OPTIMIZED: Uses 2-ring falloff for smoother terrain without full BFS.
 func applyBoundaryEffectSpherical(hm *SphereHeightmap, center spatial.Coordinate, elevationChange float64, topology spatial.Topology) {
-	// Apply elevation change directly to center (full effect)
+	// Ring 0: Center (100% effect)
 	currentElev := hm.Get(center)
 	newElev := currentElev + elevationChange
-
-	// Clamp to physical limits
-	if newElev > MaxElevation {
-		newElev = MaxElevation
-	}
-	if newElev < MinElevation {
-		newElev = MinElevation
-	}
+	newElev = clampElevation(newElev)
 	hm.Set(center, newElev)
 
-	// Apply reduced effect to immediate neighbors (50% effect)
-	// This maintains smooth terrain without the BFS overhead
 	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
-	neighborFactor := 0.3
 
+	// Track visited to prevent double-application in rings
+	// Since we only go 2 rings out, a small map or simply iterating carefully is needed.
+	// For efficiency/simplicity with just 2 rings, we can just use a visited map.
+	visited := map[spatial.Coordinate]struct{}{
+		center: {},
+	}
+
+	// Ring 1: Immediate neighbors (50% effect)
+	ring1 := make([]spatial.Coordinate, 0, 4)
 	for _, dir := range directions {
 		neighbor := topology.GetNeighbor(center, dir)
-		nElev := hm.Get(neighbor)
-		nNewElev := nElev + elevationChange*neighborFactor
+		if _, exists := visited[neighbor]; !exists {
+			visited[neighbor] = struct{}{}
+			ring1 = append(ring1, neighbor)
 
-		if nNewElev > MaxElevation {
-			nNewElev = MaxElevation
+			nElev := hm.Get(neighbor)
+			nNewElev := nElev + elevationChange*0.5
+			nNewElev = clampElevation(nNewElev)
+			hm.Set(neighbor, nNewElev)
 		}
-		if nNewElev < MinElevation {
-			nNewElev = MinElevation
-		}
-		hm.Set(neighbor, nNewElev)
 	}
+
+	// Ring 2: Neighbors of Ring 1 (25% effect)
+	for _, r1Coord := range ring1 {
+		for _, dir := range directions {
+			neighbor := topology.GetNeighbor(r1Coord, dir)
+			if _, exists := visited[neighbor]; !exists {
+				visited[neighbor] = struct{}{}
+
+				nElev := hm.Get(neighbor)
+				nNewElev := nElev + elevationChange*0.25
+				nNewElev = clampElevation(nNewElev)
+				hm.Set(neighbor, nNewElev)
+			}
+		}
+	}
+}
+
+func clampElevation(elev float64) float64 {
+	if elev > MaxElevation {
+		return MaxElevation
+	}
+	if elev < MinElevation {
+		return MinElevation
+	}
+	return elev
 }
 
 // SimulateGeologicalAge returns the plate count and surface description for an age

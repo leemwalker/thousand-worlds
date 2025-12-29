@@ -575,7 +575,35 @@ func (g *WorldGeology) simulateMagmaChambers(yearsElapsed int64) {
 		if x >= 0 && x < g.Heightmap.Width && y >= 0 && y < g.Heightmap.Height {
 			height := 500 + g.rng.Float64()*1500
 			radius := 2.0 + g.rng.Float64()*3.0
-			geography.ApplyVolcanoFlat(g.Heightmap, float64(x), float64(y), radius, height)
+
+			if g.SphereHeightmap != nil && g.Topology != nil {
+				// Convert flat map (Equirectangular) coordinate to spherical coordinate
+				// U = X / Width, V = Y / Height
+				// Lon = (U - 0.5) * 2 * PI
+				// Lat = (V - 0.5) * PI
+				u := float64(x) / float64(g.Heightmap.Width)
+				v := float64(y) / float64(g.Heightmap.Height)
+
+				lon := (u - 0.5) * 2.0 * math.Pi
+				lat := (v - 0.5) * math.Pi
+
+				// Convert Spherical to Cartesian
+				// Z is Up (Lat), X/Y is Plane
+				// Note: Coordinate system details depend on engine, assuming typical:
+				// x = cos(lat) * cos(lon)
+				// y = cos(lat) * sin(lon)
+				// z = sin(lat)
+
+				vecX := math.Cos(lat) * math.Cos(lon)
+				vecY := math.Cos(lat) * math.Sin(lon)
+				vecZ := math.Sin(lat)
+
+				coord := g.Topology.FromVector(vecX, vecY, vecZ)
+				geography.ApplyVolcanoSpherical(g.SphereHeightmap, coord, g.Topology, radius, height)
+				g.markSphereNeedsSync()
+			} else {
+				geography.ApplyVolcanoFlat(g.Heightmap, float64(x), float64(y), radius, height)
+			}
 		}
 	}
 
@@ -806,7 +834,12 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 		erosionInterval := 10_000_000.0 // 10M years (was 10K)
 		if g.ErosionAccumulator >= erosionInterval {
 			// Thermal erosion: Limited iterations to prevent lag
-			geography.ApplyThermalErosion(g.Heightmap, 3, g.Seed+g.TotalYearsSimulated)
+			if g.SphereHeightmap != nil && g.Topology != nil {
+				geography.ApplyThermalErosionSpherical(g.SphereHeightmap, g.Topology, 3, g.Seed+g.TotalYearsSimulated)
+				g.markSphereNeedsSync()
+			} else {
+				geography.ApplyThermalErosion(g.Heightmap, 3, g.Seed+g.TotalYearsSimulated)
+			}
 
 			// Hydraulic erosion: Limited drops to prevent lag
 			geography.ApplyHydraulicErosion(g.Heightmap, 500, g.Seed+g.TotalYearsSimulated)
@@ -1150,6 +1183,8 @@ func (g *WorldGeology) ApplyEvent(event GeologicalEvent) {
 		// No terrain effect
 	}
 
+	// Sync changes from sphere to flat map to ensure stats are accurate
+	g.flushSync()
 	g.updateHeightmapStats()
 }
 
