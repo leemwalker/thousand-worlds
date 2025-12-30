@@ -195,12 +195,10 @@
         <label class="text-sm text-gray-400" for="moons">Moons (optional)</label
         >
         <input
-            type="number"
+            type="text"
             id="moons"
             bind:value={moons}
-            min="0"
-            max="10"
-            placeholder="Random if empty"
+            placeholder="Random if empty (0-10)"
             class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm"
         />
         <p class="text-xs text-gray-500">
