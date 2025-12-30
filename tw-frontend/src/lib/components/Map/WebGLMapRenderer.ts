@@ -58,7 +58,7 @@ void main() {
 }
 `;
 
-// Fragment shader - elevation-based coloring with biome support and player marker
+// Fragment shader - Satellite-style rendering with procedural noise and hillshading
 const FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 
@@ -66,6 +66,7 @@ in vec2 v_texCoord;
 out vec4 fragColor;
 
 uniform sampler2D u_dataTexture;
+uniform sampler2D u_noiseTexture;  // Procedural noise for terrain detail
 uniform float u_worldRadius;
 uniform vec2 u_playerPos;     // Player position in normalized coords (0-1)
 uniform float u_time;          // For animation
@@ -75,63 +76,33 @@ uniform vec2 u_texCenter;      // Center of view in texture coords (0-1)
 uniform float u_seaLevel;      // Sea level in meters (for bathymetry)
 uniform float u_minElevation;  // Minimum elevation (deepest ocean) in meters
 
-// Earth elevation color stops (hypsometric + bathymetric)
-const vec3 COLOR_DEEP_OCEAN = vec3(0.02, 0.05, 0.1);      // -6000m
-const vec3 COLOR_ABYSSAL = vec3(0.04, 0.1, 0.16);         // -4000m
-const vec3 COLOR_SLOPE = vec3(0.05, 0.23, 0.36);          // -2000m
-const vec3 COLOR_SHELF = vec3(0.1, 0.46, 0.82);           // -200m
-const vec3 COLOR_COAST = vec3(0.31, 0.76, 0.97);          // 0m
-const vec3 COLOR_LOWLAND = vec3(0.18, 0.49, 0.2);         // 100m
-const vec3 COLOR_PLAIN = vec3(0.4, 0.73, 0.42);           // 200m
-const vec3 COLOR_FOOTHILL = vec3(0.55, 0.70, 0.50);       // 500m (Darker Green)
-const vec3 COLOR_MOUNTAIN_LOW = vec3(0.60, 0.55, 0.50);   // 1000m (Earthy Grey)
-const vec3 COLOR_MOUNTAIN_MID = vec3(0.50, 0.45, 0.45);   // 2000m (Darker Grey)
-const vec3 COLOR_MOUNTAIN_HIGH = vec3(0.45, 0.40, 0.40);  // 3000m (Darkest)
-const vec3 COLOR_PEAK = vec3(0.70, 0.70, 0.70);           // 5000m (Light Grey)
-const vec3 COLOR_SUMMIT = vec3(0.98, 0.98, 0.98);         // 8848m
-const vec3 COLOR_PLAYER = vec3(1.0, 0.2, 0.2);            // Player marker
+// Satellite Material Palette (Lifeless Protoplanet)
+// Water colors (deep to shallow)
+const vec3 C_WATER_ABYSSAL = vec3(0.01, 0.03, 0.08);    // Deepest ocean trenches
+const vec3 C_WATER_DEEP = vec3(0.02, 0.06, 0.14);       // Deep ocean
+const vec3 C_WATER_MID = vec3(0.08, 0.18, 0.35);        // Mid-depth
+const vec3 C_WATER_SHALLOW = vec3(0.18, 0.37, 0.67);    // Continental shelf
+const vec3 C_WATER_COASTAL = vec3(0.28, 0.52, 0.72);    // Near-shore coastal
+
+// Land materials (low to high)
+const vec3 C_SAND_WET = vec3(0.65, 0.58, 0.42);         // Wet coastal sand
+const vec3 C_SAND_DRY = vec3(0.82, 0.76, 0.58);         // Dry desert sand
+const vec3 C_SEDIMENT = vec3(0.49, 0.42, 0.34);         // Sediment/Alluvial
+const vec3 C_CLAY = vec3(0.58, 0.38, 0.28);             // Iron-rich clay/rust
+const vec3 C_ROCK_BASALT = vec3(0.22, 0.21, 0.20);      // Dark volcanic basalt
+const vec3 C_ROCK_GRANITE = vec3(0.38, 0.36, 0.34);     // Gray granite
+const vec3 C_ROCK_VOLCANIC = vec3(0.15, 0.12, 0.10);    // Fresh volcanic rock
+
+// Ice and snow (elevation/temperature based)
+const vec3 C_ICE_ROCK = vec3(0.55, 0.58, 0.62);         // Rocky ice mix
+const vec3 C_ICE_GLACIER = vec3(0.75, 0.82, 0.88);      // Glacier blue-white
+const vec3 C_SNOW = vec3(0.95, 0.95, 0.98);             // Fresh snow
+
+const vec3 COLOR_PLAYER = vec3(1.0, 0.2, 0.2);          // Player marker
 
 // Lobby/unsimulated world colors
-const vec3 COLOR_LOBBY = vec3(0.85, 0.82, 0.78);          // Marble-like
-const vec3 COLOR_UNSIMULATED = vec3(0.3, 0.3, 0.35);      // Gray fog
-
-// Dynamic bathymetry: calculate depth relative to sea level
-vec3 getBathymetricColor(float depthFactor) {
-    // depthFactor: 0.0 = at sea level, 1.0 = deepest ocean
-    // Smooth gradient from shallow turquoise to deep navy
-    vec3 shallow = vec3(0.0, 0.6, 0.8);   // Turquoise
-    vec3 mid = vec3(0.0, 0.3, 0.5);       // Ocean blue
-    vec3 deep = vec3(0.0, 0.1, 0.2);      // Deep navy
-    
-    if (depthFactor < 0.3) {
-        return mix(shallow, mid, depthFactor / 0.3);
-    }
-    return mix(mid, deep, (depthFactor - 0.3) / 0.7);
-}
-
-vec3 getElevationColor(float elevation, float rawElevation) {
-    float e = elevation;
-    
-    // Bathymetric (underwater) - use dynamic sea level
-    if (e < 0.5) {
-        // Calculate actual depth below sea level
-        float depthBelowSea = max(u_seaLevel - rawElevation, 0.0);
-        float maxDepth = max(u_seaLevel - u_minElevation, 1.0); // Prevent div by zero
-        float depthFactor = clamp(depthBelowSea / maxDepth, 0.0, 1.0);
-        return getBathymetricColor(depthFactor);
-    }
-    
-    // Hypsometric (land)
-    float height = (e - 0.5) * 2.0;
-    if (height < 0.02) return mix(COLOR_COAST, COLOR_LOWLAND, height / 0.02);
-    if (height < 0.04) return mix(COLOR_LOWLAND, COLOR_PLAIN, (height - 0.02) / 0.02);
-    if (height < 0.11) return mix(COLOR_PLAIN, COLOR_FOOTHILL, (height - 0.04) / 0.07);
-    if (height < 0.22) return mix(COLOR_FOOTHILL, COLOR_MOUNTAIN_LOW, (height - 0.11) / 0.11);
-    if (height < 0.45) return mix(COLOR_MOUNTAIN_LOW, COLOR_MOUNTAIN_MID, (height - 0.22) / 0.23);
-    if (height < 0.68) return mix(COLOR_MOUNTAIN_MID, COLOR_MOUNTAIN_HIGH, (height - 0.45) / 0.23);
-    if (height < 0.85) return mix(COLOR_MOUNTAIN_HIGH, COLOR_PEAK, (height - 0.68) / 0.17);
-    return mix(COLOR_PEAK, COLOR_SUMMIT, (height - 0.85) / 0.15);
-}
+const vec3 COLOR_LOBBY = vec3(0.85, 0.82, 0.78);       // Marble-like
+const vec3 COLOR_UNSIMULATED = vec3(0.3, 0.3, 0.35);   // Gray fog
 
 // Biome-based flat colors for unsimulated worlds
 vec3 getBiomeColor(float biomeId) {
@@ -139,75 +110,119 @@ vec3 getBiomeColor(float biomeId) {
     if (id == 0) return vec3(0.1, 0.3, 0.6);      // Ocean - blue
     if (id == 1) return vec3(0.4, 0.6, 0.3);      // Grassland - green
     if (id == 2) return vec3(0.9, 0.8, 0.5);      // Desert - tan
-    if (id == 3) return vec3(0.2, 0.5, 0.3);      // Rainforest - dark green
-    if (id == 4) return vec3(0.5, 0.6, 0.4);      // Deciduous - olive
-    if (id == 5) return vec3(0.3, 0.5, 0.4);      // Taiga - blue-green
-    if (id == 6) return vec3(0.8, 0.85, 0.9);     // Tundra - icy white
-    if (id == 7) return vec3(0.6, 0.55, 0.5);     // Alpine - gray brown
     if (id == 9) return COLOR_LOBBY;               // Lobby - marble
-    if (id == 11) return vec3(0.2, 0.6, 1.0);     // River - bright blue
-    if (id == 12) return vec3(0.15, 0.4, 0.7);    // Lake - deep blue
-    if (id == 13) return vec3(0.3, 0.55, 0.5);    // Wetland - blue-green
-    if (id == 14) return vec3(0.5, 0.45, 0.4);    // Mountain - gray-brown
-    if (id == 15) return vec3(0.7, 0.65, 0.35);   // Savanna - golden
     return COLOR_UNSIMULATED;                      // Default - gray fog
 }
 
 // Entity-based colors (encoded in B channel)
 vec3 getEntityColor(float entityId) {
     int id = int(entityId * 255.0);
-    if (id == 1) return vec3(0.35, 0.35, 0.4);   // Wall - dark grey
-    if (id == 2) return vec3(0.8, 0.2, 0.8);     // Portal - magenta
-    if (id == 3) return vec3(0.7, 0.7, 0.8);     // Statue - stone gray
-    if (id == 4) return vec3(0.9, 0.8, 0.3);     // NPC - gold
-    if (id == 5) return vec3(0.8, 0.4, 0.3);     // Creature - orange
-    if (id == 6) return vec3(0.3, 0.8, 0.9);     // Item - cyan
-    if (id == 7) return vec3(0.2, 0.7, 0.3);     // Plant - bright green
-    if (id == 8) return vec3(0.85, 0.82, 0.78);  // Floor - light marble
-    return vec3(0.0);                             // No entity (0 = transparent)
+    if (id == 1) return vec3(0.35, 0.35, 0.4);   // Wall
+    if (id == 2) return vec3(0.8, 0.2, 0.8);     // Portal
+    if (id == 4) return vec3(0.9, 0.8, 0.3);     // NPC
+    if (id == 5) return vec3(0.8, 0.4, 0.3);     // Creature
+    return vec3(0.0);
 }
 
 void main() {
     // Apply texture zoom by scaling coordinates around center
-    // u_texScale > 1.0 means we sample a larger area (Zoom Out)
     vec2 zoomedCoord = u_texCenter + (v_texCoord - vec2(0.5)) * u_texScale;
     
-    // Only check Y bounds (poles - no wrapping). X wraps seamlessly via gl.REPEAT texture mode.
+    // Only check Y bounds (poles). X wraps seamlessly via gl.REPEAT.
     if (zoomedCoord.y < 0.0 || zoomedCoord.y > 1.0) {
-        fragColor = vec4(0.05, 0.05, 0.1, 1.0); // Dark polar edge
+        fragColor = vec4(0.02, 0.02, 0.05, 1.0); // Dark polar edge
         return;
     }
     
     vec4 data = texture(u_dataTexture, zoomedCoord);
+    float elevation = data.r;
+    
+    // === PROCEDURAL NOISE (De-pixelation) ===
+    // Sample noise at high frequency to break up blocky grid
+    vec2 noiseUV = zoomedCoord * 45.0;
+    float noise = texture(u_noiseTexture, noiseUV).r;
+    
+    // Perturb elevation slightly with noise
+    float elevPerturbed = elevation + (noise - 0.5) * 0.02;
+    
+    // === HILLSHADING (Dynamic Normals) ===
+    // Use dFdx/dFdy to compute screen-space derivatives for lighting
+    float dx = dFdx(elevPerturbed) * 50.0;  // Exaggeration factor
+    float dy = dFdy(elevPerturbed) * 50.0;
+    
+    // Construct normal from derivatives (pointing up with some slope)
+    vec3 normal = normalize(vec3(-dx, -dy, 0.1));
+    
+    // Sun direction (top-left, elevated)
+    vec3 sunDir = normalize(vec3(-0.5, -0.5, 1.0));
+    
+    // Diffuse lighting
+    float light = max(dot(normal, sunDir), 0.3);
+    // Add ambient + slight noise variation
+    light = light * 0.6 + 0.4 + (noise - 0.5) * 0.15;
+    light = clamp(light, 0.4, 1.2);
+    
     vec3 color;
     
-    // Decode raw elevation from normalized value
-    // R channel stores: 0.0 = min elev, 0.5 = sea level, 1.0 = max elev
-    float rawElevation;
-    if (data.r < 0.5) {
-        // Below sea level: map 0.0-0.5 to minElevation-seaLevel
-        rawElevation = mix(u_minElevation, u_seaLevel, data.r * 2.0);
-    } else {
-        // Above sea level: map 0.5-1.0 to seaLevel-8848m
-        rawElevation = mix(u_seaLevel, 8848.0, (data.r - 0.5) * 2.0);
-    }
-    
     if (u_isSimulated > 0.5) {
-        // Check for water biomes that should override elevation color
-        int biomeId = int(data.g * 255.0);
-        if (biomeId == 11) {
-            // River - bright blue
-            color = vec3(0.2, 0.6, 1.0);
-        } else if (biomeId == 12) {
-            // Lake - deep blue
-            color = vec3(0.15, 0.4, 0.7);
-        } else if (biomeId == 13) {
-            // Wetland - blue-green
-            color = vec3(0.3, 0.55, 0.5);
+        // === SATELLITE MATERIALS ===
+        float seaLevelNorm = 0.5;  // Sea level is at 0.5 in normalized elevation
+        
+        if (elevation <= seaLevelNorm) {
+            // Water: Multiple depth zones
+            float depth = (seaLevelNorm - elevation) * 2.0;  // 0=coast, 1=deepest
+            
+            if (depth < 0.1) {
+                // Coastal zone
+                color = mix(C_WATER_COASTAL, C_WATER_SHALLOW, depth * 10.0);
+            } else if (depth < 0.3) {
+                // Shelf
+                color = mix(C_WATER_SHALLOW, C_WATER_MID, (depth - 0.1) * 5.0);
+            } else if (depth < 0.7) {
+                // Mid-ocean
+                color = mix(C_WATER_MID, C_WATER_DEEP, (depth - 0.3) * 2.5);
+            } else {
+                // Abyssal
+                color = mix(C_WATER_DEEP, C_WATER_ABYSSAL, (depth - 0.7) * 3.3);
+            }
+            
+            // Water gets specular highlight
+            light = light * 0.7 + 0.3;
+            float spec = pow(max(dot(reflect(-sunDir, vec3(0.0, 0.0, 1.0)), vec3(0.0, 0.0, 1.0)), 0.0), 32.0);
+            color += vec3(spec * 0.12);
         } else {
-            // Standard simulated world - use elevation-based coloring with dynamic bathymetry
-            color = getElevationColor(data.r, rawElevation);
+            // Land materials based on height
+            float t = (elevation - seaLevelNorm) / (1.0 - seaLevelNorm);
+            
+            if (t < 0.03) {
+                // Wet coastal sand
+                color = mix(C_SAND_WET, C_SAND_DRY, t * 33.0);
+            } else if (t < 0.08) {
+                // Dry sand transitioning to sediment
+                color = mix(C_SAND_DRY, C_SEDIMENT, (t - 0.03) * 20.0);
+            } else if (t < 0.18) {
+                // Sediment (lowlands, basins)
+                color = mix(C_SEDIMENT, C_CLAY, (t - 0.08) * 10.0);
+            } else if (t < 0.35) {
+                // Clay to basalt transition
+                color = mix(C_CLAY, C_ROCK_BASALT, (t - 0.18) * 5.9);
+            } else if (t < 0.55) {
+                // Basalt (volcanic highlands)
+                color = mix(C_ROCK_BASALT, C_ROCK_GRANITE, (t - 0.35) * 5.0);
+            } else if (t < 0.72) {
+                // Granite highlands
+                color = mix(C_ROCK_GRANITE, C_ICE_ROCK, (t - 0.55) * 5.9);
+            } else if (t < 0.85) {
+                // Rocky ice (high altitude)
+                color = mix(C_ICE_ROCK, C_ICE_GLACIER, (t - 0.72) * 7.7);
+            } else {
+                // Glacier to snow (peaks)
+                color = mix(C_ICE_GLACIER, C_SNOW, (t - 0.85) * 6.7);
+            }
         }
+        
+        // Apply hillshading
+        color = color * light;
     } else {
         // Lobby/unsimulated - use flat biome colors
         color = getBiomeColor(data.g);
@@ -220,13 +235,12 @@ void main() {
         color = entityColor;
     }
     
-    // Player marker - circle at player position
-    // v_texCoord is screen coordinate (0-1), u_playerPos is texture space position
+    // Player marker
     vec2 playerScreenPos = vec2(0.5) + (u_playerPos - u_texCenter) / u_texScale;
     float markerDist = distance(v_texCoord, playerScreenPos);
     
     float zoomFactor = max(u_texScale.x, u_texScale.y);
-    float markerSize = 0.02 / zoomFactor; // Scale marker with zoom (larger when zoomed in)
+    float markerSize = 0.02 / zoomFactor;
     if (markerDist < markerSize) {
         float alpha = smoothstep(markerSize, markerSize * 0.5, markerDist);
         color = mix(color, COLOR_PLAYER, alpha);
@@ -235,6 +249,7 @@ void main() {
     fragColor = vec4(color, 1.0);
 }
 `;
+
 
 export interface WorldMapData {
     tiles: WorldMapTile[];
@@ -301,6 +316,7 @@ export class WebGLMapRenderer {
     private gl: WebGL2RenderingContext | null = null;
     private program: WebGLProgram | null = null;
     private dataTexture: WebGLTexture | null = null;
+    private noiseTexture: WebGLTexture | null = null;  // Procedural noise for terrain detail
 
     private gridWidth: number = 128;
     private gridHeight: number = 64;
@@ -366,6 +382,9 @@ export class WebGLMapRenderer {
 
         // Create empty data texture
         this.createDataTexture();
+
+        // Create procedural noise texture for terrain detail
+        this.createNoiseTexture();
 
         console.log('[WebGLMapRenderer] Initialized successfully');
     }
@@ -469,6 +488,39 @@ export class WebGLMapRenderer {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
         // CLAMP on Y-axis to prevent viewing past poles
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
+
+    private createNoiseTexture(): void {
+        const gl = this.gl;
+        if (!gl) return;
+
+        this.noiseTexture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.noiseTexture);
+
+        // Generate 256x256 random noise texture
+        const size = 256;
+        const data = new Uint8Array(size * size * 4);
+        for (let i = 0; i < data.length; i += 4) {
+            const val = Math.floor(Math.random() * 255);
+            data[i] = val;     // R
+            data[i + 1] = val; // G
+            data[i + 2] = val; // B
+            data[i + 3] = 255; // A
+        }
+
+        gl.texImage2D(
+            gl.TEXTURE_2D, 0, gl.RGBA,
+            size, size, 0,
+            gl.RGBA, gl.UNSIGNED_BYTE, data
+        );
+
+        // Use REPEAT for seamless tiling
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+        console.log('[WebGLMapRenderer] Created noise texture for terrain detail');
     }
 
     /**
@@ -711,6 +763,12 @@ export class WebGLMapRenderer {
         gl.bindTexture(gl.TEXTURE_2D, this.dataTexture);
         const texUniform = gl.getUniformLocation(this.program, 'u_dataTexture');
         gl.uniform1i(texUniform, 0);
+
+        // Bind noise texture for procedural detail
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, this.noiseTexture);
+        const noiseUniform = gl.getUniformLocation(this.program, 'u_noiseTexture');
+        gl.uniform1i(noiseUniform, 1);
 
         // Set world radius uniform
         const radiusUniform = gl.getUniformLocation(this.program, 'u_worldRadius');

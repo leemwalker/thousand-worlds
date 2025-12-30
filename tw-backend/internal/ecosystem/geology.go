@@ -70,6 +70,12 @@ type WorldGeology struct {
 
 	// Ocean phase state (Hadean vapor → Modern liquid transition)
 	OceanVaporFraction float64 // 0.0 = all liquid (cool planet), 1.0 = all vapor (hot planet)
+
+	// Real-time streaming state
+	EventBuffer          []string           // Buffer of recent events for streaming
+	StreamCallback       SimulationCallback // Optional callback for real-time updates
+	LastBroadcastYear    int64              // Year of last broadcast (to calculate intervals)
+	BroadcastIntervalYrs int64              // How often to broadcast (default 5M years)
 }
 
 // PhaseTransitionEvent represents a major planetary phase change
@@ -93,6 +99,16 @@ type GeologyStats struct {
 	BiomeCount         int
 	YearsSimulated     int64
 }
+
+// SimulationSnapshot represents the state of the world at a specific tick for real-time streaming
+type SimulationSnapshot struct {
+	Year      int64     `json:"year"`
+	Elevation []float64 `json:"elevation"` // Downsampled elevation grid (64x64)
+	Events    []string  `json:"events"`    // Recent geological events since last snapshot
+}
+
+// SimulationCallback is a function called periodically during simulation to stream updates
+type SimulationCallback func(snapshot SimulationSnapshot)
 
 // NewWorldGeology creates a new geology manager for a world
 // composition: "volcanic", "continental", "oceanic", or "ancient"
@@ -1116,6 +1132,21 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 	// we mark dirty and flush once at the end
 	g.flushSync()
 
+	// === REAL-TIME STREAMING BROADCAST ===
+	// If a callback is registered, broadcast snapshot at configured intervals
+	if g.StreamCallback != nil {
+		broadcastInterval := g.BroadcastIntervalYrs
+		if broadcastInterval <= 0 {
+			broadcastInterval = 5_000_000 // Default 5M years
+		}
+		if g.TotalYearsSimulated-g.LastBroadcastYear >= broadcastInterval {
+			snapshot := g.CreateSnapshot()
+			g.StreamCallback(snapshot)
+			g.LastBroadcastYear = g.TotalYearsSimulated
+			g.EventBuffer = nil // Clear events after broadcast
+		}
+	}
+
 	return phaseEvent
 }
 
@@ -1152,6 +1183,32 @@ func (g *WorldGeology) applyHotspotActivity(years float64) {
 			geography.ApplyVolcanoFlat(g.Heightmap, jx, jy, radius, height)
 		}
 	}
+}
+
+// CreateSnapshot generates a SimulationSnapshot for real-time streaming
+// Returns a downsampled (64x64) elevation grid and any buffered events
+func (g *WorldGeology) CreateSnapshot() SimulationSnapshot {
+	// Downsample elevation to 64x64 for efficient streaming
+	elevData := g.GetElevationMap(64, 64)
+
+	return SimulationSnapshot{
+		Year:      g.TotalYearsSimulated,
+		Elevation: elevData,
+		Events:    g.EventBuffer,
+	}
+}
+
+// AddEvent appends an event to the streaming buffer
+// Events are cleared after each broadcast
+func (g *WorldGeology) AddEvent(event string) {
+	g.EventBuffer = append(g.EventBuffer, event)
+}
+
+// SetStreamCallback registers a callback for real-time simulation updates
+func (g *WorldGeology) SetStreamCallback(callback SimulationCallback, intervalYears int64) {
+	g.StreamCallback = callback
+	g.BroadcastIntervalYrs = intervalYears
+	g.LastBroadcastYear = g.TotalYearsSimulated
 }
 
 // advancePlates moves tectonic plates and recalculates boundaries

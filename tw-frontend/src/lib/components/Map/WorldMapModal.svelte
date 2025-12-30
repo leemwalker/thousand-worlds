@@ -4,6 +4,7 @@
     import { WebGLMapRenderer } from "./WebGLMapRenderer";
     import WorldMapLegend from "./WorldMapLegend.svelte";
     import MapOverlayCanvas from "./MapOverlayCanvas.svelte";
+    import SimulationLog from "./SimulationLog.svelte";
     import { fade, fly } from "svelte/transition";
     import { mapStore } from "$lib/stores/map";
     import { gameWebSocket } from "$lib/services/websocket";
@@ -720,6 +721,16 @@
                             {activeLayers}
                         />
                     </div>
+
+                    <!-- Simulation Event Log (Bottom Left, below legend) -->
+                    {#if simStats.events.length > 0}
+                        <div
+                            class="absolute bottom-48 left-4 w-80"
+                            transition:fade
+                        >
+                            <SimulationLog events={simStats.events} />
+                        </div>
+                    {/if}
 
                     <!-- Overlay Controls (Bottom Right) -->
                     <div
