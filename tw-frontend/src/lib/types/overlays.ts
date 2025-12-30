@@ -26,6 +26,7 @@ export interface OverlayData {
     temp?: number[];
     moisture?: number[];
     elevation?: number[]; // Projected elevation map
+    sediment?: number[];  // Sediment depth (0.0 - 1.0) for satellite rendering
 
     // Biomes (ID grid)
     biome?: number[];

@@ -1563,6 +1563,10 @@ func (p *GameProcessor) handleWorldMap(ctx context.Context, client websocket.Gam
 		elevMap := geo.GetElevationMap(width, height)
 		overlays["elevation"] = elevMap
 
+		// Sediment map for satellite-style rendering (Phase 6b)
+		sedimentMap := geo.GetSedimentMap(width, height)
+		overlays["sediment"] = sedimentMap
+
 		biomeMap := geo.GetBiomeMap(width, height, tempMap, moistureMap)
 		overlays["biome"] = biomeMap
 
@@ -1572,7 +1576,7 @@ func (p *GameProcessor) handleWorldMap(ctx context.Context, client websocket.Gam
 		featuresMap := geo.GetTerrainFeaturesMap(width, height)
 		overlays["features"] = featuresMap
 
-		log.Printf("[WORLDMAP] Added env overlays: Temp/Moist/Elev/Biome/Res (grid %dx%d)", width, height)
+		log.Printf("[WORLDMAP] Added env overlays: Temp/Moist/Elev/Sediment/Biome/Res (grid %dx%d)", width, height)
 
 		// Mineral deposit overlay - list of discovered and undiscovered deposits
 		if minerals := geo.GetMineralDeposits(); minerals != nil && len(minerals) > 0 {

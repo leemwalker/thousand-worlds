@@ -2192,6 +2192,52 @@ func (g *WorldGeology) GetElevationMap(width, height int) []float64 {
 	return result
 }
 
+// GetSedimentMap returns a flat projected sediment map (0.0-1.0)
+// Sediment depth is normalized by dividing by MaxSediment (200m default).
+func (g *WorldGeology) GetSedimentMap(width, height int) []float64 {
+	const MaxSediment = 200.0 // Max expected sediment depth in meters
+
+	result := make([]float64, width*height)
+	if g.SphereHeightmap == nil {
+		return result
+	}
+
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			// Map pixel coordinates to longitude and latitude
+			lon := (float64(x) / float64(width)) * 2 * math.Pi
+			lat := (0.5 - float64(y)/float64(height)) * math.Pi
+
+			// Spherical conversion
+			cosLat := math.Cos(lat)
+			sinLat := math.Sin(lat)
+			cosLon := math.Cos(lon)
+			sinLon := math.Sin(lon)
+
+			sx := cosLat * cosLon
+			sy := sinLat
+			sz := cosLat * sinLon
+
+			coord := g.SphereHeightmap.Topology().FromVector(sx, sy, sz)
+
+			// Get CellData for sediment
+			cellData := g.SphereHeightmap.GetCellData(coord)
+			sediment := cellData.Sediment
+
+			// Normalize and clamp
+			norm := sediment / MaxSediment
+			if norm < 0 {
+				norm = 0
+			}
+			if norm > 1 {
+				norm = 1
+			}
+			result[y*width+x] = norm
+		}
+	}
+	return result
+}
+
 // GetTerrainFeaturesMap returns active terrain features (peaks, volcanoes, trenches)
 func (g *WorldGeology) GetTerrainFeaturesMap(width, height int) []ResourceNode {
 	g.mu.RLock()

@@ -141,44 +141,13 @@
                 centerScreenY,
             );
         } else if (activeLayers.has("elevation") && overlayData.elevation) {
-            drawGrid(
+            // Satellite-Style Renderer with Hillshading
+            drawSatellite(
                 ctx,
                 overlayData.elevation,
-                (val: number, x: number, y: number, w: number, h: number) => {
-                    const waterLevel = overlayData.globalWaterLevel ?? 0.5;
-
-                    let color = "#000000";
-
-                    if (val <= waterLevel) {
-                        // Water Gradient
-                        // Normalize 0..waterLevel -> 0..1
-                        const depthRatio = val / waterLevel;
-                        color = getColor(depthRatio, [
-                            { t: 0.0, hex: "#0a1a2f" }, // Abyss (Dark Navy)
-                            { t: 0.3, hex: "#1e3a8a" }, // Ocean (Standard Blue)
-                            { t: 0.8, hex: "#60a5fa" }, // Shallows (Light Blue)
-                            { t: 1.0, hex: "#60a5fa" }, // Coast (Keep Light Blue)
-                        ]);
-                    } else {
-                        // Land Gradient
-                        // Normalize waterLevel..1 -> 0..1
-                        const landRatio =
-                            (val - waterLevel) / (1.0 - waterLevel);
-                        color = getColor(landRatio, [
-                            { t: 0.0, hex: "#fde047" }, // Beach (Yellow)
-                            { t: 0.05, hex: "#166534" }, // Lowland (Green)
-                            { t: 0.55, hex: "#854d0e" }, // Highland (Brown)
-                            { t: 0.85, hex: "#525252" }, // Mountain (Grey)
-                            { t: 0.95, hex: "#ffffff" }, // Snow (White)
-                            { t: 1.0, hex: "#ffffff" },
-                        ]);
-                    }
-
-                    ctx.fillStyle = color;
-                    // Opaque for distinct viewing
-                    ctx.globalAlpha = 1.0;
-                    ctx.fillRect(x, y, w, h);
-                },
+                overlayData.sediment || null,
+                overlayData.temp || null,
+                overlayData.globalWaterLevel ?? 0.5,
                 centerTx,
                 centerTy,
                 cellW,
@@ -341,6 +310,137 @@
                         w,
                         h,
                     );
+            }
+        }
+    }
+
+    // Satellite-Style Renderer with Hillshading
+    // Implements slope-based lighting and geological material colors
+    function drawSatellite(
+        ctx: CanvasRenderingContext2D,
+        elevation: number[],
+        sediment: number[] | null,
+        temp: number[] | null,
+        waterLevel: number,
+        centerTx: number,
+        centerTy: number,
+        cellW: number,
+        cellH: number,
+        centerScreenX: number,
+        centerScreenY: number,
+    ) {
+        const w = Math.ceil(cellW);
+        const h = Math.ceil(cellH);
+        const exaggeration = 2.0; // Slope exaggeration for visible relief
+        const sun = 0.707; // Normalized sun direction (Top-Left)
+
+        // Material Colors (Lifeless Protoplanet)
+        const WATER_ABYSS = { r: 5, g: 16, b: 36 }; // #051024
+        const WATER_SHELF = { r: 46, g: 94, b: 170 }; // #2E5EAA
+        const ROCK_BASALT = { r: 56, g: 53, b: 50 }; // #383532
+        const SEDIMENT_TAN = { r: 125, g: 107, b: 86 }; // #7D6B56
+        const ICE_WHITE = { r: 232, g: 241, b: 245 }; // #E8F1F5
+
+        for (let gy = 0; gy < gridHeight; gy++) {
+            const deltaY = gy - centerTy;
+            const screenY = centerScreenY + deltaY * cellH;
+            if (screenY > height || screenY + h < 0) continue;
+
+            for (let gx = 0; gx < gridWidth; gx++) {
+                const idx = gy * gridWidth + gx;
+                const elev = elevation[idx] ?? 0;
+                const sed = sediment ? (sediment[idx] ?? 0) : 0;
+                const tmp = temp ? (temp[idx] ?? 0.5) : 0.5;
+
+                // Horizontal wrapping for X
+                let deltaX = gx - centerTx;
+                if (deltaX < -gridWidth / 2) deltaX += gridWidth;
+                if (deltaX > gridWidth / 2) deltaX -= gridWidth;
+                const screenX = centerScreenX + deltaX * cellW;
+                if (screenX > width || screenX + w < 0) continue;
+
+                // === HILLSHADING ===
+                // Get neighbor elevations (with wrapping)
+                const leftIdx =
+                    gy * gridWidth + ((gx - 1 + gridWidth) % gridWidth);
+                const topIdx = Math.max(0, gy - 1) * gridWidth + gx;
+                const leftH = elevation[leftIdx] ?? elev;
+                const topH = elevation[topIdx] ?? elev;
+
+                // Calculate slopes
+                const slopeX = (elev - leftH) * exaggeration;
+                const slopeY = (elev - topH) * exaggeration;
+
+                // Simple directional lighting (sun from top-left)
+                let light = 0.5 + 0.5 * (slopeX * -sun + slopeY * -sun);
+                // Clamp lighting factor
+                light = Math.max(0.4, Math.min(1.2, light));
+
+                // === MATERIAL COLOR ===
+                let baseColor = ROCK_BASALT;
+
+                if (elev <= waterLevel) {
+                    // Water: Lerp between abyss and shelf based on depth
+                    const depthRatio = elev / waterLevel;
+                    baseColor = {
+                        r: Math.round(
+                            WATER_ABYSS.r +
+                                (WATER_SHELF.r - WATER_ABYSS.r) * depthRatio,
+                        ),
+                        g: Math.round(
+                            WATER_ABYSS.g +
+                                (WATER_SHELF.g - WATER_ABYSS.g) * depthRatio,
+                        ),
+                        b: Math.round(
+                            WATER_ABYSS.b +
+                                (WATER_SHELF.b - WATER_ABYSS.b) * depthRatio,
+                        ),
+                    };
+                    // Water doesn't receive strong hillshading (slightly flatten)
+                    light = 0.8 + 0.2 * (light - 0.5);
+                } else {
+                    // Land materials
+                    if (tmp < 0.15) {
+                        // Ice (Cold poles/high peaks)
+                        baseColor = ICE_WHITE;
+                    } else if (sed > 0.2) {
+                        // Sediment (Basins, lowlands)
+                        // Blend between rock and sediment based on sediment amount
+                        const sedBlend = Math.min(1.0, (sed - 0.2) / 0.6);
+                        baseColor = {
+                            r: Math.round(
+                                ROCK_BASALT.r +
+                                    (SEDIMENT_TAN.r - ROCK_BASALT.r) * sedBlend,
+                            ),
+                            g: Math.round(
+                                ROCK_BASALT.g +
+                                    (SEDIMENT_TAN.g - ROCK_BASALT.g) * sedBlend,
+                            ),
+                            b: Math.round(
+                                ROCK_BASALT.b +
+                                    (SEDIMENT_TAN.b - ROCK_BASALT.b) * sedBlend,
+                            ),
+                        };
+                    }
+                    // else: Default is ROCK_BASALT
+                }
+
+                // === COMPOSITE ===
+                const finalR = Math.min(
+                    255,
+                    Math.max(0, Math.round(baseColor.r * light)),
+                );
+                const finalG = Math.min(
+                    255,
+                    Math.max(0, Math.round(baseColor.g * light)),
+                );
+                const finalB = Math.min(
+                    255,
+                    Math.max(0, Math.round(baseColor.b * light)),
+                );
+
+                ctx.fillStyle = `rgb(${finalR}, ${finalG}, ${finalB})`;
+                ctx.fillRect(Math.floor(screenX), Math.floor(screenY), w, h);
             }
         }
     }
