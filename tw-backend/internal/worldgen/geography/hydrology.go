@@ -102,6 +102,69 @@ func CalculateFlowField(hm *SphereHeightmap) *HydrologyLayer {
 	return hydro
 }
 
+// CalculateFlowFieldWithRainfall computes flow with spatially-variable rainfall.
+// Use GenerateRainfallMap from weather package to create the rainfall input.
+func CalculateFlowFieldWithRainfall(hm *SphereHeightmap, rainfall []float64) *HydrologyLayer {
+	hydro := CalculateFlowField(hm)
+
+	// Override uniform rainfall with provided values
+	if len(rainfall) == len(hydro.Flux) {
+		// Reset flux to rainfall values before re-accumulating
+		for i := range hydro.Flux {
+			hydro.Flux[i] = rainfall[i]
+		}
+
+		// Re-run accumulation with new rainfall base
+		topology := hm.Topology()
+		res := hm.Resolution()
+		totalCells := 6 * res * res
+		resSq := res * res
+		directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+
+		// Sort cells by elevation
+		type cellNode struct {
+			idx  int
+			elev float64
+		}
+		nodes := make([]cellNode, totalCells)
+		for idx := 0; idx < totalCells; idx++ {
+			face := idx / resSq
+			rem := idx % resSq
+			y := rem / res
+			x := rem % res
+			coord := spatial.Coordinate{Face: face, X: x, Y: y}
+			nodes[idx] = cellNode{idx: idx, elev: hm.Get(coord)}
+
+			// Recalculate flow directions
+			lowestIdx := -1
+			lowestElev := hm.Get(coord)
+			for _, dir := range directions {
+				neighbor := topology.GetNeighbor(coord, dir)
+				neighElev := hm.Get(neighbor)
+				if neighElev < lowestElev {
+					lowestElev = neighElev
+					lowestIdx = neighbor.Face*resSq + neighbor.Y*res + neighbor.X
+				}
+			}
+			hydro.FlowDirection[idx] = lowestIdx
+		}
+
+		sort.Slice(nodes, func(i, j int) bool {
+			return nodes[i].elev > nodes[j].elev
+		})
+
+		// Re-accumulate flux
+		for _, node := range nodes {
+			downhillIdx := hydro.FlowDirection[node.idx]
+			if downhillIdx >= 0 && downhillIdx < totalCells {
+				hydro.Flux[downhillIdx] += hydro.Flux[node.idx]
+			}
+		}
+	}
+
+	return hydro
+}
+
 // CoordToIndex converts a spherical coordinate to a flat index
 func (h *HydrologyLayer) CoordToIndex(coord spatial.Coordinate) int {
 	resSq := h.Resolution * h.Resolution
