@@ -177,7 +177,8 @@ void main() {
     if (zoomedCoord.y < 0.0 || zoomedCoord.y > 1.0) {
         fragColor = vec4(0.05, 0.05, 0.1, 1.0); // Dark polar edge
         return;
-    
+    }
+
     vec4 data = texture(u_dataTexture, zoomedCoord);
     
     // Direct Color Mode (Render pre-colored image as-is)
