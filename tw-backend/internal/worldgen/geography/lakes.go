@@ -96,6 +96,39 @@ func FillDepressions(hm *SphereHeightmap, seaLevel float64) []*Lake {
 	return lakes
 }
 
+// RouteFluxThroughLakes updates the HydrologyLayer to route accumulated flux through lakes.
+// For each lake, sums the inflow flux from all tributary cells and assigns it to the outlet.
+// This ensures rivers continue from lake outlets to the ocean.
+func RouteFluxThroughLakes(hm *SphereHeightmap, hydro *HydrologyLayer, lakes []*Lake) {
+	res := hm.Resolution()
+	resSq := res * res
+
+	for _, lake := range lakes {
+		if len(lake.Cells) == 0 {
+			continue
+		}
+
+		// Calculate total influx from cells that flow INTO the lake
+		totalInflux := 0.0
+
+		for _, lakeCoord := range lake.Cells {
+			lakeIdx := lakeCoord.Face*resSq + lakeCoord.Y*res + lakeCoord.X
+			if lakeIdx >= 0 && lakeIdx < len(hydro.Flux) {
+				totalInflux += hydro.Flux[lakeIdx]
+			}
+		}
+
+		// Assign total flux to outlet
+		outletIdx := lake.Outlet.Face*resSq + lake.Outlet.Y*res + lake.Outlet.X
+		if outletIdx >= 0 && outletIdx < len(hydro.Flux) {
+			hydro.Flux[outletIdx] = totalInflux
+
+			// Update flow direction to point downstream from outlet
+			// (The outlet should already have a flow direction from CalculateFlowField)
+		}
+	}
+}
+
 // Priority Queue for flood filling
 type Item struct {
 	coord spatial.Coordinate

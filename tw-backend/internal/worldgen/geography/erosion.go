@@ -99,7 +99,119 @@ func ApplyThermalErosionSpherical(hm *SphereHeightmap, topology spatial.Topology
 	}
 }
 
+// =============================================================================
+// Stream Power Erosion (Physics-Based River Carving)
+// =============================================================================
+
+// StreamPowerConstants defines the physics parameters for stream power erosion.
+const (
+	StreamPowerK = 0.00001 // Erosivity constant
+	StreamPowerM = 0.5     // Flux exponent (0.3-0.6 typical)
+	StreamPowerN = 1.0     // Slope exponent (1.0-2.0 typical)
+)
+
+// ApplyStreamPowerErosion erodes terrain using Stream Power Law: E = K × Flux^m × Slope^n
+// Integrates with isostasy: eroded mass reduces crust thickness, elevation recalculated.
+func ApplyStreamPowerErosion(hm *SphereHeightmap, hydro *HydrologyLayer, plates []TectonicPlate, dt float64, seaLevel float64) {
+	res := hm.Resolution()
+	totalCells := 6 * res * res
+	resSq := res * res
+
+	// Build plate lookup
+	var plateGrid []int
+	if plates != nil {
+		plateGrid = make([]int, totalCells)
+		for i := range plateGrid {
+			plateGrid[i] = -1
+		}
+		for i, p := range plates {
+			for coord := range p.Region {
+				idx := coord.Face*resSq + coord.Y*res + coord.X
+				if idx >= 0 && idx < totalCells {
+					plateGrid[idx] = i
+				}
+			}
+		}
+	}
+
+	for idx := 0; idx < totalCells; idx++ {
+		flux := hydro.Flux[idx]
+		if flux < 2.0 {
+			continue
+		}
+
+		coord := hydro.IndexToCoord(idx)
+		currentElev := hm.Get(coord)
+		if currentElev <= seaLevel {
+			continue
+		}
+
+		downhillIdx := hydro.FlowDirection[idx]
+		if downhillIdx < 0 {
+			continue
+		}
+
+		downhillCoord := hydro.IndexToCoord(downhillIdx)
+		slope := currentElev - hm.Get(downhillCoord)
+		if slope <= 0 {
+			continue
+		}
+
+		slopeNorm := slope / 1000.0
+		erosionRate := StreamPowerK * math.Pow(flux, StreamPowerM) * math.Pow(slopeNorm, StreamPowerN)
+		erodedHeight := erosionRate * dt
+
+		maxErosion := slope * 0.5
+		if erodedHeight > maxErosion {
+			erodedHeight = maxErosion
+		}
+
+		hardness := hm.GetRockHardness(coord)
+		erodedHeight *= (1.0 - hardness*0.8)
+
+		if erodedHeight < 0.01 {
+			continue
+		}
+
+		// Isostatic-aware erosion
+		if plateGrid != nil {
+			plateIdx := plateGrid[idx]
+			if plateIdx >= 0 {
+				plate := plates[plateIdx]
+				erodedKm := erodedHeight / 1000.0
+				newThickness := plate.Thickness - erodedKm
+				if newThickness < 1.0 {
+					newThickness = 1.0
+				}
+
+				density := plate.MeanDensity
+				if density == 0 {
+					density = DensityGranite
+					if plate.Type == PlateOceanic {
+						density = DensityBasalt
+					}
+				}
+
+				newElev := CalculateIsostaticHeight(newThickness, density)
+				if newElev < seaLevel {
+					newElev = seaLevel
+				}
+				hm.Set(coord, newElev)
+				continue
+			}
+		}
+
+		// Simple fallback erosion
+		newElev := currentElev - erodedHeight
+		if newElev < seaLevel {
+			newElev = seaLevel
+		}
+		hm.Set(coord, newElev)
+	}
+}
+
 // ApplyHydraulicErosion simulates rain and water flow to carve valleys
+
 func ApplyHydraulicErosion(hm *Heightmap, drops int, seed int64) {
 	r := rand.New(rand.NewSource(seed))
 	width, height := hm.Width, hm.Height

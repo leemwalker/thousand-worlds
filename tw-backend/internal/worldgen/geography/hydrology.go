@@ -6,6 +6,136 @@ import (
 	"tw-backend/internal/spatial"
 )
 
+// =============================================================================
+// HydrologyLayer: Flow Direction and Flux Accumulation
+// =============================================================================
+
+// HydrologyLayer stores the computed flow field for a heightmap.
+// Used for deterministic river routing and stream power erosion.
+type HydrologyLayer struct {
+	FlowDirection []int     // Index of downhill neighbor (-1 = Sink)
+	Flux          []float64 // Total water volume passing through each cell
+	Resolution    int       // Grid resolution for coordinate conversion
+}
+
+// CalculateFlowField computes flow directions and flux accumulation for the entire sphere.
+// Algorithm:
+//  1. Steepest Descent: For each cell, find the neighbor with lowest elevation
+//  2. Topological Sort: Sort cells by elevation (highest to lowest)
+//  3. Accumulation: Push flux from each cell to its downhill neighbor
+//
+// Returns a HydrologyLayer with FlowDirection and accumulated Flux.
+func CalculateFlowField(hm *SphereHeightmap) *HydrologyLayer {
+	topology := hm.Topology()
+	res := hm.Resolution()
+	totalCells := 6 * res * res
+	resSq := res * res
+
+	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+
+	hydro := &HydrologyLayer{
+		FlowDirection: make([]int, totalCells),
+		Flux:          make([]float64, totalCells),
+		Resolution:    res,
+	}
+
+	// Initialize all to sink (-1) and base rainfall (1.0)
+	for i := range hydro.FlowDirection {
+		hydro.FlowDirection[i] = -1
+		hydro.Flux[i] = 1.0 // Base rainfall
+	}
+
+	// Step 1: Calculate flow directions (steepest descent)
+	// Also build sorted list for topological processing
+	type cellNode struct {
+		idx  int
+		elev float64
+	}
+	nodes := make([]cellNode, totalCells)
+
+	for idx := 0; idx < totalCells; idx++ {
+		// Reconstruct coordinate from index
+		face := idx / resSq
+		rem := idx % resSq
+		y := rem / res
+		x := rem % res
+		coord := spatial.Coordinate{Face: face, X: x, Y: y}
+
+		currentElev := hm.Get(coord)
+		nodes[idx] = cellNode{idx: idx, elev: currentElev}
+
+		// Find steepest descent neighbor
+		lowestElev := currentElev
+		lowestIdx := -1
+
+		for _, dir := range directions {
+			neighbor := topology.GetNeighbor(coord, dir)
+			neighborElev := hm.Get(neighbor)
+
+			if neighborElev < lowestElev {
+				lowestElev = neighborElev
+				lowestIdx = neighbor.Face*resSq + neighbor.Y*res + neighbor.X
+			}
+		}
+
+		hydro.FlowDirection[idx] = lowestIdx
+	}
+
+	// Step 2: Sort cells by elevation (highest to lowest)
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].elev > nodes[j].elev
+	})
+
+	// Step 3: Accumulate flux (process highest cells first)
+	// This ensures upstream flux is added before the cell is processed
+	for _, node := range nodes {
+		idx := node.idx
+		downhillIdx := hydro.FlowDirection[idx]
+
+		// Pass flux to downhill neighbor
+		if downhillIdx >= 0 && downhillIdx < totalCells {
+			hydro.Flux[downhillIdx] += hydro.Flux[idx]
+		}
+		// If downhillIdx == -1, this is a sink (lake/ocean), flux stays here
+	}
+
+	return hydro
+}
+
+// CoordToIndex converts a spherical coordinate to a flat index
+func (h *HydrologyLayer) CoordToIndex(coord spatial.Coordinate) int {
+	resSq := h.Resolution * h.Resolution
+	return coord.Face*resSq + coord.Y*h.Resolution + coord.X
+}
+
+// IndexToCoord converts a flat index to a spherical coordinate
+func (h *HydrologyLayer) IndexToCoord(idx int) spatial.Coordinate {
+	resSq := h.Resolution * h.Resolution
+	face := idx / resSq
+	rem := idx % resSq
+	y := rem / h.Resolution
+	x := rem % h.Resolution
+	return spatial.Coordinate{Face: face, X: x, Y: y}
+}
+
+// GetFlux returns the flux at a coordinate
+func (h *HydrologyLayer) GetFlux(coord spatial.Coordinate) float64 {
+	idx := h.CoordToIndex(coord)
+	if idx >= 0 && idx < len(h.Flux) {
+		return h.Flux[idx]
+	}
+	return 0
+}
+
+// IsSink returns true if the cell has no lower neighbor
+func (h *HydrologyLayer) IsSink(coord spatial.Coordinate) bool {
+	idx := h.CoordToIndex(coord)
+	if idx >= 0 && idx < len(h.FlowDirection) {
+		return h.FlowDirection[idx] == -1
+	}
+	return true
+}
+
 // CalculateGlobalFlux computes flow accumulation for every cell.
 // It simulates water flowing downhill from rainfall.
 // Flux represents the volume of water passing through a cell.
