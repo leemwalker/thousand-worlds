@@ -95,35 +95,35 @@ func TestElevationToColor_Land(t *testing.T) {
 		check func(c color.RGBA) bool
 	}{
 		{
-			name: "lowland is sandy/green",
+			name: "lowland is sandy",
 			elev: 50,
 			check: func(c color.RGBA) bool {
-				// Sandy lowlands have warm colors
-				return c.R > 100 && c.G > 100
+				// Sandy lowlands - warm tan/beige colors
+				return c.R > 150 && c.G > 130 && c.B > 90
 			},
 		},
 		{
-			name: "midland is green",
-			elev: 500,
+			name: "midland is clay/sediment",
+			elev: 1000,
 			check: func(c color.RGBA) bool {
-				// Green vegetation zone
-				return c.G > c.R && c.G > c.B
+				// Clay/sediment zone - brownish colors
+				return c.R > 100 && c.G > 50
 			},
 		},
 		{
-			name: "highland is grayish",
-			elev: 2000,
+			name: "highland is rocky basalt/granite",
+			elev: 4000,
 			check: func(c color.RGBA) bool {
-				// Rocky highlands - more gray
-				return c.R > 60 && c.G > 60 && c.B > 60
+				// Rocky highlands - grayish rock colors
+				return c.R > 50 && c.G > 50 && c.B > 50 && c.R < 180
 			},
 		},
 		{
-			name: "mountain peak is white",
-			elev: 5000,
+			name: "mountain peak is snow/ice",
+			elev: 8000,
 			check: func(c color.RGBA) bool {
-				// Snow caps should be bright
-				return c.R > 200 && c.G > 200 && c.B > 200
+				// Snow/ice caps should be bright and bluish-white
+				return c.R > 180 && c.G > 180 && c.B > 180
 			},
 		},
 	}

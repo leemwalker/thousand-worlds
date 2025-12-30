@@ -143,64 +143,136 @@ func (r *Renderer) renderOverlay(ctx *gg.Context, info FrameInfo) {
 	ctx.DrawString(text, 15, 30)
 }
 
-// elevationToColor converts elevation to a hypsometric color
+// elevationToColor converts elevation to satellite-style colors matching the WebGL shader.
+// Uses the "Lifeless Protoplanet" palette: basalt, granite, clay, ice materials.
 func elevationToColor(elev float64) color.RGBA {
-	if elev < 0 {
-		// Ocean: Dark Blue -> Light Blue
-		// Deepest: -10000m, Shallowest: 0m
-		depth := math.Min(math.Abs(elev), 10000)
-		t := 1.0 - (depth / 10000.0) // 0 at deep, 1 at surface
+	// Normalize elevation: sea level = 0, range roughly -6000 to +8848
+	// Browser uses 0.5 as sea level in normalized space
+	seaLevel := 0.0
+	relativeElev := elev - seaLevel
 
-		return color.RGBA{
-			R: uint8(10 + t*50),
-			G: uint8(30 + t*100),
-			B: uint8(80 + t*120),
-			A: 255,
+	if relativeElev <= 0 {
+		// Water: Multiple depth zones (matching WebGL C_WATER_* constants)
+		// depth: 0=coast, 1=deepest (-6000m)
+		depth := math.Min(math.Abs(relativeElev)/6000.0, 1.0)
+
+		// Five-zone water gradient matching shader
+		if depth < 0.1 {
+			// Coastal zone: C_WATER_COASTAL -> C_WATER_SHALLOW
+			t := depth * 10.0
+			return lerpColor(
+				color.RGBA{R: 71, G: 133, B: 184, A: 255}, // C_WATER_COASTAL (0.28, 0.52, 0.72)
+				color.RGBA{R: 46, G: 94, B: 171, A: 255},  // C_WATER_SHALLOW (0.18, 0.37, 0.67)
+				t,
+			)
+		} else if depth < 0.3 {
+			// Shelf: C_WATER_SHALLOW -> C_WATER_MID
+			t := (depth - 0.1) * 5.0
+			return lerpColor(
+				color.RGBA{R: 46, G: 94, B: 171, A: 255}, // C_WATER_SHALLOW
+				color.RGBA{R: 20, G: 46, B: 89, A: 255},  // C_WATER_MID (0.08, 0.18, 0.35)
+				t,
+			)
+		} else if depth < 0.7 {
+			// Mid-ocean: C_WATER_MID -> C_WATER_DEEP
+			t := (depth - 0.3) * 2.5
+			return lerpColor(
+				color.RGBA{R: 20, G: 46, B: 89, A: 255}, // C_WATER_MID
+				color.RGBA{R: 5, G: 15, B: 36, A: 255},  // C_WATER_DEEP (0.02, 0.06, 0.14)
+				t,
+			)
 		}
+		// Abyssal: C_WATER_DEEP -> C_WATER_ABYSSAL
+		t := math.Min((depth-0.7)*3.3, 1.0)
+		return lerpColor(
+			color.RGBA{R: 5, G: 15, B: 36, A: 255}, // C_WATER_DEEP
+			color.RGBA{R: 3, G: 8, B: 20, A: 255},  // C_WATER_ABYSSAL (0.01, 0.03, 0.08)
+			t,
+		)
 	}
 
-	// Land: Sand -> Green -> Gray -> White
-	// 0-100m: Sandy lowlands
-	// 100-1000m: Green vegetation
-	// 1000-3000m: Gray rock
-	// 3000m+: White snow
+	// Land materials based on height (matching WebGL C_* material constants)
+	// t: 0=sea level, 1=highest peak (8848m)
+	t := math.Min(relativeElev/8848.0, 1.0)
 
-	if elev < 100 {
-		t := elev / 100.0
-		return color.RGBA{
-			R: uint8(210 - t*60),
-			G: uint8(180 - t*30),
-			B: uint8(140 - t*80),
-			A: 255,
-		}
+	if t < 0.03 {
+		// Wet coastal sand -> dry sand
+		t2 := t * 33.0
+		return lerpColor(
+			color.RGBA{R: 166, G: 148, B: 107, A: 255}, // C_SAND_WET (0.65, 0.58, 0.42)
+			color.RGBA{R: 209, G: 194, B: 148, A: 255}, // C_SAND_DRY (0.82, 0.76, 0.58)
+			t2,
+		)
+	} else if t < 0.08 {
+		// Dry sand -> sediment
+		t2 := (t - 0.03) * 20.0
+		return lerpColor(
+			color.RGBA{R: 209, G: 194, B: 148, A: 255}, // C_SAND_DRY
+			color.RGBA{R: 125, G: 107, B: 87, A: 255},  // C_SEDIMENT (0.49, 0.42, 0.34)
+			t2,
+		)
+	} else if t < 0.18 {
+		// Sediment -> clay
+		t2 := (t - 0.08) * 10.0
+		return lerpColor(
+			color.RGBA{R: 125, G: 107, B: 87, A: 255}, // C_SEDIMENT
+			color.RGBA{R: 148, G: 97, B: 71, A: 255},  // C_CLAY (0.58, 0.38, 0.28)
+			t2,
+		)
+	} else if t < 0.35 {
+		// Clay -> basalt
+		t2 := (t - 0.18) * 5.9
+		return lerpColor(
+			color.RGBA{R: 148, G: 97, B: 71, A: 255}, // C_CLAY
+			color.RGBA{R: 56, G: 54, B: 51, A: 255},  // C_ROCK_BASALT (0.22, 0.21, 0.20)
+			t2,
+		)
+	} else if t < 0.55 {
+		// Basalt -> granite
+		t2 := (t - 0.35) * 5.0
+		return lerpColor(
+			color.RGBA{R: 56, G: 54, B: 51, A: 255}, // C_ROCK_BASALT
+			color.RGBA{R: 97, G: 92, B: 87, A: 255}, // C_ROCK_GRANITE (0.38, 0.36, 0.34)
+			t2,
+		)
+	} else if t < 0.72 {
+		// Granite -> rocky ice
+		t2 := (t - 0.55) * 5.9
+		return lerpColor(
+			color.RGBA{R: 97, G: 92, B: 87, A: 255},    // C_ROCK_GRANITE
+			color.RGBA{R: 140, G: 148, B: 158, A: 255}, // C_ICE_ROCK (0.55, 0.58, 0.62)
+			t2,
+		)
+	} else if t < 0.85 {
+		// Rocky ice -> glacier
+		t2 := (t - 0.72) * 7.7
+		return lerpColor(
+			color.RGBA{R: 140, G: 148, B: 158, A: 255}, // C_ICE_ROCK
+			color.RGBA{R: 191, G: 209, B: 224, A: 255}, // C_ICE_GLACIER (0.75, 0.82, 0.88)
+			t2,
+		)
 	}
+	// Glacier -> snow (peaks)
+	t2 := math.Min((t-0.85)*6.7, 1.0)
+	return lerpColor(
+		color.RGBA{R: 191, G: 209, B: 224, A: 255}, // C_ICE_GLACIER
+		color.RGBA{R: 242, G: 242, B: 250, A: 255}, // C_SNOW (0.95, 0.95, 0.98)
+		t2,
+	)
+}
 
-	if elev < 1000 {
-		t := (elev - 100) / 900.0
-		return color.RGBA{
-			R: uint8(150 - t*80),
-			G: uint8(150 + t*30),
-			B: uint8(60 + t*30),
-			A: 255,
-		}
+// lerpColor linearly interpolates between two colors
+func lerpColor(a, b color.RGBA, t float64) color.RGBA {
+	if t < 0 {
+		t = 0
 	}
-
-	if elev < 3000 {
-		t := (elev - 1000) / 2000.0
-		return color.RGBA{
-			R: uint8(70 + t*100),
-			G: uint8(180 - t*80),
-			B: uint8(90 + t*80),
-			A: 255,
-		}
+	if t > 1 {
+		t = 1
 	}
-
-	// Snow caps
-	t := math.Min((elev-3000)/2000.0, 1.0)
 	return color.RGBA{
-		R: uint8(170 + t*85),
-		G: uint8(100 + t*155),
-		B: uint8(170 + t*85),
+		R: uint8(float64(a.R)*(1-t) + float64(b.R)*t),
+		G: uint8(float64(a.G)*(1-t) + float64(b.G)*t),
+		B: uint8(float64(a.B)*(1-t) + float64(b.B)*t),
 		A: 255,
 	}
 }
