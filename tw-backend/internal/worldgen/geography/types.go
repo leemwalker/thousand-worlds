@@ -35,14 +35,15 @@ const (
 
 // TectonicPlate represents a piece of the planet's crust on a spherical topology
 type TectonicPlate struct {
-	ID        uuid.UUID
-	Type      PlateType
-	Centroid  spatial.Coordinate              // Grid cell where plate center is located
-	Position  spatial.Vector3D                // Normalized sphere position of centroid
-	Velocity  spatial.Vector3D                // Movement direction vector (tangent to sphere)
-	Region    map[spatial.Coordinate]struct{} // Set of all tiles belonging to this plate
-	Thickness float64                         // km
-	Age       float64                         // million years
+	ID          uuid.UUID
+	Type        PlateType
+	Centroid    spatial.Coordinate              // Grid cell where plate center is located
+	Position    spatial.Vector3D                // Normalized sphere position of centroid
+	Velocity    spatial.Vector3D                // Movement direction vector (tangent to sphere)
+	Region      map[spatial.Coordinate]struct{} // Set of all tiles belonging to this plate
+	Thickness   float64                         // km (6-10 for oceanic, 30-40 for continental)
+	MeanDensity float64                         // kg/m³ (3000 for oceanic basalt, 2700 for continental granite)
+	Age         float64                         // million years
 }
 
 // =============================================================================

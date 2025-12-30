@@ -501,17 +501,19 @@ func TestBDD_Tectonics_CrossFacePlates(t *testing.T) {
 // When: CalculateCollisionResult is called
 // Then: The older (denser) plate should subduct (trench)
 //
-//	AND: The younger plate should form an island arc
+//	AND: The younger plate should form an island arc with increased thickness
 func TestBDD_Collision_OceanOcean(t *testing.T) {
 	oldPlate := geography.TectonicPlate{
-		Type:      geography.PlateOceanic,
-		Age:       80, // 80 million years old (denser)
-		Thickness: 7,
+		Type:        geography.PlateOceanic,
+		Age:         80, // 80 million years old (denser)
+		Thickness:   7,
+		MeanDensity: geography.DensityBasalt,
 	}
 	youngPlate := geography.TectonicPlate{
-		Type:      geography.PlateOceanic,
-		Age:       20, // 20 million years old (less dense)
-		Thickness: 6,
+		Type:        geography.PlateOceanic,
+		Age:         20, // 20 million years old (less dense)
+		Thickness:   6,
+		MeanDensity: geography.DensityBasalt,
 	}
 
 	// Cell on OLD plate (should subduct = trench)
@@ -521,12 +523,20 @@ func TestBDD_Collision_OceanOcean(t *testing.T) {
 	assert.Less(t, oldCellResult.TargetElevation, -7000.0,
 		"Trench should be very deep (-8000 to -10000m)")
 
-	// Cell on YOUNG plate (overriding = island arc)
+	// Cell on YOUNG plate (overriding = island arc with volcanic thickening)
 	youngCellResult := geography.CalculateCollisionResult(youngPlate, oldPlate, geography.BoundaryConvergent)
 	assert.Equal(t, geography.FeatureIslandArc, youngCellResult.Feature,
 		"Younger oceanic plate should form island arc")
-	assert.Greater(t, youngCellResult.TargetElevation, -4000.0,
-		"Island arc should be above deep ocean floor")
+	// Verify crustal thickening: original 6km + 5km volcanic addition = 11km
+	assert.GreaterOrEqual(t, youngCellResult.NewThickness, 10.0,
+		"Island arc should thicken from volcanism (~11km)")
+	assert.LessOrEqual(t, youngCellResult.NewThickness, 12.0,
+		"Island arc should not over-thicken")
+	// Isostatic height of 11km basalt: still below sea level but elevated from abyssal
+	assert.Greater(t, youngCellResult.TargetElevation, -4800.0,
+		"Island arc should be elevated above standard oceanic crust")
+	assert.Less(t, youngCellResult.TargetElevation, -4000.0,
+		"Island arc (basalt) should still be below sea level")
 }
 
 // -----------------------------------------------------------------------------
@@ -536,17 +546,19 @@ func TestBDD_Collision_OceanOcean(t *testing.T) {
 // When: CalculateCollisionResult is called
 // Then: The oceanic side should form a trench
 //
-//	AND: The continental side should form coastal mountains (Andes-style)
+//	AND: The continental side should form coastal mountains with crustal thickening
 func TestBDD_Collision_OceanContinent(t *testing.T) {
 	oceanPlate := geography.TectonicPlate{
-		Type:      geography.PlateOceanic,
-		Age:       50,
-		Thickness: 7,
+		Type:        geography.PlateOceanic,
+		Age:         50,
+		Thickness:   7,
+		MeanDensity: geography.DensityBasalt,
 	}
 	continentPlate := geography.TectonicPlate{
-		Type:      geography.PlateContinental,
-		Age:       100,
-		Thickness: 40, // km
+		Type:        geography.PlateContinental,
+		Age:         100,
+		Thickness:   35, // km (standard continental)
+		MeanDensity: geography.DensityGranite,
 	}
 
 	// Cell on OCEAN plate (should subduct = trench)
@@ -556,13 +568,18 @@ func TestBDD_Collision_OceanContinent(t *testing.T) {
 	assert.Less(t, oceanCellResult.TargetElevation, -5000.0,
 		"Ocean-continent trench should be deep")
 
-	// Cell on CONTINENT plate (overriding = coastal mountains)
+	// Cell on CONTINENT plate (overriding = coastal mountains with +10km thickening)
 	continentCellResult := geography.CalculateCollisionResult(continentPlate, oceanPlate, geography.BoundaryConvergent)
 	assert.Equal(t, geography.FeatureCoastalMountain, continentCellResult.Feature,
 		"Continental plate should form coastal mountains")
-	assert.Greater(t, continentCellResult.TargetElevation, 3000.0,
-		"Coastal mountains should be 3000-5000m (Andes-scale)")
-	assert.Less(t, continentCellResult.TargetElevation, 6000.0,
+	// Verify crustal thickening: original 35km + 10km = 45km
+	assert.GreaterOrEqual(t, continentCellResult.NewThickness, 44.0,
+		"Coastal mountains should thicken to ~45km")
+	assert.LessOrEqual(t, continentCellResult.NewThickness, 46.0)
+	// Isostatic height of 45km granite: ~2700m (Andes-scale)
+	assert.Greater(t, continentCellResult.TargetElevation, 2000.0,
+		"Coastal mountains should be 2000-4000m (Andes-scale)")
+	assert.Less(t, continentCellResult.TargetElevation, 4000.0,
 		"Coastal mountains should be less than Himalaya-scale")
 }
 
@@ -573,17 +590,19 @@ func TestBDD_Collision_OceanContinent(t *testing.T) {
 // When: CalculateCollisionResult is called
 // Then: Both sides should form massive orogeny (Himalayas)
 //
-//	AND: No subduction should occur (no trench)
+//	AND: Crustal folding should produce ~56km thickness (70km × 0.8)
 func TestBDD_Collision_ContinentContinent(t *testing.T) {
 	plate1 := geography.TectonicPlate{
-		Type:      geography.PlateContinental,
-		Age:       200,
-		Thickness: 45,
+		Type:        geography.PlateContinental,
+		Age:         200,
+		Thickness:   35,
+		MeanDensity: geography.DensityGranite,
 	}
 	plate2 := geography.TectonicPlate{
-		Type:      geography.PlateContinental,
-		Age:       180,
-		Thickness: 40,
+		Type:        geography.PlateContinental,
+		Age:         180,
+		Thickness:   35,
+		MeanDensity: geography.DensityGranite,
 	}
 
 	result1 := geography.CalculateCollisionResult(plate1, plate2, geography.BoundaryConvergent)
@@ -594,10 +613,16 @@ func TestBDD_Collision_ContinentContinent(t *testing.T) {
 	assert.Equal(t, geography.FeatureOrogeny, result2.Feature,
 		"Both sides should form orogeny")
 
-	assert.Greater(t, result1.TargetElevation, 6000.0,
-		"Orogeny should be Himalaya-scale (6000-8800m)")
-	assert.Less(t, result1.TargetElevation, 9000.0,
-		"Orogeny should not exceed Everest scale")
+	// Verify crustal folding: (35 + 35) * 0.8 = 56km
+	assert.GreaterOrEqual(t, result1.NewThickness, 54.0,
+		"Orogeny should have ~56km thick crust")
+	assert.LessOrEqual(t, result1.NewThickness, 58.0)
+
+	// Isostatic height of 56km granite: ~5000m (Himalaya-scale)
+	assert.Greater(t, result1.TargetElevation, 4000.0,
+		"Orogeny should be Himalaya-scale (4000-6000m)")
+	assert.Less(t, result1.TargetElevation, 6500.0,
+		"Orogeny elevation derived from isostasy")
 }
 
 // -----------------------------------------------------------------------------
@@ -609,8 +634,8 @@ func TestBDD_Collision_ContinentContinent(t *testing.T) {
 //
 //	AND: Oceanic crust should have lower rigidity (fewer rings)
 func TestBDD_Collision_CrustalRigidity(t *testing.T) {
-	oceanPlate := geography.TectonicPlate{Type: geography.PlateOceanic, Age: 50, Thickness: 7}
-	continentPlate := geography.TectonicPlate{Type: geography.PlateContinental, Age: 100, Thickness: 40}
+	oceanPlate := geography.TectonicPlate{Type: geography.PlateOceanic, Age: 50, Thickness: 7, MeanDensity: geography.DensityBasalt}
+	continentPlate := geography.TectonicPlate{Type: geography.PlateContinental, Age: 100, Thickness: 35, MeanDensity: geography.DensityGranite}
 
 	// Oceanic collision = low rigidity
 	oceanResult := geography.CalculateCollisionResult(oceanPlate, oceanPlate, geography.BoundaryConvergent)

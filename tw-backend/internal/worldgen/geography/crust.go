@@ -1,5 +1,53 @@
 package geography
 
+// =============================================================================
+// Isostasy Physics Constants
+// =============================================================================
+// Crustal density values in kg/m³ for buoyancy calculations.
+// These determine how high each crust type "floats" on the mantle.
+
+const (
+	// DensityBasalt is the density of oceanic crust (basalt/gabbro)
+	DensityBasalt = 3000.0 // kg/m³
+
+	// DensityGranite is the density of continental crust (granite/felsic)
+	DensityGranite = 2700.0 // kg/m³
+
+	// DensityMantle is the density of the upper mantle (peridotite)
+	DensityMantle = 3300.0 // kg/m³
+
+	// SeaLevelOffset calibrates the isostatic calculation so that:
+	// - Standard oceanic crust (7km) floats at ~-4000m (abyssal plain)
+	// - Standard continental crust (35km) floats at ~+800m (low plains)
+	SeaLevelOffset = -5400.0 // meters
+)
+
+// CalculateIsostaticHeight calculates elevation using Archimedes' principle.
+// A block of crust floats on the mantle like ice on water.
+//
+// Physics:
+//   - Displacement: portion of crust submerged in mantle = thickness × (density/mantleDensity)
+//   - Freeboard: portion above the mantle surface = thickness - displacement
+//   - Elevation: freeboard converted to meters plus sea level calibration
+//
+// Parameters:
+//   - thicknessKm: crustal thickness in kilometers
+//   - density: crustal density in kg/m³ (DensityBasalt or DensityGranite)
+//
+// Returns: elevation in meters relative to sea level
+func CalculateIsostaticHeight(thicknessKm, density float64) float64 {
+	// Calculate how much of the crust is "submerged" in the mantle
+	displacement := thicknessKm * (density / DensityMantle)
+
+	// Freeboard is the portion sticking above the mantle
+	freeboard := thicknessKm - displacement
+
+	// Convert to meters and apply sea level calibration
+	elevation := freeboard*1000.0 + SeaLevelOffset
+
+	return elevation
+}
+
 // SimulateIsostasy calculates the elevation change due to glacial rebound or loading
 func SimulateIsostasy(currentElevation, iceLoad float64) (float64, string) {
 	// Simple model:

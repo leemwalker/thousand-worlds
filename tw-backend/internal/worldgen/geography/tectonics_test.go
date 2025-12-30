@@ -24,8 +24,16 @@ func TestGeneratePlates(t *testing.T) {
 	for _, p := range plates {
 		if p.Type == PlateContinental {
 			continentalCount++
+			// Continental: 30-40km thick, granite density
+			assert.GreaterOrEqual(t, p.Thickness, 30.0, "Continental thickness should be >= 30km")
+			assert.LessOrEqual(t, p.Thickness, 40.0, "Continental thickness should be <= 40km")
+			assert.Equal(t, DensityGranite, p.MeanDensity, "Continental density should be granite")
 		} else {
 			oceanicCount++
+			// Oceanic: 6-10km thick, basalt density
+			assert.GreaterOrEqual(t, p.Thickness, 6.0, "Oceanic thickness should be >= 6km")
+			assert.LessOrEqual(t, p.Thickness, 10.0, "Oceanic thickness should be <= 10km")
+			assert.Equal(t, DensityBasalt, p.MeanDensity, "Oceanic density should be basalt")
 		}
 		assert.NotEqual(t, 0, p.ID)
 		assert.True(t, p.Thickness > 0)

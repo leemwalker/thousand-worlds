@@ -55,7 +55,8 @@ const (
 
 // CollisionResult describes the tectonic outcome at a specific cell
 type CollisionResult struct {
-	TargetElevation float64     // Target elevation for this cell
+	TargetElevation float64     // Target elevation for this cell (calculated via isostasy)
+	NewThickness    float64     // Resulting crustal thickness in km after collision
 	Feature         FeatureType // Type of tectonic feature created
 	RigidityRings   int         // How many rings the effect should propagate
 }
@@ -74,66 +75,93 @@ func GetPlateDensity(p TectonicPlate) float64 {
 }
 
 // CalculateCollisionResult determines the tectonic outcome for a specific cell
-// at a plate boundary based on crust physics.
-// cellPlate is the plate the cell belongs to, neighborPlate is the adjacent plate.
+// at a plate boundary based on crust physics and isostasy.
+// Uses mass conservation: collisions cause crustal thickening, which then
+// determines elevation via Archimedes' buoyancy principle.
 func CalculateCollisionResult(cellPlate, neighborPlate TectonicPlate, boundaryType BoundaryType) CollisionResult {
-	// Divergent boundaries - spreading/rifting
+	// Divergent boundaries - spreading/rifting (thinning)
 	if boundaryType == BoundaryDivergent {
 		if cellPlate.Type == PlateOceanic && neighborPlate.Type == PlateOceanic {
+			// Mid-ocean ridge: new thin crust forms
+			newThickness := 4.0 // Fresh, thin oceanic crust at ridge
+			elevation := CalculateIsostaticHeight(newThickness, DensityBasalt)
 			return CollisionResult{
-				TargetElevation: -2500, // Mid-ocean ridge (elevated from -4000 ocean floor)
+				TargetElevation: elevation, // Elevated from abyssal (~-2500m)
+				NewThickness:    newThickness,
 				Feature:         FeatureMidOceanRidge,
 				RigidityRings:   OceanicRigidity,
 			}
 		}
 		if cellPlate.Type == PlateContinental && neighborPlate.Type == PlateContinental {
+			// Continental rift: crust thins
+			newThickness := cellPlate.Thickness * 0.7 // 30% thinning
+			elevation := CalculateIsostaticHeight(newThickness, DensityGranite)
 			return CollisionResult{
-				TargetElevation: -200, // Continental rift valley
+				TargetElevation: elevation, // Lowered rift valley
+				NewThickness:    newThickness,
 				Feature:         FeatureRiftValley,
 				RigidityRings:   ContinentalRigidity,
 			}
 		}
-		// Mixed: use cell's type to determine rigidity
+		// Mixed: use cell's type to determine rigidity and elevation
 		rings := OceanicRigidity
+		density := DensityBasalt
 		if cellPlate.Type == PlateContinental {
 			rings = ContinentalRigidity
+			density = DensityGranite
 		}
+		elevation := CalculateIsostaticHeight(cellPlate.Thickness, density)
 		return CollisionResult{
-			TargetElevation: 100,
+			TargetElevation: elevation,
+			NewThickness:    cellPlate.Thickness,
 			Feature:         FeatureNone,
 			RigidityRings:   rings,
 		}
 	}
 
-	// Transform boundaries - minimal elevation change
+	// Transform boundaries - minimal elevation change (no thickening)
 	if boundaryType == BoundaryTransform {
+		density := DensityBasalt
+		if cellPlate.Type == PlateContinental {
+			density = DensityGranite
+		}
+		elevation := CalculateIsostaticHeight(cellPlate.Thickness, density)
 		return CollisionResult{
-			TargetElevation: 0,
+			TargetElevation: elevation,
+			NewThickness:    cellPlate.Thickness,
 			Feature:         FeatureNone,
 			RigidityRings:   OceanicRigidity,
 		}
 	}
 
-	// Convergent boundaries - the complex case
+	// =========================================================================
+	// Convergent boundaries - Mass Conservation Model
+	// =========================================================================
 	cellDensity := GetPlateDensity(cellPlate)
 	neighborDensity := GetPlateDensity(neighborPlate)
 
 	// Ocean vs Ocean: Denser (older) plate subducts
 	if cellPlate.Type == PlateOceanic && neighborPlate.Type == PlateOceanic {
 		if cellDensity >= neighborDensity {
-			// This cell's plate subducts -> this cell becomes a trench
+			// This cell's plate subducts -> deep trench
+			// Trenches are pulled down by subducting slab, use very thin effective thickness
+			trenchThickness := 2.0 // Effectively pulled down
+			// Manual override for trenches: they go deeper than isostasy alone
+			trenchElevation := -8000 - (cellPlate.Age * 20) // -8000 to -10000m
 			return CollisionResult{
-				TargetElevation: -8000 - (cellPlate.Age * 20), // Older = deeper trench, -8000 to -10000m
+				TargetElevation: trenchElevation,
+				NewThickness:    trenchThickness,
 				Feature:         FeatureTrench,
 				RigidityRings:   OceanicRigidity,
 			}
 		}
-		// Neighbor subducts -> this cell becomes island arc (volcanic island chain)
-		// Island arcs are volcanic peaks above subduction zones
-		// Base elevation 500m creates emergent islands; noise variation adds peaks (+1000m)
-		// and rigidity falloff (1 ring only) keeps features narrow, creating gaps between peaks
+		// Neighbor subducts -> island arc (volcanic thickening)
+		// Volcanism adds ~5km of material to overriding plate
+		newThickness := cellPlate.Thickness + 5.0
+		elevation := CalculateIsostaticHeight(newThickness, DensityBasalt)
 		return CollisionResult{
-			TargetElevation: 500, // Above sea level - volcanic peaks emerge
+			TargetElevation: elevation, // Still below sea level but elevated (~-4300m)
+			NewThickness:    newThickness,
 			Feature:         FeatureIslandArc,
 			RigidityRings:   OceanicRigidity,
 		}
@@ -141,25 +169,35 @@ func CalculateCollisionResult(cellPlate, neighborPlate TectonicPlate, boundaryTy
 
 	// Ocean vs Continent: Ocean always subducts
 	if cellPlate.Type == PlateOceanic && neighborPlate.Type == PlateContinental {
-		// This cell is oceanic, it subducts -> trench
+		// Oceanic cell subducts -> trench
+		trenchElevation := -6000 - (cellPlate.Age * 10) // Deep trench
 		return CollisionResult{
-			TargetElevation: -6000,
+			TargetElevation: trenchElevation,
+			NewThickness:    2.0, // Pulled down
 			Feature:         FeatureTrench,
 			RigidityRings:   OceanicRigidity,
 		}
 	}
 	if cellPlate.Type == PlateContinental && neighborPlate.Type == PlateOceanic {
-		// This cell is continental, neighbor subducts -> coastal mountains (Andes-style)
+		// Continental cell: crumples as ocean subducts under it (Andes-style)
+		// Continental crust thickens by ~10km from compression and volcanic addition
+		newThickness := cellPlate.Thickness + 10.0
+		elevation := CalculateIsostaticHeight(newThickness, DensityGranite)
 		return CollisionResult{
-			TargetElevation: 3500 + (cellPlate.Thickness * 30), // Thicker crust = higher mountains, 3000-5000m
+			TargetElevation: elevation, // Typically 2500-4000m
+			NewThickness:    newThickness,
 			Feature:         FeatureCoastalMountain,
 			RigidityRings:   ContinentalRigidity,
 		}
 	}
 
-	// Continent vs Continent: Buckling -> massive orogeny
+	// Continent vs Continent: Massive folding -> orogeny (Himalayas)
+	// Plates fold together: NewThickness = (T1 + T2) * 0.8 (mass conservation with compression loss)
+	combinedThickness := (cellPlate.Thickness + neighborPlate.Thickness) * 0.8
+	elevation := CalculateIsostaticHeight(combinedThickness, DensityGranite)
 	return CollisionResult{
-		TargetElevation: 6000 + (cellPlate.Thickness * 50), // Thicker = higher, 6000-8800m
+		TargetElevation: elevation, // 4000-6500m depending on combined thickness
+		NewThickness:    combinedThickness,
 		Feature:         FeatureOrogeny,
 		RigidityRings:   ContinentalRigidity,
 	}
@@ -195,14 +233,15 @@ func GeneratePlates(count int, topology spatial.Topology, seed int64) []Tectonic
 
 		// Initialize as Oceanic (will be reassigned after BFS)
 		plates[i] = TectonicPlate{
-			ID:        uuid.New(),
-			Type:      PlateOceanic, // Default, will be reassigned
-			Centroid:  centroid,
-			Position:  position,
-			Velocity:  velocity,
-			Region:    make(map[spatial.Coordinate]struct{}),
-			Thickness: 5 + r.Float64()*5, // Default oceanic thickness
-			Age:       age,
+			ID:          uuid.New(),
+			Type:        PlateOceanic, // Default, will be reassigned
+			Centroid:    centroid,
+			Position:    position,
+			Velocity:    velocity,
+			Region:      make(map[spatial.Coordinate]struct{}),
+			Thickness:   6.0 + r.Float64()*4.0, // 6-10km oceanic crust
+			MeanDensity: DensityBasalt,         // 3000 kg/m³
+			Age:         age,
 		}
 	}
 
@@ -242,7 +281,8 @@ func GeneratePlates(count int, topology spatial.Topology, seed int64) []Tectonic
 
 		// Assign this plate as Continental
 		plates[pa.index].Type = PlateContinental
-		plates[pa.index].Thickness = 30 + r.Float64()*20 // 30-50km continental crust
+		plates[pa.index].Thickness = 30.0 + r.Float64()*10.0 // 30-40km continental crust
+		plates[pa.index].MeanDensity = DensityGranite        // 2700 kg/m³
 		coveredArea += float64(pa.area)
 
 		if debug.Is(debug.Geology) {
