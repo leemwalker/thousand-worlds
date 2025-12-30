@@ -166,7 +166,8 @@ func TestInitializeProvinceHardness_SetsAllContinentalCells(t *testing.T) {
 	hm := NewSphereHeightmap(topology)
 
 	provinces := GenerateProvinces(plates, topology, 11111)
-	InitializeProvinceHardness(hm, plates, provinces, topology)
+	// 4. Initialize hardness
+	InitializeProvinceHardness(hm, plates, provinces, topology, 12345)
 
 	// All cells in continental plates should have non-zero hardness
 	for _, plate := range plates {

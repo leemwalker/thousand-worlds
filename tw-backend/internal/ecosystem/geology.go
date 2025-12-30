@@ -237,9 +237,10 @@ func (g *WorldGeology) InitializeGeology() {
 	g.Heightmap = g.SphereHeightmap.ToFlatHeightmap(width, height)
 
 	// Phase 5: Generate geological provinces within continental plates
-	// This creates Cratons (hard, flat), Fold Belts (medium), and Basins (soft, erodes fast)
+	// This creates Cratons (hard, flat),	// 4. Geological Provinces (Phase 5)
+	// Create sub-regions within continental plates
 	g.Provinces = geography.GenerateProvinces(g.Plates, g.Topology, g.Seed)
-	geography.InitializeProvinceHardness(g.SphereHeightmap, g.Plates, g.Provinces, g.Topology)
+	geography.InitializeProvinceHardness(g.SphereHeightmap, g.Plates, g.Provinces, g.Topology, g.Seed)
 
 	// Initialize hotspots (2-5 fixed mantle plume locations)
 	numHotspots := 2 + g.rng.Intn(4)
@@ -257,6 +258,11 @@ func (g *WorldGeology) InitializeGeology() {
 	// Generate initial rivers and hydrology
 	if g.SphereHeightmap != nil {
 		geography.CalculateGlobalFlux(g.SphereHeightmap)
+
+		// River Erosion (Phase 6b)
+		// Carve valleys along high-flux paths before lake filling
+		geography.ApplyRiverErosion(g.SphereHeightmap, 50.0, 5.0, g.SeaLevel)
+
 		geography.FillDepressions(g.SphereHeightmap, g.SeaLevel)
 
 		sphereRivers := geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed)
@@ -870,6 +876,7 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 
 				// Re-run Hydrology to update persistence features
 				geography.CalculateGlobalFlux(g.SphereHeightmap)
+				geography.ApplyRiverErosion(g.SphereHeightmap, 50.0, 5.0, g.SeaLevel) // Carve valleys
 				geography.FillDepressions(g.SphereHeightmap, g.SeaLevel)
 
 				// Update rivers to match new terrain

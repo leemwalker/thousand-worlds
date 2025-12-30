@@ -17,6 +17,7 @@ type CellData struct {
 	Flux         float64 // Water flow accumulation (Phase 6)
 	IsLake       bool    // Part of a lake (Phase 6)
 	LakeID       int     // ID of the lake (Phase 6)
+	LakeDepth    float64 // Depth of water in meters (Surface - Bedrock) (Phase 6)
 }
 
 // SphereHeightmap wraps 6 flat Heightmaps into a spherical surface

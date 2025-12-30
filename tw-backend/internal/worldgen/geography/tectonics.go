@@ -1,6 +1,7 @@
 package geography
 
 import (
+	"container/heap"
 	"log"
 	"math/rand"
 	"time"
@@ -29,8 +30,9 @@ const (
 // Isostatic base elevations (in meters)
 // These represent the "natural floating height" of each crust type on the mantle.
 const (
-	// ContinentalBaseElevation is the natural elevation of continental crust (+150m lowlands)
-	ContinentalBaseElevation = 150.0
+	// ContinentalBaseElevation is the natural elevation of continental crust (+20m lowlands)
+	// Lowered from 150m to allow for more varied terrain and less "blocky" continents
+	ContinentalBaseElevation = 20.0
 	// OceanicBaseElevation is the natural elevation of oceanic crust (-4000m abyssal plain)
 	OceanicBaseElevation = -4000.0
 	// IsostaticRelaxationRate is how quickly crust drifts toward base (5% per step)
@@ -848,6 +850,48 @@ func applyBoundaryEffectWithRigidity(hm *SphereHeightmap, center spatial.Coordin
 	// Build rings dynamically based on rigidity
 	currentRing := []spatial.Coordinate{center}
 
+	// Jittered Uplift Logic (Refinement Task 2):
+	// Instead of perfectly centered uplift, we distribute force to scatter peaks.
+	// 70% to Center/Target, 30% to a Random Neighbor.
+
+	// Apply to Center (70%)
+	amountCenter := elevationChange * 0.7
+	currentElev = hm.Get(center)
+	newElev = currentElev + amountCenter
+	newElev = clampElevation(newElev)
+	hm.Set(center, newElev)
+
+	// Pick Random Neighbor for Jitter (30%)
+	// Use a simple hash or rand based on coordinate to keep it deterministic but "random"
+	// Or just use the first neighbor from a shuffled list?
+	// To ensure determinism, we use a hash of the coordinate.
+	dirIdx := (center.X + center.Y + center.Face) % 4
+	jitterDir := directions[dirIdx]
+	jitterNeighbor := topology.GetNeighbor(center, jitterDir)
+
+	amountJitter := elevationChange * 0.3
+	jitterElev := hm.Get(jitterNeighbor)
+	newJitterElev := jitterElev + amountJitter
+	newJitterElev = clampElevation(newJitterElev)
+	hm.Set(jitterNeighbor, newJitterElev)
+
+	// Continue with standard rigidity propagation for the rest?
+	// The prompt implies this "applyBoundaryEffect" is the main mechanism.
+	// If we smudge the CENTER, the rings will propagate from the center.
+	// But `applyBoundaryEffectWithRigidity` applies to rings AROUND the center.
+	// If we split the center force, should we propagate from BOTH?
+	// That might be expensive.
+	// Let's stick to the prompt: "Refactor applyBoundaryEffect... Apply 70% to Target, 30% to Random Neighbor"
+
+	// For RIGIDITY rings, we will propagate from the MAIN center as before,
+	// but using the remaining "impulse"?
+	// The original code applied `elevationChange` to center, then `0.6 * elevationChange` to ring 1.
+	// If we reduce center to 0.7, does ring 1 still get 0.6 of TOTAL?
+	// Assume yes, the ring falloff is separate scaling.
+
+	// Iterate Rings for falloff (using original center for simplicity of propagation)
+	visited[jitterNeighbor] = struct{}{} // Mark jitter neighbor as visited so it doesn't get double applied in rings
+
 	for ring := 1; ring <= rigidityRings; ring++ {
 		// Use lookup table for falloff
 		falloffIdx := ring - 1
@@ -934,9 +978,43 @@ func CalculateSupercontinentEffects(pangaeaIndex float64) (desertPercent float64
 // Geological Province Generation (Phase 5)
 // =============================================================================
 
+// ProvinceQueue for Dijkstra
+type ProvinceItem struct {
+	Coordinate spatial.Coordinate
+	ProvinceID int
+	Cost       float64
+	Index      int
+}
+
+type ProvinceQueue []*ProvinceItem
+
+func (pq ProvinceQueue) Len() int { return len(pq) }
+func (pq ProvinceQueue) Less(i, j int) bool {
+	return pq[i].Cost < pq[j].Cost
+}
+func (pq ProvinceQueue) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+	pq[i].Index = i
+	pq[j].Index = j
+}
+func (pq *ProvinceQueue) Push(x interface{}) {
+	n := len(*pq)
+	item := x.(*ProvinceItem)
+	item.Index = n
+	*pq = append(*pq, item)
+}
+func (pq *ProvinceQueue) Pop() interface{} {
+	old := *pq
+	n := len(old)
+	item := old[n-1]
+	old[n-1] = nil
+	item.Index = -1
+	*pq = old[0 : n-1]
+	return item
+}
+
 // GenerateProvinces creates geological sub-regions within continental plates.
-// Each continental plate gets 3-5 provinces (Cratons, Fold Belts, Basins).
-// Uses multi-source flood fill (Voronoi-style) to assign cells to provinces.
+// Uses Randomized Dijkstra to ensure organic, irregular shapes.
 func GenerateProvinces(plates []TectonicPlate, topology spatial.Topology, seed int64) []GeologicalProvince {
 	r := rand.New(rand.NewSource(seed))
 	provinces := []GeologicalProvince{}
@@ -1006,9 +1084,10 @@ func GenerateProvinces(plates []TectonicPlate, topology spatial.Topology, seed i
 }
 
 // InitializeProvinceHardness assigns province IDs and hardness values to all cells
-// in continental plates using multi-source flood fill from province seeds.
-func InitializeProvinceHardness(hm *SphereHeightmap, plates []TectonicPlate, provinces []GeologicalProvince, topology spatial.Topology) {
+// in continental plates using Randomized Dijkstra for organic shapes.
+func InitializeProvinceHardness(hm *SphereHeightmap, plates []TectonicPlate, provinces []GeologicalProvince, topology spatial.Topology, seed int64) {
 	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+	r := rand.New(rand.NewSource(seed))
 
 	// Build set of all continental cells for fast lookup
 	continentalCells := make(map[spatial.Coordinate]struct{})
@@ -1020,21 +1099,25 @@ func InitializeProvinceHardness(hm *SphereHeightmap, plates []TectonicPlate, pro
 		}
 	}
 
-	// Track which cells have been assigned
-	assigned := make(map[spatial.Coordinate]int) // coord -> provinceID
+	// Initialize Priority Queue with seeds
+	pq := &ProvinceQueue{}
+	heap.Init(pq)
 
-	// Initialize BFS queue with all province seeds
-	type bfsProvinceItem struct {
-		coord      spatial.Coordinate
-		provinceID int
-	}
-	queue := make([]bfsProvinceItem, 0, len(provinces))
+	assigned := make(map[spatial.Coordinate]int)
 
 	for _, prov := range provinces {
-		queue = append(queue, bfsProvinceItem{coord: prov.SeedCoord, provinceID: prov.ID})
+		// Initial cost 0 for seeds
+		heap.Push(pq, &ProvinceItem{
+			Coordinate: prov.SeedCoord,
+			ProvinceID: prov.ID,
+			Cost:       0.0,
+		})
+
+		// Note: We don't mark assigned yet, we let Pop handle it to ensure lowest cost wins if seeds are close?
+		// Actually for seeds we can just assign.
 		assigned[prov.SeedCoord] = prov.ID
 
-		// Set initial hardness at seed
+		// Set initial hardness
 		data := hm.GetCellData(prov.SeedCoord)
 		data.RockHardness = prov.Hardness
 		data.ProvinceID = prov.ID
@@ -1047,37 +1130,46 @@ func InitializeProvinceHardness(hm *SphereHeightmap, plates []TectonicPlate, pro
 		provinceLookup[prov.ID] = prov.Hardness
 	}
 
-	// Multi-source BFS expansion
-	for len(queue) > 0 {
-		current := queue[0]
-		queue = queue[1:]
+	// Randomized Dijkstra Expansion
+	for pq.Len() > 0 {
+		current := heap.Pop(pq).(*ProvinceItem)
 
 		// Check all 4 neighbors
 		for _, dir := range directions {
-			neighbor := topology.GetNeighbor(current.coord, dir)
+			neighbor := topology.GetNeighbor(current.Coordinate, dir)
 
 			// Skip if not continental
 			if _, isContinental := continentalCells[neighbor]; !isContinental {
 				continue
 			}
 
-			// Skip if already assigned
+			// Skip if already assigned (Dijkstra guarantees first visit is optimal if weights are non-negative)
 			if _, exists := assigned[neighbor]; exists {
 				continue
 			}
 
-			// Assign to this province
-			assigned[neighbor] = current.provinceID
+			// Calculate travel cost
+			// Base Cost (1.0) + Random Variance (0.0 - 1.0)
+			// This creates "wobbly" organic boundaries
+			travelCost := 1.0 + r.Float64()
+			newCost := current.Cost + travelCost
+
+			// Assign
+			assigned[neighbor] = current.ProvinceID
 
 			// Set cell data
-			hardness := provinceLookup[current.provinceID]
+			hardness := provinceLookup[current.ProvinceID]
 			data := hm.GetCellData(neighbor)
 			data.RockHardness = hardness
-			data.ProvinceID = current.provinceID
+			data.ProvinceID = current.ProvinceID
 			hm.SetCellData(neighbor, data)
 
-			// Add to queue
-			queue = append(queue, bfsProvinceItem{coord: neighbor, provinceID: current.provinceID})
+			// Push to PQ
+			heap.Push(pq, &ProvinceItem{
+				Coordinate: neighbor,
+				ProvinceID: current.ProvinceID,
+				Cost:       newCost,
+			})
 		}
 	}
 }

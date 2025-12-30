@@ -76,15 +76,20 @@ func FillDepressions(hm *SphereHeightmap, seaLevel float64) []*Lake {
 
 			// Mark cells
 			for _, c := range cells {
+				originalHeight := hm.Get(c)
+				depth := 0.0
+
+				// Flatten surface to lake height and calculate depth
+				if originalHeight < lake.SurfaceHeight {
+					depth = lake.SurfaceHeight - originalHeight
+					hm.Set(c, lake.SurfaceHeight)
+				}
+
 				data := hm.GetCellData(c)
 				data.IsLake = true
 				data.LakeID = lake.ID
+				data.LakeDepth = depth
 				hm.SetCellData(c, data)
-
-				// Flatten surface to lake height
-				if hm.Get(c) < lake.SurfaceHeight {
-					hm.Set(c, lake.SurfaceHeight)
-				}
 			}
 		}
 	}

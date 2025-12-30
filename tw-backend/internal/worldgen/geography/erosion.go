@@ -277,6 +277,13 @@ func ApplyDifferentialErosion(hm *SphereHeightmap, topology spatial.Topology, nu
 				// Erosion scales with velocity and INVERSELY with hardness
 				// Hard rock (0.9) erodes at 10% rate, soft rock (0.2) at 80% rate
 				erosionFactor := 1.0 - hardness
+
+				// Erosion Cap (Refinement Task 4)
+				// High peaks (> 6000m) erode much faster (glacial/gravity limit)
+				if currentElev > 6000.0 {
+					erosionFactor *= 3.0
+				}
+
 				erodeAmount := erosionConstant * newVelocity * erosionFactor * volume
 
 				// Can't erode more than the slope allows

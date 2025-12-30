@@ -1,6 +1,7 @@
 package geography
 
 import (
+	"math"
 	"sort"
 	"tw-backend/internal/spatial"
 )
@@ -78,5 +79,40 @@ func CalculateGlobalFlux(hm *SphereHeightmap) {
 			hm.SetCellData(*lowestNeighbor, neighborData)
 		}
 		// If no lower neighbor (Sink), flux stays here (Lake candidate)
+	}
+}
+
+// ApplyRiverErosion lowers the heightmap along paths of high flux (rivers),
+// creating V-shaped valleys.
+// It respects sea level (won't erode below it).
+func ApplyRiverErosion(hm *SphereHeightmap, fluxThreshold float64, erosionRate float64, seaLevel float64) {
+	res := hm.Resolution()
+
+	for face := 0; face < 6; face++ {
+		for y := 0; y < res; y++ {
+			for x := 0; x < res; x++ {
+				c := spatial.Coordinate{Face: face, X: x, Y: y}
+				data := hm.GetCellData(c)
+
+				if data.Flux > fluxThreshold {
+					// Erosion amount scales with Log(Flux)
+					// Higher flux = deeper river
+					erosion := erosionRate * math.Log10(data.Flux)
+
+					currentElev := hm.Get(c)
+					newElev := currentElev - erosion
+
+					// Don't erode below sea level (base level)
+					if newElev < seaLevel {
+						newElev = seaLevel
+					}
+
+					// Update if eroded
+					if newElev < currentElev {
+						hm.Set(c, newElev)
+					}
+				}
+			}
+		}
 	}
 }
