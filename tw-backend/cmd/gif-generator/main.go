@@ -88,7 +88,7 @@ func main() {
 		}
 	}
 
-	// Encode GIF
+	// Encode GIF with proper disposal - each frame completely replaces previous
 	log.Printf("Encoding %d frames to GIF...", len(frames))
 
 	f, err := os.Create(*out)
@@ -97,9 +97,16 @@ func main() {
 	}
 	defer f.Close()
 
+	// Create disposal slice - use DisposalBackground (2) to replace each frame entirely
+	disposal := make([]byte, len(frames))
+	for i := range disposal {
+		disposal[i] = gif.DisposalBackground // Each frame replaces the previous
+	}
+
 	err = gif.EncodeAll(f, &gif.GIF{
-		Image: frames,
-		Delay: delays,
+		Image:    frames,
+		Delay:    delays,
+		Disposal: disposal,
 	})
 	if err != nil {
 		log.Fatalf("Failed to encode GIF: %v", err)
