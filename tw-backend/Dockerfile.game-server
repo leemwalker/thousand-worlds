@@ -1,12 +1,12 @@
 # Build Stage
 FROM golang:1.24-alpine AS builder
 WORKDIR /app
-RUN apk add --no-cache git
+RUN apk add --no-cache git build-base
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-# Build statically linked binary with size optimizations
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o game-server ./cmd/game-server/main.go
+# Build binary (CGO enabled for WebP)
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s" -o game-server ./cmd/game-server/main.go
 
 # Final Stage
 FROM alpine:3.19
