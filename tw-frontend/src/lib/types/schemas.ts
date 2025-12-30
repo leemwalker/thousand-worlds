@@ -25,7 +25,8 @@ export const ServerMessageTypeSchema = z.enum([
     'state_update',
     'map_update',
     'combat_event',
-    'error'
+    'error',
+    'world_map_image_response'
 ]);
 
 // --- Map Update Schema ---
@@ -163,6 +164,11 @@ export function validateServerMessage(message: unknown): ValidationResult {
             break;
         case 'error':
             dataResult = ErrorDataSchema.safeParse(msg.data);
+            break;
+        case 'world_map_image_response':
+            // Custom validation for binary-mixed message not strictly needed here
+            // as it is constructed manually in handleBinaryMessage
+            dataResult = { success: true };
             break;
         default:
             // Unknown type - log but don't fail

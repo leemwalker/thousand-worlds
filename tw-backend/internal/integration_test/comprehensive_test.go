@@ -224,7 +224,7 @@ func setupTestServer(t *testing.T, hub *websocket.Hub, sm *auth.SessionManager, 
 			ID:          uuid.New(),
 			CharacterID: uuid.New(),
 			Conn:        conn,
-			Send:        make(chan []byte, 256),
+			Send:        make(chan websocket.OutgoingMessage, 256),
 		}
 
 		hub.Register <- client

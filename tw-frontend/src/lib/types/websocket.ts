@@ -34,7 +34,8 @@ export type ServerMessageType =
     | 'state_update'
     | 'map_update'
     | 'combat_event'
-    | 'error';
+    | 'error'
+    | 'world_map_image_response';
 
 export interface BaseServerMessage {
     type: ServerMessageType;
@@ -96,4 +97,20 @@ export type ServerMessage =
     | StateUpdateMessage
     | MapUpdateMessage
     | CombatEventMessage
-    | ErrorMessage;
+    | ErrorMessage
+    | WorldMapImageMessage;
+
+export interface WorldMapImageMessage extends BaseServerMessage {
+    type: 'world_map_image_response';
+    data: {
+        width: number;
+        height: number;
+        channel: number; // 3=RGB, 4=RGBA
+        imageBlob: Blob; // Client-side enhancement
+        // Gameplay data (from JSON part)
+        centerX: number;
+        centerY: number;
+        gridSize: number;
+        tiles: any[]; // Simplified for now, or VisibleTile[]
+    };
+}

@@ -74,6 +74,7 @@ uniform vec2 u_texScale;       // Texture sampling scale (X, Y). >1.0 = zoomed o
 uniform vec2 u_texCenter;      // Center of view in texture coords (0-1)
 uniform float u_seaLevel;      // Sea level in meters (for bathymetry)
 uniform float u_minElevation;  // Minimum elevation (deepest ocean) in meters
+uniform float u_renderMode;    // 0 = Procedural (Data), 1 = Direct Color (Image)
 
 // Earth elevation color stops (hypsometric + bathymetric)
 const vec3 COLOR_DEEP_OCEAN = vec3(0.02, 0.05, 0.1);      // -6000m
@@ -176,9 +177,25 @@ void main() {
     if (zoomedCoord.y < 0.0 || zoomedCoord.y > 1.0) {
         fragColor = vec4(0.05, 0.05, 0.1, 1.0); // Dark polar edge
         return;
-    }
     
     vec4 data = texture(u_dataTexture, zoomedCoord);
+    
+    // Direct Color Mode (Render pre-colored image as-is)
+    if (u_renderMode > 0.5) {
+        fragColor = data;
+        
+        // Apply player marker on top
+         vec2 playerScreenPos = vec2(0.5) + (u_playerPos - u_texCenter) / u_texScale;
+         float markerDist = distance(v_texCoord, playerScreenPos);
+         float zoomFactor = max(u_texScale.x, u_texScale.y);
+         float markerSize = 0.02 / zoomFactor; 
+         if (markerDist < markerSize) {
+             float alpha = smoothstep(markerSize, markerSize * 0.5, markerDist);
+             fragColor = mix(fragColor, vec4(COLOR_PLAYER, 1.0), alpha);
+         }
+        return;
+    }
+    
     vec3 color;
     
     // Decode raw elevation from normalized value
@@ -317,6 +334,7 @@ export class WebGLMapRenderer {
 
     // Whether this is a simulated world (has geology) or lobby/unsimulated
     private isSimulated: boolean = false;
+    private renderMode: number = 0; // 0 = Procedural, 1 = Direct Color
 
     // View Transform (texture space)
     private texScaleX: number = 1.0;
@@ -751,8 +769,55 @@ export class WebGLMapRenderer {
         const minElevUniform = gl.getUniformLocation(this.program, 'u_minElevation');
         gl.uniform1f(minElevUniform, this.elevationMin);
 
+        // Set render mode uniform
+        const renderModeUniform = gl.getUniformLocation(this.program, 'u_renderMode');
+        gl.uniform1f(renderModeUniform, this.renderMode);
+
         // Draw full-screen quad
         gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
+
+    /**
+     * Switch back to procedural data rendering
+     */
+    setProceduralMode(): void {
+        this.renderMode = 0;
+        this.dirty = true;
+    }
+
+    /**
+     * Update renderer with high-resolution image blob (e.g. from backend map renderer)
+     */
+    async updateTextureFromBlob(blob: Blob): Promise<void> {
+        const gl = this.gl;
+        if (!gl || !this.dataTexture) return;
+
+        try {
+            const bitmap = await createImageBitmap(blob);
+
+            // Re-bind texture
+            gl.bindTexture(gl.TEXTURE_2D, this.dataTexture);
+
+            // Upload image data directly to texture
+            // This replaces the procedurally generated texture data in the GPU
+            gl.texImage2D(
+                gl.TEXTURE_2D, 0, gl.RGBA,
+                bitmap.width, bitmap.height, 0,
+                gl.RGBA, gl.UNSIGNED_BYTE, bitmap
+            );
+
+            // Update dimensions
+            this.gridWidth = bitmap.width;
+            this.gridHeight = bitmap.height;
+
+            // Switch to Direct Color Mode
+            this.renderMode = 1;
+
+            this.dirty = true;
+            console.log('[WebGLMapRenderer] Updated texture from blob:', bitmap.width, 'x', bitmap.height);
+        } catch (e) {
+            console.error('[WebGLMapRenderer] Failed to load texture from blob:', e);
+        }
     }
 
     private resizeCanvas(): void {

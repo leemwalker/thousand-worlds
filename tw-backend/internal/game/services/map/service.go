@@ -7,6 +7,7 @@ import (
 	"math"
 	"strings"
 	"sync"
+	"time"
 
 	"tw-backend/internal/auth"
 	"tw-backend/internal/ecosystem"
@@ -42,6 +43,9 @@ type Service struct {
 
 	// Cache for world map data (key: "worldID:gridSize")
 	worldMapCache sync.Map
+
+	// renderer handles high-resolution map generation
+	renderer *Renderer
 }
 
 // NewService creates a new map service
@@ -53,7 +57,7 @@ func NewService(
 	worldEntityService *worldentity.Service,
 	ecosystemService *ecosystem.Service,
 ) *Service {
-	return &Service{
+	s := &Service{
 		worldRepo:          worldRepo,
 		skillsRepo:         skillsRepo,
 		entityService:      entityService,
@@ -62,6 +66,25 @@ func NewService(
 		ecosystemService:   ecosystemService,
 		worldGeology:       make(map[uuid.UUID]*ecosystem.WorldGeology),
 	}
+
+	// Initialize renderer components
+	// These could be passed in via config/constructor in the future
+	config := RenderConfig{
+		MaxHeight:        4096,
+		MaxWidth:         8192,
+		DefaultHeight:    1024,
+		DefaultWidth:     2048,
+		WebPQuality:      80,               // High quality for Sprint 1
+		RenderTimeout:    10 * time.Second, // Max 10s per render
+		ConcurrencyLimit: 2,                // Hard limit as per requirements
+	}
+
+	pool := NewRendererPool(config.ConcurrencyLimit)
+	cache := NewMapCache(30 * time.Second) // 30s TTL cache
+
+	s.renderer = NewRenderer(config, pool, cache)
+
+	return s
 }
 
 // SetWorldGeology registers geology data for a world to enable biome rendering
@@ -773,6 +796,14 @@ func (s *Service) GetWorldMapData(ctx context.Context, char *auth.Character, gri
 	s.worldMapCache.Store(cacheKey, result)
 
 	return result, nil
+}
+
+// RenderMap calls the internal renderer to generate a map image
+func (s *Service) RenderMap(ctx context.Context, worldID uuid.UUID, geo *ecosystem.WorldGeology, width, height int) ([]byte, error) {
+	if s.renderer == nil {
+		return nil, fmt.Errorf("renderer not initialized")
+	}
+	return s.renderer.RenderWorldMap(ctx, worldID.String(), geo, width, height)
 }
 
 // aggregateRegionBiome determines the dominant biome in a region with weighted voting

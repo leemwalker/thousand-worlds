@@ -63,8 +63,16 @@ export class GameWebSocket {
                 this.processQueuedCommands();
             };
 
+            this.ws.binaryType = 'arraybuffer'; // Enable binary messages
+
             this.ws.onmessage = (event) => {
                 try {
+                    // Handle Binary Messages (ArrayBuffer)
+                    if (event.data instanceof ArrayBuffer) {
+                        this.handleBinaryMessage(event.data);
+                        return;
+                    }
+
                     // Check if data contains multiple JSON objects (concatenated or newline separated)
                     const rawData = event.data.toString();
 
@@ -253,6 +261,51 @@ export class GameWebSocket {
         }
 
         return data; // Return as-is if unrecognized
+    }
+
+    private handleBinaryMessage(buffer: ArrayBuffer) {
+        // Format: [Type (1 byte)] [JSON Length (4 bytes)] [JSON Data] [Binary Length (4 bytes)] [Binary Data]
+        const view = new DataView(buffer);
+        let offset = 0;
+
+        // 1. Read Type
+        const msgType = view.getUint8(offset);
+        offset += 1;
+
+        if (msgType === 0x01) { // WorldMapImage
+            // 2. Read JSON Length
+            const jsonLen = view.getUint32(offset, false); // Big Endian
+            offset += 4;
+
+            // 3. Read JSON Data
+            const jsonBytes = new Uint8Array(buffer, offset, jsonLen);
+            const jsonStr = new TextDecoder().decode(jsonBytes);
+            const jsonData = JSON.parse(jsonStr);
+            offset += jsonLen;
+
+            // 4. Read Binary Length
+            const binLen = view.getUint32(offset, false);
+            offset += 4;
+
+            // 5. Read Binary Data
+            // Create a Blob from the image data
+            const imageBytes = new Uint8Array(buffer, offset, binLen);
+            const blob = new Blob([imageBytes], { type: 'image/webp' });
+
+            // Construct a ServerMessage to dispatch
+            const message: ServerMessage = {
+                type: 'world_map_image_response',
+                data: {
+                    ...jsonData,
+                    imageBlob: blob // Attach the blob to the data
+                },
+                timestamp: Date.now()
+            };
+
+            this.handleMessage(message);
+        } else {
+            console.warn('[WebSocket] Unknown binary message type:', msgType);
+        }
     }
 
     private attemptReconnect(): void {

@@ -40,6 +40,15 @@ type GameClient interface {
 
 	SetCharacterID(id uuid.UUID)
 	SetWorldID(id uuid.UUID)
+
+	// Binary support
+	SendRawBytes(data []byte)
+}
+
+// OutgoingMessage wraps data with a WebSocket message type (Text or Binary)
+type OutgoingMessage struct {
+	Type int
+	Data []byte
 }
 
 // Client represents a WebSocket client connection
@@ -51,7 +60,7 @@ type Client struct {
 	WorldID     uuid.UUID
 	Hub         *Hub
 	Conn        *websocket.Conn
-	Send        chan []byte
+	Send        chan OutgoingMessage
 	mu          sync.Mutex
 	isClosed    bool
 
@@ -70,7 +79,7 @@ func NewClient(hub *Hub, conn *websocket.Conn, userID, characterID, worldID uuid
 		WorldID:     worldID,
 		Hub:         hub,
 		Conn:        conn,
-		Send:        make(chan []byte, 256),
+		Send:        make(chan OutgoingMessage, 256),
 		isClosed:    false,
 	}
 }
@@ -184,17 +193,28 @@ func (c *Client) WritePump() {
 				return
 			}
 
-			w, err := c.Conn.NextWriter(websocket.TextMessage)
+			w, err := c.Conn.NextWriter(message.Type)
 			if err != nil {
 				return
 			}
-			_, _ = w.Write(message)
+			_, _ = w.Write(message.Data)
 
-			// Add queued messages to the current WebSocket message
-			n := len(c.Send)
-			for i := 0; i < n; i++ {
-				_, _ = w.Write([]byte{'\n'})
-				_, _ = w.Write(<-c.Send)
+			// Add queued messages to the current WebSocket message (ONLY IF SAME TYPE)
+			// For binary messages, we probably shouldn't concatenate unless we designed for it.
+			// Ideally, we treat each OutgoingMessage as a discrete frame.
+			// But the original code batched them.
+			// Let's only batch TEXT messages for now to match original behavior.
+			if message.Type == websocket.TextMessage {
+				n := len(c.Send)
+				for i := 0; i < n; i++ {
+					// Peek or read next? We must read.
+					// Check if next is also Text
+					// This is complex with channels.
+					// Simplified: For now, NO batching in this refactor to avoid Binary/Text mixing issues.
+					// The original code batched blindly assuming everything was text.
+					// If we mix types, we can't batch blindly.
+					// Dropping batching is safer.
+				}
 			}
 
 			if err := w.Close(); err != nil {
@@ -240,7 +260,7 @@ func (c *Client) SendMessage(msgType string, data interface{}) error {
 	}
 
 	select {
-	case c.Send <- jsonData:
+	case c.Send <- OutgoingMessage{Type: websocket.TextMessage, Data: jsonData}:
 		return nil
 	default:
 		// Channel is full, client too slow
@@ -248,6 +268,22 @@ func (c *Client) SendMessage(msgType string, data interface{}) error {
 		return websocket.ErrCloseSent
 	}
 
+}
+
+// SendRawBytes sends a raw binary message to the client
+func (c *Client) SendRawBytes(data []byte) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.isClosed {
+		return
+	}
+
+	select {
+	case c.Send <- OutgoingMessage{Type: websocket.BinaryMessage, Data: data}:
+	default:
+		log.Printf("[WS] WARNING: Dropped binary message for client %s", c.ID)
+	}
 }
 
 // SendError sends an error message to the client

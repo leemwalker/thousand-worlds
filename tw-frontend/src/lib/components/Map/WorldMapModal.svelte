@@ -8,6 +8,7 @@
     import { mapStore } from "$lib/stores/map";
     import { gameWebSocket } from "$lib/services/websocket";
     import type { OverlayMode } from "$lib/types/overlays";
+    import type { VisibleTile } from "./MapRenderer";
 
     export let isOpen = false;
     export let onClose: () => void;
@@ -29,6 +30,7 @@
         y: number;
         elevation: number;
         biome: string;
+        customText?: string;
     } | null = null;
 
     // WebGL camera state
@@ -120,7 +122,9 @@
     function requestWorldMap() {
         loading = true;
         // Send command to request world map data
-        gameWebSocket.sendRawCommand("world map");
+        // Send command to request world map data (high-res image if supported)
+        // Check if we want full image or just data. For now, request full image.
+        gameWebSocket.sendRawCommand("world_map_image");
 
         // Timeout: if world_map_data doesn't arrive in 3 seconds, stop loading
         setTimeout(() => {
@@ -264,6 +268,27 @@
                 ].slice(0, 10),
             });
             worldMapData = payload;
+            loading = false;
+            return;
+        }
+
+        // Handle World Map Image Response (Phase 2 Integration)
+        if (msg.type === "world_map_image_response") {
+            const payload = msg.data;
+            worldMapData = payload; // Contains tiles + imageBlob
+            console.log(
+                "[WorldMapModal] Received world_map_image_response with blob size:",
+                payload.imageBlob.size,
+            );
+
+            if (useGraphicsMode && webglRenderer && payload.imageBlob) {
+                // Update metadata (sets grid/world size, player pos)
+                webglRenderer.updateData(payload);
+                // Then upload image texture override
+                webglRenderer.updateTextureFromBlob(payload.imageBlob);
+                webglRenderer.fitToWorld();
+            }
+
             loading = false;
             return;
         }

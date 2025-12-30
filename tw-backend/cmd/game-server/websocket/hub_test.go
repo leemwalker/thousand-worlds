@@ -47,7 +47,7 @@ func TestHub_RegisterUnregister(t *testing.T) {
 	client := &Client{
 		ID:          uuid.New(),
 		CharacterID: uuid.New(),
-		Send:        make(chan []byte, 256),
+		Send:        make(chan OutgoingMessage, 256),
 	}
 
 	// Register
@@ -78,7 +78,7 @@ func TestHub_BroadcastToCharacter(t *testing.T) {
 
 	client := &Client{
 		CharacterID: uuid.New(),
-		Send:        make(chan []byte, 256),
+		Send:        make(chan OutgoingMessage, 256),
 	}
 
 	// Manually add client to avoid race conditions with Run()
@@ -88,8 +88,8 @@ func TestHub_BroadcastToCharacter(t *testing.T) {
 
 	select {
 	case msg := <-client.Send:
-		assert.Contains(t, string(msg), "test_msg")
-		assert.Contains(t, string(msg), "hello")
+		assert.Contains(t, string(msg.Data), "test_msg")
+		assert.Contains(t, string(msg.Data), "hello")
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("Timeout waiting for message")
 	}
@@ -99,8 +99,8 @@ func TestHub_BroadcastToAll(t *testing.T) {
 	processor := &MockMessageProcessor{}
 	hub := NewHub(processor)
 
-	client1 := &Client{CharacterID: uuid.New(), Send: make(chan []byte, 256)}
-	client2 := &Client{CharacterID: uuid.New(), Send: make(chan []byte, 256)}
+	client1 := &Client{CharacterID: uuid.New(), Send: make(chan OutgoingMessage, 256)}
+	client2 := &Client{CharacterID: uuid.New(), Send: make(chan OutgoingMessage, 256)}
 
 	hub.Clients[client1.CharacterID] = client1
 	hub.Clients[client2.CharacterID] = client2
@@ -110,7 +110,7 @@ func TestHub_BroadcastToAll(t *testing.T) {
 	// Check client 1
 	select {
 	case msg := <-client1.Send:
-		assert.Contains(t, string(msg), "broadcast_msg")
+		assert.Contains(t, string(msg.Data), "broadcast_msg")
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("Timeout waiting for message client 1")
 	}
@@ -118,7 +118,7 @@ func TestHub_BroadcastToAll(t *testing.T) {
 	// Check client 2
 	select {
 	case msg := <-client2.Send:
-		assert.Contains(t, string(msg), "broadcast_msg")
+		assert.Contains(t, string(msg.Data), "broadcast_msg")
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("Timeout waiting for message client 2")
 	}
@@ -129,12 +129,12 @@ func TestHub_BroadcastToArea(t *testing.T) {
 	hub := NewHub(processor)
 
 	// Client in range
-	client1 := &Client{CharacterID: uuid.New(), Send: make(chan []byte, 256)}
+	client1 := &Client{CharacterID: uuid.New(), Send: make(chan OutgoingMessage, 256)}
 	hub.Clients[client1.CharacterID] = client1
 	hub.SpatialIndex.Insert(client1.CharacterID, spatial.Position{X: 10, Y: 10})
 
 	// Client out of range
-	client2 := &Client{CharacterID: uuid.New(), Send: make(chan []byte, 256)}
+	client2 := &Client{CharacterID: uuid.New(), Send: make(chan OutgoingMessage, 256)}
 	hub.Clients[client2.CharacterID] = client2
 	hub.SpatialIndex.Insert(client2.CharacterID, spatial.Position{X: 1000, Y: 1000})
 
@@ -144,7 +144,7 @@ func TestHub_BroadcastToArea(t *testing.T) {
 	// Client 1 should receive
 	select {
 	case msg := <-client1.Send:
-		assert.Contains(t, string(msg), "area_msg")
+		assert.Contains(t, string(msg.Data), "area_msg")
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("Timeout waiting for message client 1")
 	}
@@ -218,7 +218,7 @@ func TestHub_HandleClientMessage(t *testing.T) {
 
 	client := &Client{
 		CharacterID: uuid.New(),
-		Send:        make(chan []byte, 10),
+		Send:        make(chan OutgoingMessage, 10),
 	}
 
 	// Test valid command
@@ -253,7 +253,7 @@ func TestHub_HandleClientMessage(t *testing.T) {
 	// Should receive error
 	select {
 	case msg := <-client.Send:
-		assert.Contains(t, string(msg), "Invalid command format")
+		assert.Contains(t, string(msg.Data), "Invalid command format")
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("Timeout waiting for error message")
 	}
@@ -270,7 +270,7 @@ func TestHub_BroadcastConcurrent(t *testing.T) {
 	for i := 0; i < numClients; i++ {
 		client := &Client{
 			CharacterID: uuid.New(),
-			Send:        make(chan []byte, 10),
+			Send:        make(chan OutgoingMessage, 10),
 		}
 		hub.Clients[client.CharacterID] = client
 		hub.SpatialIndex.Insert(client.CharacterID, spatial.Position{X: 0, Y: 0})

@@ -50,7 +50,7 @@ func TestClient_Getters(t *testing.T) {
 
 func TestClient_SendMessage(t *testing.T) {
 	client := &Client{
-		Send: make(chan []byte, 10),
+		Send: make(chan OutgoingMessage, 10),
 	}
 
 	err := client.SendMessage("test_type", "test_data")
@@ -59,7 +59,7 @@ func TestClient_SendMessage(t *testing.T) {
 	select {
 	case msg := <-client.Send:
 		var serverMsg ServerMessage
-		err := json.Unmarshal(msg, &serverMsg)
+		err := json.Unmarshal(msg.Data, &serverMsg)
 		require.NoError(t, err)
 		assert.Equal(t, "test_type", serverMsg.Type)
 		assert.Equal(t, "test_data", serverMsg.Data)
@@ -70,7 +70,7 @@ func TestClient_SendMessage(t *testing.T) {
 
 func TestClient_SendError(t *testing.T) {
 	client := &Client{
-		Send: make(chan []byte, 10),
+		Send: make(chan OutgoingMessage, 10),
 	}
 
 	client.SendError("something went wrong")
@@ -78,7 +78,7 @@ func TestClient_SendError(t *testing.T) {
 	select {
 	case msg := <-client.Send:
 		var serverMsg ServerMessage
-		err := json.Unmarshal(msg, &serverMsg)
+		err := json.Unmarshal(msg.Data, &serverMsg)
 		require.NoError(t, err)
 		assert.Equal(t, MessageTypeError, serverMsg.Type)
 
@@ -92,7 +92,7 @@ func TestClient_SendError(t *testing.T) {
 
 func TestClient_SendGameMessage(t *testing.T) {
 	client := &Client{
-		Send: make(chan []byte, 10),
+		Send: make(chan OutgoingMessage, 10),
 	}
 
 	meta := map[string]interface{}{"foo": "bar"}
@@ -101,7 +101,7 @@ func TestClient_SendGameMessage(t *testing.T) {
 	select {
 	case msg := <-client.Send:
 		var serverMsg ServerMessage
-		err := json.Unmarshal(msg, &serverMsg)
+		err := json.Unmarshal(msg.Data, &serverMsg)
 		require.NoError(t, err)
 		assert.Equal(t, MessageTypeGameMessage, serverMsg.Type)
 
@@ -122,7 +122,7 @@ func TestClient_SendGameMessage(t *testing.T) {
 
 func TestClient_SendStateUpdate(t *testing.T) {
 	client := &Client{
-		Send: make(chan []byte, 10),
+		Send: make(chan OutgoingMessage, 10),
 	}
 
 	state := &StateUpdateData{
@@ -135,7 +135,7 @@ func TestClient_SendStateUpdate(t *testing.T) {
 	select {
 	case msg := <-client.Send:
 		var serverMsg ServerMessage
-		err := json.Unmarshal(msg, &serverMsg)
+		err := json.Unmarshal(msg.Data, &serverMsg)
 		require.NoError(t, err)
 		assert.Equal(t, MessageTypeStateUpdate, serverMsg.Type)
 

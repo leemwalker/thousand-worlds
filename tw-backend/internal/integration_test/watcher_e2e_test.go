@@ -113,6 +113,10 @@ func (c *TestGameClient) SendGameMessage(msgType, text string, data map[string]i
 	}{Type: msgType, Text: text, Data: data})
 }
 
+func (c *TestGameClient) SendRawBytes(data []byte) {
+	// Mock implementation
+}
+
 func TestWatcherEntryE2E(t *testing.T) {
 	ctx := context.Background()
 

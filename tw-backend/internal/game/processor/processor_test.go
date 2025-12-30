@@ -177,6 +177,10 @@ func (m *mockClient) SetCharacterID(id uuid.UUID) {
 	m.CharacterID = id
 }
 
+func (m *mockClient) SendRawBytes(data []byte) {
+	// Mock implementation
+}
+
 func newMockClient() *mockClient {
 	return &mockClient{
 		CharacterID: uuid.New(),

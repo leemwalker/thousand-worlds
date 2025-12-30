@@ -132,7 +132,7 @@ func TestHub_LoadTest_1000Clients(t *testing.T) {
 			ID:          uuid.New(),
 			CharacterID: characterID,
 			Conn:        conn,
-			Send:        make(chan []byte, 256),
+			Send:        make(chan websocket.OutgoingMessage, 256),
 		}
 
 		hub.Register <- client
@@ -178,7 +178,7 @@ func TestHub_LoadTest_1000Clients(t *testing.T) {
 				ID:          uuid.New(),
 				CharacterID: characterID,
 				Conn:        conn,
-				Send:        make(chan []byte, 256),
+				Send:        make(chan websocket.OutgoingMessage, 256),
 			}
 		}(i)
 	}
@@ -297,7 +297,7 @@ func BenchmarkHub_BroadcastToAll(b *testing.B) {
 		client := &websocket.Client{
 			ID:          uuid.New(),
 			CharacterID: uuid.New(),
-			Send:        make(chan []byte, 256),
+			Send:        make(chan websocket.OutgoingMessage, 256),
 		}
 
 		hub.Register <- client

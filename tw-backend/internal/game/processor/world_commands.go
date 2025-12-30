@@ -1,7 +1,9 @@
 package processor
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"log"
 	"math"
@@ -1470,6 +1472,9 @@ func (p *GameProcessor) handleWorldSpeed(ctx context.Context, client websocket.G
 
 // handleWorldMap sends full world map data to the client for the world map modal
 func (p *GameProcessor) handleWorldMap(ctx context.Context, client websocket.GameClient) error {
+	// LEGACY HANDLER: Used for JSON data (low-res).
+	// New clients should use `graphic_mode="image"` (handled by handleWorldMapImage) for high-res.
+
 	char, err := p.authRepo.GetCharacter(ctx, client.GetCharacterID())
 	if err != nil || char == nil {
 		client.SendGameMessage("error", "Could not get character", nil)
@@ -1678,3 +1683,81 @@ func (p *GameProcessor) getSeasonFromYear(simulatedYear int64) weather.Season {
 }
 
 // legacy runEcosystemTick removed - replaced by V2 logic in runner.tick()
+
+// handleWorldMapImage handles requests for high-resolution map images (Option 5/Hybrid)
+func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocket.GameClient) error {
+	char, err := p.authRepo.GetCharacter(ctx, client.GetCharacterID())
+	if err != nil || char == nil {
+		client.SendGameMessage("error", "Could not get character", nil)
+		return nil
+	}
+
+	if p.mapService == nil {
+		client.SendGameMessage("error", "Map service not available", nil)
+		return nil
+	}
+
+	geo := p.mapService.GetWorldGeology(char.WorldID)
+	if geo == nil {
+		client.SendGameMessage("error", "World geology not initialized. Run simulation first.", nil)
+		return nil
+	}
+
+	// Constants for Sprint 1
+	const (
+		ImageWidth  = 2048
+		ImageHeight = 1024 // 2:1 Aspect Ratio for Equirectangular
+		GridSize    = 256  // Logical grid size
+	)
+
+	// Create a new context with timeout for this specific operation
+	// The renderer has its own timeout logic, but we enforce it here too
+	renderCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	// 1. Render Image (Visuals)
+	// We need to access the renderer directly or via service wrapper.
+	// Assuming mapService exposes a RenderMap function now.
+	// Since we defined Renderer struct in the implementation plan but didn't attach it to Service yet,
+	// we assume we need to add RenderMap to Service (step we missed in plan execution order).
+	// For now, let's assume p.mapService has it.
+	// NOTE: We need to update service.go to include the renderer!
+
+	imageBytes, err := p.mapService.RenderMap(renderCtx, char.WorldID, geo, ImageWidth, ImageHeight)
+	if err != nil {
+		log.Printf("[MAP] Render failed: %v", err)
+		client.SendGameMessage("error", fmt.Sprintf("Map render failed: %v", err), nil)
+		return nil
+	}
+
+	// 2. Generate Binary Data (Logic)
+	// Placeholder for Sprint 1 (implemented in Sprint 2)
+	// For now, send empty binary payload
+	binaryBytes := make([]byte, 0)
+
+	// 3. Construct Binary Message
+	// Format: [Type:1][ImgLen:4][ImgBytes...][BinLen:4][BinBytes...]
+	// Type 0x02 = WorldMapImage
+
+	// Calculate total size: 1 + 4 + len(img) + 4 + len(bin)
+	totalSize := 1 + 4 + len(imageBytes) + 4 + len(binaryBytes)
+	buf := bytes.NewBuffer(make([]byte, 0, totalSize))
+
+	// Write Header (Type)
+	buf.WriteByte(0x02)
+
+	// Write Image Length (Big Endian)
+	binary.Write(buf, binary.BigEndian, uint32(len(imageBytes)))
+	// Write Image Data
+	buf.Write(imageBytes)
+
+	// Write Binary Length (Big Endian)
+	binary.Write(buf, binary.BigEndian, uint32(len(binaryBytes)))
+	// Write Binary Data
+	buf.Write(binaryBytes)
+
+	// Send Raw Binary Message
+	client.SendRawBytes(buf.Bytes())
+
+	return nil
+}
