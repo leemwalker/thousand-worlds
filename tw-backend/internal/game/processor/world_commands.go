@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -1731,30 +1732,57 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 	}
 
 	// 2. Generate Binary Data (Logic)
-	// Placeholder for Sprint 1 (implemented in Sprint 2)
-	// For now, send empty binary payload
-	binaryBytes := make([]byte, 0)
 
 	// 3. Construct Binary Message
-	// Format: [Type:1][ImgLen:4][ImgBytes...][BinLen:4][BinBytes...]
-	// Type 0x02 = WorldMapImage
+	// Protocol: [Type:1][JSONLen:4][JSONBytes][BinLen:4][BinBytes]
 
-	// Calculate total size: 1 + 4 + len(img) + 4 + len(bin)
-	totalSize := 1 + 4 + len(imageBytes) + 4 + len(binaryBytes)
+	// Construct JSON Metadata
+	type MapImageMetadata struct {
+		Width       int     `json:"width"`
+		Height      int     `json:"height"`
+		GridWidth   int     `json:"grid_width"`
+		GridHeight  int     `json:"grid_height"`
+		WorldWidth  float64 `json:"world_width"`
+		WorldHeight float64 `json:"world_height"`
+		PlayerX     float64 `json:"player_x"`
+		PlayerY     float64 `json:"player_y"`
+	}
+
+	meta := MapImageMetadata{
+		Width:       ImageWidth,
+		Height:      ImageHeight,
+		GridWidth:   GridSize,
+		GridHeight:  GridSize / 2,
+		WorldWidth:  geo.Circumference,
+		WorldHeight: geo.Circumference / 2,
+		PlayerX:     char.PositionX,
+		PlayerY:     char.PositionY,
+	}
+
+	jsonBytes, err := json.Marshal(meta)
+	if err != nil {
+		log.Printf("[MAP] JSON marshal failed: %v", err)
+		return nil
+	}
+
+	binBytes := imageBytes
+
+	// Calculate total size: 1 + 4 + len(json) + 4 + len(bin)
+	totalSize := 1 + 4 + len(jsonBytes) + 4 + len(binBytes)
 	buf := bytes.NewBuffer(make([]byte, 0, totalSize))
 
-	// Write Header (Type)
-	buf.WriteByte(0x02)
+	// Write Header (Type 0x01)
+	buf.WriteByte(0x01)
 
-	// Write Image Length (Big Endian)
-	binary.Write(buf, binary.BigEndian, uint32(len(imageBytes)))
-	// Write Image Data
-	buf.Write(imageBytes)
+	// Write JSON Length (Big Endian)
+	binary.Write(buf, binary.BigEndian, uint32(len(jsonBytes)))
+	// Write JSON Data
+	buf.Write(jsonBytes)
 
 	// Write Binary Length (Big Endian)
-	binary.Write(buf, binary.BigEndian, uint32(len(binaryBytes)))
+	binary.Write(buf, binary.BigEndian, uint32(len(binBytes)))
 	// Write Binary Data
-	buf.Write(binaryBytes)
+	buf.Write(binBytes)
 
 	// Send Raw Binary Message
 	client.SendRawBytes(buf.Bytes())
