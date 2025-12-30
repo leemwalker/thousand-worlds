@@ -5,6 +5,7 @@
     import WorldMapLegend from "./WorldMapLegend.svelte";
     import MapOverlayCanvas from "./MapOverlayCanvas.svelte";
     import SimulationLog from "./SimulationLog.svelte";
+    import SimulationPanel from "../Simulation/SimulationPanel.svelte";
     import { fade, fly } from "svelte/transition";
     import { mapStore } from "$lib/stores/map";
     import { gameWebSocket } from "$lib/services/websocket";
@@ -12,6 +13,9 @@
 
     export let isOpen = false;
     export let onClose: () => void;
+
+    // Sidebar tab state
+    let activeTab: "info" | "simulate" = "info";
 
     let canvas: HTMLCanvasElement;
     let renderer: MapRenderer | null = null;
@@ -816,113 +820,150 @@
                     </div>
                 </div>
 
-                <!-- Sidebar / Event Log Only -->
+                <!-- Sidebar / Tabbed Interface -->
                 <div
-                    class="w-72 bg-gray-850 border-l border-gray-800 flex flex-col"
+                    class="w-80 bg-gray-850 border-l border-gray-800 flex flex-col"
                 >
-                    <!-- Natural Satellites Section -->
-                    {#if worldMapData?.satellites?.length > 0}
-                        <div class="p-4 border-b border-gray-800">
-                            <h3
-                                class="font-bold text-gray-300 mb-3 flex items-center gap-2"
-                            >
-                                <span class="text-lg">🌙</span>
-                                Natural Satellites
-                            </h3>
-                            <div class="space-y-2 text-sm">
-                                {#each worldMapData.satellites as sat}
-                                    <div
-                                        class="flex justify-between items-center"
-                                    >
-                                        <span class="text-gray-300"
-                                            >{sat.name}</span
+                    <!-- Tab Navigation -->
+                    <div class="flex border-b border-gray-800">
+                        <button
+                            on:click={() => (activeTab = "info")}
+                            class="flex-1 px-4 py-3 text-sm font-medium transition-colors {activeTab ===
+                            'info'
+                                ? 'text-blue-400 border-b-2 border-blue-400 bg-gray-800/50'
+                                : 'text-gray-400 hover:text-gray-200'}"
+                        >
+                            Info
+                        </button>
+                        <button
+                            on:click={() => (activeTab = "simulate")}
+                            class="flex-1 px-4 py-3 text-sm font-medium transition-colors {activeTab ===
+                            'simulate'
+                                ? 'text-blue-400 border-b-2 border-blue-400 bg-gray-800/50'
+                                : 'text-gray-400 hover:text-gray-200'}"
+                        >
+                            Simulate
+                        </button>
+                    </div>
+
+                    {#if activeTab === "simulate"}
+                        <!-- Simulation Panel Tab -->
+                        <div class="flex-1 overflow-y-auto">
+                            <SimulationPanel
+                                on:command={(e) => {
+                                    gameWebSocket.sendRawCommand(e.detail);
+                                    // Request map update after command
+                                    setTimeout(() => requestWorldMap(), 500);
+                                }}
+                            />
+                        </div>
+                    {:else}
+                        <!-- Info Tab (Original Content) -->
+                        <!-- Natural Satellites Section -->
+                        {#if worldMapData?.satellites?.length > 0}
+                            <div class="p-4 border-b border-gray-800">
+                                <h3
+                                    class="font-bold text-gray-300 mb-3 flex items-center gap-2"
+                                >
+                                    <span class="text-lg">🌙</span>
+                                    Natural Satellites
+                                </h3>
+                                <div class="space-y-2 text-sm">
+                                    {#each worldMapData.satellites as sat}
+                                        <div
+                                            class="flex justify-between items-center"
                                         >
-                                        <span class="text-gray-500 text-xs">
-                                            {sat.mass.toFixed(2)}x Luna
+                                            <span class="text-gray-300"
+                                                >{sat.name}</span
+                                            >
+                                            <span class="text-gray-500 text-xs">
+                                                {sat.mass.toFixed(2)}x Luna
+                                            </span>
+                                        </div>
+                                    {/each}
+                                </div>
+                                <!-- Climate Stability -->
+                                <div
+                                    class="mt-3 pt-3 border-t border-gray-700 text-xs"
+                                >
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-500"
+                                            >Climate Stability</span
+                                        >
+                                        <span
+                                            class={worldMapData.satellites.reduce(
+                                                (a, s) => a + s.mass,
+                                                0,
+                                            ) > 0.01
+                                                ? "text-green-400"
+                                                : "text-yellow-400"}
+                                        >
+                                            {worldMapData.satellites.reduce(
+                                                (a, s) => a + s.mass,
+                                                0,
+                                            ) > 0.01
+                                                ? "Stable"
+                                                : "Variable"}
                                         </span>
                                     </div>
-                                {/each}
+                                    <div class="flex justify-between mt-1">
+                                        <span class="text-gray-500"
+                                            >Impact Shield</span
+                                        >
+                                        <span class="text-blue-400">
+                                            {Math.min(
+                                                worldMapData.satellites.length *
+                                                    5,
+                                                20,
+                                            )}%
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
-                            <!-- Climate Stability -->
-                            <div
-                                class="mt-3 pt-3 border-t border-gray-700 text-xs"
-                            >
-                                <div class="flex justify-between">
+                        {:else}
+                            <div class="p-4 border-b border-gray-800">
+                                <h3
+                                    class="font-bold text-gray-300 mb-2 flex items-center gap-2"
+                                >
+                                    <span class="text-lg">🌙</span>
+                                    Natural Satellites
+                                </h3>
+                                <div class="text-gray-500 text-sm italic">
+                                    No moons detected
+                                </div>
+                                <div class="mt-2 text-xs flex justify-between">
                                     <span class="text-gray-500"
                                         >Climate Stability</span
                                     >
-                                    <span
-                                        class={worldMapData.satellites.reduce(
-                                            (a, s) => a + s.mass,
-                                            0,
-                                        ) > 0.01
-                                            ? "text-green-400"
-                                            : "text-yellow-400"}
-                                    >
-                                        {worldMapData.satellites.reduce(
-                                            (a, s) => a + s.mass,
-                                            0,
-                                        ) > 0.01
-                                            ? "Stable"
-                                            : "Variable"}
-                                    </span>
-                                </div>
-                                <div class="flex justify-between mt-1">
-                                    <span class="text-gray-500"
-                                        >Impact Shield</span
-                                    >
-                                    <span class="text-blue-400">
-                                        {Math.min(
-                                            worldMapData.satellites.length * 5,
-                                            20,
-                                        )}%
-                                    </span>
+                                    <span class="text-red-400">Chaotic</span>
                                 </div>
                             </div>
-                        </div>
-                    {:else}
-                        <div class="p-4 border-b border-gray-800">
-                            <h3
-                                class="font-bold text-gray-300 mb-2 flex items-center gap-2"
-                            >
-                                <span class="text-lg">🌙</span>
-                                Natural Satellites
+                        {/if}
+
+                        <!-- Event Log -->
+                        <div class="flex-1 flex flex-col overflow-hidden">
+                            <h3 class="font-bold text-gray-300 p-4 pb-2">
+                                Event Log
                             </h3>
-                            <div class="text-gray-500 text-sm italic">
-                                No moons detected
-                            </div>
-                            <div class="mt-2 text-xs flex justify-between">
-                                <span class="text-gray-500"
-                                    >Climate Stability</span
-                                >
-                                <span class="text-red-400">Chaotic</span>
+                            <div
+                                class="flex-1 overflow-y-auto p-4 pt-0 space-y-2 font-mono text-xs"
+                            >
+                                {#each simStats.events as event}
+                                    <div
+                                        class="text-gray-400 border-l-2 border-gray-700 pl-2 py-1"
+                                    >
+                                        {event}
+                                    </div>
+                                {:else}
+                                    <div
+                                        class="text-gray-600 italic text-center mt-10"
+                                    >
+                                        No recent events
+                                    </div>
+                                {/each}
                             </div>
                         </div>
                     {/if}
-
-                    <!-- Event Log -->
-                    <div class="flex-1 flex flex-col overflow-hidden">
-                        <h3 class="font-bold text-gray-300 p-4 pb-2">
-                            Event Log
-                        </h3>
-                        <div
-                            class="flex-1 overflow-y-auto p-4 pt-0 space-y-2 font-mono text-xs"
-                        >
-                            {#each simStats.events as event}
-                                <div
-                                    class="text-gray-400 border-l-2 border-gray-700 pl-2 py-1"
-                                >
-                                    {event}
-                                </div>
-                            {:else}
-                                <div
-                                    class="text-gray-600 italic text-center mt-10"
-                                >
-                                    No recent events
-                                </div>
-                            {/each}
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
