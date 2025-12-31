@@ -438,10 +438,13 @@
         hoveredTile = gridPos;
 
         // Find tile data
-        const tile = worldMapData.tiles.find(
-            (t: any) =>
-                t.grid_x === gridPos.gridX && t.grid_y === gridPos.gridY,
-        );
+        let tile: any = null;
+        if (worldMapData.tiles) {
+            tile = worldMapData.tiles.find(
+                (t: any) =>
+                    t.grid_x === gridPos.gridX && t.grid_y === gridPos.gridY,
+            );
+        }
 
         if (tile) {
             tooltipData = {

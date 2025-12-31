@@ -189,9 +189,9 @@ void main() {
          vec2 playerScreenPos = vec2(0.5) + (u_playerPos - u_texCenter) / u_texScale;
          float markerDist = distance(v_texCoord, playerScreenPos);
          float zoomFactor = max(u_texScale.x, u_texScale.y);
-         float markerSize = 0.02 / zoomFactor; 
+         float markerSize = 0.01; 
          if (markerDist < markerSize) {
-             float alpha = smoothstep(markerSize, markerSize * 0.5, markerDist);
+             float alpha = smoothstep(markerSize, markerSize * 0.8, markerDist);
              fragColor = mix(fragColor, vec4(COLOR_PLAYER, 1.0), alpha);
          }
         return;
@@ -244,9 +244,9 @@ void main() {
     float markerDist = distance(v_texCoord, playerScreenPos);
     
     float zoomFactor = max(u_texScale.x, u_texScale.y);
-    float markerSize = 0.02 / zoomFactor; // Scale marker with zoom (larger when zoomed in)
+    float markerSize = 0.01; 
     if (markerDist < markerSize) {
-        float alpha = smoothstep(markerSize, markerSize * 0.5, markerDist);
+        float alpha = smoothstep(markerSize, markerSize * 0.8, markerDist);
         color = mix(color, COLOR_PLAYER, alpha);
     }
     
@@ -255,7 +255,7 @@ void main() {
 `;
 
 export interface WorldMapData {
-    tiles: WorldMapTile[];
+    tiles?: WorldMapTile[];
     grid_width: number;
     grid_height: number;
     world_width: number;
@@ -502,45 +502,49 @@ export class WebGLMapRenderer {
 
         // Calculate elevation range from data
         let minElev = Infinity, maxElev = -Infinity;
-        for (const tile of data.tiles) {
-            if (tile.avg_elevation < minElev) minElev = tile.avg_elevation;
-            if (tile.avg_elevation > maxElev) maxElev = tile.avg_elevation;
+        if (data.tiles) {
+            for (const tile of data.tiles) {
+                if (tile.avg_elevation < minElev) minElev = tile.avg_elevation;
+                if (tile.avg_elevation > maxElev) maxElev = tile.avg_elevation;
+            }
+            this.elevationMin = minElev;
+            this.elevationMax = maxElev;
         }
-        this.elevationMin = minElev;
-        this.elevationMax = maxElev;
 
         // Create texture data buffer (RGBA)
         const buffer = new Uint8Array(this.gridWidth * this.gridHeight * 4);
 
-        for (const tile of data.tiles) {
-            const x = tile.grid_x;
-            const y = tile.grid_y;
-            const idx = (y * this.gridWidth + x) * 4;
+        if (data.tiles) {
+            for (const tile of data.tiles) {
+                const x = tile.grid_x;
+                const y = tile.grid_y;
+                const idx = (y * this.gridWidth + x) * 4;
 
-            // R: Elevation normalized to 0-255 (0.5 = sea level)
-            // Map elevation range to 0-1 with 0.5 at sea level
-            const normElev = this.normalizeElevation(tile.avg_elevation);
-            buffer[idx] = Math.round(normElev * 255);
+                // R: Elevation normalized to 0-255 (0.5 = sea level)
+                // Map elevation range to 0-1 with 0.5 at sea level
+                const normElev = this.normalizeElevation(tile.avg_elevation);
+                buffer[idx] = Math.round(normElev * 255);
 
-            // G: Biome ID
-            const lookupBiome = BIOME_IDS[tile.biome];
-            const biomeId: number = lookupBiome !== undefined ? lookupBiome : 8; // 8 = Default
-            buffer[idx + 1] = biomeId;
+                // G: Biome ID
+                const lookupBiome = BIOME_IDS[tile.biome];
+                const biomeId: number = lookupBiome !== undefined ? lookupBiome : 8; // 8 = Default
+                buffer[idx + 1] = biomeId;
 
-            // B: Unused
-            buffer[idx + 2] = 0;
+                // B: Unused
+                buffer[idx + 2] = 0;
 
-            // A: Alpha
-            buffer[idx + 3] = 255;
+                // A: Alpha
+                buffer[idx + 3] = 255;
+            }
+
+            // Upload texture (Only if we have tiles)
+            gl.bindTexture(gl.TEXTURE_2D, this.dataTexture);
+            gl.texImage2D(
+                gl.TEXTURE_2D, 0, gl.RGBA,
+                this.gridWidth, this.gridHeight, 0,
+                gl.RGBA, gl.UNSIGNED_BYTE, buffer
+            );
         }
-
-        // Upload texture
-        gl.bindTexture(gl.TEXTURE_2D, this.dataTexture);
-        gl.texImage2D(
-            gl.TEXTURE_2D, 0, gl.RGBA,
-            this.gridWidth, this.gridHeight, 0,
-            gl.RGBA, gl.UNSIGNED_BYTE, buffer
-        );
 
         // Store world dimensions and calculate player position in normalized coords
         this.worldWidth = data.world_width || 1;
@@ -560,7 +564,7 @@ export class WebGLMapRenderer {
 
         console.log('[WebGLMapRenderer] Data updated:', {
             grid: `${this.gridWidth}x${this.gridHeight}`,
-            tiles: data.tiles.length,
+            tiles: data.tiles ? data.tiles.length : 0,
             elevRange: { min: minElev, max: maxElev },
             playerPos: { x: this.playerPosX.toFixed(3), y: this.playerPosY.toFixed(3) },
             isSimulated: this.isSimulated
