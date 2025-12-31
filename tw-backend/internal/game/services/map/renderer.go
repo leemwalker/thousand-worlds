@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"tw-backend/internal/ecosystem"
+	"tw-backend/internal/spatial"
 
 	"github.com/chai2010/webp"
 )
@@ -417,45 +418,32 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 							sunY := math.Sin(sunAltitude) // Up component
 							sunZ := math.Cos(sunAltitude) * math.Cos(sunAzimuth)
 
-							// Sample neighbor elevations for gradient (in pixel space)
-							// Use a slightly offset sample for neighbors
-							pixelSize := 1.0 / float64(width)
+							// Optimize: Use topology neighbors instead of vector re-projection
+							// This avoids expensive sin/cos/atan calls for every neighbor
 
-							// Calculate gradient in X and Y directions
-							var dzdx, dzdy float64
+							// Get neighbor coordinates from topology (graph navigation)
+							// Coordinate is an integer ID that maps to faces/grid
+							// Note: Topology neighbors might wrap around cube faces automatically
 
-							// Sample neighbors in equirectangular space
-							// Left/Right for X gradient
-							leftLon := sLon - pixelSize*2*math.Pi
-							rightLon := sLon + pixelSize*2*math.Pi
+							leftCoord := geo.Topology.GetNeighbor(coord, spatial.West)
+							rightCoord := geo.Topology.GetNeighbor(coord, spatial.East)
+							upCoord := geo.Topology.GetNeighbor(coord, spatial.North)
+							downCoord := geo.Topology.GetNeighbor(coord, spatial.South)
 
-							leftVx := cosLat * math.Cos(leftLon)
-							leftVz := cosLat * math.Sin(leftLon)
-							leftCoord := topo.FromVector(leftVx, vy, leftVz)
+							// If neighbor lookup returns invalid coordinate (if implemented), check face index?
+							// Actually coord 0 is valid (Face 0, 0,0). GetNeighbor should always return valid on sphere.
+
 							leftElev := geo.SphereHeightmap.Get(leftCoord)
-
-							rightVx := cosLat * math.Cos(rightLon)
-							rightVz := cosLat * math.Sin(rightLon)
-							rightCoord := topo.FromVector(rightVx, vy, rightVz)
 							rightElev := geo.SphereHeightmap.Get(rightCoord)
-
-							// Above/Below for Y gradient
-							upLat := sLat + pixelSize*math.Pi
-							downLat := sLat - pixelSize*math.Pi
-
-							upVy := math.Sin(upLat)
-							upCosLat := math.Cos(upLat)
-							upVx := upCosLat * cosLon
-							upVz := upCosLat * sinLon
-							upCoord := topo.FromVector(upVx, upVy, upVz)
 							upElev := geo.SphereHeightmap.Get(upCoord)
-
-							downVy := math.Sin(downLat)
-							downCosLat := math.Cos(downLat)
-							downVx := downCosLat * cosLon
-							downVz := downCosLat * sinLon
-							downCoord := topo.FromVector(downVx, downVy, downVz)
 							downElev := geo.SphereHeightmap.Get(downCoord)
+
+							// Calculate gradients
+							// Slope X = (Right - Left)
+							// Slope Y = (Up - Down)
+
+							dzdx := (rightElev - leftElev) * 4.0 // Scale factor for more visible relief
+							dzdy := (upElev - downElev) * 4.0
 
 							// Calculate gradients (elevation change per pixel)
 							// Scale factor to exaggerate relief for visual effect
