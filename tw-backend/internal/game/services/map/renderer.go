@@ -234,12 +234,16 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 							elev := geo.SphereHeightmap.Get(coord)
 
 							// Color Mapping (Photorealistic - Lifeless Protoplanet)
+							// Phase 3: Enhanced with coastal features
 							var r, g, b uint8
 
+							// Get cell data for sediment info
+							cellData := geo.SphereHeightmap.GetCellData(coord)
+							sediment := cellData.Sediment
+							flux := cellData.Flux
+
 							if elev < geo.SeaLevel {
-								// Water - deep, dark oceans (less "tropical" more "primordial")
-								// Deep: 5, 10, 25 (Very Dark)
-								// Shallow: 30, 60, 90 (Dark Blue-Grey)
+								// Water coloring - varies by depth and sediment
 								depth := geo.SeaLevel - elev
 								maxDepth := math.Max(geo.SeaLevel-minElev, 1.0)
 								depthFactor := depth / maxDepth
@@ -247,14 +251,32 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 									depthFactor = 1.0
 								}
 
-								f := 1.0 - depthFactor // 0 = Deep, 1 = Shallow
-								r = uint8(5.0 + f*25.0)
-								g = uint8(10.0 + f*50.0)
-								b = uint8(25.0 + f*65.0)
+								// Check for river mouth (high flux + shallow)
+								isRiverMouth := flux > 100 && depthFactor < 0.1
+
+								if isRiverMouth {
+									// Muddy brown water at river deltas
+									// 60, 45, 30 (brown-grey)
+									r, g, b = 60, 45, 30
+								} else if depthFactor < 0.05 {
+									// Very shallow water - may show through to sediment
+									if sediment > 0.5 {
+										// Tidal flat / sandy shallow (tan-blue mix)
+										r, g, b = 50, 55, 60
+									} else {
+										// Clear shallow
+										r, g, b = 25, 50, 70
+									}
+								} else {
+									// Deep ocean gradient
+									f := 1.0 - depthFactor // 0 = Deep, 1 = Shallow
+									r = uint8(5.0 + f*25.0)
+									g = uint8(10.0 + f*50.0)
+									b = uint8(25.0 + f*65.0)
+								}
 
 							} else {
-								// Land - Lifeless Rock (Greys, Browns, Rusty Reds)
-								// No greens/vegetation colors
+								// Land coloring
 								height := elev - geo.SeaLevel
 								maxHeight := math.Max(maxElev-geo.SeaLevel, 1.0)
 								heightFactor := height / maxHeight
@@ -262,25 +284,33 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 									heightFactor = 1.0
 								}
 
-								if heightFactor < 0.1 {
-									// Lowlands (Dark Basalt/Sediment)
-									// 50, 45, 40
-									r, g, b = 60, 55, 50
+								// Check for beach (low elevation + high sediment)
+								isBeach := heightFactor < 0.02 && sediment > 0.5
+
+								if isBeach {
+									// Beach sand color (tan)
+									// 180, 160, 130
+									r, g, b = 180, 160, 130
+								} else if heightFactor < 0.1 {
+									// Lowlands - check for sediment (alluvial plains)
+									if sediment > 1.0 {
+										// Silty lowlands (lighter brown)
+										r, g, b = 90, 80, 65
+									} else {
+										// Dark Basalt
+										r, g, b = 60, 55, 50
+									}
 								} else if heightFactor < 0.3 {
 									// Hills (Reddish/Brown Rock)
-									// 100, 80, 70
 									r, g, b = 100, 80, 70
 								} else if heightFactor < 0.6 {
 									// Mountains (Grey Stone)
-									// 120, 115, 115
 									r, g, b = 120, 115, 115
 								} else if heightFactor < 0.8 {
 									// High Mountains (Light Grey)
-									// 160, 160, 160
 									r, g, b = 160, 160, 160
 								} else {
 									// Peaks (White/Snow)
-									// 240, 240, 250
 									r, g, b = 240, 240, 250
 								}
 							}

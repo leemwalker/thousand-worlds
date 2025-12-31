@@ -1704,11 +1704,11 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 		return nil
 	}
 
-	// Constants for Sprint 1
+	// Constants for High-Resolution Rendering (Phase 3)
 	const (
-		ImageWidth  = 2048
-		ImageHeight = 1024 // 2:1 Aspect Ratio for Equirectangular
-		GridSize    = 256  // Logical grid size
+		ImageWidth  = 4096 // Upgraded from 2048 for sharper coastlines
+		ImageHeight = 2048 // 2:1 Aspect Ratio for Equirectangular
+		GridSize    = 256  // Logical grid size for overlays
 	)
 
 	// Create a new context with timeout for this specific operation

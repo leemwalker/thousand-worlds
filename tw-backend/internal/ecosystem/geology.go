@@ -896,6 +896,10 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 				sphereRivers := geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
 				g.Rivers = geography.ConvertSphericalRiversToFlat(sphereRivers, g.Topology.Resolution())
 
+				// Form deltas at high-flux river mouths
+				deltaConfig := geography.DefaultDeltaConfig()
+				geography.FormDeltasAtRiverMouths(g.SphereHeightmap, g.Topology, g.SeaLevel, g.Seed+g.TotalYearsSimulated, deltaConfig)
+
 				g.markSphereNeedsSync()
 			} else {
 				// Fallback for flat heightmap (legacy)
