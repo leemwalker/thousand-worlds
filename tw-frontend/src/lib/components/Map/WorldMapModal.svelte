@@ -544,8 +544,6 @@
         tooltipData = null;
     }
 
-
-
     function handleLayerToggle(id: string) {
         toggleLayer(id);
     }
@@ -945,14 +943,14 @@
                                     >
                                     <span
                                         class={worldMapData.satellites.reduce(
-                                            (a: number, s: any) => a + s.mass,
+                                            (a, s) => a + s.mass,
                                             0,
                                         ) > 0.01
                                             ? "text-green-400"
                                             : "text-yellow-400"}
                                     >
                                         {worldMapData.satellites.reduce(
-                                            (a: number, s: any) => a + s.mass,
+                                            (a, s) => a + s.mass,
                                             0,
                                         ) > 0.01
                                             ? "Stable"
