@@ -1590,6 +1590,12 @@ func (p *GameProcessor) handleWorldMap(ctx context.Context, client websocket.Gam
 			log.Printf("[WORLDMAP] Added minerals overlay: %d deposits", len(minerals))
 		}
 
+		// River network overlay - Phase C
+		if geo.Rivers != nil && len(geo.Rivers) > 0 {
+			overlays["rivers"] = geo.Rivers
+			log.Printf("[WORLDMAP] Added rivers overlay: %d rivers", len(geo.Rivers))
+		}
+
 		if len(overlays) > 0 {
 			payload["overlays"] = overlays
 		}

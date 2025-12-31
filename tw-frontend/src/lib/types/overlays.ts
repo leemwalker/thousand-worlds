@@ -1,4 +1,4 @@
-export type OverlayMode = 'none' | 'tectonics' | 'temp' | 'moisture' | 'elevation' | 'biome' | 'resources' | 'features';
+export type OverlayMode = 'none' | 'tectonics' | 'temp' | 'moisture' | 'elevation' | 'biome' | 'resources' | 'features' | 'rivers';
 
 export interface ResourceNode {
     type: string; // "gold", "iron", "cave", "peak", "volcano", "trench"
@@ -40,4 +40,7 @@ export interface OverlayData {
 
     // Global Water Level (0.0 - 1.0)
     globalWaterLevel?: number;
+
+    // Rivers (Phase C) - Array of polylines
+    rivers?: { X: number; Y: number }[][];
 }

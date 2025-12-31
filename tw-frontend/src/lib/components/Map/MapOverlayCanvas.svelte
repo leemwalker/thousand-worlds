@@ -272,6 +272,20 @@
                 "resource",
             );
         }
+
+        // 5. Rivers (Phase C) - Blue polylines
+        if (activeLayers.has("rivers") && overlayData.rivers) {
+            drawRivers(
+                ctx,
+                overlayData.rivers,
+                centerTx,
+                centerTy,
+                cellW,
+                cellH,
+                centerScreenX,
+                centerScreenY,
+            );
+        }
     }
 
     // Generic Grid Drawer
@@ -535,6 +549,55 @@
                 r: fontSize / 1.5,
                 node: node,
             });
+        }
+    }
+
+    // Draw Rivers as polylines (Phase C)
+    function drawRivers(
+        ctx: CanvasRenderingContext2D,
+        rivers: { X: number; Y: number }[][],
+        centerTx: number,
+        centerTy: number,
+        cellW: number,
+        cellH: number,
+        centerScreenX: number,
+        centerScreenY: number,
+    ) {
+        ctx.strokeStyle = "rgba(30, 100, 180, 0.8)"; // River blue
+        ctx.lineWidth = Math.max(1, cellW * 0.3);
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+
+        for (const river of rivers) {
+            if (!river || river.length < 2) continue;
+
+            ctx.beginPath();
+            let started = false;
+
+            for (let i = 0; i < river.length; i++) {
+                const point = river[i];
+                if (!point) continue;
+
+                const gx = point.X;
+                const gy = point.Y;
+
+                let deltaX = gx - centerTx;
+                if (deltaX < -gridWidth / 2) deltaX += gridWidth;
+                if (deltaX > gridWidth / 2) deltaX -= gridWidth;
+
+                const screenX = centerScreenX + deltaX * cellW + cellW / 2;
+                const screenY =
+                    centerScreenY + (gy - centerTy) * cellH + cellH / 2;
+
+                if (!started) {
+                    ctx.moveTo(screenX, screenY);
+                    started = true;
+                } else {
+                    ctx.lineTo(screenX, screenY);
+                }
+            }
+
+            ctx.stroke();
         }
     }
 
