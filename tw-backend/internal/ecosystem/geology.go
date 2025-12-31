@@ -862,6 +862,27 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 				geography.ApplyThermalErosion(g.Heightmap, 3, g.Seed+g.TotalYearsSimulated)
 			}
 
+			// Phase 4: Tidal Physics integration
+			// Calculate tidal range based on current satellite configuration
+			// Using Earth properties as baseline mass/radius if not available individually
+			planetMass := astronomy.EarthMassKg
+			planetRadius := astronomy.EarthRadiusMeters
+			tidalRange := astronomy.CalculateTidalRange(g.Satellites, planetMass, planetRadius)
+
+			// Update config with dynamic tidal range
+			coastalConfig := geography.DefaultCoastalConfig()
+			coastalConfig.TidalRange = tidalRange
+
+			if g.SphereHeightmap != nil && g.Topology != nil {
+				// Apply erosion
+				geography.SimulateCoastalErosion(g.SphereHeightmap, g.Topology, erosionInterval, g.SeaLevel, coastalConfig)
+
+				// Mark intertidal zones for rendering
+				geography.MarkIntertidalZones(g.SphereHeightmap, g.Topology, g.SeaLevel, tidalRange)
+
+				g.markSphereNeedsSync()
+			}
+
 			// Phase 5: Differential erosion respecting rock hardness
 			// Soft provinces (basins) erode faster, hard provinces (cratons) resist erosion
 			// Sediment deposits at coastlines building continental shelves

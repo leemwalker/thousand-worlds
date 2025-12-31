@@ -245,6 +245,16 @@ func applyWaveErosion(
 	// Erosion rate: baseRate * waveEnergy * (1 - hardness) * dt
 	// Soft rock erodes fast, hard rock slow
 	erosionMultiplier := config.WaveEnergyScale * cell.WaveEnergy * (1.0 - hardness*0.9)
+
+	// Phase 4: Tidal Scour
+	// Tides increase erosion by moving water across the intertidal zone
+	// If cell is within tidal range (High Tide), apply extra erosion
+	halfTide := config.TidalRange / 2.0
+	if cell.Elevation >= seaLevel-halfTide && cell.Elevation <= seaLevel+halfTide {
+		// Tidal currents increase erosion
+		erosionMultiplier *= 1.5
+	}
+
 	erosion := config.BaseErosionRate * erosionMultiplier * dt
 
 	// Cliffs erode faster (undercutting)
