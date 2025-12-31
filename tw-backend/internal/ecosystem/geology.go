@@ -237,8 +237,7 @@ func (g *WorldGeology) InitializeGeology() {
 	g.Heightmap = g.SphereHeightmap.ToFlatHeightmap(width, height)
 
 	// Phase 5: Generate geological provinces within continental plates
-	// This creates Cratons (hard, flat),	// 4. Geological Provinces (Phase 5)
-	// Create sub-regions within continental plates
+	// This creates Cratons (hard, flat), Orogens (folded, medium), and Basins (soft, low)
 	g.Provinces = geography.GenerateProvinces(g.Plates, g.Topology, g.Seed)
 	geography.InitializeProvinceHardness(g.SphereHeightmap, g.Plates, g.Provinces, g.Topology, g.Seed)
 

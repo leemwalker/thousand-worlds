@@ -296,7 +296,6 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 								r = uint8(20.0 + f*80.0)
 								g = uint8(40.0 + f*110.0)
 								b = uint8(80.0 + f*120.0)
-
 							} else {
 								// Land coloring
 								height := elev - geo.SeaLevel
@@ -304,6 +303,24 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 								heightFactor := height / maxHeight
 								if heightFactor > 1.0 {
 									heightFactor = 1.0
+								}
+
+								// Base Land Color
+								// Phase 5: Province Tinting
+								// Cratons (Hardness > 0.8) -> Reddish/Pink (Granite)
+								// FoldBelts (Hardness 0.5-0.8) -> Grey/Purple
+								// Basins (Hardness < 0.4) -> Yellowish/Tan (Sediment)
+
+								hardness := cellData.RockHardness
+								if hardness > 0.8 {
+									// Craton - Granite Shield
+									r, g, b = 140, 120, 110
+								} else if hardness > 0.4 {
+									// Orogen / Fold Belt
+									r, g, b = 110, 110, 100
+								} else {
+									// Basin / Sediment
+									r, g, b = 130, 125, 100
 								}
 
 								// Phase 4: Intertidal zone coloring (wet rock/sand)
