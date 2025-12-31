@@ -264,7 +264,8 @@ export class GameWebSocket {
     }
 
     private handleBinaryMessage(buffer: ArrayBuffer) {
-        // Format: [Type (1 byte)] [JSON Length (4 bytes)] [JSON Data] [Binary Length (4 bytes)] [Binary Data]
+        // Format: [Type (1 byte)] [JSON Length (4 bytes)] [JSON Data] [Binary Section Length (4 bytes)] [Binary Section]
+        // Binary Section: [ImageLen:4][Image][GridLen:4][Grid]
         const view = new DataView(buffer);
         let offset = 0;
 
@@ -283,21 +284,40 @@ export class GameWebSocket {
             const jsonData = JSON.parse(jsonStr);
             offset += jsonLen;
 
-            // 4. Read Binary Length
-            const binLen = view.getUint32(offset, false);
+            // 4. Read Binary Section Length
+            const binSectionLen = view.getUint32(offset, false);
             offset += 4;
 
-            // 5. Read Binary Data
-            // Create a Blob from the image data
-            const imageBytes = new Uint8Array(buffer, offset, binLen);
-            const blob = new Blob([imageBytes], { type: 'image/webp' });
+            // 5. Parse Binary Section: [ImageLen:4][Image][GridLen:4][Grid]
+            // Read Image Length and Data
+            const imageLen = view.getUint32(offset, false);
+            offset += 4;
+
+            const imageBytes = new Uint8Array(buffer, offset, imageLen);
+            const imageBlob = new Blob([imageBytes], { type: 'image/webp' });
+            offset += imageLen;
+
+            // Read Grid Length and Data (if present)
+            let gridData: ArrayBuffer | null = null;
+            if (offset + 4 <= buffer.byteLength) {
+                const gridLen = view.getUint32(offset, false);
+                offset += 4;
+
+                if (gridLen > 0 && offset + gridLen <= buffer.byteLength) {
+                    // Copy grid data to a new ArrayBuffer for ownership
+                    gridData = buffer.slice(offset, offset + gridLen);
+                    offset += gridLen;
+                    console.log(`[WebSocket] Parsed grid data: ${gridLen} bytes`);
+                }
+            }
 
             // Construct a ServerMessage to dispatch
             const message: ServerMessage = {
                 type: 'world_map_image_response',
                 data: {
                     ...jsonData,
-                    imageBlob: blob // Attach the blob to the data
+                    imageBlob: imageBlob, // WebP image blob
+                    gridData: gridData     // Binary grid data (or null if not present)
                 },
                 timestamp: Date.now()
             };

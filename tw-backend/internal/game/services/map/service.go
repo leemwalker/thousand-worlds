@@ -856,3 +856,48 @@ func aggregateRegionBiome(geo *ecosystem.WorldGeology, hmX, hmY, sampleRadius in
 
 	return dominant
 }
+
+// BuildBinaryGrid creates a BinaryGrid from world geology data
+// The grid is resampled to the specified dimensions (typically 256x256)
+// This provides precise elevation and biome data for map tooltips
+func (s *Service) BuildBinaryGrid(geo *ecosystem.WorldGeology, gridWidth, gridHeight int) *BinaryGrid {
+	if geo == nil || geo.SphereHeightmap == nil {
+		return nil
+	}
+
+	grid := NewBinaryGrid(gridWidth, gridHeight)
+
+	// Get source heightmap dimensions
+	srcWidth := geo.Heightmap.Width
+	srcHeight := geo.Heightmap.Height
+
+	// Sample from geology and populate grid
+	for gy := 0; gy < gridHeight; gy++ {
+		for gx := 0; gx < gridWidth; gx++ {
+			// Map grid coords to source heightmap coords
+			srcX := (gx * srcWidth) / gridWidth
+			srcY := (gy * srcHeight) / gridHeight
+
+			// Clamp to valid range
+			if srcX >= srcWidth {
+				srcX = srcWidth - 1
+			}
+			if srcY >= srcHeight {
+				srcY = srcHeight - 1
+			}
+
+			// Get elevation
+			elev := geo.Heightmap.Get(srcX, srcY)
+			grid.SetElevation(gx, gy, elev)
+
+			// Get biome
+			idx := srcY*srcWidth + srcX
+			if idx >= 0 && idx < len(geo.Biomes) {
+				biomeStr := string(geo.Biomes[idx].Type)
+				grid.SetBiome(gx, gy, BiomeStringToID(biomeStr))
+			}
+		}
+	}
+
+	return grid
+}

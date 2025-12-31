@@ -1756,10 +1756,16 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 		return nil
 	}
 
-	// 2. Generate Binary Data (Logic)
+	// 2. Generate Binary Grid Data (Logic layer for tooltips)
+	// Grid is 256x256 regardless of image resolution
+	gridData := p.mapService.BuildBinaryGrid(geo, GridSize, GridSize/2)
+	var gridBytes []byte
+	if gridData != nil {
+		gridBytes = gridData.Serialize()
+	}
 
 	// 3. Construct Binary Message
-	// Protocol: [Type:1][JSONLen:4][JSONBytes][BinLen:4][BinBytes]
+	// Protocol: [Type:1][JSONLen:4][JSON][BinLen:4][ImageLen:4][Image][GridLen:4][Grid]
 
 	// Construct JSON Metadata
 	type MapImageMetadata struct {
@@ -1778,6 +1784,7 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 		LandCoverage   float64 `json:"land_coverage"`
 		Seed           int64   `json:"seed"`
 		IsSimulated    bool    `json:"is_simulated"`
+		HasGridData    bool    `json:"has_grid_data"`
 	}
 
 	stats := geo.GetStats()
@@ -1798,6 +1805,7 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 		LandCoverage:   stats.LandPercent * 100, // Convert to percentage
 		Seed:           geo.Seed,
 		IsSimulated:    true,
+		HasGridData:    len(gridBytes) > 0,
 	}
 
 	jsonBytes, err := json.Marshal(meta)
@@ -1806,9 +1814,23 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 		return nil
 	}
 
-	binBytes := imageBytes
+	// Binary section: [ImageLen:4][Image][GridLen:4][Grid]
+	binSectionSize := 4 + len(imageBytes) + 4 + len(gridBytes)
+	binSection := bytes.NewBuffer(make([]byte, 0, binSectionSize))
 
-	// Calculate total size: 1 + 4 + len(json) + 4 + len(bin)
+	// Write Image Length and Data (Big Endian)
+	binary.Write(binSection, binary.BigEndian, uint32(len(imageBytes)))
+	binSection.Write(imageBytes)
+
+	// Write Grid Length and Data (Big Endian)
+	binary.Write(binSection, binary.BigEndian, uint32(len(gridBytes)))
+	if len(gridBytes) > 0 {
+		binSection.Write(gridBytes)
+	}
+
+	binBytes := binSection.Bytes()
+
+	// Calculate total size: 1 + 4 + len(json) + 4 + len(binSection)
 	totalSize := 1 + 4 + len(jsonBytes) + 4 + len(binBytes)
 	buf := bytes.NewBuffer(make([]byte, 0, totalSize))
 
@@ -1820,10 +1842,13 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 	// Write JSON Data
 	buf.Write(jsonBytes)
 
-	// Write Binary Length (Big Endian)
+	// Write Binary Section Length (Big Endian)
 	binary.Write(buf, binary.BigEndian, uint32(len(binBytes)))
-	// Write Binary Data
+	// Write Binary Section Data
 	buf.Write(binBytes)
+
+	log.Printf("[MAP] Sending world map image: %dx%d, grid %dx%d, image=%d bytes, grid=%d bytes",
+		width, height, GridSize, GridSize/2, len(imageBytes), len(gridBytes))
 
 	// Send Raw Binary Message
 	client.SendRawBytes(buf.Bytes())
