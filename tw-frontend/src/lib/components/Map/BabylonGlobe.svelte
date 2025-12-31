@@ -31,6 +31,8 @@
     let globeMaterial: StandardMaterial | null = null;
     let objectUrl: string | null = null;
     let sunLight: DirectionalLight | null = null;
+    let lastAppliedBlobSize: number = 0; // Guard to prevent re-applying same texture
+    let lastAppliedHeightDataLength: number = 0; // Guard for height data
 
     // Terrain exaggeration factor (makes mountains visible from space)
     const TERRAIN_SCALE = 0.05; // 5% of radius for max height
@@ -132,22 +134,30 @@
         };
     });
 
-    // React to texture blob changes
-    $: if (textureBlob && scene && globeMaterial) {
+    // React to texture blob changes (with guard to prevent re-applying same texture)
+    $: if (
+        textureBlob &&
+        scene &&
+        globeMaterial &&
+        textureBlob.size !== lastAppliedBlobSize
+    ) {
         console.log(
             "[BabylonGlobe] Reactive: textureBlob received, size:",
             textureBlob.size,
         );
+        lastAppliedBlobSize = textureBlob.size;
         updateTexture(textureBlob);
-    } else if (textureBlob && !scene) {
-        console.log(
-            "[BabylonGlobe] Reactive: textureBlob received but scene not ready",
-        );
     }
 
-    // React to height data changes
-    $: if (heightData && scene && globe) {
+    // React to height data changes (with guard)
+    $: if (
+        heightData &&
+        scene &&
+        globe &&
+        heightData.byteLength !== lastAppliedHeightDataLength
+    ) {
         console.log("[BabylonGlobe] Reactive: heightData received");
+        lastAppliedHeightDataLength = heightData.byteLength;
         applyHeightDisplacement(heightData);
     }
 
