@@ -99,9 +99,13 @@ func FillDepressions(hm *SphereHeightmap, seaLevel float64) []*Lake {
 // RouteFluxThroughLakes updates the HydrologyLayer to route accumulated flux through lakes.
 // For each lake, sums the inflow flux from all tributary cells and assigns it to the outlet.
 // This ensures rivers continue from lake outlets to the ocean.
-func RouteFluxThroughLakes(hm *SphereHeightmap, hydro *HydrologyLayer, lakes []*Lake) {
-	res := hm.Resolution()
-	resSq := res * res
+// RouteFluxThroughLakes updates the SphereHeightmap to route accumulated flux through lakes.
+// For each lake, sums the inflow flux from all tributary cells and assigns it to the outlet.
+// This ensures rivers continue from lake outlets to the ocean.
+func RouteFluxThroughLakes(hm *SphereHeightmap, lakes []*Lake) {
+	if len(lakes) == 0 {
+		return
+	}
 
 	for _, lake := range lakes {
 		if len(lake.Cells) == 0 {
@@ -109,23 +113,94 @@ func RouteFluxThroughLakes(hm *SphereHeightmap, hydro *HydrologyLayer, lakes []*
 		}
 
 		// Calculate total influx from cells that flow INTO the lake
-		totalInflux := 0.0
+		// Since we don't have a flow graph here easily, we can just sum the Flux of all lake cells.
+		// Wait, Flux is "passing through".
+		// In CalculateGlobalFlux, flux accumulates downhill.
+		// At a sink, flux is trapped.
+		// So checking the Flux of every cell in the lake is correct?
+		// No, we only want the Flux entering the lake.
+		// Use the Flux of the Sink cell(s)?
+		// The sink cell has accumulated flux from its basin.
+		// But a lake might have multiple local minima if huge?
+		// IdentifySinks finds local minima. FillDepressions merges them?
+		// FillDepressions uses "start" which is a sink.
+		// So we can just take the flux of the lake cells.
+		// But Flux accumulates.
+		// If A flows to B (Lake). B has Flux(A) + Rainfall.
+		// So if we sum all lake cells, we might double count?
+		// No, flow stops at the sink.
+		// So only the Sink cell needs to be read?
+		// What if the lake covers multiple former sinks?
+		// We should sum flux of all cells in the lake that are LOCAL MINIMA (sinks).
+		// Or simpler: Any cell where water stops.
+		// Given CalculateGlobalFlux implementation:
+		// "If no lower neighbor (Sink), flux stays here".
+		// So yes, sum flux of all "Sink" cells within the lake.
+		// But `data.Flux` might be updated.
+		// Let's just sum Flux of all cells in Lake.Cells?
+		// If a lake cell A flows to B (also in lake).
+		// CalculatingGlobalFlux:
+		// A finds B lower?
+		// Since Lake is flat, FillDepressions flattens it.
+		// But CalculateGlobalFlux runs BEFORE FillDepressions usually?
+		// In `geology.go`, it runs BEFORE. So water flows to deep points.
+		// So yes, the Sinks have the flux. Non-sinks flow to sinks.
+		// So we loop lake.Cells, find which ones were sinks?
+		// Or just iterate all lake.Cells, and if `Flux > 1.0` (rain), add it?
+		// Safer: Just sum everything.
+		// Flux is conserved. If A->B, A passes flux to B. A is reset?
+		// No, `neighborData.Flux += currentData.Flux`. A keeps its flux in `CalculateGlobalFlux`?
+		// Let's check `CalculateGlobalFlux` in `hydrology.go` line 271.
+		// It adds to neighbor. It does NOT clear current.
+		// So `Flux` variable is "Volume passing through".
+		// So if A->B->C.
+		// A=1. B=2. C=3.
+		// If {A,B,C} are all in lake.
+		// Sum = 6. Incorrect. Total is 3.
+		// We only want the Flux at the "End" of the flow chains within the lake.
+		// Since CalculateGlobalFlux leaves flux in Sinks.
+		// And all flow ends in Sinks.
+		// We just need to sum Flux of "Sink" cells inside the lake.
+		// How to identify Sinks?
+		// `IdentifySinks` did it.
+		// But we don't have that list here easily.
+		// We can scan lake.Cells and check neighbors?
+		// Or better: `FillDepressions` logic ensures the lake is a basin.
+		// The flux is effectively caught in the bottom.
+		// Just find the max flux in the lake cells?
+		// If multiple prongs, max might miss one.
+		// Summing maxes of independent branches is hard.
 
-		for _, lakeCoord := range lake.Cells {
-			lakeIdx := lakeCoord.Face*resSq + lakeCoord.Y*res + lakeCoord.X
-			if lakeIdx >= 0 && lakeIdx < len(hydro.Flux) {
-				totalInflux += hydro.Flux[lakeIdx]
+		// Alternative: Iterate all lake cells. If flow direction points NOWHERE (no lower neighbor), add flux.
+		// We can check `CalculateGlobalFlux` logic again: "If no lower neighbor... flux stays here".
+		// So we reuse that check.
+
+		totalInflux := 0.0
+		topology := hm.Topology()
+		directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+
+		for _, cell := range lake.Cells {
+			elev := hm.Get(cell)
+			isSink := true
+			for _, dir := range directions {
+				n := topology.GetNeighbor(cell, dir)
+				if hm.Get(n) < elev {
+					isSink = false
+					break
+				}
+			}
+
+			if isSink {
+				// This cell trapped flux.
+				data := hm.GetCellData(cell)
+				totalInflux += data.Flux
 			}
 		}
 
 		// Assign total flux to outlet
-		outletIdx := lake.Outlet.Face*resSq + lake.Outlet.Y*res + lake.Outlet.X
-		if outletIdx >= 0 && outletIdx < len(hydro.Flux) {
-			hydro.Flux[outletIdx] = totalInflux
-
-			// Update flow direction to point downstream from outlet
-			// (The outlet should already have a flow direction from CalculateFlowField)
-		}
+		outletData := hm.GetCellData(lake.Outlet)
+		outletData.Flux += totalInflux
+		hm.SetCellData(lake.Outlet, outletData)
 	}
 }
 

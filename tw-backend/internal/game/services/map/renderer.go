@@ -279,6 +279,24 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 									b = uint8(25.0 + f*65.0)
 								}
 
+							} else if cellData.IsLake {
+								// Phase 6: Lake Rendering
+								// Render as water based on depth
+								depth := cellData.LakeDepth
+								maxDepth := 100.0 // Assumed max depth for visual gradient
+								depthFactor := depth / maxDepth
+								if depthFactor > 1.0 {
+									depthFactor = 1.0
+								}
+
+								// Freshwater Blue (Lighter than ocean)
+								// Shallow: 100, 150, 200
+								// Deep: 20, 40, 80
+								f := 1.0 - depthFactor
+								r = uint8(20.0 + f*80.0)
+								g = uint8(40.0 + f*110.0)
+								b = uint8(80.0 + f*120.0)
+
 							} else {
 								// Land coloring
 								height := elev - geo.SeaLevel
@@ -474,8 +492,8 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 							lighting = 0.4 + lighting*0.8
 
 							// Add ambient occlusion for valleys (lower elevations get darker)
-							// Only apply to land, not water
-							if elev > geo.SeaLevel {
+							// Only apply to land, not water (oceans or lakes)
+							if elev > geo.SeaLevel && !cellData.IsLake {
 								// Check if surrounded by higher terrain (valley)
 								avgNeighbor := (leftElev + rightElev + upElev + downElev) / 4.0
 								if avgNeighbor > elev {

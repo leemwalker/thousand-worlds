@@ -911,7 +911,8 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 				// Re-run Hydrology to update persistence features
 				geography.CalculateGlobalFlux(g.SphereHeightmap)
 				geography.ApplyRiverErosion(g.SphereHeightmap, 50.0, 5.0, g.SeaLevel) // Carve valleys
-				geography.FillDepressions(g.SphereHeightmap, g.SeaLevel)
+				lakes := geography.FillDepressions(g.SphereHeightmap, g.SeaLevel)
+				geography.RouteFluxThroughLakes(g.SphereHeightmap, lakes)
 
 				// Update rivers to match new terrain
 				sphereRivers := geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)

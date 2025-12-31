@@ -433,3 +433,66 @@ func ApplyDifferentialErosion(hm *SphereHeightmap, topology spatial.Topology, nu
 		}
 	}
 }
+
+// ApplyRiverErosion carves valleys where water flux is high.
+// This creates realistic V-shaped valleys along river paths.
+//
+// Parameters:
+// - fluxThreshold: Minimum flux required to cause erosion (e.g. 50.0)
+// - erosionAmount: Base depth to erode per iteration (scaled by flux)
+// - seaLevel: Erosion stops at sea level
+func ApplyRiverErosion(hm *SphereHeightmap, fluxThreshold float64, erosionAmount float64, seaLevel float64) {
+	res := hm.Resolution()
+	topo := hm.Topology()
+
+	for face := 0; face < 6; face++ {
+		for y := 0; y < res; y++ {
+			for x := 0; x < res; x++ {
+				coord := spatial.Coordinate{Face: face, X: x, Y: y}
+				data := hm.GetCellData(coord)
+
+				// Only erode if flux matches or exceeds threshold
+				// This simulates river channels
+				if data.Flux >= fluxThreshold {
+					elev := hm.Get(coord)
+
+					// Don't erode below sea level
+					if elev <= seaLevel {
+						continue
+					}
+
+					// Erode based on flux intensity
+					// More flux = deeper channel
+					// Logarithmic scaling to prevent massive canyon spikes
+					fluxFactor := math.Log(data.Flux/fluxThreshold) + 1.0
+					erodeDepth := erosionAmount * fluxFactor
+
+					// Limit erosion depth to avoid pits
+					if erodeDepth > 20.0 {
+						erodeDepth = 20.0
+					}
+
+					newElev := elev - erodeDepth
+					if newElev < seaLevel {
+						newElev = seaLevel
+					}
+					hm.Set(coord, newElev)
+
+					// Thermal erosion / Smoothing neighbors to form V-shape
+					// Widen the valley
+					neighbors := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+					for _, dir := range neighbors {
+						n := topo.GetNeighbor(coord, dir)
+						nElev := hm.Get(n)
+
+						// If neighbor is significantly higher, erode it too (slumping)
+						if nElev > newElev+5.0 {
+							slump := (nElev - newElev) * 0.3
+							hm.Set(n, nElev-slump)
+						}
+					}
+				}
+			}
+		}
+	}
+}
