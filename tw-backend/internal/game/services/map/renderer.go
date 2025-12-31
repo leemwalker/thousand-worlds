@@ -316,14 +316,35 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 										r, g, b = 60, 55, 50
 									}
 								} else if heightFactor < 0.3 {
-									// Hills (Reddish/Brown Rock)
-									r, g, b = 100, 80, 70
+									// Hills - Phase E: Check for volcanic basalt
+									rockHardness := cellData.RockHardness
+									if rockHardness > 0.9 && sediment < 0.2 {
+										// Fresh volcanic basalt (very dark, almost black)
+										r, g, b = 35, 32, 30
+									} else {
+										// Regular hills (Reddish/Brown Rock)
+										r, g, b = 100, 80, 70
+									}
 								} else if heightFactor < 0.6 {
-									// Mountains (Grey Stone)
-									r, g, b = 120, 115, 115
+									// Mountains - Phase E: Volcanic vs regular
+									rockHardness := cellData.RockHardness
+									if rockHardness > 0.85 && sediment < 0.3 {
+										// Volcanic cone (dark grey-black)
+										r, g, b = 50, 48, 45
+									} else {
+										// Regular Mountain (Grey Stone)
+										r, g, b = 120, 115, 115
+									}
 								} else if heightFactor < 0.8 {
-									// High Mountains (Light Grey)
-									r, g, b = 160, 160, 160
+									// High Mountains - volcanic vs regular
+									rockHardness := cellData.RockHardness
+									if rockHardness > 0.85 && sediment < 0.2 {
+										// Volcanic high peak (dark)
+										r, g, b = 80, 75, 70
+									} else {
+										// High Mountains (Light Grey)
+										r, g, b = 160, 160, 160
+									}
 								} else {
 									// Peaks (White/Snow)
 									r, g, b = 240, 240, 250
