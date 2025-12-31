@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"image"
+	"log"
 	"math"
 	"runtime"
 	"sync"
@@ -157,6 +158,7 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 	if elevRange <= 0 {
 		elevRange = 1.0
 	}
+	log.Printf("[RENDER] Min: %.2f, Max: %.2f, Range: %.2f", minElev, maxElev, elevRange)
 
 	// chunkErr := make(chan error, numWorkers) // Unused for now
 
