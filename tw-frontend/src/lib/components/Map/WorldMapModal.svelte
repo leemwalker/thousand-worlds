@@ -5,6 +5,7 @@
     import { parseBinaryGridData, MapDataLayer } from "./BinaryDataParser";
     import WorldMapLegend from "./WorldMapLegend.svelte";
     import MapOverlayCanvas from "./MapOverlayCanvas.svelte";
+    import BabylonGlobe from "./BabylonGlobe.svelte";
     import { fade, fly } from "svelte/transition";
     import { mapStore } from "$lib/stores/map";
     import { gameWebSocket } from "$lib/services/websocket";
@@ -45,6 +46,10 @@
 
     // Graphics mode toggle (WebGL vs ASCII)
     let useGraphicsMode = true;
+
+    // Globe view toggle (3D sphere vs 2D flat map)
+    let useGlobeView = false;
+    let globeTextureBlob: Blob | null = null;
 
     // Overlay state
     let activeLayers: Set<OverlayMode> = new Set();
@@ -294,7 +299,17 @@
                 payload.imageBlob.size,
             );
 
-            if (useGraphicsMode && webglRenderer && payload.imageBlob) {
+            // Store blob for globe view (Babylon.js)
+            if (payload.imageBlob) {
+                globeTextureBlob = payload.imageBlob;
+            }
+
+            if (
+                useGraphicsMode &&
+                webglRenderer &&
+                payload.imageBlob &&
+                !useGlobeView
+            ) {
                 // Update metadata (sets grid/world size, player pos)
                 webglRenderer.updateData(payload);
                 // Then upload image texture override
@@ -645,7 +660,17 @@
                 <h2 class="text-xl font-bold text-blue-400">
                     World Map & Simulation
                 </h2>
-                <div class="flex gap-4">
+                <div class="flex gap-4 items-center">
+                    <!-- View Toggle: Globe / Map -->
+                    <button
+                        on:click={() => (useGlobeView = !useGlobeView)}
+                        class="px-3 py-1 rounded text-sm font-medium transition-colors
+                               {useGlobeView
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}"
+                    >
+                        {useGlobeView ? "🌍 Globe" : "🗺️ Map"}
+                    </button>
                     <div class="text-sm text-gray-400">
                         Year: <span class="text-white font-mono"
                             >{simStats.year}</span
@@ -675,23 +700,28 @@
 
             <!-- Content -->
             <div class="flex-1 flex overflow-hidden">
-                <!-- Map Area -->
                 <div
                     class="flex-1 bg-black relative"
                     bind:clientWidth={containerWidth}
                     bind:clientHeight={containerHeight}
                 >
-                    <canvas
-                        bind:this={canvas}
-                        width={containerWidth}
-                        height={containerHeight}
-                        class="block w-full h-full cursor-grab"
-                        class:cursor-grabbing={isDragging}
-                        on:mousemove={handleMapMouseMove}
-                        on:mousedown={handleMapMouseDown}
-                        on:mouseup={handleMapMouseUp}
-                        on:mouseleave={handleMapMouseLeave}
-                    ></canvas>
+                    {#if useGlobeView}
+                        <!-- 3D Globe View (Babylon.js) -->
+                        <BabylonGlobe textureBlob={globeTextureBlob} />
+                    {:else}
+                        <!-- 2D Flat Map View -->
+                        <canvas
+                            bind:this={canvas}
+                            width={containerWidth}
+                            height={containerHeight}
+                            class="block w-full h-full cursor-grab"
+                            class:cursor-grabbing={isDragging}
+                            on:mousemove={handleMapMouseMove}
+                            on:mousedown={handleMapMouseDown}
+                            on:mouseup={handleMapMouseUp}
+                            on:mouseleave={handleMapMouseLeave}
+                        ></canvas>
+                    {/if}
 
                     <!-- Overlay Canvas (Tectonics / Minerals / Env) -->
                     {#if worldMapData?.overlays && (activeLayers.size > 0 || showMineralsOverlay)}
