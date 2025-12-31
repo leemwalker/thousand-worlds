@@ -14,6 +14,7 @@ export interface GameCommand extends BaseCommand {
     type: 'command';
     data: {
         text: string;
+        payload?: any;
     };
 }
 

@@ -34,6 +34,9 @@ type CommandData struct {
 	Quantity  *int    `json:"quantity,omitempty"`
 	Message   *string `json:"message,omitempty"`   // For say, whisper, tell commands
 	Recipient *string `json:"recipient,omitempty"` // For whisper, tell commands
+
+	// Generic payload for complex commands (e.g. map options)
+	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
 // ServerMessage represents a message from server to client

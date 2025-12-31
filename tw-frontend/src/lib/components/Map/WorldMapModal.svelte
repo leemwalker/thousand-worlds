@@ -119,19 +119,27 @@
         worldMapData = null;
     }
 
-    function requestWorldMap() {
-        loading = true;
-        // Send command to request world map data
-        // Send command to request world map data (high-res image if supported)
-        // Check if we want full image or just data. For now, request full image.
-        gameWebSocket.sendRawCommand("world_map_image");
+    function requestWorldMap(highRes = false) {
+        if (!highRes) {
+            loading = true;
+        } else {
+            // Background loading for 4K
+            console.log("[WorldMap] Proceeding to load 4K background map...");
+        }
 
-        // Timeout: if world_map_data doesn't arrive in 3 seconds, stop loading
-        setTimeout(() => {
-            if (!worldMapData) {
-                loading = false;
-            }
-        }, 3000);
+        const payload = highRes ? { width: 4096, height: 2048 } : {}; // Empty = defaults (2048x1024)
+
+        // Send command to request world map data
+        gameWebSocket.sendCommand("world_map_image", payload);
+
+        // Timeout logic only for initial load
+        if (!highRes) {
+            setTimeout(() => {
+                if (!worldMapData) {
+                    loading = false;
+                }
+            }, 3000);
+        }
     }
 
     function initRenderer() {
@@ -275,11 +283,31 @@
         // Handle World Map Image Response (Phase 2 Integration)
         if (msg.type === "world_map_image_response") {
             const payload = msg.data;
+            const isHighRes = payload.width > 2048;
+
             worldMapData = payload; // Contains tiles + imageBlob
             console.log(
-                "[WorldMapModal] Received world_map_image_response with blob size:",
+                `[WorldMapModal] Received world_map_image_response (${payload.width}x${payload.height}) blob size:`,
                 payload.imageBlob.size,
             );
+
+            if (useGraphicsMode && webglRenderer && payload.imageBlob) {
+                // Update metadata (sets grid/world size, player pos)
+                webglRenderer.updateData(payload);
+                // Then upload image texture override
+                webglRenderer.updateTextureFromBlob(payload.imageBlob);
+                webglRenderer.fitToWorld();
+            }
+
+            loading = false;
+
+            // Progressive Loading: If this was the initial low-res load, immediately kickoff 4K load
+            if (!isHighRes) {
+                console.log("[WorldMapModal] Initial map loaded. Requesting 4K background load...");
+                requestWorldMap(true);
+            }
+            return;
+        }
 
             if (useGraphicsMode && webglRenderer && payload.imageBlob) {
                 // Update metadata (sets grid/world size, player pos)

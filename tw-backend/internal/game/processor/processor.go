@@ -253,7 +253,7 @@ func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.Gam
 	case "fly":
 		return p.handleFly(ctx, client, cmd)
 	case "world_map_image":
-		return p.handleWorldMapImage(ctx, client)
+		return p.handleWorldMapImage(ctx, client, cmd)
 
 	default:
 		return fmt.Errorf("%w: %s", ErrInvalidAction, cmd.Action)

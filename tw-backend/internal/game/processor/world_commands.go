@@ -1692,7 +1692,8 @@ func (p *GameProcessor) getSeasonFromYear(simulatedYear int64) weather.Season {
 // legacy runEcosystemTick removed - replaced by V2 logic in runner.tick()
 
 // handleWorldMapImage handles requests for high-resolution map images (Option 5/Hybrid)
-func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocket.GameClient) error {
+// handleWorldMapImage handles requests for high-resolution map images (Option 5/Hybrid)
+func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
 	char, err := p.authRepo.GetCharacter(ctx, client.GetCharacterID())
 	if err != nil || char == nil {
 		client.SendGameMessage("error", "Could not get character", nil)
@@ -1710,27 +1711,45 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 		return nil
 	}
 
-	// Constants for High-Resolution Rendering (Phase 3)
-	const (
-		ImageWidth  = 4096 // Upgraded from 2048 for sharper coastlines
-		ImageHeight = 2048 // 2:1 Aspect Ratio for Equirectangular
-		GridSize    = 256  // Logical grid size for overlays
-	)
+	// Parse optional parameters from client
+	// { "width": 4096, "height": 2048 }
+	var params struct {
+		Width  int `json:"width"`
+		Height int `json:"height"`
+	}
+	// Attempt to parse payload if present
+	if len(cmd.Payload) > 0 {
+		if err := json.Unmarshal(cmd.Payload, &params); err != nil {
+			log.Printf("[MAP] Failed to parse params: %v", err)
+			// Continue with defaults
+		}
+	}
+
+	// Determine resolution
+	width := 2048
+	height := 1024
+	if params.Width > 0 && params.Height > 0 {
+		width = params.Width
+		height = params.Height
+		// Limit to safe maximums
+		if width > 8192 {
+			width = 8192
+		}
+		if height > 4096 {
+			height = 4096
+		}
+	}
+
+	// Grid constant
+	const GridSize = 256
 
 	// Create a new context with timeout for this specific operation
 	// The renderer has its own timeout logic, but we enforce it here too
-	renderCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	renderCtx, cancel := context.WithTimeout(ctx, 125*time.Second) // Slightly longer than renderer timeout
 	defer cancel()
 
 	// 1. Render Image (Visuals)
-	// We need to access the renderer directly or via service wrapper.
-	// Assuming mapService exposes a RenderMap function now.
-	// Since we defined Renderer struct in the implementation plan but didn't attach it to Service yet,
-	// we assume we need to add RenderMap to Service (step we missed in plan execution order).
-	// For now, let's assume p.mapService has it.
-	// NOTE: We need to update service.go to include the renderer!
-
-	imageBytes, err := p.mapService.RenderMap(renderCtx, char.WorldID, geo, ImageWidth, ImageHeight)
+	imageBytes, err := p.mapService.RenderMap(renderCtx, char.WorldID, geo, width, height)
 	if err != nil {
 		log.Printf("[MAP] Render failed: %v", err)
 		client.SendGameMessage("error", fmt.Sprintf("Map render failed: %v", err), nil)
@@ -1742,7 +1761,6 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 	// 3. Construct Binary Message
 	// Protocol: [Type:1][JSONLen:4][JSONBytes][BinLen:4][BinBytes]
 
-	// Construct JSON Metadata
 	// Construct JSON Metadata
 	type MapImageMetadata struct {
 		Width          int     `json:"width"`
@@ -1765,8 +1783,8 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 	stats := geo.GetStats()
 
 	meta := MapImageMetadata{
-		Width:          ImageWidth,
-		Height:         ImageHeight,
+		Width:          width,
+		Height:         height,
 		GridWidth:      GridSize,
 		GridHeight:     GridSize / 2,
 		WorldWidth:     geo.Circumference,
