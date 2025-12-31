@@ -23,6 +23,10 @@ export class GameWebSocket {
     // Message handler
     private messageHandlers: Set<(msg: ServerMessage) => void> = new Set();
 
+    // Reconnection callbacks - fire when connection is re-established after disconnect
+    private reconnectCallbacks: Set<() => void> = new Set();
+    private wasConnectedBefore = false;
+
     connect(characterId?: string): void {
         console.log('[WebSocket] Attempting to connect...', { characterId });
         this.isIntentionalDisconnect = false;
@@ -56,11 +60,24 @@ export class GameWebSocket {
             this.ws.onopen = () => {
                 console.log('[WebSocket] Connection opened!');
                 this.connected.set(true);
+
+                // Track if this was a reconnect (not first connect)
+                const isReconnect = this.reconnectAttempts > 0 || this.wasConnectedBefore;
                 this.reconnectAttempts = 0;
+                this.wasConnectedBefore = true;
+
                 gameStore.setLoading(false); // Stop loading if valid connection
 
                 // Process any queued commands
                 this.processQueuedCommands();
+
+                // Fire reconnection callbacks if this was a reconnect
+                if (isReconnect) {
+                    console.log('[WebSocket] Reconnection successful, firing callbacks');
+                    this.reconnectCallbacks.forEach(cb => {
+                        try { cb(); } catch (e) { console.error('[WebSocket] Reconnect callback error:', e); }
+                    });
+                }
             };
 
             this.ws.binaryType = 'arraybuffer'; // Enable binary messages
@@ -197,6 +214,20 @@ export class GameWebSocket {
         };
     }
 
+    /**
+     * Register a callback to be called when WebSocket reconnects after a disconnect.
+     * Useful for refreshing world map or other state after connection is restored.
+     * Returns an unsubscribe function.
+     */
+    onReconnect(handler: () => void): () => void {
+        this.reconnectCallbacks.add(handler);
+
+        // Return unsubscribe function
+        return () => {
+            this.reconnectCallbacks.delete(handler);
+        };
+    }
+
     private handleMessage(message: ServerMessage): void {
         // Handle map updates
         if (message.type === 'map_update') {
@@ -330,21 +361,40 @@ export class GameWebSocket {
 
     private attemptReconnect(): void {
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            console.error('Max reconnect attempts reached');
+            console.error('[WebSocket] Max reconnect attempts reached');
             gameStore.setError('Connection lost. Please refresh.');
             return;
         }
 
         this.reconnectAttempts++;
-        // Add jitter
-        const jitter = this.reconnectDelay * 0.2 * (Math.random() - 0.5);
-        const delay = (this.reconnectDelay * this.reconnectAttempts) + jitter;
 
-        console.log(`Reconnecting in ${Math.round(delay)}ms (attempt ${this.reconnectAttempts})`);
+        // Exponential backoff: 1s, 2s, 4s, 8s, 16s, then cap at 30s
+        const baseDelay = this.reconnectDelay; // 1000ms
+        const exponentialDelay = Math.min(
+            baseDelay * Math.pow(2, this.reconnectAttempts - 1),
+            30000 // Cap at 30 seconds
+        );
+
+        // Add jitter (±20% randomness to prevent thundering herd)
+        const jitter = exponentialDelay * 0.2 * (Math.random() * 2 - 1);
+        const delay = Math.round(exponentialDelay + jitter);
+
+        console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
         setTimeout(() => {
             this.connect(this.currentCharacterId);
         }, delay);
+    }
+
+    /**
+     * Request world map refresh after reconnection.
+     * Called automatically when connection is re-established.
+     */
+    requestWorldMapRefresh(): void {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            console.log('[WebSocket] Requesting world map refresh after reconnection');
+            this.sendRawCommand('world_map_image', {});
+        }
     }
 }
 

@@ -797,6 +797,8 @@ export class WebGLMapRenderer {
         const gl = this.gl;
         if (!gl || !this.dataTexture) return;
 
+        const startTime = performance.now();
+
         try {
             const bitmap = await createImageBitmap(blob);
 
@@ -819,7 +821,14 @@ export class WebGLMapRenderer {
             this.renderMode = 1;
 
             this.dirty = true;
-            console.log('[WebGLMapRenderer] Updated texture from blob:', bitmap.width, 'x', bitmap.height);
+
+            const uploadTime = performance.now() - startTime;
+            console.log(`[WebGLMapRenderer] Updated texture from blob: ${bitmap.width}x${bitmap.height} in ${uploadTime.toFixed(1)}ms`);
+
+            // Record to performance monitor if available
+            if (typeof window !== 'undefined' && (window as any).__performanceMonitor) {
+                (window as any).__performanceMonitor.recordTextureUpload(uploadTime);
+            }
         } catch (e) {
             console.error('[WebGLMapRenderer] Failed to load texture from blob:', e);
         }

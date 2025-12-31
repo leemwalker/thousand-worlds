@@ -349,12 +349,23 @@
         // Subscribe to messages for sim stats
         const unsubscribe = gameWebSocket.onMessage(handleSimMessage);
 
+        // Subscribe to reconnection events to refresh map after connection recovery
+        const unsubscribeReconnect = gameWebSocket.onReconnect(() => {
+            if (isOpen && worldMapData) {
+                console.log(
+                    "[WorldMapModal] Reconnected, refreshing world map...",
+                );
+                requestWorldMap();
+            }
+        });
+
         // Also add window key listeners for controls when open
         window.addEventListener("keydown", handleKeydown);
         window.addEventListener("wheel", handleWheel);
 
         return () => {
             unsubscribe();
+            unsubscribeReconnect();
             window.removeEventListener("keydown", handleKeydown);
             window.removeEventListener("wheel", handleWheel);
         };
