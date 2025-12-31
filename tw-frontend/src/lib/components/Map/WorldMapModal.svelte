@@ -544,6 +544,12 @@
         tooltipData = null;
     }
 
+
+
+    function handleLayerToggle(id: string) {
+        toggleLayer(id);
+    }
+
     function toggleLayer(id: string) {
         if (id === "none") {
             activeLayers.clear();
@@ -809,11 +815,11 @@
                     <!-- Legend (Bottom Left) -->
                     <div class="absolute bottom-4 left-4" transition:fade>
                         <WorldMapLegend
-                            mode={activeLayers.size === 0
+                            mode={(activeLayers.size === 0
                                 ? worldMapData?.is_simulated
                                     ? "terrain"
                                     : "biome"
-                                : Array.from(activeLayers).pop()}
+                                : Array.from(activeLayers).pop()) || "terrain"}
                             {activeLayers}
                         />
                     </div>
@@ -845,7 +851,7 @@
                                                 ? 'bg-blue-600/30 text-blue-200 border border-blue-500/30'
                                                 : 'hover:bg-gray-700 text-gray-300'}"
                                             on:click={() =>
-                                                toggleLayer(layer.id)}
+                                                handleLayerToggle(layer.id)}
                                         >
                                             <span
                                                 class="flex items-center gap-2"
@@ -939,14 +945,14 @@
                                     >
                                     <span
                                         class={worldMapData.satellites.reduce(
-                                            (a, s) => a + s.mass,
+                                            (a: number, s: any) => a + s.mass,
                                             0,
                                         ) > 0.01
                                             ? "text-green-400"
                                             : "text-yellow-400"}
                                     >
                                         {worldMapData.satellites.reduce(
-                                            (a, s) => a + s.mass,
+                                            (a: number, s: any) => a + s.mass,
                                             0,
                                         ) > 0.01
                                             ? "Stable"
