@@ -97,9 +97,15 @@
                 : "--",
     };
 
-    $: if (isOpen && canvas) {
-        initRenderer();
+    // Request world map when modal opens (works for both globe and flat map)
+    $: if (isOpen) {
+        console.log("[WorldMapModal] Modal opened, requesting world map...");
         requestWorldMap();
+    }
+
+    // Initialize flat map renderer when canvas is available (not for globe view)
+    $: if (isOpen && canvas && !useGlobeView) {
+        initRenderer();
     }
 
     $: if (!isOpen) {
