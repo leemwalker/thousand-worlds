@@ -188,10 +188,12 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 				tY := float64(y) / float64(height)
 				lat := (0.5 - tY) * math.Pi
 
-				// Adaptive Sampling: Supersample near poles
+				// Adaptive Sampling: Supersample near poles (DISABLED)
 				// Distortion increases as |lat| approaches PI/2
 				// Threshold: 60 degrees (approx PI/3)
-				supersample := math.Abs(lat) > (math.Pi / 3.0)
+				// supersample := math.Abs(lat) > (math.Pi / 3.0)
+				_ = lat // Prevent lint error for unused variable
+				supersample := false
 				samples := 1
 				if supersample {
 					samples = 4 // 2x2 grid
@@ -231,11 +233,13 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 							coord := topo.FromVector(vx, vy, vz)
 							elev := geo.SphereHeightmap.Get(coord)
 
-							// Color Mapping (Hypsometric Tints)
+							// Color Mapping (Photorealistic - Lifeless Protoplanet)
 							var r, g, b uint8
 
 							if elev < geo.SeaLevel {
-								// Water (Deep Blue -> Light Blue)
+								// Water - deep, dark oceans (less "tropical" more "primordial")
+								// Deep: 5, 10, 25 (Very Dark)
+								// Shallow: 30, 60, 90 (Dark Blue-Grey)
 								depth := geo.SeaLevel - elev
 								maxDepth := math.Max(geo.SeaLevel-minElev, 1.0)
 								depthFactor := depth / maxDepth
@@ -243,16 +247,14 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 									depthFactor = 1.0
 								}
 
-								// Gradient:
-								// Shallow: 0, 150, 200 (Turquoise)
-								// Deep: 0, 20, 50 (Dark Navy)
 								f := 1.0 - depthFactor // 0 = Deep, 1 = Shallow
-								r = uint8(0.0 + f*0.0)
-								g = uint8(20.0 + f*130.0)
-								b = uint8(50.0 + f*150.0)
+								r = uint8(5.0 + f*25.0)
+								g = uint8(10.0 + f*50.0)
+								b = uint8(25.0 + f*65.0)
 
 							} else {
-								// Land (Green -> Brown -> White)
+								// Land - Lifeless Rock (Greys, Browns, Rusty Reds)
+								// No greens/vegetation colors
 								height := elev - geo.SeaLevel
 								maxHeight := math.Max(maxElev-geo.SeaLevel, 1.0)
 								heightFactor := height / maxHeight
@@ -261,25 +263,25 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 								}
 
 								if heightFactor < 0.1 {
-									// Lowlands (Green)
-									// 50, 160, 50
-									r, g, b = 50, 160, 50
+									// Lowlands (Dark Basalt/Sediment)
+									// 50, 45, 40
+									r, g, b = 60, 55, 50
 								} else if heightFactor < 0.3 {
-									// Hills (Yellow/Green)
-									// 120, 150, 80
-									r, g, b = 120, 150, 80
+									// Hills (Reddish/Brown Rock)
+									// 100, 80, 70
+									r, g, b = 100, 80, 70
 								} else if heightFactor < 0.6 {
-									// Mountains (Brown)
-									// 140, 110, 90
-									r, g, b = 140, 110, 90
+									// Mountains (Grey Stone)
+									// 120, 115, 115
+									r, g, b = 120, 115, 115
 								} else if heightFactor < 0.8 {
-									// High Mountains (Dark Grey)
-									// 100, 100, 100
-									r, g, b = 100, 100, 100
+									// High Mountains (Light Grey)
+									// 160, 160, 160
+									r, g, b = 160, 160, 160
 								} else {
-									// Peaks (White)
-									// 250, 250, 250
-									r, g, b = 250, 250, 250
+									// Peaks (White/Snow)
+									// 240, 240, 250
+									r, g, b = 240, 240, 250
 								}
 							}
 
