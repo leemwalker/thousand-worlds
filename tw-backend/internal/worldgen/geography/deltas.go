@@ -45,15 +45,17 @@ func DefaultDeltaConfig() DeltaConfig {
 }
 
 // FormDeltasAtRiverMouths identifies high-flux river terminations and creates deltas
+// Returns the list of new distributary river paths created
 func FormDeltasAtRiverMouths(
 	hm *SphereHeightmap,
 	topology spatial.Topology,
 	seaLevel float64,
 	seed int64,
 	config DeltaConfig,
-) {
+) []SphericalRiverPath {
+	var newRivers []SphericalRiverPath
 	if hm == nil || topology == nil {
-		return
+		return newRivers
 	}
 
 	rng := rand.New(rand.NewSource(seed))
@@ -81,10 +83,12 @@ func FormDeltasAtRiverMouths(
 				}
 
 				// Form delta at this location
-				formDelta(hm, topology, coord, data.Flux, seaLevel, rng, config)
+				distributaries := formDelta(hm, topology, coord, data.Flux, seaLevel, rng, config)
+				newRivers = append(newRivers, distributaries...)
 			}
 		}
 	}
+	return newRivers
 }
 
 // hasOceanNeighbor checks if any neighbor is below sea level
@@ -114,7 +118,8 @@ func formDelta(
 	seaLevel float64,
 	rng *rand.Rand,
 	config DeltaConfig,
-) {
+) []SphericalRiverPath {
+	var paths []SphericalRiverPath
 	// Calculate number of distributaries based on flux
 	// More flux = more channels
 	fluxScale := flux / config.MinFluxForDelta
@@ -126,7 +131,7 @@ func formDelta(
 	// Find primary direction toward ocean
 	primaryDir := findOceanDirection(hm, topology, mouth, seaLevel)
 	if primaryDir == "" {
-		return
+		return paths
 	}
 
 	// Get base angles for fan spread
@@ -147,11 +152,16 @@ func formDelta(
 		angle += (rng.Float64() - 0.5) * 0.2
 
 		// Trace distributary and deposit sediment
-		traceDistributary(hm, topology, mouth, angle, flux/float64(numChannels), seaLevel, config)
+		path := traceDistributary(hm, topology, mouth, angle, flux/float64(numChannels), seaLevel, config)
+		if len(path) > 1 {
+			paths = append(paths, SphericalRiverPath{Points: path})
+		}
 	}
 
 	// Deposit sediment in fan pattern around the delta
 	depositSedimentFan(hm, topology, mouth, baseAngle, flux, seaLevel, config)
+
+	return paths
 }
 
 // findOceanDirection returns the direction toward deepest water
@@ -203,7 +213,8 @@ func traceDistributary(
 	flux float64,
 	seaLevel float64,
 	config DeltaConfig,
-) {
+) []spatial.Coordinate {
+	path := []spatial.Coordinate{start}
 	current := start
 	sedimentRemaining := flux * config.SedimentPerFlux
 
@@ -233,10 +244,12 @@ func traceDistributary(
 		}
 
 		current = next
+		path = append(path, current)
 
 		// Add some wandering to the channel
 		angle += (rand.Float64() - 0.5) * 0.3
 	}
+	return path
 }
 
 // angleToDirection converts angle to nearest cardinal direction

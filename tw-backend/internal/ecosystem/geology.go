@@ -919,7 +919,13 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 
 				// Form deltas at high-flux river mouths
 				deltaConfig := geography.DefaultDeltaConfig()
-				geography.FormDeltasAtRiverMouths(g.SphereHeightmap, g.Topology, g.SeaLevel, g.Seed+g.TotalYearsSimulated, deltaConfig)
+				deltaRivers := geography.FormDeltasAtRiverMouths(g.SphereHeightmap, g.Topology, g.SeaLevel, g.Seed+g.TotalYearsSimulated, deltaConfig)
+
+				// Add deltas to river network for rendering
+				if len(deltaRivers) > 0 {
+					flatDeltas := geography.ConvertSphericalRiversToFlat(deltaRivers, g.Topology.Resolution())
+					g.Rivers = append(g.Rivers, flatDeltas...)
+				}
 
 				// Phase 4: Advanced Coastal Features
 				// Mark intertidal zones (tidal flats exposed at low tide)
