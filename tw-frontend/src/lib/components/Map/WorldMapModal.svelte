@@ -2,6 +2,7 @@
     import { onMount, onDestroy } from "svelte";
     import { MapRenderer } from "./MapRenderer";
     import { WebGLMapRenderer } from "./WebGLMapRenderer";
+    import { parseBinaryGridData, MapDataLayer } from "./BinaryDataParser";
     import WorldMapLegend from "./WorldMapLegend.svelte";
     import MapOverlayCanvas from "./MapOverlayCanvas.svelte";
     import { fade, fly } from "svelte/transition";
@@ -20,6 +21,7 @@
     let containerHeight = 0;
     let worldMapData: any = null;
     let loading = false;
+    let mapDataLayer: MapDataLayer | null = null; // Binary grid data for tooltips
 
     // Hover state for tile inspection
     let hoveredTile: { gridX: number; gridY: number } | null = null;
@@ -117,6 +119,7 @@
             webglRenderer = null;
         }
         worldMapData = null;
+        mapDataLayer = null; // Clear tooltip data layer
     }
 
     function requestWorldMap(highRes = false) {
@@ -297,6 +300,17 @@
                 // Then upload image texture override
                 webglRenderer.updateTextureFromBlob(payload.imageBlob);
 
+                // Parse binary grid data for tooltips (Sprint 2)
+                if (payload.gridData && payload.gridData.byteLength > 0) {
+                    const parsed = parseBinaryGridData(payload.gridData);
+                    if (parsed) {
+                        mapDataLayer = new MapDataLayer(parsed);
+                        console.log(
+                            `[WorldMapModal] MapDataLayer ready: ${parsed.width}x${parsed.height}`,
+                        );
+                    }
+                }
+
                 // Only auto-fit on the very first successful load
                 if (isInitialLoad) {
                     webglRenderer.fitToWorld();
@@ -459,7 +473,29 @@
 
         hoveredTile = gridPos;
 
-        // Find tile data
+        // Use MapDataLayer (binary grid) if available - more accurate for high-res mode
+        if (mapDataLayer) {
+            // gridPos already contains grid indices from getGridIndexFromScreen
+            // which accounts for zoom/pan camera transformations
+            const elevation = mapDataLayer.getElevation(
+                gridPos.gridX,
+                gridPos.gridY,
+            );
+            const biome = mapDataLayer.getBiomeName(
+                gridPos.gridX,
+                gridPos.gridY,
+            );
+
+            tooltipData = {
+                x: gridPos.gridX,
+                y: gridPos.gridY,
+                elevation: elevation,
+                biome: biome,
+            };
+            return;
+        }
+
+        // Fallback: Find tile data from JSON tiles (legacy mode)
         let tile: any = null;
         if (worldMapData.tiles) {
             tile = worldMapData.tiles.find(
