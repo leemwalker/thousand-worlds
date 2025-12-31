@@ -284,8 +284,8 @@
         if (msg.type === "world_map_image_response") {
             const payload = msg.data;
             const isHighRes = payload.width > 2048;
-
-            worldMapData = payload; // Contains tiles + imageBlob
+            const isInitialLoad = !worldMapData;
+            worldMapData = payload; // MUST set this to track state
             console.log(
                 `[WorldMapModal] Received world_map_image_response (${payload.width}x${payload.height}) blob size:`,
                 payload.imageBlob.size,
@@ -296,7 +296,11 @@
                 webglRenderer.updateData(payload);
                 // Then upload image texture override
                 webglRenderer.updateTextureFromBlob(payload.imageBlob);
-                webglRenderer.fitToWorld();
+
+                // Only auto-fit on the very first successful load
+                if (isInitialLoad) {
+                    webglRenderer.fitToWorld();
+                }
             }
 
             loading = false;

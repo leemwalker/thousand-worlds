@@ -149,6 +149,8 @@ func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.Gam
 		if parsedCmd == nil {
 			return fmt.Errorf("invalid command: failed to parse")
 		}
+		// PREVENT DATA LOSS: Preserve generic payload during parsing
+		parsedCmd.Payload = cmd.Payload
 		// Use parsed command for processing
 		cmd = parsedCmd
 	}

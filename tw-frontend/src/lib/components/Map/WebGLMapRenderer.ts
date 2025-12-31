@@ -514,7 +514,7 @@ export class WebGLMapRenderer {
         // Create texture data buffer (RGBA)
         const buffer = new Uint8Array(this.gridWidth * this.gridHeight * 4);
 
-        if (data.tiles) {
+        if (data.tiles && data.tiles.length > 0) {
             for (const tile of data.tiles) {
                 const x = tile.grid_x;
                 const y = tile.grid_y;
