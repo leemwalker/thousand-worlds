@@ -330,6 +330,160 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 								}
 							}
 
+							// ===========================================
+							// Phase B: Climate-Based Coloring Override
+							// ===========================================
+							// Apply ice caps, polar regions, and temperature effects
+
+							// Calculate approximate temperature from latitude
+							// sLat ranges from -PI/2 (south) to +PI/2 (north)
+							// distFromEquator: 0 at equator, 1 at poles
+							distFromEquator := math.Abs(sLat) / (math.Pi / 2.0)
+							temperature := 1.0 - distFromEquator // 1 = hot (equator), 0 = cold (poles)
+
+							// Calculate height above sea level for climate effects
+							heightAboveSea := 0.0
+							elevHeightFactor := 0.0
+							if elev > geo.SeaLevel {
+								heightAboveSea = elev - geo.SeaLevel
+								maxH := math.Max(maxElev-geo.SeaLevel, 1.0)
+								elevHeightFactor = heightAboveSea / maxH
+								if elevHeightFactor > 1.0 {
+									elevHeightFactor = 1.0
+								}
+							}
+
+							// Adjust temperature for elevation (higher = colder)
+							// Every 1000m reduces temp by 0.1 (lapse rate effect)
+							if elev > geo.SeaLevel {
+								elevationEffect := heightAboveSea / 10000.0 // Max 0.3 effect at 3000m
+								if elevationEffect > 0.3 {
+									elevationEffect = 0.3
+								}
+								temperature -= elevationEffect
+							}
+
+							// Ice/Snow caps: Cold temperature + high elevation OR polar
+							if temperature < 0.2 || (temperature < 0.4 && elevHeightFactor > 0.6) {
+								if elev > geo.SeaLevel {
+									// Ice cap / glacier (white with blue tint)
+									r, g, b = 235, 240, 250
+								} else {
+									// Sea ice (light blue-white)
+									r, g, b = 200, 220, 240
+								}
+							} else if temperature < 0.35 && elev > geo.SeaLevel {
+								// Tundra / frozen ground (grey-brown)
+								r, g, b = 130, 125, 115
+							}
+
+							// Note: Desert coloring would require moisture data
+							// which we don't have per-pixel access to in current renderer
+
+							// ===========================================
+							// Hillshading: Add 3D depth perception
+							// ===========================================
+							// Calculate surface normal from neighbor elevations
+							// and apply directional lighting
+
+							// Sun direction (from northwest, elevated 45 degrees)
+							// In screen space: light comes from top-left
+							sunAzimuth := math.Pi * 0.75  // 135 degrees (NW)
+							sunAltitude := math.Pi * 0.25 // 45 degrees elevation
+
+							// Sun vector (normalized)
+							sunX := math.Cos(sunAltitude) * math.Sin(sunAzimuth)
+							sunY := math.Sin(sunAltitude) // Up component
+							sunZ := math.Cos(sunAltitude) * math.Cos(sunAzimuth)
+
+							// Sample neighbor elevations for gradient (in pixel space)
+							// Use a slightly offset sample for neighbors
+							pixelSize := 1.0 / float64(width)
+
+							// Calculate gradient in X and Y directions
+							var dzdx, dzdy float64
+
+							// Sample neighbors in equirectangular space
+							// Left/Right for X gradient
+							leftLon := sLon - pixelSize*2*math.Pi
+							rightLon := sLon + pixelSize*2*math.Pi
+
+							leftVx := cosLat * math.Cos(leftLon)
+							leftVz := cosLat * math.Sin(leftLon)
+							leftCoord := topo.FromVector(leftVx, vy, leftVz)
+							leftElev := geo.SphereHeightmap.Get(leftCoord)
+
+							rightVx := cosLat * math.Cos(rightLon)
+							rightVz := cosLat * math.Sin(rightLon)
+							rightCoord := topo.FromVector(rightVx, vy, rightVz)
+							rightElev := geo.SphereHeightmap.Get(rightCoord)
+
+							// Above/Below for Y gradient
+							upLat := sLat + pixelSize*math.Pi
+							downLat := sLat - pixelSize*math.Pi
+
+							upVy := math.Sin(upLat)
+							upCosLat := math.Cos(upLat)
+							upVx := upCosLat * cosLon
+							upVz := upCosLat * sinLon
+							upCoord := topo.FromVector(upVx, upVy, upVz)
+							upElev := geo.SphereHeightmap.Get(upCoord)
+
+							downVy := math.Sin(downLat)
+							downCosLat := math.Cos(downLat)
+							downVx := downCosLat * cosLon
+							downVz := downCosLat * sinLon
+							downCoord := topo.FromVector(downVx, downVy, downVz)
+							downElev := geo.SphereHeightmap.Get(downCoord)
+
+							// Calculate gradients (elevation change per pixel)
+							// Scale factor to exaggerate relief for visual effect
+							reliefScale := 0.0001 // Adjust for visual effect
+							dzdx = (rightElev - leftElev) * reliefScale
+							dzdy = (upElev - downElev) * reliefScale
+
+							// Calculate surface normal from gradient
+							// Normal = (-dz/dx, 1, -dz/dy) normalized
+							nx := -dzdx
+							ny := 1.0
+							nz := -dzdy
+							nLen := math.Sqrt(nx*nx + ny*ny + nz*nz)
+							if nLen > 0 {
+								nx /= nLen
+								ny /= nLen
+								nz /= nLen
+							}
+
+							// Calculate lighting (dot product of normal and sun direction)
+							lighting := nx*sunX + ny*sunY + nz*sunZ
+
+							// Clamp and remap lighting to useful range
+							// Range: 0.4 (shadow) to 1.2 (highlight)
+							if lighting < 0 {
+								lighting = 0
+							}
+							lighting = 0.4 + lighting*0.8
+
+							// Add ambient occlusion for valleys (lower elevations get darker)
+							// Only apply to land, not water
+							if elev > geo.SeaLevel {
+								// Check if surrounded by higher terrain (valley)
+								avgNeighbor := (leftElev + rightElev + upElev + downElev) / 4.0
+								if avgNeighbor > elev {
+									// In a valley - darken slightly
+									valleyDepth := (avgNeighbor - elev) / 500.0 // 500m = max valley effect
+									if valleyDepth > 0.2 {
+										valleyDepth = 0.2
+									}
+									lighting -= valleyDepth
+								}
+							}
+
+							// Apply lighting to color
+							r = uint8(math.Min(255, math.Max(0, float64(r)*lighting)))
+							g = uint8(math.Min(255, math.Max(0, float64(g)*lighting)))
+							b = uint8(math.Min(255, math.Max(0, float64(b)*lighting)))
+
 							// Accumulate
 							rSum += float64(r)
 							gSum += float64(g)
