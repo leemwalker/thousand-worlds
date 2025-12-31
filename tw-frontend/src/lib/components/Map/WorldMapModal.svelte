@@ -303,21 +303,11 @@
 
             // Progressive Loading: If this was the initial low-res load, immediately kickoff 4K load
             if (!isHighRes) {
-                console.log("[WorldMapModal] Initial map loaded. Requesting 4K background load...");
+                console.log(
+                    "[WorldMapModal] Initial map loaded. Requesting 4K background load...",
+                );
                 requestWorldMap(true);
             }
-            return;
-        }
-
-            if (useGraphicsMode && webglRenderer && payload.imageBlob) {
-                // Update metadata (sets grid/world size, player pos)
-                webglRenderer.updateData(payload);
-                // Then upload image texture override
-                webglRenderer.updateTextureFromBlob(payload.imageBlob);
-                webglRenderer.fitToWorld();
-            }
-
-            loading = false;
             return;
         }
 
