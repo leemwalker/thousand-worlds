@@ -72,10 +72,10 @@ func NewService(
 	config := RenderConfig{
 		MaxHeight:        4096,
 		MaxWidth:         8192,
-		DefaultHeight:    2048,              // Upgraded for 4K default
-		DefaultWidth:     4096,              // 4K default width
+		DefaultHeight:    1024,              // Standard HD (2048x1024) - Safe for software rendering
+		DefaultWidth:     2048,              //
 		WebPQuality:      85,                // High quality
-		RenderTimeout:    120 * time.Second, // Increased to 2m for 4K rendering safety
+		RenderTimeout:    120 * time.Second, // Keep high timeout for safety even at lower res
 		ConcurrencyLimit: 2,                 // Hard limit as per requirements
 	}
 
