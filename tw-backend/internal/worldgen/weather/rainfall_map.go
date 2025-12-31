@@ -42,6 +42,7 @@ func GenerateRainfallMap(
 ) []float64 {
 	res := sphereMap.Resolution()
 	totalCells := 6 * res * res
+	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
 
 	// Initialize rainfall and moisture grids
 	rainfall := make([]float64, totalCells)
@@ -74,17 +75,14 @@ func GenerateRainfallMap(
 			coord := indexToCoord(idx, res)
 			elev := sphereMap.Get(coord)
 
-			// Get 3D wind vector at this location (properly handles face orientation)
-			windVec := Get3DWindVector(topology, coord, SeasonSpring)
+			// Get wind at this location
+			wind := CalculateWindSpherical(topology, coord, SeasonSpring)
 
-			// Get upwind direction (opposite of wind) - this is a 3D vector
-			upwindVec := windVec.Scale(-1)
+			// Calculate upwind direction (opposite of wind)
+			upwindDir := normalizeDirection(wind.Direction + 180)
 
-			// Convert to local grid direction using proper tangent plane projection
-			upwindLocalDir := WindToLocalDirection(topology, coord, upwindVec)
-
-			// Find upwind neighbor using the correctly-oriented local direction
-			upwindNeighbor := topology.GetNeighbor(coord, upwindLocalDir)
+			// Find upwind neighbor
+			upwindNeighbor := getNeighborInDirection(topology, coord, upwindDir, directions)
 			upwindIdx := coordToIndex(upwindNeighbor, res)
 
 			if upwindIdx >= 0 && upwindIdx < totalCells {
