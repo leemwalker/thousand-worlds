@@ -96,6 +96,9 @@
         globeMaterial.backFaceCulling = true;
         globe.material = globeMaterial;
 
+        // Create starfield background
+        createStarfield(scene);
+
         // Render loop
         engine.runRenderLoop(() => {
             if (scene) {
@@ -124,6 +127,99 @@
     // React to height data changes
     $: if (heightData && scene && globe) {
         applyHeightDisplacement(heightData);
+    }
+
+    function createStarfield(s: Scene) {
+        // Create a large sphere for the starfield (inside-out rendering)
+        const starSphere = MeshBuilder.CreateSphere(
+            "starfield",
+            { segments: 32, diameter: 100 },
+            s,
+        );
+
+        // Create material for stars - emissive only (no lighting needed)
+        const starMaterial = new StandardMaterial("starMaterial", s);
+        starMaterial.emissiveColor = new Color3(1, 1, 1);
+        starMaterial.disableLighting = true;
+        starMaterial.backFaceCulling = false; // Render inside of sphere
+
+        // Create a procedural star texture
+        const starCanvas = document.createElement("canvas");
+        starCanvas.width = 2048;
+        starCanvas.height = 1024;
+        const ctx = starCanvas.getContext("2d");
+
+        if (ctx) {
+            // Dark background
+            ctx.fillStyle = "#030308";
+            ctx.fillRect(0, 0, starCanvas.width, starCanvas.height);
+
+            // Generate random stars
+            const numStars = 3000;
+            for (let i = 0; i < numStars; i++) {
+                const x = Math.random() * starCanvas.width;
+                const y = Math.random() * starCanvas.height;
+                const size = Math.random() * 2 + 0.5;
+                const brightness = Math.random() * 0.7 + 0.3;
+
+                // Star color variation (mostly white, some blue/yellow)
+                const colorVar = Math.random();
+                let r = brightness,
+                    g = brightness,
+                    b = brightness;
+                if (colorVar < 0.1) {
+                    // Blue star
+                    r *= 0.7;
+                    g *= 0.8;
+                    b *= 1.0;
+                } else if (colorVar < 0.2) {
+                    // Yellow/orange star
+                    r *= 1.0;
+                    g *= 0.9;
+                    b *= 0.6;
+                }
+
+                ctx.fillStyle = `rgba(${Math.floor(r * 255)}, ${Math.floor(g * 255)}, ${Math.floor(b * 255)}, ${brightness})`;
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Add a few brighter stars
+            for (let i = 0; i < 50; i++) {
+                const x = Math.random() * starCanvas.width;
+                const y = Math.random() * starCanvas.height;
+                const size = Math.random() * 3 + 2;
+
+                // Star glow effect
+                const gradient = ctx.createRadialGradient(
+                    x,
+                    y,
+                    0,
+                    x,
+                    y,
+                    size * 2,
+                );
+                gradient.addColorStop(0, "rgba(255, 255, 255, 1)");
+                gradient.addColorStop(0.3, "rgba(200, 220, 255, 0.8)");
+                gradient.addColorStop(1, "rgba(100, 150, 255, 0)");
+
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(x, y, size * 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Create texture from canvas
+        const starTexture = new Texture(starCanvas.toDataURL(), s, false, true);
+        starTexture.vScale = -1;
+        starMaterial.emissiveTexture = starTexture;
+
+        starSphere.material = starMaterial;
+
+        // Flip normals to render inside
+        starSphere.scaling = new Vector3(-1, 1, 1);
     }
 
     async function updateTexture(blob: Blob) {

@@ -47,8 +47,8 @@
     // Graphics mode toggle (WebGL vs ASCII)
     let useGraphicsMode = true;
 
-    // Globe view toggle (3D sphere vs 2D flat map)
-    let useGlobeView = false;
+    // Globe view toggle (3D sphere vs 2D flat map) - Globe is now default
+    let useGlobeView = true;
     let globeTextureBlob: Blob | null = null;
     let globeHeightData: ArrayBuffer | null = null;
     let globeSeaLevel = 0;
