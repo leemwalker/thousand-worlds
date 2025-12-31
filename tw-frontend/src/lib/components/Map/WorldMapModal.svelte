@@ -306,6 +306,9 @@
             // Store blob for globe view (Babylon.js)
             if (payload.imageBlob) {
                 globeTextureBlob = payload.imageBlob;
+                console.log(
+                    `[WorldMapModal] Set globeTextureBlob, size: ${globeTextureBlob.size}, useGlobeView: ${useGlobeView}`,
+                );
             }
 
             // Store height data for globe terrain displacement
