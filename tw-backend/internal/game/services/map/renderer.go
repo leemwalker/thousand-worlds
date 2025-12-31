@@ -231,22 +231,62 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 							coord := topo.FromVector(vx, vy, vz)
 							elev := geo.SphereHeightmap.Get(coord)
 
-							// Convert elevation to grayscale (Sprint 1)
-							norm := (elev - minElev) / elevRange
-							if norm < 0 {
-								norm = 0
-							}
-							if norm > 1 {
-								norm = 1
-							}
+							// Color Mapping (Hypsometric Tints)
+							var r, g, b uint8
 
-							// Simple Grayscale
-							val := norm * 255.0
+							if elev < geo.SeaLevel {
+								// Water (Deep Blue -> Light Blue)
+								depth := geo.SeaLevel - elev
+								maxDepth := math.Max(geo.SeaLevel-minElev, 1.0)
+								depthFactor := depth / maxDepth
+								if depthFactor > 1.0 {
+									depthFactor = 1.0
+								}
+
+								// Gradient:
+								// Shallow: 0, 150, 200 (Turquoise)
+								// Deep: 0, 20, 50 (Dark Navy)
+								f := 1.0 - depthFactor // 0 = Deep, 1 = Shallow
+								r = uint8(0.0 + f*0.0)
+								g = uint8(20.0 + f*130.0)
+								b = uint8(50.0 + f*150.0)
+
+							} else {
+								// Land (Green -> Brown -> White)
+								height := elev - geo.SeaLevel
+								maxHeight := math.Max(maxElev-geo.SeaLevel, 1.0)
+								heightFactor := height / maxHeight
+								if heightFactor > 1.0 {
+									heightFactor = 1.0
+								}
+
+								if heightFactor < 0.1 {
+									// Lowlands (Green)
+									// 50, 160, 50
+									r, g, b = 50, 160, 50
+								} else if heightFactor < 0.3 {
+									// Hills (Yellow/Green)
+									// 120, 150, 80
+									r, g, b = 120, 150, 80
+								} else if heightFactor < 0.6 {
+									// Mountains (Brown)
+									// 140, 110, 90
+									r, g, b = 140, 110, 90
+								} else if heightFactor < 0.8 {
+									// High Mountains (Dark Grey)
+									// 100, 100, 100
+									r, g, b = 100, 100, 100
+								} else {
+									// Peaks (White)
+									// 250, 250, 250
+									r, g, b = 250, 250, 250
+								}
+							}
 
 							// Accumulate
-							rSum += val
-							gSum += val
-							bSum += val
+							rSum += float64(r)
+							gSum += float64(g)
+							bSum += float64(b)
 							count++
 						}
 					}

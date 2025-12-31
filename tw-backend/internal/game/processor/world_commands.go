@@ -1737,26 +1737,43 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 	// Protocol: [Type:1][JSONLen:4][JSONBytes][BinLen:4][BinBytes]
 
 	// Construct JSON Metadata
+	// Construct JSON Metadata
 	type MapImageMetadata struct {
-		Width       int     `json:"width"`
-		Height      int     `json:"height"`
-		GridWidth   int     `json:"grid_width"`
-		GridHeight  int     `json:"grid_height"`
-		WorldWidth  float64 `json:"world_width"`
-		WorldHeight float64 `json:"world_height"`
-		PlayerX     float64 `json:"player_x"`
-		PlayerY     float64 `json:"player_y"`
+		Width          int     `json:"width"`
+		Height         int     `json:"height"`
+		GridWidth      int     `json:"grid_width"`
+		GridHeight     int     `json:"grid_height"`
+		WorldWidth     float64 `json:"world_width"`
+		WorldHeight    float64 `json:"world_height"`
+		PlayerX        float64 `json:"player_x"`
+		PlayerY        float64 `json:"player_y"`
+		SimulatedYears int64   `json:"simulated_years"`
+		AvgTemperature float64 `json:"avg_temperature"`
+		MaxElevation   float64 `json:"max_elevation"`
+		SeaLevel       float64 `json:"sea_level"`
+		LandCoverage   float64 `json:"land_coverage"`
+		Seed           int64   `json:"seed"`
+		IsSimulated    bool    `json:"is_simulated"`
 	}
 
+	stats := geo.GetStats()
+
 	meta := MapImageMetadata{
-		Width:       ImageWidth,
-		Height:      ImageHeight,
-		GridWidth:   GridSize,
-		GridHeight:  GridSize / 2,
-		WorldWidth:  geo.Circumference,
-		WorldHeight: geo.Circumference / 2,
-		PlayerX:     char.PositionX,
-		PlayerY:     char.PositionY,
+		Width:          ImageWidth,
+		Height:         ImageHeight,
+		GridWidth:      GridSize,
+		GridHeight:     GridSize / 2,
+		WorldWidth:     geo.Circumference,
+		WorldHeight:    geo.Circumference / 2,
+		PlayerX:        char.PositionX,
+		PlayerY:        char.PositionY,
+		SimulatedYears: stats.YearsSimulated,
+		AvgTemperature: stats.AverageTemperature,
+		MaxElevation:   stats.MaxElevation,
+		SeaLevel:       stats.SeaLevel,
+		LandCoverage:   stats.LandPercent * 100, // Convert to percentage
+		Seed:           geo.Seed,
+		IsSimulated:    true,
 	}
 
 	jsonBytes, err := json.Marshal(meta)
