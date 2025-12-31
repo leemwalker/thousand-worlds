@@ -391,6 +391,7 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 							// Phase B: Climate-Based Coloring Override
 							// ===========================================
 							// Apply ice caps, polar regions, and temperature effects
+							// Using actual simulation data for organic appearance
 
 							// Calculate approximate temperature from latitude
 							// sLat ranges from -PI/2 (south) to +PI/2 (north)
@@ -411,27 +412,110 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 							}
 
 							// Adjust temperature for elevation (higher = colder)
-							// Every 1000m reduces temp by 0.1 (lapse rate effect)
+							// Lapse rate: ~6.5°C per 1000m, normalized to our 0-1 scale
 							if elev > geo.SeaLevel {
-								elevationEffect := heightAboveSea / 10000.0 // Max 0.3 effect at 3000m
-								if elevationEffect > 0.3 {
-									elevationEffect = 0.3
+								elevationEffect := heightAboveSea / 8000.0 // Max effect at 8000m
+								if elevationEffect > 0.4 {
+									elevationEffect = 0.4
 								}
 								temperature -= elevationEffect
 							}
 
-							// Ice/Snow caps: Cold temperature + high elevation OR polar
-							if temperature < 0.2 || (temperature < 0.4 && elevHeightFactor > 0.6) {
+							// Calculate slope from neighbors for snow shedding
+							// Get neighbor elevations (also used later for hillshading)
+							leftCoord := geo.Topology.GetNeighbor(coord, spatial.West)
+							rightCoord := geo.Topology.GetNeighbor(coord, spatial.East)
+							upCoord := geo.Topology.GetNeighbor(coord, spatial.North)
+							downCoord := geo.Topology.GetNeighbor(coord, spatial.South)
+
+							leftElev := geo.SphereHeightmap.Get(leftCoord)
+							rightElev := geo.SphereHeightmap.Get(rightCoord)
+							upElev := geo.SphereHeightmap.Get(upCoord)
+							downElev := geo.SphereHeightmap.Get(downCoord)
+
+							// Compute slope magnitude (meters per cell)
+							slopeX := (rightElev - leftElev) / 2.0
+							slopeY := (upElev - downElev) / 2.0
+							slopeMag := math.Sqrt(slopeX*slopeX + slopeY*slopeY)
+							slopeFactor := math.Min(slopeMag/500.0, 1.0) // 500m rise = max slope
+
+							// Snow/Ice Rendering using simulation data
+							// Cold enough for snow? (temp threshold + modifiers from real data)
+							snowThreshold := 0.25 // Base threshold
+
+							// Sediment makes snow accumulate easier (soft surfaces hold snow)
+							if sediment > 0.3 {
+								snowThreshold += 0.05
+							}
+
+							// High flux areas (rivers) don't freeze as easily
+							if flux > 50 {
+								snowThreshold -= 0.1
+							}
+
+							// Steep slopes shed snow
+							snowThreshold -= slopeFactor * 0.15
+
+							if temperature < snowThreshold {
+								// In snow zone - blend based on how cold it is
+								coldness := (snowThreshold - temperature) / snowThreshold // 0 = edge, 1 = deep cold
+
 								if elev > geo.SeaLevel {
-									// Ice cap / glacier (white with blue tint)
-									r, g, b = 235, 240, 250
+									// Land snow/ice
+									// Use sediment to vary texture: sediment = smooth snow, no sediment = rocky ice
+									if sediment > 0.5 {
+										// Deep snow on soft ground (pure white)
+										snowR := uint8(245 + coldness*10)
+										snowG := uint8(248 + coldness*7)
+										snowB := uint8(255)
+										r, g, b = snowR, snowG, snowB
+									} else if sediment > 0.1 {
+										// Patchy snow (white with underlying rock showing)
+										// Blend existing rock color with snow
+										blendFactor := coldness * (0.5 + sediment)
+										if blendFactor > 0.9 {
+											blendFactor = 0.9
+										}
+										r = uint8(float64(r)*(1-blendFactor) + 240*blendFactor)
+										g = uint8(float64(g)*(1-blendFactor) + 245*blendFactor)
+										b = uint8(float64(b)*(1-blendFactor) + 255*blendFactor)
+									} else {
+										// Bare rock/ice (blue-grey glacial ice)
+										// Less snow sticks to hard rock
+										if coldness > 0.6 {
+											// Very cold: glacial ice
+											r, g, b = 200, 215, 235
+										}
+										// Otherwise: keep existing rock color (too steep/rocky for snow)
+									}
 								} else {
-									// Sea ice (light blue-white)
-									r, g, b = 200, 220, 240
+									// Sea ice - use depth for color variation
+									depth := geo.SeaLevel - elev
+									maxDepth := math.Max(geo.SeaLevel-minElev, 1.0)
+									depthNorm := math.Min(depth/maxDepth, 1.0)
+
+									if coldness > 0.5 {
+										// Thick pack ice
+										r = uint8(220 - depthNorm*20)
+										g = uint8(235 - depthNorm*15)
+										b = uint8(250 - depthNorm*10)
+									} else {
+										// Thin ice / ice edge (more blue, translucent look)
+										r = uint8(180 + coldness*40)
+										g = uint8(210 + coldness*25)
+										b = uint8(240 + coldness*15)
+									}
 								}
 							} else if temperature < 0.35 && elev > geo.SeaLevel {
-								// Tundra / frozen ground (grey-brown)
-								r, g, b = 130, 125, 115
+								// Tundra / subpolar zone
+								// Color varies based on sediment (vegetated vs bare)
+								if sediment > 0.3 {
+									// Some vegetation possible - brownish-green
+									r, g, b = 115, 115, 95
+								} else {
+									// Bare permafrost - grey-brown rock
+									r, g, b = 130, 125, 115
+								}
 							}
 
 							// Note: Desert coloring would require moisture data
@@ -456,22 +540,9 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 							// Optimize: Use topology neighbors instead of vector re-projection
 							// This avoids expensive sin/cos/atan calls for every neighbor
 
-							// Get neighbor coordinates from topology (graph navigation)
-							// Coordinate is an integer ID that maps to faces/grid
-							// Note: Topology neighbors might wrap around cube faces automatically
-
-							leftCoord := geo.Topology.GetNeighbor(coord, spatial.West)
-							rightCoord := geo.Topology.GetNeighbor(coord, spatial.East)
-							upCoord := geo.Topology.GetNeighbor(coord, spatial.North)
-							downCoord := geo.Topology.GetNeighbor(coord, spatial.South)
-
-							// If neighbor lookup returns invalid coordinate (if implemented), check face index?
-							// Actually coord 0 is valid (Face 0, 0,0). GetNeighbor should always return valid on sphere.
-
-							leftElev := geo.SphereHeightmap.Get(leftCoord)
-							rightElev := geo.SphereHeightmap.Get(rightCoord)
-							upElev := geo.SphereHeightmap.Get(upCoord)
-							downElev := geo.SphereHeightmap.Get(downCoord)
+							// Neighbor coordinates were already computed above for snow calculations
+							// Reusing: leftCoord, rightCoord, upCoord, downCoord
+							// Reusing: leftElev, rightElev, upElev, downElev
 
 							// Calculate gradients
 							// Slope X = (Right - Left)
