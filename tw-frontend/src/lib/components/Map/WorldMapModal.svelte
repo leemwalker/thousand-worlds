@@ -22,6 +22,7 @@
     let containerHeight = 0;
     let worldMapData: any = null;
     let loading = false;
+    let hasRequestedMap = false; // Guard to prevent repeated requests
     let mapDataLayer: MapDataLayer | null = null; // Binary grid data for tooltips
 
     // Hover state for tile inspection
@@ -98,7 +99,8 @@
     };
 
     // Request world map when modal opens (works for both globe and flat map)
-    $: if (isOpen) {
+    $: if (isOpen && !hasRequestedMap) {
+        hasRequestedMap = true;
         console.log("[WorldMapModal] Modal opened, requesting world map...");
         requestWorldMap();
     }
@@ -109,6 +111,7 @@
     }
 
     $: if (!isOpen) {
+        hasRequestedMap = false; // Reset on close
         cleanupRenderers();
     }
 
