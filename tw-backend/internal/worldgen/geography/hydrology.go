@@ -23,8 +23,10 @@ type HydrologyLayer struct {
 //  2. Topological Sort: Sort cells by elevation (highest to lowest)
 //  3. Accumulation: Push flux from each cell to its downhill neighbor
 //
+// If rainfall is nil, uses uniform 1.0 (backward compatibility).
+// Otherwise, Flux[i] is initialized from rainfall[i].
 // Returns a HydrologyLayer with FlowDirection and accumulated Flux.
-func CalculateFlowField(hm *SphereHeightmap) *HydrologyLayer {
+func CalculateFlowField(hm *SphereHeightmap, rainfall []float64) *HydrologyLayer {
 	topology := hm.Topology()
 	res := hm.Resolution()
 	totalCells := 6 * res * res
@@ -38,10 +40,15 @@ func CalculateFlowField(hm *SphereHeightmap) *HydrologyLayer {
 		Resolution:    res,
 	}
 
-	// Initialize all to sink (-1) and base rainfall (1.0)
+	// Initialize all to sink (-1) and base rainfall
+	useRainfall := rainfall != nil && len(rainfall) == totalCells
 	for i := range hydro.FlowDirection {
 		hydro.FlowDirection[i] = -1
-		hydro.Flux[i] = 1.0 // Base rainfall
+		if useRainfall {
+			hydro.Flux[i] = rainfall[i]
+		} else {
+			hydro.Flux[i] = 1.0 // Uniform rainfall fallback
+		}
 	}
 
 	// Step 1: Calculate flow directions (steepest descent)
@@ -103,65 +110,9 @@ func CalculateFlowField(hm *SphereHeightmap) *HydrologyLayer {
 
 // CalculateFlowFieldWithRainfall computes flow with spatially-variable rainfall.
 // Use GenerateRainfallMap from weather package to create the rainfall input.
+// DEPRECATED: Use CalculateFlowField(hm, rainfall) directly instead.
 func CalculateFlowFieldWithRainfall(hm *SphereHeightmap, rainfall []float64) *HydrologyLayer {
-	hydro := CalculateFlowField(hm)
-
-	// Override uniform rainfall with provided values
-	if len(rainfall) == len(hydro.Flux) {
-		// Reset flux to rainfall values before re-accumulating
-		for i := range hydro.Flux {
-			hydro.Flux[i] = rainfall[i]
-		}
-
-		// Re-run accumulation with new rainfall base
-		topology := hm.Topology()
-		res := hm.Resolution()
-		totalCells := 6 * res * res
-		resSq := res * res
-		directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
-
-		// Sort cells by elevation
-		type cellNode struct {
-			idx  int
-			elev float64
-		}
-		nodes := make([]cellNode, totalCells)
-		for idx := 0; idx < totalCells; idx++ {
-			face := idx / resSq
-			rem := idx % resSq
-			y := rem / res
-			x := rem % res
-			coord := spatial.Coordinate{Face: face, X: x, Y: y}
-			nodes[idx] = cellNode{idx: idx, elev: hm.Get(coord)}
-
-			// Recalculate flow directions
-			lowestIdx := -1
-			lowestElev := hm.Get(coord)
-			for _, dir := range directions {
-				neighbor := topology.GetNeighbor(coord, dir)
-				neighElev := hm.Get(neighbor)
-				if neighElev < lowestElev {
-					lowestElev = neighElev
-					lowestIdx = neighbor.Face*resSq + neighbor.Y*res + neighbor.X
-				}
-			}
-			hydro.FlowDirection[idx] = lowestIdx
-		}
-
-		sort.Slice(nodes, func(i, j int) bool {
-			return nodes[i].elev > nodes[j].elev
-		})
-
-		// Re-accumulate flux
-		for _, node := range nodes {
-			downhillIdx := hydro.FlowDirection[node.idx]
-			if downhillIdx >= 0 && downhillIdx < totalCells {
-				hydro.Flux[downhillIdx] += hydro.Flux[node.idx]
-			}
-		}
-	}
-
-	return hydro
+	return CalculateFlowField(hm, rainfall)
 }
 
 // CoordToIndex converts a spherical coordinate to a flat index
@@ -196,6 +147,86 @@ func (h *HydrologyLayer) IsSink(coord spatial.Coordinate) bool {
 		return h.FlowDirection[idx] == -1
 	}
 	return true
+}
+
+// CalculateGlobalFluxWithRainfall computes flow accumulation using spatially-variable rainfall.
+// It uses the rainfall array to initialize Flux, then accumulates downhill.
+// If rainfall is nil or wrong length, falls back to uniform 1.0.
+func CalculateGlobalFluxWithRainfall(hm *SphereHeightmap, rainfall []float64) {
+	topology := hm.Topology()
+	res := hm.Resolution()
+	totalCells := 6 * res * res
+	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+
+	useRainfall := rainfall != nil && len(rainfall) == totalCells
+
+	// 1. Initialize Flux from rainfall array
+	for face := 0; face < 6; face++ {
+		for y := 0; y < res; y++ {
+			for x := 0; x < res; x++ {
+				idx := face*res*res + y*res + x
+				if useRainfall {
+					hm.cellData[face][y*res+x].Flux = rainfall[idx]
+				} else {
+					hm.cellData[face][y*res+x].Flux = 1.0
+				}
+			}
+		}
+	}
+
+	// 2. Create a list of all cells to sort by elevation
+	type cellNode struct {
+		coord spatial.Coordinate
+		elev  float64
+	}
+
+	nodes := make([]cellNode, 0, totalCells)
+
+	for face := 0; face < 6; face++ {
+		for y := 0; y < res; y++ {
+			for x := 0; x < res; x++ {
+				c := spatial.Coordinate{Face: face, X: x, Y: y}
+				nodes = append(nodes, cellNode{
+					coord: c,
+					elev:  hm.Get(c),
+				})
+			}
+		}
+	}
+
+	// 3. Sort by Elevation (Highest to Lowest)
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].elev > nodes[j].elev
+	})
+
+	// 4. Distribute Flux
+	for _, node := range nodes {
+		currentCoord := node.coord
+		currentElev := node.elev
+		currentData := hm.GetCellData(currentCoord)
+
+		// Find lowest neighbor
+		var lowestNeighbor *spatial.Coordinate
+		lowestElev := currentElev
+
+		for _, dir := range directions {
+			n := topology.GetNeighbor(currentCoord, dir)
+			nElev := hm.Get(n)
+
+			if nElev < lowestElev {
+				lowestElev = nElev
+				nCopy := n
+				lowestNeighbor = &nCopy
+			}
+		}
+
+		// If a lower neighbor exists, pass flux to it
+		if lowestNeighbor != nil {
+			neighborData := hm.GetCellData(*lowestNeighbor)
+			neighborData.Flux += currentData.Flux
+			hm.SetCellData(*lowestNeighbor, neighborData)
+		}
+	}
 }
 
 // CalculateGlobalFlux computes flow accumulation for every cell.

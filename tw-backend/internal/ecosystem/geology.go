@@ -47,6 +47,7 @@ type WorldGeology struct {
 	Rivers     [][]geography.Point
 	Biomes     []geography.Biome
 	Satellites []astronomy.Satellite // Natural satellites
+	Rainfall   []float64             // Per-cell rainfall (Phase 7: Dynamic Weather)
 
 	// Simulation state
 	TotalYearsSimulated int64
@@ -256,7 +257,30 @@ func (g *WorldGeology) InitializeGeology() {
 
 	// Generate initial rivers and hydrology
 	if g.SphereHeightmap != nil {
-		geography.CalculateGlobalFlux(g.SphereHeightmap)
+		// Phase 7: Generate rainfall map from atmosphere simulation
+		rainfallConfig := weather.DefaultRainfallConfig(g.SeaLevel)
+		rawRainfall := weather.GenerateRainfallMap(g.SphereHeightmap, g.Topology, rainfallConfig)
+
+		// Normalize rainfall to prevent sudden massive erosion
+		// ScalingFactor = TotalCells / TotalRainfall (target mean of 1.0)
+		totalCells := 6 * g.Topology.Resolution() * g.Topology.Resolution()
+		totalRainfall := 0.0
+		for _, r := range rawRainfall {
+			totalRainfall += r
+		}
+
+		scalingFactor := float64(totalCells) / totalRainfall
+		if totalRainfall == 0 || scalingFactor > 100 {
+			scalingFactor = 1.0 // Fallback to uniform
+		}
+
+		g.Rainfall = make([]float64, len(rawRainfall))
+		for i, r := range rawRainfall {
+			g.Rainfall[i] = r * scalingFactor
+		}
+
+		// Pass normalized rainfall to flux calculation
+		geography.CalculateGlobalFluxWithRainfall(g.SphereHeightmap, g.Rainfall)
 
 		// River Erosion (Phase 6b)
 		// Carve valleys along high-flux paths before lake filling
@@ -908,7 +932,8 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 				geography.FormBeaches(g.SphereHeightmap, g.Topology, g.SeaLevel)
 
 				// Re-run Hydrology to update persistence features
-				geography.CalculateGlobalFlux(g.SphereHeightmap)
+				// Phase 7: Use rainfall-driven flux instead of uniform
+				geography.CalculateGlobalFluxWithRainfall(g.SphereHeightmap, g.Rainfall)
 				geography.ApplyRiverErosion(g.SphereHeightmap, 50.0, 5.0, g.SeaLevel) // Carve valleys
 				lakes := geography.FillDepressions(g.SphereHeightmap, g.SeaLevel)
 				geography.RouteFluxThroughLakes(g.SphereHeightmap, lakes)
