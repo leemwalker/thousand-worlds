@@ -130,7 +130,7 @@
         const payload = highRes ? { width: 4096, height: 2048 } : {}; // Empty = defaults (2048x1024)
 
         // Send command to request world map data
-        gameWebSocket.sendCommand("world_map_image", payload);
+        gameWebSocket.sendRawCommand("world_map_image", payload);
 
         // Timeout logic only for initial load
         if (!highRes) {
