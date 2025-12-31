@@ -486,6 +486,20 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 							dzdx = (rightElev - leftElev) * reliefScale
 							dzdy = (upElev - downElev) * reliefScale
 
+							// Cap extreme slope values to prevent black/white artifacts at plate boundaries
+							// Plate boundaries can have 10000+ meter elevation changes between neighbors
+							maxSlope := 1.5 // Reasonable max slope for visual shading
+							if dzdx > maxSlope {
+								dzdx = maxSlope
+							} else if dzdx < -maxSlope {
+								dzdx = -maxSlope
+							}
+							if dzdy > maxSlope {
+								dzdy = maxSlope
+							} else if dzdy < -maxSlope {
+								dzdy = -maxSlope
+							}
+
 							// Calculate surface normal from gradient
 							// Normal = (-dz/dx, 1, -dz/dy) normalized
 							nx := -dzdx
