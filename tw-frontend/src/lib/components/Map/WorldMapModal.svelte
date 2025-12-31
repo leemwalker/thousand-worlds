@@ -50,6 +50,10 @@
     // Globe view toggle (3D sphere vs 2D flat map)
     let useGlobeView = false;
     let globeTextureBlob: Blob | null = null;
+    let globeHeightData: ArrayBuffer | null = null;
+    let globeSeaLevel = 0;
+    let globeMaxElevation = 8848;
+    let globeMinElevation = -11000;
 
     // Overlay state
     let activeLayers: Set<OverlayMode> = new Set();
@@ -302,6 +306,22 @@
             // Store blob for globe view (Babylon.js)
             if (payload.imageBlob) {
                 globeTextureBlob = payload.imageBlob;
+            }
+
+            // Store height data for globe terrain displacement
+            if (payload.gridData && payload.gridData.byteLength > 0) {
+                globeHeightData = payload.gridData;
+            }
+
+            // Store elevation metadata for globe
+            if (payload.sea_level !== undefined) {
+                globeSeaLevel = payload.sea_level;
+            }
+            if (payload.max_elevation !== undefined) {
+                globeMaxElevation = payload.max_elevation;
+            }
+            if (payload.min_elevation !== undefined) {
+                globeMinElevation = payload.min_elevation;
             }
 
             if (
@@ -707,7 +727,13 @@
                 >
                     {#if useGlobeView}
                         <!-- 3D Globe View (Babylon.js) -->
-                        <BabylonGlobe textureBlob={globeTextureBlob} />
+                        <BabylonGlobe
+                            textureBlob={globeTextureBlob}
+                            heightData={globeHeightData}
+                            seaLevel={globeSeaLevel}
+                            maxElevation={globeMaxElevation}
+                            minElevation={globeMinElevation}
+                        />
                     {:else}
                         <!-- 2D Flat Map View -->
                         <canvas

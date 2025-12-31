@@ -3,24 +3,37 @@
     import { Engine } from "@babylonjs/core/Engines/engine";
     import { Scene } from "@babylonjs/core/scene";
     import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
+    import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
     import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
     import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
     import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
     import { Texture } from "@babylonjs/core/Materials/Textures/texture";
+    import { RawTexture } from "@babylonjs/core/Materials/Textures/rawTexture";
     import { Vector3 } from "@babylonjs/core/Maths/math.vector";
     import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
+    import type { Mesh } from "@babylonjs/core/Meshes/mesh";
+    import type { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData";
 
     // Props
     export let textureBlob: Blob | null = null;
+    export let heightData: ArrayBuffer | null = null; // Binary elevation data
+    export let seaLevel: number = 0;
+    export let maxElevation: number = 8848;
+    export let minElevation: number = -11000;
 
     // Internal state
     let canvas: HTMLCanvasElement;
     let engine: Engine | null = null;
     let scene: Scene | null = null;
     let camera: ArcRotateCamera | null = null;
+    let globe: Mesh | null = null;
     let globeTexture: Texture | null = null;
     let globeMaterial: StandardMaterial | null = null;
     let objectUrl: string | null = null;
+    let sunLight: DirectionalLight | null = null;
+
+    // Terrain exaggeration factor (makes mountains visible from space)
+    const TERRAIN_SCALE = 0.05; // 5% of radius for max height
 
     onMount(() => {
         if (!canvas) return;
@@ -36,40 +49,50 @@
         scene = new Scene(engine);
         scene.clearColor = new Color4(0.02, 0.02, 0.06, 1); // Dark space #050510
 
-        // Hemispheric light for even illumination
-        const light = new HemisphericLight(
-            "light",
+        // Directional light (like the sun) for dynamic shadows
+        sunLight = new DirectionalLight(
+            "sun",
+            new Vector3(-1, -0.5, -0.5).normalize(),
+            scene,
+        );
+        sunLight.intensity = 1.2;
+        sunLight.diffuse = new Color3(1.0, 0.98, 0.95); // Slightly warm sunlight
+
+        // Ambient light for areas not in direct sunlight
+        const ambient = new HemisphericLight(
+            "ambient",
             new Vector3(0, 1, 0),
             scene,
         );
-        light.intensity = 1.0;
-        light.groundColor = new Color3(0.3, 0.3, 0.4); // Slight ambient from below
+        ambient.intensity = 0.4;
+        ambient.groundColor = new Color3(0.1, 0.1, 0.15);
 
         // ArcRotateCamera for orbit controls
         camera = new ArcRotateCamera(
             "camera",
             Math.PI / 2, // alpha (horizontal rotation)
-            Math.PI / 2, // beta (vertical rotation)
+            Math.PI / 3, // beta (vertical rotation - 60 degrees from pole)
             3, // radius (distance from target)
             Vector3.Zero(),
             scene,
         );
         camera.attachControl(canvas, true);
-        camera.lowerRadiusLimit = 1.5; // Prevent clipping into planet
+        camera.lowerRadiusLimit = 1.3; // Prevent clipping into planet
         camera.upperRadiusLimit = 10; // Don't lose planet
         camera.wheelPrecision = 50; // Scroll zoom sensitivity
         camera.panningSensibility = 0; // Disable panning, only rotate
 
-        // Create globe mesh
-        const globe = MeshBuilder.CreateSphere(
+        // Create high-resolution globe mesh for displacement
+        globe = MeshBuilder.CreateSphere(
             "globe",
-            { segments: 48, diameter: 2 },
+            { segments: 128, diameter: 2, updatable: true },
             scene,
         );
 
         // Create material for globe
         globeMaterial = new StandardMaterial("globeMaterial", scene);
-        globeMaterial.specularColor = new Color3(0.1, 0.1, 0.1); // Low specular
+        globeMaterial.specularColor = new Color3(0.2, 0.2, 0.25); // Slight specular for oceans
+        globeMaterial.specularPower = 32;
         globeMaterial.backFaceCulling = true;
         globe.material = globeMaterial;
 
@@ -96,6 +119,11 @@
     // React to texture blob changes
     $: if (textureBlob && scene && globeMaterial) {
         updateTexture(textureBlob);
+    }
+
+    // React to height data changes
+    $: if (heightData && scene && globe) {
+        applyHeightDisplacement(heightData);
     }
 
     async function updateTexture(blob: Blob) {
@@ -138,6 +166,80 @@
 
         // Apply to material
         globeMaterial.diffuseTexture = globeTexture;
+    }
+
+    function applyHeightDisplacement(data: ArrayBuffer) {
+        if (!globe || !scene) return;
+
+        // Parse height data (assuming Float32Array of normalized elevations)
+        // Format: width (u16), height (u16), then Float32 elevation values
+        const view = new DataView(data);
+        const gridWidth = view.getUint16(0, true);
+        const gridHeight = view.getUint16(2, true);
+
+        console.log(
+            `[BabylonGlobe] Applying displacement: ${gridWidth}x${gridHeight}`,
+        );
+
+        // Get vertex positions from sphere
+        const positions = globe.getVerticesData("position");
+        const normals = globe.getVerticesData("normal");
+
+        if (!positions || !normals) {
+            console.error("[BabylonGlobe] No vertex data available");
+            return;
+        }
+
+        const newPositions = new Float32Array(positions.length);
+        const elevationRange = maxElevation - minElevation;
+
+        // For each vertex, sample height and displace along normal
+        for (let i = 0; i < positions.length; i += 3) {
+            const x = positions[i];
+            const y = positions[i + 1];
+            const z = positions[i + 2];
+
+            const nx = normals[i];
+            const ny = normals[i + 1];
+            const nz = normals[i + 2];
+
+            // Convert vertex position to UV coordinates (equirectangular)
+            // Position is on unit sphere, convert to lat/lon
+            const len = Math.sqrt(x * x + y * y + z * z);
+            const lat = Math.asin(y / len); // -PI/2 to PI/2
+            const lon = Math.atan2(z, x); // -PI to PI
+
+            // UV coordinates
+            const u = (lon + Math.PI) / (2 * Math.PI); // 0 to 1
+            const v = (lat + Math.PI / 2) / Math.PI; // 0 to 1
+
+            // Sample height from grid
+            const gridX = Math.floor(u * (gridWidth - 1));
+            const gridY = Math.floor((1 - v) * (gridHeight - 1)); // Flip Y
+            const idx = 4 + (gridY * gridWidth + gridX) * 4; // Skip header, 4 bytes per float
+
+            let height = 0;
+            if (idx + 4 <= data.byteLength) {
+                height = view.getFloat32(idx, true);
+            }
+
+            // Normalize height to displacement (0 = sea level, varies by elevation)
+            const normalizedHeight = (height - seaLevel) / elevationRange;
+            const displacement = normalizedHeight * TERRAIN_SCALE;
+
+            // Displace vertex along normal
+            newPositions[i] = x + nx * displacement;
+            newPositions[i + 1] = y + ny * displacement;
+            newPositions[i + 2] = z + nz * displacement;
+        }
+
+        // Update mesh with new positions
+        globe.updateVerticesData("position", newPositions);
+
+        // Recompute normals for proper lighting
+        globe.createNormals(true);
+
+        console.log("[BabylonGlobe] Displacement applied successfully");
     }
 
     onDestroy(() => {
