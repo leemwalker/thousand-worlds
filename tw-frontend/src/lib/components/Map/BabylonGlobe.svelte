@@ -100,6 +100,18 @@
         // Create starfield background
         createStarfield(scene);
 
+        console.log(
+            "[BabylonGlobe] Scene initialized, checking for existing textureBlob...",
+        );
+
+        // Check if textureBlob was already set before scene was ready
+        if (textureBlob && globeMaterial) {
+            console.log(
+                "[BabylonGlobe] Found existing textureBlob, applying now...",
+            );
+            updateTexture(textureBlob);
+        }
+
         // Render loop
         engine.runRenderLoop(() => {
             if (scene) {
@@ -122,11 +134,20 @@
 
     // React to texture blob changes
     $: if (textureBlob && scene && globeMaterial) {
+        console.log(
+            "[BabylonGlobe] Reactive: textureBlob received, size:",
+            textureBlob.size,
+        );
         updateTexture(textureBlob);
+    } else if (textureBlob && !scene) {
+        console.log(
+            "[BabylonGlobe] Reactive: textureBlob received but scene not ready",
+        );
     }
 
     // React to height data changes
     $: if (heightData && scene && globe) {
+        console.log("[BabylonGlobe] Reactive: heightData received");
         applyHeightDisplacement(heightData);
     }
 
