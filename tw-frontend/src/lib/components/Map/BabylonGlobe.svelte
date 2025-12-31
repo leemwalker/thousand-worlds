@@ -241,33 +241,57 @@
             objectUrl = null;
         }
 
-        // Create object URL from blob
-        objectUrl = URL.createObjectURL(blob);
+        try {
+            // Create object URL and load as image
+            objectUrl = URL.createObjectURL(blob);
+            const img = new Image();
 
-        // Create new texture
-        globeTexture = new Texture(
-            objectUrl,
-            scene,
-            false,
-            true,
-            Texture.TRILINEAR_SAMPLINGMODE,
-            () => {
-                console.log("[BabylonGlobe] Texture loaded successfully");
-            },
-            (message: string, exception: unknown) => {
-                console.error(
-                    "[BabylonGlobe] Texture load failed:",
-                    message,
-                    exception,
-                );
-            },
-        );
+            await new Promise<void>((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = () => reject(new Error("Failed to load image"));
+                img.src = objectUrl!;
+            });
 
-        // Fix WebGL Y-flip (equirectangular textures are often inverted)
-        globeTexture.vScale = -1;
+            console.log(
+                `[BabylonGlobe] Image loaded: ${img.width}x${img.height}`,
+            );
 
-        // Apply to material
-        globeMaterial.diffuseTexture = globeTexture;
+            // Draw to canvas to get pixel data
+            const canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext("2d");
+
+            if (!ctx) {
+                console.error("[BabylonGlobe] Failed to get canvas context");
+                return;
+            }
+
+            // Flip vertically for WebGL
+            ctx.translate(0, img.height);
+            ctx.scale(1, -1);
+            ctx.drawImage(img, 0, 0);
+
+            const imageData = ctx.getImageData(0, 0, img.width, img.height);
+
+            // Create RawTexture from pixel data
+            globeTexture = RawTexture.CreateRGBATexture(
+                imageData.data,
+                img.width,
+                img.height,
+                scene!,
+                true, // generateMipMaps
+                false, // invertY (already flipped)
+                Texture.TRILINEAR_SAMPLINGMODE,
+            );
+
+            // Apply to material
+            globeMaterial!.diffuseTexture = globeTexture;
+
+            console.log("[BabylonGlobe] Planet texture applied successfully");
+        } catch (err) {
+            console.error("[BabylonGlobe] Texture load failed:", err);
+        }
     }
 
     function applyHeightDisplacement(data: ArrayBuffer) {
