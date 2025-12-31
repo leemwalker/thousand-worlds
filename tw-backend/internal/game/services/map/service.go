@@ -72,15 +72,15 @@ func NewService(
 	config := RenderConfig{
 		MaxHeight:        4096,
 		MaxWidth:         8192,
-		DefaultHeight:    2048,             // Upgraded for 4K default
-		DefaultWidth:     4096,             // 4K default width
-		WebPQuality:      85,               // High quality
-		RenderTimeout:    30 * time.Second, // Increased for 4K rendering with hillshading
-		ConcurrencyLimit: 2,                // Hard limit as per requirements
+		DefaultHeight:    2048,              // Upgraded for 4K default
+		DefaultWidth:     4096,              // 4K default width
+		WebPQuality:      85,                // High quality
+		RenderTimeout:    120 * time.Second, // Increased to 2m for 4K rendering safety
+		ConcurrencyLimit: 2,                 // Hard limit as per requirements
 	}
 
 	pool := NewRendererPool(config.ConcurrencyLimit)
-	cache := NewMapCache(120 * time.Second) // 2 min TTL cache - longer for expensive 4K renders
+	cache := NewMapCache(300 * time.Second) // 5 min TTL cache
 
 	s.renderer = NewRenderer(config, pool, cache)
 
