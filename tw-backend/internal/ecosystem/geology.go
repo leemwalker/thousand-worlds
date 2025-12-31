@@ -61,6 +61,7 @@ type WorldGeology struct {
 	ErosionAccumulator           float64 // Years of accumulated erosion potential
 	DepositAccumulator           float64 // Years of accumulated organic deposit time
 	RiverAccumulator             float64 // Years of accumulated river/biome update time
+	WeatherAccumulator           float64 // Years of accumulated weather/rainfall update time
 	MaintenanceAccumulator       float64 // Years of accumulated maintenance time (subsidence, clamping, stats)
 	GeneralAccumulator           float64 // Years of accumulated time for lower frequency events
 	PlateReassignmentAccumulator float64 // Years since last plate region reassignment (triggers drift)
@@ -766,6 +767,7 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 	g.DepositAccumulator += dtFloat
 	g.RiverAccumulator += dtFloat
 	g.MaintenanceAccumulator += dtFloat
+	g.WeatherAccumulator += dtFloat
 	g.GeneralAccumulator += dtFloat
 
 	// OPTIMIZATION: Cap all accumulators to prevent explosion when crossing heat thresholds
@@ -787,6 +789,10 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 	}
 	if g.GeneralAccumulator > maxAccumulatorValue {
 		g.GeneralAccumulator = maxAccumulatorValue
+	}
+	// Weather interval is 5M, so cap needs to be higher (e.g. 10M)
+	if g.WeatherAccumulator > maxAccumulatorValue*10 {
+		g.WeatherAccumulator = maxAccumulatorValue * 10
 	}
 
 	// [... rest of existing SimulateGeology code stays the same until line 762 ...]
@@ -1113,6 +1119,15 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 	g.updateHeightmapStats()
 	statsTime += time.Since(statsStart)
 
+	// === DYNAMIC WEATHER ===
+	// Recalculate rainfall map periodically to reflect continental drift
+	// Run every 5 Million years (tectonics moves ~100km in that time)
+	weatherInterval := 5_000_000.0
+	if g.WeatherAccumulator >= weatherInterval {
+		g.updateRainfall()
+		g.WeatherAccumulator = math.Mod(g.WeatherAccumulator, weatherInterval)
+	}
+
 	// === Ocean Phase Transition Logic ===
 	oceanPhaseStart := time.Now()
 	// Model water vapor ↔ liquid phase changes based on surface temperature
@@ -1160,7 +1175,11 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 
 	// Smooth transition (exponential relaxation)
 	// Prevents jarring jumps, simulates realistic evaporation/condensation timescales
-	smoothingFactor := 0.1
+	// Use exponential decay to be time-step independent: value += (target - value) * (1 - e^(-k * dt))
+	// k=1.0e-4 gives ~10% change per 1000 years, reasonable for phase change lag
+	const phaseChangeRate = 1.0e-4
+	smoothingFactor := 1.0 - math.Exp(-phaseChangeRate*float64(dt))
+
 	g.SeaLevel += (targetSeaLevel - g.SeaLevel) * smoothingFactor
 
 	// Detect "Great Deluge" event (water condensing from atmosphere to form oceans)
@@ -1489,6 +1508,40 @@ func (g *WorldGeology) applyIceAgeEffects(severity float64) {
 				}
 			}
 		}
+	}
+}
+
+// updateRainfall recalculates the global rainfall map based on current terrain and latitude.
+// This ensures that as continents drift, their climate changes (e.g. crossing ITCZ or desert belts).
+func (g *WorldGeology) updateRainfall() {
+	if g.SphereHeightmap == nil || g.Topology == nil {
+		return
+	}
+
+	// Use default config, but we could make this dynamic based on global temp
+	config := weather.DefaultRainfallConfig(g.SeaLevel)
+
+	// Recalculate rainfall
+	rawRainfall := weather.GenerateRainfallMap(g.SphereHeightmap, g.Topology, config)
+
+	// Normalize rainfall (matches initialization logic)
+	totalCells := 6 * g.Topology.Resolution() * g.Topology.Resolution()
+	totalRainfall := 0.0
+	for _, r := range rawRainfall {
+		totalRainfall += r
+	}
+
+	scalingFactor := float64(totalCells) / totalRainfall
+	if totalRainfall == 0 || scalingFactor > 100 {
+		scalingFactor = 1.0
+	}
+
+	// Update the rainfall map
+	if len(g.Rainfall) != len(rawRainfall) {
+		g.Rainfall = make([]float64, len(rawRainfall))
+	}
+	for i, r := range rawRainfall {
+		g.Rainfall[i] = r * scalingFactor
 	}
 }
 
