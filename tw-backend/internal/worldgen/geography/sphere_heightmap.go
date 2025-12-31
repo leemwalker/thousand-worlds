@@ -18,6 +18,10 @@ type CellData struct {
 	IsLake       bool    // Part of a lake (Phase 6)
 	LakeID       int     // ID of the lake (Phase 6)
 	LakeDepth    float64 // Depth of water in meters (Surface - Bedrock) (Phase 6)
+	// Coastal features (Phase 4)
+	IsIntertidal bool // In tidal zone (exposed at low tide, submerged at high)
+	IsEstuary    bool // River-ocean mixing zone
+	IsSpit       bool // Extended sediment bar
 }
 
 // SphereHeightmap wraps 6 flat Heightmaps into a spherical surface

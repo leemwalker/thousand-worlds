@@ -900,6 +900,16 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 				deltaConfig := geography.DefaultDeltaConfig()
 				geography.FormDeltasAtRiverMouths(g.SphereHeightmap, g.Topology, g.SeaLevel, g.Seed+g.TotalYearsSimulated, deltaConfig)
 
+				// Phase 4: Advanced Coastal Features
+				// Mark intertidal zones (tidal flats exposed at low tide)
+				geography.MarkIntertidalZones(g.SphereHeightmap, g.Topology, g.SeaLevel, coastalConfig.TidalRange)
+
+				// Form estuaries at river mouths (widened mixing zones)
+				geography.FormEstuaries(g.SphereHeightmap, g.Topology, g.SeaLevel, 150.0) // Flux > 150
+
+				// Form spits and bars across bay openings
+				geography.FormSpitsAndBars(g.SphereHeightmap, g.Topology, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
+
 				g.markSphereNeedsSync()
 			} else {
 				// Fallback for flat heightmap (legacy)

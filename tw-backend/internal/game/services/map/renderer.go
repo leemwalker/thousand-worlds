@@ -234,7 +234,7 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 							elev := geo.SphereHeightmap.Get(coord)
 
 							// Color Mapping (Photorealistic - Lifeless Protoplanet)
-							// Phase 3: Enhanced with coastal features
+							// Phase 3-4: Enhanced with coastal features
 							var r, g, b uint8
 
 							// Get cell data for sediment info
@@ -251,12 +251,15 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 									depthFactor = 1.0
 								}
 
-								// Check for river mouth (high flux + shallow)
-								isRiverMouth := flux > 100 && depthFactor < 0.1
-
-								if isRiverMouth {
+								// Phase 4: Estuary coloring (brackish water)
+								if cellData.IsEstuary {
+									// Brownish-green brackish water
+									r, g, b = 55, 50, 40
+								} else if cellData.IsSpit && depthFactor < 0.1 {
+									// Shallow water over spit - very light blue
+									r, g, b = 40, 55, 65
+								} else if flux > 100 && depthFactor < 0.1 {
 									// Muddy brown water at river deltas
-									// 60, 45, 30 (brown-grey)
 									r, g, b = 60, 45, 30
 								} else if depthFactor < 0.05 {
 									// Very shallow water - may show through to sediment
@@ -284,12 +287,24 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 									heightFactor = 1.0
 								}
 
-								// Check for beach (low elevation + high sediment)
-								isBeach := heightFactor < 0.02 && sediment > 0.5
-
-								if isBeach {
+								// Phase 4: Intertidal zone coloring (wet rock/sand)
+								if cellData.IsIntertidal {
+									// Wet dark rock/sand exposed at low tide
+									if sediment > 0.5 {
+										// Wet sand
+										r, g, b = 120, 110, 90
+									} else {
+										// Wet rock
+										r, g, b = 45, 45, 50
+									}
+								} else if cellData.IsSpit {
+									// Sandy spit/bar (light tan)
+									r, g, b = 170, 155, 130
+								} else if cellData.IsEstuary {
+									// Marshy estuary (darker, muddy)
+									r, g, b = 70, 65, 50
+								} else if heightFactor < 0.02 && sediment > 0.5 {
 									// Beach sand color (tan)
-									// 180, 160, 130
 									r, g, b = 180, 160, 130
 								} else if heightFactor < 0.1 {
 									// Lowlands - check for sediment (alluvial plains)
