@@ -91,6 +91,7 @@
 
         // Create material for globe
         globeMaterial = new StandardMaterial("globeMaterial", scene);
+        globeMaterial.diffuseColor = new Color3(0.2, 0.2, 0.25); // Default dark before texture loads
         globeMaterial.specularColor = new Color3(0.2, 0.2, 0.25); // Slight specular for oceans
         globeMaterial.specularPower = 32;
         globeMaterial.backFaceCulling = true;
@@ -139,7 +140,8 @@
 
         // Create material for stars - emissive only (no lighting needed)
         const starMaterial = new StandardMaterial("starMaterial", s);
-        starMaterial.emissiveColor = new Color3(1, 1, 1);
+        starMaterial.diffuseColor = new Color3(0, 0, 0); // No diffuse
+        starMaterial.emissiveColor = new Color3(1, 1, 1); // Texture will show through
         starMaterial.disableLighting = true;
         starMaterial.backFaceCulling = false; // Render inside of sphere
 
