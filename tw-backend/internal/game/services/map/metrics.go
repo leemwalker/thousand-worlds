@@ -28,4 +28,24 @@ var (
 		Help:    "Size of generated map images in bytes",
 		Buckets: prometheus.ExponentialBuckets(1024*100, 2, 10), // 100KB to ~100MB
 	})
+
+	// Cache metrics (Sprint 1)
+	metricCacheHits = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "game_map_cache_hits_total",
+		Help: "Total number of render cache hits",
+	})
+
+	metricCacheMisses = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "game_map_cache_misses_total",
+		Help: "Total number of render cache misses",
+	})
+
+	// Render error breakdown (Sprint 1)
+	metricRenderErrors = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "game_map_render_errors_total",
+			Help: "Total render errors by type",
+		},
+		[]string{"error_type"}, // timeout, encoding, loading, concurrency
+	)
 )

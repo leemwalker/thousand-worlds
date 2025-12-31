@@ -37,6 +37,7 @@ func GetCacheKey(worldID string, width, height int, version int64) string {
 func (c *MapCache) Get(key string) ([]byte, bool) {
 	val, ok := c.entries.Load(key)
 	if !ok {
+		metricCacheMisses.Inc()
 		return nil, false
 	}
 	entry := val.(MapCacheEntry)
@@ -44,9 +45,11 @@ func (c *MapCache) Get(key string) ([]byte, bool) {
 	// Double check TTL (though eviction loop generally handles this)
 	if time.Since(entry.Timestamp) > c.ttl {
 		c.entries.Delete(key)
+		metricCacheMisses.Inc()
 		return nil, false
 	}
 
+	metricCacheHits.Inc()
 	return entry.ImageBytes, true
 }
 
