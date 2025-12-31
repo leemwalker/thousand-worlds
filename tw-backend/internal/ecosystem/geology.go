@@ -874,6 +874,19 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 				}
 				geography.ApplyDifferentialErosion(g.SphereHeightmap, g.Topology, numDrops, g.Seed+g.TotalYearsSimulated, g.SeaLevel)
 
+				// Coastal Erosion: Wave-driven erosion for realistic coastlines
+				// Applies fetch-based wave energy, cliff retreat, and sediment transport
+				coastalConfig := geography.DefaultCoastalConfig()
+				// Scale tidal range based on satellite physics if available
+				if len(g.Satellites) > 0 {
+					// Use astronomy package to calculate tidal stress
+					tidalStress := astronomy.CalculateTidalStress(g.Satellites)
+					// Earth has ~2m average tidal range at 1.0x stress
+					coastalConfig.TidalRange = 2.0 * tidalStress
+				}
+				geography.SimulateCoastalErosion(g.SphereHeightmap, g.Topology, erosionInterval, g.SeaLevel, coastalConfig)
+				geography.FormBeaches(g.SphereHeightmap, g.Topology, g.SeaLevel)
+
 				// Re-run Hydrology to update persistence features
 				geography.CalculateGlobalFlux(g.SphereHeightmap)
 				geography.ApplyRiverErosion(g.SphereHeightmap, 50.0, 5.0, g.SeaLevel) // Carve valleys
