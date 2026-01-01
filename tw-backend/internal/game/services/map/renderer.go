@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"image"
+	"image/color"
+	"image/png"
 	"log"
 	"math"
 	"runtime"
@@ -115,6 +117,106 @@ func (r *Renderer) RenderWorldMap(ctx context.Context, worldID string, geo *ecos
 		metricRenderDuration.WithLabelValues("timeout").Observe(r.config.RenderTimeout.Seconds())
 		return nil, ErrRenderTimeout
 	}
+}
+
+// RenderHeightmapPNG generates a 16-bit grayscale PNG of the world's elevation data.
+// This format is GPU-friendly for displacement mapping in 3D renderers.
+func (r *Renderer) RenderHeightmapPNG(ctx context.Context, worldID string, geo *ecosystem.WorldGeology, width, height int) ([]byte, error) {
+	// Validation
+	if width <= 0 {
+		width = r.config.DefaultWidth
+	}
+	if height <= 0 {
+		height = r.config.DefaultHeight
+	}
+	if width > r.config.MaxWidth {
+		width = r.config.MaxWidth
+	}
+	if height > r.config.MaxHeight {
+		height = r.config.MaxHeight
+	}
+
+	// Require either SphereHeightmap or flat Heightmap
+	var minElev, maxElev float64
+	var getHeight func(x, y int) float64
+
+	if geo.SphereHeightmap != nil {
+		// Use spherical heightmap (lat/lon projection)
+		topo := geo.SphereHeightmap.Topology()
+		minElev, maxElev = geo.SphereHeightmap.MinMax()
+		getHeight = func(x, y int) float64 {
+			tY := float64(y) / float64(height)
+			lat := (0.5 - tY) * math.Pi
+			tX := float64(x) / float64(width)
+			lon := (tX - 0.5) * 2 * math.Pi
+
+			// Convert lat/lon to unit vector
+			cosLat := math.Cos(lat)
+			sinLat := math.Sin(lat)
+			cosLon := math.Cos(lon)
+			sinLon := math.Sin(lon)
+
+			vx := cosLat * cosLon
+			vy := sinLat
+			vz := cosLat * sinLon
+
+			coord := topo.FromVector(vx, vy, vz)
+			return geo.SphereHeightmap.Get(coord)
+		}
+	} else if geo.Heightmap != nil {
+		// Fallback to flat heightmap
+		hm := geo.Heightmap
+		minElev, maxElev = hm.Elevations[0], hm.Elevations[0]
+		for _, e := range hm.Elevations {
+			if e < minElev {
+				minElev = e
+			}
+			if e > maxElev {
+				maxElev = e
+			}
+		}
+		getHeight = func(x, y int) float64 {
+			// Map render coordinates to heightmap coordinates
+			hmX := x * hm.Width / width
+			hmY := y * hm.Height / height
+			if hmX >= hm.Width {
+				hmX = hm.Width - 1
+			}
+			if hmY >= hm.Height {
+				hmY = hm.Height - 1
+			}
+			return hm.Elevations[hmY*hm.Width+hmX]
+		}
+	} else {
+		return nil, ErrWorldNotInitialized
+	}
+
+	elevRange := maxElev - minElev
+	if elevRange <= 0 {
+		elevRange = 1.0
+	}
+
+	// Create 16-bit grayscale image
+	img := image.NewGray16(image.Rect(0, 0, width, height))
+
+	// Fill image with normalized elevation values
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			elev := getHeight(x, y)
+			// Normalize to 0-65535 range
+			normalized := (elev - minElev) / elevRange
+			val := uint16(normalized * 65535)
+			img.SetGray16(x, y, color.Gray16{Y: val})
+		}
+	}
+
+	// Encode to PNG
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
 
 // renderInternal performs the actual pixel generation and encoding
