@@ -17,6 +17,7 @@
     import type { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData";
     import { LODManager } from "./LODManager";
     import { DisplacementShader } from "./DisplacementShader";
+    import { TileGlobeManager } from "./TileGlobeManager";
 
     // Types for satellite/moon data
     interface Satellite {
@@ -33,6 +34,12 @@
     export let minElevation: number = -11000;
     export let satellites: Satellite[] = []; // Moon data from world
     export let simulationSpeed: number = 1.0; // Time multiplier for animations
+    export let onSendCommand:
+        | ((action: string, message?: string) => void)
+        | null = null; // For tile requests
+
+    // Set up tile command callback
+    $: sendTileCommand = onSendCommand;
 
     // Internal state
     let canvas: HTMLCanvasElement;
@@ -61,6 +68,11 @@
     let lodManager: LODManager | null = null;
     let displacementShader: DisplacementShader | null = null;
     let shaderMaterial: any | null = null; // ShaderMaterial type
+
+    // Tile system for high-resolution streaming
+    let tileGlobeManager: TileGlobeManager | null = null;
+    let sendTileCommand: ((action: string, message?: string) => void) | null =
+        null;
 
     // Animation state
     let lastTime = 0;
@@ -200,6 +212,20 @@
         // Create starfield background
         createStarfield(scene);
 
+        // Initialize tile streaming system (if command callback is provided)
+        if (sendTileCommand && planetNode) {
+            tileGlobeManager = new TileGlobeManager(
+                scene,
+                planetNode,
+                sendTileCommand,
+                {
+                    maxLevel: 4,
+                    maxActiveTiles: 50,
+                },
+            );
+            console.log("[BabylonGlobe] Tile system initialized");
+        }
+
         console.log("[BabylonGlobe] Solar system initialized");
 
         // Check if globeTextureBlob was already set before scene was ready
@@ -239,6 +265,18 @@
                     camera.target = orbitNode.position;
                     // Update LOD based on camera distance
                     lodManager?.update(camera);
+
+                    // Update tile system for high-resolution streaming
+                    if (tileGlobeManager) {
+                        // Enable tiles when zoomed in close (below level 3 threshold)
+                        const cameraDistance = camera.radius || 5;
+                        if (cameraDistance < 2.5) {
+                            tileGlobeManager.enable();
+                            tileGlobeManager.update(camera);
+                        } else {
+                            tileGlobeManager.disable();
+                        }
+                    }
                 }
 
                 // Moon orbital animation
