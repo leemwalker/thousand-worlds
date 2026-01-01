@@ -22,6 +22,9 @@ type CellData struct {
 	IsIntertidal bool // In tidal zone (exposed at low tide, submerged at high)
 	IsEstuary    bool // River-ocean mixing zone
 	IsSpit       bool // Extended sediment bar
+
+	// Crustal Properties (Phase 8b)
+	IsContinental bool // True if this cell is Continental Crust (Granite/Island Arc), False if Oceanic (Basalt)
 }
 
 // SphereHeightmap wraps 6 flat Heightmaps into a spherical surface

@@ -14,7 +14,7 @@ func TestGeneratePlates(t *testing.T) {
 	count := 10
 	seed := int64(12345)
 
-	plates := GeneratePlates(count, topology, seed)
+	plates := GeneratePlates(count, topology, seed, 0.30)
 
 	assert.Equal(t, count, len(plates))
 
@@ -55,7 +55,7 @@ func TestSimulateTectonics(t *testing.T) {
 	count := 5
 	seed := int64(12345)
 
-	plates := GeneratePlates(count, topology, seed)
+	plates := GeneratePlates(count, topology, seed, 0.30)
 	hm := NewSphereHeightmap(topology)
 
 	// Initialize with zeros
@@ -100,7 +100,7 @@ func TestSimulateTectonics(t *testing.T) {
 func TestGenerateProvinces_OnlyContinentalPlates(t *testing.T) {
 	resolution := 32
 	topology := spatial.NewCubeSphereTopology(resolution)
-	plates := GeneratePlates(8, topology, 12345)
+	plates := GeneratePlates(8, topology, 12345, 0.30)
 
 	provinces := GenerateProvinces(plates, topology, 12345)
 
@@ -123,7 +123,7 @@ func TestGenerateProvinces_OnlyContinentalPlates(t *testing.T) {
 func TestGenerateProvinces_HardnessValues(t *testing.T) {
 	resolution := 32
 	topology := spatial.NewCubeSphereTopology(resolution)
-	plates := GeneratePlates(8, topology, 54321)
+	plates := GeneratePlates(8, topology, 54321, 0.30)
 
 	provinces := GenerateProvinces(plates, topology, 54321)
 
@@ -144,7 +144,7 @@ func TestGenerateProvinces_HardnessValues(t *testing.T) {
 func TestGenerateProvinces_3to5PerPlate(t *testing.T) {
 	resolution := 32
 	topology := spatial.NewCubeSphereTopology(resolution)
-	plates := GeneratePlates(8, topology, 99999)
+	plates := GeneratePlates(8, topology, 99999, 0.30)
 
 	provinces := GenerateProvinces(plates, topology, 99999)
 
@@ -170,7 +170,7 @@ func TestGenerateProvinces_3to5PerPlate(t *testing.T) {
 func TestInitializeProvinceHardness_SetsAllContinentalCells(t *testing.T) {
 	resolution := 16
 	topology := spatial.NewCubeSphereTopology(resolution)
-	plates := GeneratePlates(5, topology, 11111)
+	plates := GeneratePlates(5, topology, 11111, 0.30)
 	hm := NewSphereHeightmap(topology)
 
 	provinces := GenerateProvinces(plates, topology, 11111)

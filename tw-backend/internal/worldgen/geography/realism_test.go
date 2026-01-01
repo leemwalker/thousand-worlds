@@ -16,7 +16,7 @@ func TestGeographicRealism(t *testing.T) {
 	topology := spatial.NewCubeSphereTopology(resolution)
 
 	// 1. Tectonics
-	plates := GeneratePlates(10, topology, seed)
+	plates := GeneratePlates(10, topology, seed, 0.30)
 	assert.Equal(t, 10, len(plates))
 
 	// 2. Heightmap
@@ -84,12 +84,12 @@ func TestVariation(t *testing.T) {
 	topology := spatial.NewCubeSphereTopology(resolution)
 
 	seed1 := int64(1001)
-	plates1 := GeneratePlates(5, topology, seed1)
+	plates1 := GeneratePlates(5, topology, seed1, 0.30)
 	hm1 := NewSphereHeightmap(topology)
 	hm1 = GenerateHeightmap(plates1, hm1, topology, seed1, 1.0, 1.0)
 
 	seed2 := int64(1002)
-	plates2 := GeneratePlates(5, topology, seed2)
+	plates2 := GeneratePlates(5, topology, seed2, 0.30)
 	hm2 := NewSphereHeightmap(topology)
 	hm2 = GenerateHeightmap(plates2, hm2, topology, seed2, 1.0, 1.0)
 

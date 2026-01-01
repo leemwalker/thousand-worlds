@@ -205,9 +205,9 @@ func CalculateCollisionResult(cellPlate, neighborPlate TectonicPlate, boundaryTy
 
 // GeneratePlates creates tectonic plates using spherical topology.
 // Uses Multi-Source BFS to assign regions efficiently in O(N) time.
-// Plate types are assigned by AREA to guarantee ~30% continental coverage:
-// largest plates become continental until 30% of total area is covered.
-func GeneratePlates(count int, topology spatial.Topology, seed int64) []TectonicPlate {
+// Plate types are assigned by AREA to guarantee ~continentalPerc continental coverage:
+// largest plates become continental until target % of total area is covered.
+func GeneratePlates(count int, topology spatial.Topology, seed int64, continentalPerc float64) []TectonicPlate {
 	r := rand.New(rand.NewSource(seed))
 	resolution := topology.Resolution()
 	plates := make([]TectonicPlate, count)
@@ -270,11 +270,12 @@ func GeneratePlates(count int, topology spatial.Topology, seed int64) []Tectonic
 		}
 	}
 
-	// 4. Assign Continental to largest plates until ~30% area
-	targetContinentalArea := float64(totalCells) * 0.30
+	// 4. Assign Continental to largest plates until target % area
+	targetContinentalArea := float64(totalCells) * continentalPerc
 	coveredArea := 0.0
 
 	for _, pa := range areas {
+		// If we've met the target (or target is 0.0), stop
 		if coveredArea >= targetContinentalArea {
 			break
 		}
@@ -292,9 +293,12 @@ func GeneratePlates(count int, topology spatial.Topology, seed int64) []Tectonic
 	}
 
 	if debug.Is(debug.Geology) {
-		log.Printf("[PLATE INIT] Continental coverage: %.1f%% (target: 30%%)",
-			coveredArea/float64(totalCells)*100)
+		log.Printf("[PLATE INIT] Continental coverage: %.1f%% (target: %.1f%%)",
+			coveredArea/float64(totalCells)*100, continentalPerc*100)
 	}
+
+	// 5. Initialize Dynamic Motion (Phase 8a)
+	InitializePlateMotion(plates, r)
 
 	return plates
 }
@@ -471,6 +475,41 @@ func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightm
 		// Apply equilibrium-based elevation change with collision physics
 		currentElev := heightmap.Get(bc.Coord)
 		elevationDelta, collisionResult := calculateEquilibriumElevationChangeV2(currentPlate, neighborPlate, bc.BoundaryType, currentElev)
+
+		// Phase 8b: Crustal Accretion Logic
+		// Transform Oceanic Crust -> Continental (Island Arc) via Magmatic Differentiation
+		if collisionResult.Feature == FeatureIslandArc {
+			// Calculate accretion flux based on convergence rate
+			// Flux ~ Velocity * Time (scaleFactor)
+			// Using constant flux for now for simplicity, roughly 0.1 unit per tick
+			flux := 0.1 * scaleFactor
+
+			// Add to plate's total accreted mass
+			plates[bc.PlateIdx].AccretedMass += flux
+
+			// Check local cell data
+			cellData := heightmap.GetCellData(bc.Coord)
+			if !cellData.IsContinental {
+				// Probability of arc formation increases with total accreted mass
+				// or simple threshold. Let's use a local accumulation if we had it,
+				// but for now use the global plate mass as a proxy for "active volcanic era"
+				// combined with checking if we are THE boundary cell.
+
+				// Simplified: Just use a probability roll scaled by flux
+				// This simulates that arcs form at specific points, not everywhere at once
+				if rand.Float64() < (0.05 * scaleFactor) {
+					cellData.IsContinental = true
+					// Raise elevation immediately to sea level to simulate rapid volcano growth
+					if currentElev < -500 {
+						heightmap.Set(bc.Coord, -500) // Just below surface
+					}
+					heightmap.SetCellData(bc.Coord, cellData)
+
+					// Update plate's continental area tracking
+					plates[bc.PlateIdx].ContinentalArea += 1 // Approx 100km^2
+				}
+			}
+		}
 
 		// Apply scale factor for variable time steps
 		elevationDelta *= scaleFactor
@@ -701,10 +740,13 @@ func ApplyIsostaticRelaxation(plates []TectonicPlate, heightmap *SphereHeightmap
 		x := rem % resolution
 		coord := spatial.Coordinate{Face: face, X: x, Y: y}
 
-		// Determine target base elevation from plate type
+		// Determine target base elevation from plate type OR cell data
 		var baseElevation float64
-		if plates[plateIdx].Type == PlateContinental {
-			baseElevation = ContinentalBaseElevation // +150m
+		cellData := heightmap.GetCellData(coord)
+
+		// If cell is Continental (Island Arc/Terrane) OR Plate is Continental -> High elevation
+		if cellData.IsContinental || plates[plateIdx].Type == PlateContinental {
+			baseElevation = ContinentalBaseElevation // +20m
 		} else {
 			baseElevation = OceanicBaseElevation // -4000m
 		}

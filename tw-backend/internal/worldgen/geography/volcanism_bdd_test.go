@@ -60,7 +60,7 @@ func TestBDD_Hotspots_ChainCreation(t *testing.T) {
 	hm := geography.NewSphereHeightmap(topology)
 
 	// Create plates using spherical API
-	plates := geography.GeneratePlates(3, topology, testSeed)
+	plates := geography.GeneratePlates(3, topology, testSeed, 0.30)
 
 	geography.ApplyHotspots(hm, plates, topology, testSeed, 1.0, 1.0)
 
@@ -90,7 +90,7 @@ func TestBDD_Hotspots_Determinism(t *testing.T) {
 	resolution := 16
 	topology := spatial.NewCubeSphereTopology(resolution)
 
-	plates := geography.GeneratePlates(3, topology, testSeed)
+	plates := geography.GeneratePlates(3, topology, testSeed, 0.30)
 
 	hm1 := geography.NewSphereHeightmap(topology)
 	hm2 := geography.NewSphereHeightmap(topology)
@@ -464,7 +464,7 @@ func TestBDD_TidalHeatingEffect(t *testing.T) {
 	resolution := 32
 	topology := spatial.NewCubeSphereTopology(resolution)
 
-	plates := geography.GeneratePlates(3, topology, testSeed)
+	plates := geography.GeneratePlates(3, topology, testSeed, 0.30)
 
 	// Test 1: No moons (tidalStress = 0.0)
 	hmNoMoons := geography.NewSphereHeightmap(topology)

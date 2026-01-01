@@ -230,7 +230,7 @@ func (g *WorldGeology) InitializeGeology() {
 
 	// Generate tectonic plates using spherical topology
 	plateCount := 6 + g.rng.Intn(4) // 6-9 plates for variety
-	g.Plates = geography.GeneratePlates(plateCount, g.Topology, g.Seed)
+	g.Plates = geography.GeneratePlates(plateCount, g.Topology, g.Seed, 0.30)
 
 	// Generate initial heightmap using spherical topology
 	// Create sphere heightmap and convert to flat for legacy consumers

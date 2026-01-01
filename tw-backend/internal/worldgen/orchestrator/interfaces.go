@@ -34,7 +34,7 @@ func (g *DefaultGeographyGenerator) GenerateGeography(params *GenerationParams, 
 	tidalStress := astronomy.CalculateTidalStress(satellites)
 
 	// 1. Generate tectonic plates on the sphere
-	plates := geography.GeneratePlates(params.PlateCount, topology, params.Seed)
+	plates := geography.GeneratePlates(params.PlateCount, topology, params.Seed, 0.30)
 
 	// 2. Create sphere heightmap and apply tectonics (with tidal stress and heat for volcanism)
 	// For world generation, use modern Earth heat baseline (1.0)

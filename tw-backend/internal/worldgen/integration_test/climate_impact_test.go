@@ -21,7 +21,7 @@ func TestRainfallErosionImpact(t *testing.T) {
 	topology := spatial.NewCubeSphereTopology(height)
 
 	// Generate plates using spherical topology
-	plates := geography.GeneratePlates(plateCount, topology, seed)
+	plates := geography.GeneratePlates(plateCount, topology, seed, 0.30)
 
 	// 1. Generate Arid World (RainfallFactor = 0.25)
 	hmAridSphere := geography.NewSphereHeightmap(topology)

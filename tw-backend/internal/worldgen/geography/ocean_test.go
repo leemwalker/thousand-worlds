@@ -80,7 +80,7 @@ func TestNormalizeLandRatio_StabilizesAcrossSeeds(t *testing.T) {
 			topology := spatial.NewCubeSphereTopology(resolution)
 
 			// Generate plates and heightmap like real world gen
-			plates := geography.GeneratePlates(5, topology, seed)
+			plates := geography.GeneratePlates(5, topology, seed, 0.30)
 			hm := geography.NewSphereHeightmap(topology)
 
 			// Set base elevations with gradients (simulating FBM noise variation)

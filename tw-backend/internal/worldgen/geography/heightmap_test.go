@@ -14,7 +14,7 @@ func TestGenerateHeightmap(t *testing.T) {
 	count := 5
 	seed := int64(12345)
 
-	plates := GeneratePlates(count, topology, seed)
+	plates := GeneratePlates(count, topology, seed, 0.30)
 	hm := NewSphereHeightmap(topology)
 	hm = GenerateHeightmap(plates, hm, topology, seed, 1.0, 1.0)
 

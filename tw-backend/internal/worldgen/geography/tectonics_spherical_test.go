@@ -14,7 +14,7 @@ func TestPlateGeneration_Spherical(t *testing.T) {
 	plateCount := 5
 
 	// Generate plates
-	plates := GeneratePlates(plateCount, topology, seed)
+	plates := GeneratePlates(plateCount, topology, seed, 0.30)
 
 	// Verify correct number of plates
 	if len(plates) != plateCount {
@@ -55,7 +55,7 @@ func TestPlateGeneration_CrossFaceBoundary(t *testing.T) {
 	seed := int64(42)
 	plateCount := 3 // Few plates = larger regions = higher chance of crossing
 
-	plates := GeneratePlates(plateCount, topology, seed)
+	plates := GeneratePlates(plateCount, topology, seed, 0.30)
 
 	// Check if any plate exists on multiple faces
 	crossFacePlateFound := false
@@ -137,7 +137,7 @@ func TestSphericalVoronoi_AllCellsCovered(t *testing.T) {
 	seed := int64(123)
 	plateCount := 4
 
-	plates := GeneratePlates(plateCount, topology, seed)
+	plates := GeneratePlates(plateCount, topology, seed, 0.30)
 
 	// Build map of all assigned cells
 	assigned := make(map[spatial.Coordinate]bool)
@@ -167,7 +167,7 @@ func TestSimulateTectonics_Spherical(t *testing.T) {
 	plateCount := 3
 
 	// Generate plates
-	plates := GeneratePlates(plateCount, topology, seed)
+	plates := GeneratePlates(plateCount, topology, seed, 0.30)
 
 	// Create heightmap with base elevations
 	hm := NewSphereHeightmap(topology)

@@ -44,6 +44,14 @@ type TectonicPlate struct {
 	Thickness   float64                         // km (6-10 for oceanic, 30-40 for continental)
 	MeanDensity float64                         // kg/m³ (3000 for oceanic basalt, 2700 for continental granite)
 	Age         float64                         // million years
+
+	// Dynamic Motion (Phase 8a)
+	RotationAxis spatial.Vector3D // Unit vector representing the axis of rotation
+	AngularSpeed float64          // Rotation speed in radians per tick
+
+	// Crustal Accretion (Phase 8b)
+	AccretedMass    float64 // Total mass accreted onto this plate during subduction events
+	ContinentalArea float64 // Current total area of continental crust in km^2
 }
 
 // =============================================================================

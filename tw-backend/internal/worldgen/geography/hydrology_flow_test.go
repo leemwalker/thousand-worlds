@@ -25,7 +25,7 @@ func TestCalculateFlowField_SteepestDescent(t *testing.T) {
 		}
 	}
 
-	hydro := CalculateFlowField(hm)
+	hydro := CalculateFlowField(hm, nil)
 	require.NotNil(t, hydro)
 
 	// Check that flow directions point downhill (toward increasing Y)
@@ -56,7 +56,7 @@ func TestCalculateFlowField_FluxAccumulation(t *testing.T) {
 		}
 	}
 
-	hydro := CalculateFlowField(hm)
+	hydro := CalculateFlowField(hm, nil)
 
 	// Center of valley at bottom should have high flux
 	centerIdx := coordToIndex(spatial.Coordinate{Face: 0, X: 5, Y: 9}, 10)
@@ -87,7 +87,7 @@ func TestCalculateFlowField_IdentifiesSinks(t *testing.T) {
 	// Create a pit at (5, 5) on face 0
 	hm.Set(spatial.Coordinate{Face: 0, X: 5, Y: 5}, 50.0)
 
-	hydro := CalculateFlowField(hm)
+	hydro := CalculateFlowField(hm, nil)
 
 	// The pit should be a sink (FlowDirection == -1)
 	pitIdx := coordToIndex(spatial.Coordinate{Face: 0, X: 5, Y: 5}, 10)
@@ -132,7 +132,7 @@ func TestRiverContinuity_PeakToOcean(t *testing.T) {
 		}
 	}
 
-	hydro := CalculateFlowField(hm)
+	hydro := CalculateFlowField(hm, nil)
 
 	// Trace from peak to see if we reach ocean or a sink
 	currentIdx := coordToIndex(peak, 16)

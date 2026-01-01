@@ -15,7 +15,7 @@ func TestGenerateRivers(t *testing.T) {
 	count := 5
 	seed := int64(12345)
 
-	plates := GeneratePlates(count, topology, seed)
+	plates := GeneratePlates(count, topology, seed, 0.30)
 	sphereHm := NewSphereHeightmap(topology)
 	sphereHm = GenerateHeightmap(plates, sphereHm, topology, seed, 1.0, 1.0)
 
@@ -64,7 +64,7 @@ func TestGenerateRiversSpherical(t *testing.T) {
 	count := 5
 
 	// Generate plates and spherical heightmap
-	plates := GeneratePlates(count, topology, seed)
+	plates := GeneratePlates(count, topology, seed, 0.30)
 	sphereHm := NewSphereHeightmap(topology)
 	sphereHm = GenerateHeightmap(plates, sphereHm, topology, seed, 1.0, 1.0)
 

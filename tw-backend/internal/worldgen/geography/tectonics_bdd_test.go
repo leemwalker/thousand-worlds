@@ -40,7 +40,7 @@ func TestBDD_Tectonics_PlateGeneration(t *testing.T) {
 	for _, sc := range scenarios {
 		t.Run(sc.name, func(t *testing.T) {
 			topology := spatial.NewCubeSphereTopology(sc.resolution)
-			plates := geography.GeneratePlates(sc.plateCount, topology, testSeed)
+			plates := geography.GeneratePlates(sc.plateCount, topology, testSeed, 0.30)
 
 			require.Len(t, plates, sc.plateCount, "Should generate exact plate count")
 
@@ -83,7 +83,7 @@ func TestBDD_Tectonics_PlateGeneration(t *testing.T) {
 func TestBDD_Tectonics_PlateTypeDistribution(t *testing.T) {
 	resolution := 24
 	topology := spatial.NewCubeSphereTopology(resolution)
-	plates := geography.GeneratePlates(10, topology, testSeed)
+	plates := geography.GeneratePlates(10, topology, testSeed, 0.30)
 
 	continentalCount := 0
 	oceanicCount := 0
@@ -116,7 +116,7 @@ func TestBDD_Tectonics_HeightmapGeneration(t *testing.T) {
 	resolution := 16
 	topology := spatial.NewCubeSphereTopology(resolution)
 
-	plates := geography.GeneratePlates(5, topology, testSeed)
+	plates := geography.GeneratePlates(5, topology, testSeed, 0.30)
 	heightmap := geography.NewSphereHeightmap(topology)
 
 	// Initialize to zero
@@ -415,8 +415,8 @@ func TestBDD_Tectonics_Determinism(t *testing.T) {
 	resolution := 16
 	topology := spatial.NewCubeSphereTopology(resolution)
 
-	plates1 := geography.GeneratePlates(5, topology, testSeed)
-	plates2 := geography.GeneratePlates(5, topology, testSeed)
+	plates1 := geography.GeneratePlates(5, topology, testSeed, 0.30)
+	plates2 := geography.GeneratePlates(5, topology, testSeed, 0.30)
 
 	require.Len(t, plates1, len(plates2))
 	for i := range plates1 {
@@ -439,7 +439,7 @@ func TestBDD_Tectonics_FullCellCoverage(t *testing.T) {
 	resolution := 16
 	topology := spatial.NewCubeSphereTopology(resolution)
 
-	plates := geography.GeneratePlates(5, topology, testSeed)
+	plates := geography.GeneratePlates(5, topology, testSeed, 0.30)
 
 	// Build map of all assigned cells
 	assigned := make(map[spatial.Coordinate]int) // cell -> plate count
@@ -473,7 +473,7 @@ func TestBDD_Tectonics_CrossFacePlates(t *testing.T) {
 	topology := spatial.NewCubeSphereTopology(resolution)
 
 	// Use few plates so they must span faces
-	plates := geography.GeneratePlates(3, topology, testSeed)
+	plates := geography.GeneratePlates(3, topology, testSeed, 0.30)
 
 	crossFaceFound := false
 	for _, plate := range plates {
