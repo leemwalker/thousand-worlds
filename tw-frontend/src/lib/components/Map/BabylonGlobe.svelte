@@ -304,8 +304,46 @@
             ctx.drawImage(img, 0, 0);
 
             const imageData = ctx.getImageData(0, 0, img.width, img.height);
+            const pixels = imageData.data;
 
-            // Create RawTexture from pixel data
+            // Generate specular map from color analysis
+            const specularData = new Uint8ClampedArray(pixels.length);
+
+            for (let i = 0; i < pixels.length; i += 4) {
+                const r = pixels[i];
+                const g = pixels[i + 1];
+                const b = pixels[i + 2];
+
+                // Calculate material type from color
+                // Water: high blue relative to green/red, low brightness
+                // Snow/Ice: high overall brightness (white)
+                // Land: everything else (low specular)
+
+                const brightness = (r + g + b) / 3;
+                const isWater = b > r + 20 && b > g + 10 && brightness < 180;
+                const isSnow =
+                    brightness > 200 && r > 180 && g > 180 && b > 180;
+                const isIce =
+                    b > 150 && g > 130 && brightness > 140 && brightness < 220;
+
+                let specular = 20; // Default low specular for land
+
+                if (isWater) {
+                    specular = 180; // High specular for water (shiny)
+                } else if (isSnow) {
+                    specular = 100; // Medium specular for snow
+                } else if (isIce) {
+                    specular = 140; // Higher specular for ice
+                }
+
+                // RGB specular color (grayscale)
+                specularData[i] = specular; // R
+                specularData[i + 1] = specular; // G
+                specularData[i + 2] = specular; // B
+                specularData[i + 3] = 255; // A
+            }
+
+            // Create diffuse texture from pixel data
             globeTexture = RawTexture.CreateRGBATexture(
                 imageData.data,
                 img.width,
@@ -316,10 +354,26 @@
                 Texture.TRILINEAR_SAMPLINGMODE,
             );
 
-            // Apply to material
-            globeMaterial!.diffuseTexture = globeTexture;
+            // Create specular texture
+            const specularTexture = RawTexture.CreateRGBATexture(
+                specularData,
+                img.width,
+                img.height,
+                scene!,
+                true,
+                false,
+                Texture.TRILINEAR_SAMPLINGMODE,
+            );
 
-            console.log("[BabylonGlobe] Planet texture applied successfully");
+            // Apply textures to material
+            globeMaterial!.diffuseTexture = globeTexture;
+            globeMaterial!.specularTexture = specularTexture;
+            globeMaterial!.specularColor = new Color3(0.8, 0.8, 0.9); // Slightly blue tint for water reflections
+            globeMaterial!.specularPower = 64; // Sharper highlights
+
+            console.log(
+                "[BabylonGlobe] Planet texture and specular map applied successfully",
+            );
         } catch (err) {
             console.error("[BabylonGlobe] Texture load failed:", err);
         }
