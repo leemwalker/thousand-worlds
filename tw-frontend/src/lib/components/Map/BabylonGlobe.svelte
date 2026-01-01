@@ -15,6 +15,7 @@
     import { GlowLayer } from "@babylonjs/core/Layers/glowLayer";
     import type { Mesh } from "@babylonjs/core/Meshes/mesh";
     import type { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData";
+    import { LODManager } from "./LODManager";
 
     // Types for satellite/moon data
     interface Satellite {
@@ -54,6 +55,9 @@
     let sunLight: PointLight | null = null;
     let moonMeshes: Mesh[] = [];
     let moonOrbitNodes: TransformNode[] = [];
+
+    // LOD system for zoom-based detail
+    let lodManager: LODManager | null = null;
 
     // Animation state
     let lastTime = 0;
@@ -146,21 +150,40 @@
         camera.wheelPrecision = 30; // Scroll zoom sensitivity
         camera.panningSensibility = 0; // Disable panning, only rotate
 
-        // Create globe mesh as child of planetNode
-        globe = MeshBuilder.CreateSphere(
-            "globe",
-            { segments: 128, diameter: 2, updatable: true },
-            scene,
-        );
+        // Initialize LOD manager with distance thresholds
+        lodManager = new LODManager({
+            levels: [
+                { distance: 3, segments: 128 }, // High detail when close
+                { distance: 8, segments: 64 }, // Medium detail
+                { distance: 20, segments: 32 }, // Low detail when far
+            ],
+            hysteresis: 0.15,
+        });
+
+        // Create globe mesh using LODManager (starts with high detail)
+        globe = lodManager.createMesh(scene, 0, "globe");
         globe.parent = planetNode;
 
-        // Create material for globe
+        // Create additional LOD meshes (hidden by default)
+        const mediumMesh = lodManager.createMesh(scene, 1, "globe");
+        mediumMesh.parent = planetNode;
+        mediumMesh.setEnabled(false);
+
+        const lowMesh = lodManager.createMesh(scene, 2, "globe");
+        lowMesh.parent = planetNode;
+        lowMesh.setEnabled(false);
+
+        // Create material for globe (shared across LOD meshes)
         globeMaterial = new StandardMaterial("globeMaterial", scene);
         globeMaterial.diffuseColor = new Color3(0.2, 0.2, 0.25);
         globeMaterial.specularColor = new Color3(0.2, 0.2, 0.25);
         globeMaterial.specularPower = 32;
         globeMaterial.backFaceCulling = true;
+
+        // Apply material to all LOD meshes
         globe.material = globeMaterial;
+        mediumMesh.material = globeMaterial;
+        lowMesh.material = globeMaterial;
 
         // ===========================================
         // Create Moons (if any satellites provided)
@@ -224,6 +247,14 @@
                 if (waterBumpTexture) {
                     waterBumpTexture.uOffset = Math.sin(waterTime) * 0.02;
                     waterBumpTexture.vOffset = Math.cos(waterTime * 0.7) * 0.01;
+                }
+
+                // Update LOD based on camera distance
+                if (lodManager && camera) {
+                    lodManager.update(camera);
+                    // Update globe reference to currently active LOD mesh
+                    const currentLevel = lodManager.getCurrentLevel();
+                    globe = lodManager.getMesh(currentLevel);
                 }
 
                 scene.render();
@@ -721,6 +752,12 @@
         moonOrbitNodes.forEach((n) => n.dispose());
         moonMeshes = [];
         moonOrbitNodes = [];
+
+        // Cleanup LOD manager (disposes all LOD meshes)
+        if (lodManager) {
+            lodManager.dispose();
+            lodManager = null;
+        }
 
         // Cleanup resources
         if (objectUrl) {
