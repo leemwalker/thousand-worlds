@@ -295,6 +295,10 @@
         );
         lastAppliedBlobSize = globeTextureBlob.size;
         updateTexture(globeTextureBlob);
+
+    // Watch for heightmap blob changes
+    $: if (globeHeightmapBlob && scene && displacementShader) {
+        applyHeightDisplacement(globeHeightmapBlob);
     }
 
     function createMoons(s: Scene) {
