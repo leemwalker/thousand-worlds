@@ -614,13 +614,13 @@
             globeMaterial!.specularColor = new Color3(0.8, 0.8, 0.9); // Slightly blue tint for water reflections
             globeMaterial!.specularPower = 64; // Sharper highlights
 
-            // Create and apply water bump texture for wave animation
-            waterBumpTexture = createWaterBumpTexture(scene!);
-            globeMaterial!.bumpTexture = waterBumpTexture;
-            globeMaterial!.bumpTexture.level = 0.3; // Subtle wave effect
+            // Note: Water bump texture disabled - applies to entire mesh, not just water
+            // TODO: Create water-masked bump or use separate water mesh (Option 3)
+            // waterBumpTexture = createWaterBumpTexture(scene!);
+            // globeMaterial!.bumpTexture = waterBumpTexture;
 
             console.log(
-                "[BabylonGlobe] Planet texture, specular map, and water bump applied",
+                "[BabylonGlobe] Planet texture and specular map applied",
             );
         } catch (err) {
             console.error("[BabylonGlobe] Texture load failed:", err);
