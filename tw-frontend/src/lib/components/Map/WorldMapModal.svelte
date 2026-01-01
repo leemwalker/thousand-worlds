@@ -745,6 +745,7 @@
                             seaLevel={globeSeaLevel}
                             maxElevation={globeMaxElevation}
                             minElevation={globeMinElevation}
+                            satellites={worldMapData?.satellites ?? []}
                         />
                     {:else}
                         <!-- 2D Flat Map View -->

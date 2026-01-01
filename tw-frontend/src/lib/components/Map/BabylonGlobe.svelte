@@ -3,16 +3,25 @@
     import { Engine } from "@babylonjs/core/Engines/engine";
     import { Scene } from "@babylonjs/core/scene";
     import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
-    import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
+    import { PointLight } from "@babylonjs/core/Lights/pointLight";
     import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
     import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
+    import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
     import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
     import { Texture } from "@babylonjs/core/Materials/Textures/texture";
     import { RawTexture } from "@babylonjs/core/Materials/Textures/rawTexture";
     import { Vector3 } from "@babylonjs/core/Maths/math.vector";
     import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
+    import { GlowLayer } from "@babylonjs/core/Layers/glowLayer";
     import type { Mesh } from "@babylonjs/core/Meshes/mesh";
     import type { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData";
+
+    // Types for satellite/moon data
+    interface Satellite {
+        name: string;
+        mass: number; // kg
+        distance: number; // km from planet
+    }
 
     // Props
     export let textureBlob: Blob | null = null;
@@ -20,6 +29,8 @@
     export let seaLevel: number = 0;
     export let maxElevation: number = 8848;
     export let minElevation: number = -11000;
+    export let satellites: Satellite[] = []; // Moon data from world
+    export let simulationSpeed: number = 1.0; // Time multiplier for animations
 
     // Internal state
     let canvas: HTMLCanvasElement;
@@ -30,9 +41,23 @@
     let globeTexture: Texture | null = null;
     let globeMaterial: StandardMaterial | null = null;
     let objectUrl: string | null = null;
-    let sunLight: DirectionalLight | null = null;
     let lastAppliedBlobSize: number = 0; // Guard to prevent re-applying same texture
     let lastAppliedHeightDataLength: number = 0; // Guard for height data
+
+    // Solar system nodes
+    let solarSystemRoot: TransformNode | null = null;
+    let orbitNode: TransformNode | null = null;
+    let planetNode: TransformNode | null = null;
+    let sunMesh: Mesh | null = null;
+    let sunLight: PointLight | null = null;
+    let moonMeshes: Mesh[] = [];
+    let moonOrbitNodes: TransformNode[] = [];
+
+    // Animation state
+    let lastTime = 0;
+    const PLANET_DAY_SECONDS = 10; // Planet completes rotation in 10 real seconds
+    const PLANET_YEAR_SECONDS = 120; // Planet completes orbit in 120 real seconds
+    const SUN_DISTANCE = 20; // Distance from sun to planet
 
     // Terrain exaggeration factor (makes mountains visible from space)
     const TERRAIN_SCALE = 0.05; // 5% of radius for max height
@@ -49,16 +74,53 @@
 
         // Create scene with dark space background
         scene = new Scene(engine);
-        scene.clearColor = new Color4(0.02, 0.02, 0.06, 1); // Dark space #050510
+        scene.clearColor = new Color4(0.02, 0.02, 0.06, 1); // Dark space
 
-        // Directional light (like the sun) for dynamic shadows
-        sunLight = new DirectionalLight(
+        // ===========================================
+        // Solar System Hierarchy
+        // ===========================================
+
+        // Root node for entire solar system
+        solarSystemRoot = new TransformNode("solarSystemRoot", scene);
+
+        // Create the Sun at center
+        sunMesh = MeshBuilder.CreateSphere(
             "sun",
-            new Vector3(-1, -0.5, -0.5).normalize(),
+            { segments: 32, diameter: 3 },
             scene,
         );
-        sunLight.intensity = 1.2;
-        sunLight.diffuse = new Color3(1.0, 0.98, 0.95); // Slightly warm sunlight
+        sunMesh.parent = solarSystemRoot;
+        sunMesh.position = new Vector3(0, 0, 0);
+
+        // Sun material (emissive - glows)
+        const sunMaterial = new StandardMaterial("sunMaterial", scene);
+        sunMaterial.emissiveColor = new Color3(1.0, 0.95, 0.8); // Warm yellow-white
+        sunMaterial.diffuseColor = new Color3(0, 0, 0);
+        sunMaterial.specularColor = new Color3(0, 0, 0);
+        sunMaterial.disableLighting = true;
+        sunMesh.material = sunMaterial;
+
+        // Sun as light source (PointLight)
+        sunLight = new PointLight("sunLight", Vector3.Zero(), scene);
+        sunLight.intensity = 2.0;
+        sunLight.diffuse = new Color3(1.0, 0.98, 0.95); // Warm sunlight
+        sunLight.parent = solarSystemRoot;
+
+        // Glow effect for sun
+        const glowLayer = new GlowLayer("glow", scene);
+        glowLayer.intensity = 0.8;
+        glowLayer.addIncludedOnlyMesh(sunMesh);
+
+        // Orbit node (rotates around sun - handles year)
+        orbitNode = new TransformNode("orbitNode", scene);
+        orbitNode.parent = solarSystemRoot;
+        orbitNode.position = new Vector3(SUN_DISTANCE, 0, 0); // Start at sun distance
+
+        // Planet node (rotates on axis - handles day)
+        planetNode = new TransformNode("planetNode", scene);
+        planetNode.parent = orbitNode;
+        // Add slight axial tilt (like Earth's 23.5 degrees)
+        planetNode.rotation = new Vector3(0, 0, (23.5 * Math.PI) / 180);
 
         // Ambient light for areas not in direct sunlight
         const ambient = new HemisphericLight(
@@ -66,45 +128,49 @@
             new Vector3(0, 1, 0),
             scene,
         );
-        ambient.intensity = 0.4;
-        ambient.groundColor = new Color3(0.1, 0.1, 0.15);
+        ambient.intensity = 0.25;
+        ambient.groundColor = new Color3(0.05, 0.05, 0.1);
 
-        // ArcRotateCamera for orbit controls
+        // ArcRotateCamera for orbit controls - targets planet
         camera = new ArcRotateCamera(
             "camera",
             Math.PI / 2, // alpha (horizontal rotation)
             Math.PI / 3, // beta (vertical rotation - 60 degrees from pole)
-            3, // radius (distance from target)
-            Vector3.Zero(),
+            5, // radius (distance from target) - increased for solar system view
+            new Vector3(SUN_DISTANCE, 0, 0), // Target the planet's position
             scene,
         );
         camera.attachControl(canvas, true);
-        camera.lowerRadiusLimit = 1.3; // Prevent clipping into planet
-        camera.upperRadiusLimit = 10; // Don't lose planet
-        camera.wheelPrecision = 50; // Scroll zoom sensitivity
+        camera.lowerRadiusLimit = 1.5; // Prevent clipping into planet
+        camera.upperRadiusLimit = 50; // Allow zooming out to see sun
+        camera.wheelPrecision = 30; // Scroll zoom sensitivity
         camera.panningSensibility = 0; // Disable panning, only rotate
 
-        // Create high-resolution globe mesh for displacement
+        // Create globe mesh as child of planetNode
         globe = MeshBuilder.CreateSphere(
             "globe",
             { segments: 128, diameter: 2, updatable: true },
             scene,
         );
+        globe.parent = planetNode;
 
         // Create material for globe
         globeMaterial = new StandardMaterial("globeMaterial", scene);
-        globeMaterial.diffuseColor = new Color3(0.2, 0.2, 0.25); // Default dark before texture loads
-        globeMaterial.specularColor = new Color3(0.2, 0.2, 0.25); // Slight specular for oceans
+        globeMaterial.diffuseColor = new Color3(0.2, 0.2, 0.25);
+        globeMaterial.specularColor = new Color3(0.2, 0.2, 0.25);
         globeMaterial.specularPower = 32;
         globeMaterial.backFaceCulling = true;
         globe.material = globeMaterial;
 
+        // ===========================================
+        // Create Moons (if any satellites provided)
+        // ===========================================
+        createMoons(scene);
+
         // Create starfield background
         createStarfield(scene);
 
-        console.log(
-            "[BabylonGlobe] Scene initialized, checking for existing textureBlob...",
-        );
+        console.log("[BabylonGlobe] Solar system initialized");
 
         // Check if textureBlob was already set before scene was ready
         if (textureBlob && globeMaterial) {
@@ -114,9 +180,45 @@
             updateTexture(textureBlob);
         }
 
-        // Render loop
+        // Animation and render loop
+        lastTime = performance.now();
         engine.runRenderLoop(() => {
-            if (scene) {
+            if (scene && orbitNode && planetNode) {
+                const now = performance.now();
+                const deltaTime = (now - lastTime) / 1000; // seconds
+                lastTime = now;
+
+                // Planet axial rotation (day cycle)
+                const dayRotation =
+                    (2 * Math.PI * deltaTime * simulationSpeed) /
+                    PLANET_DAY_SECONDS;
+                planetNode.rotation.y += dayRotation;
+
+                // Orbital rotation around sun (year cycle)
+                const yearRotation =
+                    (2 * Math.PI * deltaTime * simulationSpeed) /
+                    PLANET_YEAR_SECONDS;
+                orbitNode.rotateAround(
+                    Vector3.Zero(),
+                    Vector3.Up(),
+                    yearRotation,
+                );
+
+                // Update camera target to follow planet
+                if (camera) {
+                    camera.target = orbitNode.position;
+                }
+
+                // Moon orbital animation
+                moonOrbitNodes.forEach((moonOrbit, i) => {
+                    // Moons orbit faster than planet orbits sun
+                    const moonPeriod = 5 + i * 2; // Each moon has different period
+                    const moonRotation =
+                        (2 * Math.PI * deltaTime * simulationSpeed) /
+                        moonPeriod;
+                    moonOrbit.rotation.y += moonRotation;
+                });
+
                 scene.render();
             }
         });
@@ -159,6 +261,71 @@
         console.log("[BabylonGlobe] Reactive: heightData received");
         lastAppliedHeightDataLength = heightData.byteLength;
         applyHeightDisplacement(heightData);
+    }
+
+    function createMoons(s: Scene) {
+        if (!planetNode || satellites.length === 0) {
+            console.log("[BabylonGlobe] No moons to create");
+            return;
+        }
+
+        console.log(`[BabylonGlobe] Creating ${satellites.length} moon(s)`);
+
+        // Clear existing moons
+        moonMeshes.forEach((m) => m.dispose());
+        moonOrbitNodes.forEach((n) => n.dispose());
+        moonMeshes = [];
+        moonOrbitNodes = [];
+
+        satellites.forEach((sat, index) => {
+            // Create orbit node for this moon (child of planet)
+            const moonOrbit = new TransformNode(`moonOrbit_${sat.name}`, s);
+            moonOrbit.parent = planetNode;
+
+            // Calculate moon distance based on satellite data
+            // Normalize to visible distance (real distances would be way too far)
+            const normalizedDistance = 1.5 + (sat.distance / 400000) * 2; // Scale down significantly
+
+            // Create moon mesh
+            // Size based on mass (logarithmic scale)
+            const moonSize = 0.1 + Math.log10(sat.mass / 1e20) * 0.05;
+            const clampedSize = Math.max(0.05, Math.min(0.3, moonSize));
+
+            const moon = MeshBuilder.CreateSphere(
+                `moon_${sat.name}`,
+                { segments: 16, diameter: clampedSize },
+                s,
+            );
+            moon.parent = moonOrbit;
+            moon.position = new Vector3(normalizedDistance, 0, 0);
+
+            // Moon material (grey/white rocky)
+            const moonMat = new StandardMaterial(`moonMat_${sat.name}`, s);
+            moonMat.diffuseColor = new Color3(0.7, 0.7, 0.7);
+            moonMat.specularColor = new Color3(0.1, 0.1, 0.1);
+            moon.material = moonMat;
+
+            // Store references
+            moonMeshes.push(moon);
+            moonOrbitNodes.push(moonOrbit);
+
+            // Start each moon at different orbital position
+            moonOrbit.rotation.y = (index * Math.PI * 2) / satellites.length;
+        });
+    }
+
+    // Placeholder for future water mesh (Option 3)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    let waterMesh: Mesh | null = null;
+
+    function createWaterLayer(_s: Scene) {
+        // TODO: Option 3 - Create transparent water sphere with:
+        // - Fresnel reflections
+        // - Animated displacement
+        // - Refraction effects
+        console.log(
+            "[BabylonGlobe] Water layer placeholder - not yet implemented",
+        );
     }
 
     function createStarfield(s: Scene) {
@@ -454,12 +621,21 @@
     }
 
     onDestroy(() => {
-        // Cleanup
+        // Cleanup moons
+        moonMeshes.forEach((m) => m.dispose());
+        moonOrbitNodes.forEach((n) => n.dispose());
+        moonMeshes = [];
+        moonOrbitNodes = [];
+
+        // Cleanup resources
         if (objectUrl) {
             URL.revokeObjectURL(objectUrl);
         }
         if (globeTexture) {
             globeTexture.dispose();
+        }
+        if (sunMesh) {
+            sunMesh.dispose();
         }
         if (scene) {
             scene.dispose();
