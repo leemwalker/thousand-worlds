@@ -369,6 +369,48 @@ export class GameWebSocket {
             };
 
             this.handleMessage(message);
+        } else if (msgType === 0x02) {
+            // Type 0x02: World Tile (cube-face tile data)
+            // Protocol: [Type:1][JSONLen:4][JSON][BinLen:4][Image+Heightmap]
+
+            // Read JSON Length
+            const jsonLen = view.getUint32(offset, false);
+            offset += 4;
+
+            // Read JSON Data
+            const jsonBytes = new Uint8Array(buffer, offset, jsonLen);
+            const jsonStr = new TextDecoder().decode(jsonBytes);
+            const jsonData = JSON.parse(jsonStr);
+            offset += jsonLen;
+
+            // Read Binary Section Length
+            const binSectionLen = view.getUint32(offset, false);
+            offset += 4;
+
+            // Binary section contains: [Image][Heightmap] with sizes from JSON
+            const imageSize = jsonData.imageSize || 0;
+            const heightmapSize = jsonData.heightmapSize || 0;
+
+            const imageBytes = new Uint8Array(buffer, offset, imageSize);
+            offset += imageSize;
+
+            const heightmapBytes = new Uint8Array(buffer, offset, heightmapSize);
+            offset += heightmapSize;
+
+            console.log(`[WebSocket] Tile ${jsonData.face}_${jsonData.level}_${jsonData.x}_${jsonData.y}: image=${imageSize} heightmap=${heightmapSize}`);
+
+            // Construct a ServerMessage for tile data
+            const message: ServerMessage = {
+                type: 'world_tile_response',
+                data: {
+                    ...jsonData,
+                    imageBytes: imageBytes,
+                    heightmapBytes: heightmapBytes
+                },
+                timestamp: Date.now()
+            };
+
+            this.handleMessage(message);
         } else {
             console.warn('[WebSocket] Unknown binary message type:', msgType);
         }

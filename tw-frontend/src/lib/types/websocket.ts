@@ -36,7 +36,8 @@ export type ServerMessageType =
     | 'map_update'
     | 'combat_event'
     | 'error'
-    | 'world_map_image_response';
+    | 'world_map_image_response'
+    | 'world_tile_response';
 
 export interface BaseServerMessage {
     type: ServerMessageType;
@@ -99,7 +100,8 @@ export type ServerMessage =
     | MapUpdateMessage
     | CombatEventMessage
     | ErrorMessage
-    | WorldMapImageMessage;
+    | WorldMapImageMessage
+    | WorldTileMessage;
 
 export interface WorldMapImageMessage extends BaseServerMessage {
     type: 'world_map_image_response';
@@ -113,5 +115,21 @@ export interface WorldMapImageMessage extends BaseServerMessage {
         centerY: number;
         gridSize: number;
         tiles: any[]; // Simplified for now, or VisibleTile[]
+    };
+}
+
+export interface WorldTileMessage extends BaseServerMessage {
+    type: 'world_tile_response';
+    data: {
+        face: number;
+        level: number;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        imageSize: number;
+        heightmapSize: number;
+        imageBytes: Uint8Array;
+        heightmapBytes: Uint8Array;
     };
 }
