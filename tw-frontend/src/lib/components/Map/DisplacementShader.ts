@@ -127,6 +127,12 @@ export class DisplacementShader implements IShaderProvider {
         }
     }
 
+    public setDisplacementScale(scale: number): void {
+        if (this.material) {
+            this.material.setFloat("scale", scale);
+        }
+    }
+
     public dispose(): void {
         if (this.material) {
             this.material.dispose();

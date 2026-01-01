@@ -16,6 +16,7 @@
     import type { Mesh } from "@babylonjs/core/Meshes/mesh";
     import type { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData";
     import { LODManager } from "./LODManager";
+    import { DisplacementShader } from "./DisplacementShader";
 
     // Types for satellite/moon data
     interface Satellite {
@@ -58,6 +59,8 @@
 
     // LOD system for zoom-based detail
     let lodManager: LODManager | null = null;
+    let displacementShader: DisplacementShader | null = null;
+    let shaderMaterial: any | null = null; // ShaderMaterial type
 
     // Animation state
     let lastTime = 0;
@@ -151,25 +154,43 @@
         camera.panningSensibility = 0; // Disable panning, only rotate
         camera.minZ = 0.01; // Near clip plane - prevents clipping at close range
 
-        // Note: LODManager requires shader-based displacement to work properly.
-        // CPU displacement modifies mesh vertices, which doesn't transfer to other LOD meshes.
-        // TODO: Enable LOD when shader displacement is implemented in Phase 2.
-        //
-        // For now, create a single high-detail mesh:
-        globe = MeshBuilder.CreateSphere(
-            "globe",
-            { segments: 128, diameter: 2, updatable: true },
-            scene,
-        );
+        // Initialize LOD manager with distance thresholds
+        lodManager = new LODManager({
+            levels: [
+                { distance: 3, segments: 128 }, // High detail when close
+                { distance: 8, segments: 64 }, // Medium detail
+                { distance: 20, segments: 32 }, // Low detail when far
+            ],
+            hysteresis: 0.15,
+        });
+
+        // Initialize displacement shader handler
+        displacementShader = new DisplacementShader(scene);
+
+        // Create meshes using LODManager
+        globe = lodManager.createMesh(scene, 0, "globe");
         globe.parent = planetNode;
 
-        // Create material for globe
+        const mediumMesh = lodManager.createMesh(scene, 1, "globe");
+        mediumMesh.parent = planetNode;
+        mediumMesh.setEnabled(false);
+
+        const lowMesh = lodManager.createMesh(scene, 2, "globe");
+        lowMesh.parent = planetNode;
+        lowMesh.setEnabled(false);
+
+        // Create placeholder material initially (until heightmap loads)
+        // We'll replace this with the shader material once we have the texture
         globeMaterial = new StandardMaterial("globeMaterial", scene);
         globeMaterial.diffuseColor = new Color3(0.2, 0.2, 0.25);
         globeMaterial.specularColor = new Color3(0.2, 0.2, 0.25);
         globeMaterial.specularPower = 32;
-        globeMaterial.backFaceCulling = true;
+        globeMaterial.backFaceCulling = true; // Sphere doesn't need double-sided
+
+        // Apply initial material to all meshes
         globe.material = globeMaterial;
+        mediumMesh.material = globeMaterial;
+        lowMesh.material = globeMaterial;
 
         // ===========================================
         // Create Moons (if any satellites provided)

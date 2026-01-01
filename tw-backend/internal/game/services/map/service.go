@@ -132,6 +132,14 @@ func (s *Service) GetWorldGeology(worldID uuid.UUID) *ecosystem.WorldGeology {
 	return s.getWorldGeology(worldID)
 }
 
+// RenderHeightmapPNG renders a heightmap PNG for the given world geometry
+func (s *Service) RenderHeightmapPNG(ctx context.Context, worldID uuid.UUID, geo *ecosystem.WorldGeology, width, height int) ([]byte, error) {
+	if s.renderer == nil {
+		return nil, fmt.Errorf("renderer not initialized")
+	}
+	return s.renderer.RenderHeightmapPNG(ctx, worldID.String(), geo, width, height)
+}
+
 // worldToGrid converts world coordinates to heightmap grid indices
 // World coordinates can be very large (e.g., spherical world with circumference 17M)
 // but heightmap is typically 512x512 or similar

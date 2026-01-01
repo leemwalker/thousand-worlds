@@ -1765,48 +1765,60 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 		gridBytes = gridData.Serialize()
 	}
 
-	// 3. Construct Binary Message
-	// Protocol: [Type:1][JSONLen:4][JSON][BinLen:4][ImageLen:4][Image][GridLen:4][Grid]
+	// 3. Render Heightmap PNG (Displacement for 3D Globe)
+	// Resolution matches visual map for 1:1 displacement
+	heightmapBytes, err := p.mapService.RenderHeightmapPNG(renderCtx, char.WorldID, geo, width, height)
+	if err != nil {
+		log.Printf("[MAP] Heightmap render failed: %v", err)
+		// Non-critical, continue without it
+	}
+
+	// 4. Construct Binary Message
+	// Protocol: [Type:1][JSONLen:4][JSON][BinLen:4][Image][GridLen:4][Grid][HeightMapLen:4][HeightMap]
 
 	// Construct JSON Metadata
 	type MapImageMetadata struct {
-		Width          int     `json:"width"`
-		Height         int     `json:"height"`
-		GridWidth      int     `json:"grid_width"`
-		GridHeight     int     `json:"grid_height"`
-		WorldWidth     float64 `json:"world_width"`
-		WorldHeight    float64 `json:"world_height"`
-		PlayerX        float64 `json:"player_x"`
-		PlayerY        float64 `json:"player_y"`
-		SimulatedYears int64   `json:"simulated_years"`
-		AvgTemperature float64 `json:"avg_temperature"`
-		MaxElevation   float64 `json:"max_elevation"`
-		SeaLevel       float64 `json:"sea_level"`
-		LandCoverage   float64 `json:"land_coverage"`
-		Seed           int64   `json:"seed"`
-		IsSimulated    bool    `json:"is_simulated"`
-		HasGridData    bool    `json:"has_grid_data"`
+		Width            int     `json:"width"`
+		Height           int     `json:"height"`
+		GridWidth        int     `json:"grid_width"`
+		GridHeight       int     `json:"grid_height"`
+		WorldWidth       float64 `json:"world_width"`
+		WorldHeight      float64 `json:"world_height"`
+		PlayerX          float64 `json:"player_x"`
+		PlayerY          float64 `json:"player_y"`
+		SimulatedYears   int64   `json:"simulated_years"`
+		AvgTemperature   float64 `json:"avg_temperature"`
+		MaxElevation     float64 `json:"max_elevation"`
+		MinElevation     float64 `json:"min_elevation"`
+		SeaLevel         float64 `json:"sea_level"`
+		LandCoverage     float64 `json:"land_coverage"`
+		Seed             int64   `json:"seed"`
+		IsSimulated      bool    `json:"is_simulated"`
+		HasGridData      bool    `json:"has_grid_data"`
+		HasHeightmapData bool    `json:"has_heightmap_data"`
 	}
 
 	stats := geo.GetStats()
 
 	meta := MapImageMetadata{
-		Width:          width,
-		Height:         height,
-		GridWidth:      GridSize,
-		GridHeight:     GridSize / 2,
-		WorldWidth:     geo.Circumference,
-		WorldHeight:    geo.Circumference / 2,
-		PlayerX:        char.PositionX,
-		PlayerY:        char.PositionY,
-		SimulatedYears: stats.YearsSimulated,
-		AvgTemperature: stats.AverageTemperature,
-		MaxElevation:   stats.MaxElevation,
-		SeaLevel:       stats.SeaLevel,
-		LandCoverage:   stats.LandPercent * 100, // Convert to percentage
-		Seed:           geo.Seed,
-		IsSimulated:    true,
-		HasGridData:    len(gridBytes) > 0,
+		Width:            width,
+		Height:           height,
+		GridWidth:        GridSize,
+		GridHeight:       GridSize / 2,
+		WorldWidth:       geo.Circumference,
+		WorldHeight:      geo.Circumference / 2,
+		PlayerX:          char.PositionX,
+		PlayerY:          char.PositionY,
+		SimulatedYears:   stats.YearsSimulated,
+		AvgTemperature:   stats.AverageTemperature,
+		MaxElevation:     stats.MaxElevation,
+		MinElevation:     stats.MinElevation,
+		SeaLevel:         stats.SeaLevel,
+		LandCoverage:     stats.LandPercent * 100, // Convert to percentage
+		Seed:             geo.Seed,
+		IsSimulated:      true,
+		HasGridData:      len(gridBytes) > 0,
+		HasHeightmapData: len(heightmapBytes) > 0,
 	}
 
 	jsonBytes, err := json.Marshal(meta)
@@ -1815,8 +1827,8 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 		return nil
 	}
 
-	// Binary section: [ImageLen:4][Image][GridLen:4][Grid]
-	binSectionSize := 4 + len(imageBytes) + 4 + len(gridBytes)
+	// Binary section: [ImageLen:4][Image][GridLen:4][Grid][HeightMapLen:4][HeightMap]
+	binSectionSize := 4 + len(imageBytes) + 4 + len(gridBytes) + 4 + len(heightmapBytes)
 	binSection := bytes.NewBuffer(make([]byte, 0, binSectionSize))
 
 	// Write Image Length and Data (Big Endian)
@@ -1827,6 +1839,12 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 	binary.Write(binSection, binary.BigEndian, uint32(len(gridBytes)))
 	if len(gridBytes) > 0 {
 		binSection.Write(gridBytes)
+	}
+
+	// Write Heightmap Length and Data (Big Endian)
+	binary.Write(binSection, binary.BigEndian, uint32(len(heightmapBytes)))
+	if len(heightmapBytes) > 0 {
+		binSection.Write(heightmapBytes)
 	}
 
 	binBytes := binSection.Bytes()
@@ -1848,8 +1866,8 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 	// Write Binary Section Data
 	buf.Write(binBytes)
 
-	log.Printf("[MAP] Sending world map image: %dx%d, grid %dx%d, image=%d bytes, grid=%d bytes",
-		width, height, GridSize, GridSize/2, len(imageBytes), len(gridBytes))
+	log.Printf("[MAP] Sending world map image: %dx%d, grid %dx%d, image=%d bytes, grid=%d bytes, heightmap=%d bytes",
+		width, height, GridSize, GridSize/2, len(imageBytes), len(gridBytes), len(heightmapBytes))
 
 	// Send Raw Binary Message
 	client.SendRawBytes(buf.Bytes())

@@ -42,10 +42,7 @@ export interface IShaderProvider {
 /**
  * Manager for Level of Detail mesh swapping.
  */
-export interface IShaderProvider {
-    createMaterial(heightmap: Texture, scale?: number): ShaderMaterial;
-    updateHeightmap(texture: Texture): void;
-}
+
 
 export interface ILODManager {
     /** Get appropriate LOD level for given camera distance */
