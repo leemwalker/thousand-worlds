@@ -139,6 +139,7 @@ func main() {
 	resolution := flag.Int("resolution", 128, "Map resolution (lower = faster)")
 	topN := flag.Int("top", 10, "Show top N results")
 	jsonOutput := flag.Bool("json", false, "Output as JSON")
+	profile := flag.String("profile", "modern", "Benchmark profile: 'modern' or 'hadean'")
 	flag.Parse()
 
 	if *workers == 0 {
@@ -151,9 +152,17 @@ func main() {
 	fmt.Printf("  Seeds: %d to %d (%d total)\n", *startSeed, *startSeed+int64(*seedCount)-1, *seedCount)
 	fmt.Printf("  Years: %d (%.1f billion years)\n", *years, float64(*years)/1e9)
 	fmt.Printf("  Resolution: %d\n", *resolution)
-	fmt.Printf("  Workers: %d\n\n", *workers)
+	fmt.Printf("  Workers: %d\n", *workers)
+	fmt.Printf("  Profile: %s\n\n", *profile)
 
-	benchmarks := calibration.DefaultEarthBenchmarks()
+	var benchmarks calibration.EarthBenchmarks
+	if *profile == "hadean" {
+		benchmarks = calibration.HadeanEarthBenchmarks()
+		fmt.Println("🌊 Using HADEAN benchmarks (92% Ocean, Hotter, Faster Plates)")
+	} else {
+		benchmarks = calibration.DefaultEarthBenchmarks()
+		fmt.Println("🌍 Using MODERN Earth benchmarks (71% Ocean, Cooler, Stable Plates)")
+	}
 
 	// Create work channel and result channel
 	seeds := make(chan int64, *seedCount)

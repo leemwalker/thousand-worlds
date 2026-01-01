@@ -44,7 +44,7 @@ type EarthBenchmarks struct {
 	MoonCount int // Natural satellites: 1 (Luna)
 }
 
-// DefaultEarthBenchmarks returns the standard Earth target values.
+// DefaultEarthBenchmarks returns the standard Modern Earth target values.
 func DefaultEarthBenchmarks() EarthBenchmarks {
 	return EarthBenchmarks{
 		// Hypsometry
@@ -70,6 +70,36 @@ func DefaultEarthBenchmarks() EarthBenchmarks {
 
 		// Astronomy
 		MoonCount: 1,
+	}
+}
+
+// HadeanEarthBenchmarks returns target values for the Hadean Eon (4.6-4.0 Ga).
+// Based on "Water World" hypothesis and hotter early Earth conditions.
+func HadeanEarthBenchmarks() EarthBenchmarks {
+	return EarthBenchmarks{
+		// Hypsometry: "Water World" with island arcs
+		OceanCoveragePercent: 92.0,    // Very high, mostly ocean
+		MeanOceanDepthM:      -2900.0, // Global layer depth ~2.6km, distributed over 92% area
+		MeanLandHeightM:      500.0,   // Lower land (mostly volcanic islands)
+		BimodalPeakOceanM:    -4200.0,
+		BimodalPeakLandM:     200.0,
+
+		// Climate: Hot House / Steam Atmosphere
+		GlobalMeanTempC:    85.0, // Surface water hot but liquid (high pressure)
+		EquatorToPoleGradC: 20.0, // Lower gradient due to efficient heat transport
+
+		// Hydrology
+		RiverDensityPercent: 5.0, // Less land = fewer developed river systems
+
+		// Geology
+		PlateCount:       12, // Faster, smaller plates (heat dissipation)
+		SubplateCount:    30, // Less formed provinces
+		ContinentCount:   2,  // Proto-continents only (Vaalbara, etc.)
+		HotspotCount:     60, // Very active volcanism
+		OceanTrenchCount: 30,
+
+		// Astronomy
+		MoonCount: 1, // Moon formed very early
 	}
 }
 

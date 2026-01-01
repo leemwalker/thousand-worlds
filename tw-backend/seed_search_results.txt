@@ -1,0 +1,548 @@
+🔍 Golden Seed Search
+====================
+
+Configuration:
+  Seeds: 1 to 10000 (10000 total)
+  Years: 10000000 (0.0 billion years)
+  Resolution: 128
+  Workers: 4
+
+2026/01/01 17:13:12 [GEO PROFILE] Year 10000000 | Tectonic: 138.422303ms (98%) | Ocean: 2.599137ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 307.466µs (0%) | Bio: 0s
+2026/01/01 17:13:12 [Seed 4] Score: 71.9 | Ocean: 63.1% | Temp: 4.9°C | Time: 5.569s
+2026/01/01 17:13:12 [GEO PROFILE] Year 10000000 | Tectonic: 181.274162ms (99%) | Ocean: 1.902003ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 305.556µs (0%) | Bio: 0s
+2026/01/01 17:13:12 [Seed 3] Score: 72.4 | Ocean: 63.6% | Temp: 4.9°C | Time: 5.661s
+2026/01/01 17:13:12 [GEO PROFILE] Year 10000000 | Tectonic: 212.771837ms (99%) | Ocean: 1.827064ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 285.714µs (0%) | Bio: 0s
+2026/01/01 17:13:12 [Seed 2] Score: 68.3 | Ocean: 52.5% | Temp: 4.7°C | Time: 5.79s
+2026/01/01 17:13:12 [GEO PROFILE] Year 10000000 | Tectonic: 159.737596ms (99%) | Ocean: 1.716656ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 273.31µs (0%) | Bio: 0s
+2026/01/01 17:13:12 [Seed 1] Score: 71.9 | Ocean: 57.0% | Temp: 4.8°C | Time: 5.828s
+2026/01/01 17:13:16 [GEO PROFILE] Year 10000000 | Tectonic: 189.022104ms (99%) | Ocean: 1.862166ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 294.222µs (0%) | Bio: 0s
+2026/01/01 17:13:16 [Seed 5] Score: 74.0 | Ocean: 59.7% | Temp: 4.9°C | Time: 4.717s
+2026/01/01 17:13:16 [GEO PROFILE] Year 10000000 | Tectonic: 91.322473ms (98%) | Ocean: 1.814574ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 258.825µs (0%) | Bio: 0s
+2026/01/01 17:13:16 [GEO PROFILE] Year 10000000 | Tectonic: 91.972948ms (98%) | Ocean: 1.782401ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 253.369µs (0%) | Bio: 0s
+2026/01/01 17:13:16 [GEO PROFILE] Year 10000000 | Tectonic: 90.812282ms (98%) | Ocean: 1.755853ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 281.884µs (0%) | Bio: 0s
+2026/01/01 17:13:16 [Seed 8] Score: 73.5 | Ocean: 61.7% | Temp: -0.8°C | Time: 4.567s
+2026/01/01 17:13:16 [Seed 6] Score: 70.4 | Ocean: 62.7% | Temp: 4.9°C | Time: 4.739s
+2026/01/01 17:13:16 [Seed 7] Score: 77.6 | Ocean: 68.3% | Temp: -1.1°C | Time: 4.614s
+2026/01/01 17:13:20 [GEO PROFILE] Year 10000000 | Tectonic: 98.821971ms (98%) | Ocean: 1.767423ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 283.367µs (0%) | Bio: 0s
+2026/01/01 17:13:21 [Seed 9] Score: 69.8 | Ocean: 54.5% | Temp: 4.8°C | Time: 4.233s
+2026/01/01 17:13:21 [GEO PROFILE] Year 10000000 | Tectonic: 122.905793ms (95%) | Ocean: 5.227908ms (4%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 1.548824ms (1%) | Bio: 0s
+2026/01/01 17:13:21 [Seed 10] Score: 75.9 | Ocean: 66.8% | Temp: -0.7°C | Time: 4.224s
+Progress: 10/10000 seeds tested
+2026/01/01 17:13:21 [GEO PROFILE] Year 10000000 | Tectonic: 182.702879ms (99%) | Ocean: 1.622739ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 292.234µs (0%) | Bio: 0s
+2026/01/01 17:13:21 [GEO PROFILE] Year 10000000 | Tectonic: 133.888713ms (98%) | Ocean: 2.027624ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 268.417µs (0%) | Bio: 0s
+2026/01/01 17:13:21 [Seed 11] Score: 73.0 | Ocean: 65.2% | Temp: 4.9°C | Time: 4.338s
+2026/01/01 17:13:21 [Seed 12] Score: 66.4 | Ocean: 57.2% | Temp: 4.6°C | Time: 4.355s
+2026/01/01 17:13:25 [GEO PROFILE] Year 10000000 | Tectonic: 132.216247ms (98%) | Ocean: 1.655018ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 363.415µs (0%) | Bio: 0s
+2026/01/01 17:13:25 [Seed 13] Score: 68.8 | Ocean: 60.1% | Temp: 4.7°C | Time: 4.475s
+2026/01/01 17:13:25 [GEO PROFILE] Year 10000000 | Tectonic: 170.676893ms (99%) | Ocean: 1.662259ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 323.349µs (0%) | Bio: 0s
+2026/01/01 17:13:25 [GEO PROFILE] Year 10000000 | Tectonic: 173.353468ms (99%) | Ocean: 1.878779ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 312.233µs (0%) | Bio: 0s
+2026/01/01 17:13:25 [Seed 14] Score: 76.0 | Ocean: 66.4% | Temp: -0.2°C | Time: 4.481s
+2026/01/01 17:13:25 [Seed 15] Score: 82.5 | Ocean: 61.2% | Temp: 0.7°C | Time: 4.389s
+2026/01/01 17:13:25 [GEO PROFILE] Year 10000000 | Tectonic: 125.230096ms (98%) | Ocean: 2.101932ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 406.039µs (0%) | Bio: 0s
+2026/01/01 17:13:25 [Seed 16] Score: 62.5 | Ocean: 47.3% | Temp: 4.9°C | Time: 4.58s
+2026/01/01 17:13:29 [GEO PROFILE] Year 10000000 | Tectonic: 84.765034ms (97%) | Ocean: 1.940814ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 299.773µs (0%) | Bio: 0s
+2026/01/01 17:13:29 [Seed 17] Score: 74.7 | Ocean: 61.9% | Temp: -1.4°C | Time: 4.312s
+2026/01/01 17:13:29 [GEO PROFILE] Year 10000000 | Tectonic: 101.529801ms (98%) | Ocean: 1.751231ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 307.281µs (0%) | Bio: 0s
+2026/01/01 17:13:29 [Seed 18] Score: 71.2 | Ocean: 60.1% | Temp: -1.2°C | Time: 4.239s
+2026/01/01 17:13:30 [GEO PROFILE] Year 10000000 | Tectonic: 149.373543ms (99%) | Ocean: 1.782872ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 263.648µs (0%) | Bio: 0s
+2026/01/01 17:13:30 [GEO PROFILE] Year 10000000 | Tectonic: 98.750038ms (98%) | Ocean: 1.669498ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 267.79µs (0%) | Bio: 0s
+2026/01/01 17:13:30 [Seed 20] Score: 77.1 | Ocean: 63.0% | Temp: 5.0°C | Time: 4.228s
+2026/01/01 17:13:30 [Seed 19] Score: 70.2 | Ocean: 54.8% | Temp: 4.4°C | Time: 4.447s
+Progress: 20/10000 seeds tested
+2026/01/01 17:13:33 [GEO PROFILE] Year 10000000 | Tectonic: 95.560643ms (98%) | Ocean: 1.668665ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 312.502µs (0%) | Bio: 0s
+2026/01/01 17:13:33 [Seed 21] Score: 74.1 | Ocean: 65.5% | Temp: 4.8°C | Time: 3.997s
+2026/01/01 17:13:33 [GEO PROFILE] Year 10000000 | Tectonic: 100.207879ms (98%) | Ocean: 1.763363ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 326.44µs (0%) | Bio: 0s
+2026/01/01 17:13:34 [Seed 22] Score: 68.0 | Ocean: 53.0% | Temp: 4.9°C | Time: 4.182s
+2026/01/01 17:13:34 [GEO PROFILE] Year 10000000 | Tectonic: 162.349863ms (99%) | Ocean: 1.731056ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 277.694µs (0%) | Bio: 0s
+2026/01/01 17:13:34 [Seed 23] Score: 74.6 | Ocean: 62.5% | Temp: -1.5°C | Time: 4.147s
+2026/01/01 17:13:34 [GEO PROFILE] Year 10000000 | Tectonic: 137.215426ms (99%) | Ocean: 1.708699ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 265.002µs (0%) | Bio: 0s
+2026/01/01 17:13:34 [Seed 24] Score: 72.1 | Ocean: 57.5% | Temp: 4.9°C | Time: 4.195s
+2026/01/01 17:13:37 [GEO PROFILE] Year 10000000 | Tectonic: 104.247407ms (98%) | Ocean: 1.703538ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 311.148µs (0%) | Bio: 0s
+2026/01/01 17:13:37 [Seed 25] Score: 71.2 | Ocean: 56.4% | Temp: 4.8°C | Time: 4.058s
+2026/01/01 17:13:37 [GEO PROFILE] Year 10000000 | Tectonic: 118.025222ms (98%) | Ocean: 1.666913ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 309.383µs (0%) | Bio: 0s
+2026/01/01 17:13:37 [Seed 26] Score: 75.0 | Ocean: 64.5% | Temp: -1.0°C | Time: 3.96s
+2026/01/01 17:13:38 [GEO PROFILE] Year 10000000 | Tectonic: 99.627752ms (98%) | Ocean: 1.682183ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 276.887µs (0%) | Bio: 0s
+2026/01/01 17:13:38 [Seed 27] Score: 80.5 | Ocean: 69.3% | Temp: -0.1°C | Time: 3.886s
+2026/01/01 17:13:38 [GEO PROFILE] Year 10000000 | Tectonic: 94.316113ms (98%) | Ocean: 1.801191ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 304.199µs (0%) | Bio: 0s
+2026/01/01 17:13:38 [Seed 28] Score: 71.0 | Ocean: 61.8% | Temp: 4.6°C | Time: 3.907s
+2026/01/01 17:13:42 [GEO PROFILE] Year 10000000 | Tectonic: 101.551124ms (98%) | Ocean: 1.623047ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 299.244µs (0%) | Bio: 0s
+2026/01/01 17:13:42 [Seed 30] Score: 68.3 | Ocean: 56.2% | Temp: -0.8°C | Time: 4.34s
+2026/01/01 17:13:42 [GEO PROFILE] Year 10000000 | Tectonic: 156.277423ms (99%) | Ocean: 1.61767ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 265.006µs (0%) | Bio: 0s
+2026/01/01 17:13:42 [Seed 29] Score: 67.8 | Ocean: 52.9% | Temp: 4.5°C | Time: 4.636s
+Progress: 30/10000 seeds tested
+2026/01/01 17:13:42 [GEO PROFILE] Year 10000000 | Tectonic: 123.270591ms (98%) | Ocean: 1.760687ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 279.563µs (0%) | Bio: 0s
+2026/01/01 17:13:42 [Seed 31] Score: 66.5 | Ocean: 51.2% | Temp: 4.8°C | Time: 4.636s
+2026/01/01 17:13:42 [GEO PROFILE] Year 10000000 | Tectonic: 109.951164ms (98%) | Ocean: 1.729618ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 278.342µs (0%) | Bio: 0s
+2026/01/01 17:13:42 [Seed 32] Score: 62.4 | Ocean: 47.3% | Temp: 4.7°C | Time: 4.789s
+2026/01/01 17:13:46 [GEO PROFILE] Year 10000000 | Tectonic: 114.616717ms (98%) | Ocean: 1.741164ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 298.702µs (0%) | Bio: 0s
+2026/01/01 17:13:46 [Seed 33] Score: 75.5 | Ocean: 65.4% | Temp: -0.8°C | Time: 4.21s
+2026/01/01 17:13:46 [GEO PROFILE] Year 10000000 | Tectonic: 157.39239ms (99%) | Ocean: 1.674679ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 326.943µs (0%) | Bio: 0s
+2026/01/01 17:13:46 [Seed 34] Score: 77.7 | Ocean: 64.6% | Temp: -1.4°C | Time: 4.158s
+2026/01/01 17:13:46 [GEO PROFILE] Year 10000000 | Tectonic: 95.538008ms (98%) | Ocean: 1.727268ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 284.341µs (0%) | Bio: 0s
+2026/01/01 17:13:46 [Seed 35] Score: 74.2 | Ocean: 68.4% | Temp: -0.0°C | Time: 3.973s
+2026/01/01 17:13:47 [GEO PROFILE] Year 10000000 | Tectonic: 147.405411ms (99%) | Ocean: 1.668666ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 288.177µs (0%) | Bio: 0s
+2026/01/01 17:13:47 [Seed 36] Score: 64.1 | Ocean: 48.9% | Temp: 5.0°C | Time: 4.101s
+2026/01/01 17:13:50 [GEO PROFILE] Year 10000000 | Tectonic: 145.314813ms (99%) | Ocean: 1.758222ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 301.736µs (0%) | Bio: 0s
+2026/01/01 17:13:50 [Seed 37] Score: 67.9 | Ocean: 53.7% | Temp: 4.9°C | Time: 3.873s
+2026/01/01 17:13:50 [GEO PROFILE] Year 10000000 | Tectonic: 125.658552ms (98%) | Ocean: 1.891132ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 297.268µs (0%) | Bio: 0s
+2026/01/01 17:13:50 [Seed 38] Score: 76.5 | Ocean: 67.4% | Temp: 4.5°C | Time: 3.858s
+2026/01/01 17:13:50 [GEO PROFILE] Year 10000000 | Tectonic: 88.120074ms (98%) | Ocean: 1.892299ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 308.786µs (0%) | Bio: 0s
+2026/01/01 17:13:50 [Seed 39] Score: 65.8 | Ocean: 56.4% | Temp: 4.9°C | Time: 3.833s
+2026/01/01 17:13:50 [GEO PROFILE] Year 10000000 | Tectonic: 89.355201ms (98%) | Ocean: 2.022166ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 251.592µs (0%) | Bio: 0s
+2026/01/01 17:13:50 [Seed 40] Score: 73.6 | Ocean: 65.2% | Temp: -1.5°C | Time: 3.664s
+Progress: 40/10000 seeds tested
+2026/01/01 17:13:54 [GEO PROFILE] Year 10000000 | Tectonic: 94.312146ms (98%) | Ocean: 1.78744ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 283.074µs (0%) | Bio: 0s
+2026/01/01 17:13:54 [Seed 41] Score: 73.2 | Ocean: 64.5% | Temp: 4.9°C | Time: 3.832s
+2026/01/01 17:13:54 [GEO PROFILE] Year 10000000 | Tectonic: 120.190944ms (98%) | Ocean: 1.929797ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 265.385µs (0%) | Bio: 0s
+2026/01/01 17:13:54 [Seed 43] Score: 76.0 | Ocean: 60.3% | Temp: 4.6°C | Time: 3.902s
+2026/01/01 17:13:54 [GEO PROFILE] Year 10000000 | Tectonic: 131.160118ms (99%) | Ocean: 1.718233ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 273.563µs (0%) | Bio: 0s
+2026/01/01 17:13:54 [GEO PROFILE] Year 10000000 | Tectonic: 117.406969ms (98%) | Ocean: 2.555484ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 253.245µs (0%) | Bio: 0s
+2026/01/01 17:13:54 [Seed 44] Score: 65.8 | Ocean: 56.1% | Temp: 4.8°C | Time: 3.948s
+2026/01/01 17:13:54 [Seed 42] Score: 61.6 | Ocean: 44.2% | Temp: 4.9°C | Time: 4.173s
+2026/01/01 17:13:58 [GEO PROFILE] Year 10000000 | Tectonic: 100.098957ms (98%) | Ocean: 1.791024ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 284.313µs (0%) | Bio: 0s
+2026/01/01 17:13:58 [Seed 45] Score: 71.2 | Ocean: 56.4% | Temp: 4.6°C | Time: 3.903s
+2026/01/01 17:13:58 [GEO PROFILE] Year 10000000 | Tectonic: 115.212916ms (98%) | Ocean: 1.815327ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 256.007µs (0%) | Bio: 0s
+2026/01/01 17:13:58 [Seed 46] Score: 78.0 | Ocean: 62.1% | Temp: -0.8°C | Time: 4.024s
+2026/01/01 17:13:58 [GEO PROFILE] Year 10000000 | Tectonic: 79.804414ms (97%) | Ocean: 1.899688ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 386.134µs (0%) | Bio: 0s
+2026/01/01 17:13:58 [Seed 47] Score: 63.9 | Ocean: 55.6% | Temp: 4.9°C | Time: 4.004s
+2026/01/01 17:13:58 [GEO PROFILE] Year 10000000 | Tectonic: 95.684653ms (98%) | Ocean: 1.817636ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 312.72µs (0%) | Bio: 0s
+2026/01/01 17:13:58 [Seed 48] Score: 76.9 | Ocean: 53.5% | Temp: 1.8°C | Time: 4.041s
+2026/01/01 17:14:01 [GEO PROFILE] Year 10000000 | Tectonic: 107.000475ms (98%) | Ocean: 1.911892ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 276.948µs (0%) | Bio: 0s
+2026/01/01 17:14:01 [Seed 49] Score: 75.4 | Ocean: 62.0% | Temp: -1.2°C | Time: 3.745s
+2026/01/01 17:14:02 [GEO PROFILE] Year 10000000 | Tectonic: 104.079995ms (96%) | Ocean: 3.599378ms (3%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 298.806µs (0%) | Bio: 0s
+2026/01/01 17:14:02 [Seed 50] Score: 72.9 | Ocean: 58.2% | Temp: 4.8°C | Time: 3.774s
+Progress: 50/10000 seeds tested
+2026/01/01 17:14:02 [GEO PROFILE] Year 10000000 | Tectonic: 91.33316ms (98%) | Ocean: 1.83201ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 253.376µs (0%) | Bio: 0s
+2026/01/01 17:14:02 [Seed 51] Score: 78.3 | Ocean: 68.8% | Temp: -0.7°C | Time: 3.795s
+2026/01/01 17:14:02 [GEO PROFILE] Year 10000000 | Tectonic: 152.273668ms (99%) | Ocean: 1.717314ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 302.862µs (0%) | Bio: 0s
+2026/01/01 17:14:02 [Seed 52] Score: 63.6 | Ocean: 47.9% | Temp: 4.7°C | Time: 3.963s
+2026/01/01 17:14:05 [GEO PROFILE] Year 10000000 | Tectonic: 128.7084ms (98%) | Ocean: 1.709938ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 337.094µs (0%) | Bio: 0s
+2026/01/01 17:14:05 [Seed 53] Score: 64.6 | Ocean: 49.6% | Temp: 4.7°C | Time: 3.841s
+2026/01/01 17:14:06 [GEO PROFILE] Year 10000000 | Tectonic: 123.839657ms (98%) | Ocean: 1.772327ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 326.246µs (0%) | Bio: 0s
+2026/01/01 17:14:06 [Seed 54] Score: 71.8 | Ocean: 56.6% | Temp: 4.9°C | Time: 3.816s
+2026/01/01 17:14:06 [GEO PROFILE] Year 10000000 | Tectonic: 117.683173ms (98%) | Ocean: 1.798105ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 372.232µs (0%) | Bio: 0s
+2026/01/01 17:14:06 [Seed 56] Score: 70.0 | Ocean: 57.4% | Temp: -1.3°C | Time: 3.768s
+2026/01/01 17:14:06 [GEO PROFILE] Year 10000000 | Tectonic: 87.391739ms (98%) | Ocean: 1.635205ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 298.185µs (0%) | Bio: 0s
+2026/01/01 17:14:06 [Seed 55] Score: 64.6 | Ocean: 49.1% | Temp: 4.6°C | Time: 4.017s
+2026/01/01 17:14:09 [GEO PROFILE] Year 10000000 | Tectonic: 92.789517ms (98%) | Ocean: 1.6705ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 264.767µs (0%) | Bio: 0s
+2026/01/01 17:14:09 [Seed 57] Score: 79.7 | Ocean: 66.4% | Temp: -1.6°C | Time: 3.768s
+2026/01/01 17:14:09 [GEO PROFILE] Year 10000000 | Tectonic: 99.366081ms (98%) | Ocean: 1.826552ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 324.12µs (0%) | Bio: 0s
+2026/01/01 17:14:09 [Seed 58] Score: 62.4 | Ocean: 48.6% | Temp: 4.7°C | Time: 3.907s
+2026/01/01 17:14:10 [GEO PROFILE] Year 10000000 | Tectonic: 89.877737ms (98%) | Ocean: 1.746312ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 291.108µs (0%) | Bio: 0s
+2026/01/01 17:14:10 [Seed 60] Score: 76.6 | Ocean: 59.3% | Temp: 2.4°C | Time: 3.723s
+2026/01/01 17:14:10 [GEO PROFILE] Year 10000000 | Tectonic: 165.321882ms (99%) | Ocean: 1.727261ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 317.712µs (0%) | Bio: 0s
+2026/01/01 17:14:10 [Seed 59] Score: 67.3 | Ocean: 52.6% | Temp: 4.9°C | Time: 3.914s
+Progress: 60/10000 seeds tested
+2026/01/01 17:14:13 [GEO PROFILE] Year 10000000 | Tectonic: 88.017559ms (98%) | Ocean: 1.602245ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 255.695µs (0%) | Bio: 0s
+2026/01/01 17:14:13 [Seed 61] Score: 75.6 | Ocean: 66.5% | Temp: 4.6°C | Time: 3.697s
+2026/01/01 17:14:13 [GEO PROFILE] Year 10000000 | Tectonic: 93.849913ms (98%) | Ocean: 1.561214ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 290.295µs (0%) | Bio: 0s
+2026/01/01 17:14:13 [Seed 62] Score: 73.8 | Ocean: 57.6% | Temp: -1.7°C | Time: 3.937s
+2026/01/01 17:14:14 [GEO PROFILE] Year 10000000 | Tectonic: 99.563809ms (98%) | Ocean: 1.875717ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 265.42µs (0%) | Bio: 0s
+2026/01/01 17:14:14 [Seed 63] Score: 63.9 | Ocean: 48.4% | Temp: 4.8°C | Time: 3.983s
+2026/01/01 17:14:14 [GEO PROFILE] Year 10000000 | Tectonic: 85.882136ms (98%) | Ocean: 1.678371ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 314.644µs (0%) | Bio: 0s
+2026/01/01 17:14:14 [Seed 64] Score: 63.1 | Ocean: 47.9% | Temp: 4.8°C | Time: 4.004s
+2026/01/01 17:14:17 [GEO PROFILE] Year 10000000 | Tectonic: 104.609622ms (98%) | Ocean: 1.532772ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 272.44µs (0%) | Bio: 0s
+2026/01/01 17:14:17 [Seed 65] Score: 71.4 | Ocean: 63.4% | Temp: 4.9°C | Time: 3.912s
+2026/01/01 17:14:18 [GEO PROFILE] Year 10000000 | Tectonic: 111.909293ms (98%) | Ocean: 1.680685ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 281.186µs (0%) | Bio: 0s
+2026/01/01 17:14:18 [Seed 66] Score: 70.2 | Ocean: 55.8% | Temp: 4.7°C | Time: 4.272s
+2026/01/01 17:14:18 [GEO PROFILE] Year 10000000 | Tectonic: 100.040213ms (98%) | Ocean: 1.682036ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 358.17µs (0%) | Bio: 0s
+2026/01/01 17:14:18 [Seed 67] Score: 71.0 | Ocean: 56.3% | Temp: 4.7°C | Time: 4.29s
+2026/01/01 17:14:18 [GEO PROFILE] Year 10000000 | Tectonic: 113.936014ms (98%) | Ocean: 2.190386ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 265.531µs (0%) | Bio: 0s
+2026/01/01 17:14:18 [Seed 68] Score: 73.6 | Ocean: 58.6% | Temp: 4.7°C | Time: 4.203s
+2026/01/01 17:14:21 [GEO PROFILE] Year 10000000 | Tectonic: 130.387054ms (99%) | Ocean: 1.565498ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 255.413µs (0%) | Bio: 0s
+2026/01/01 17:14:21 [Seed 69] Score: 62.4 | Ocean: 46.8% | Temp: 4.2°C | Time: 4.271s
+2026/01/01 17:14:22 [GEO PROFILE] Year 10000000 | Tectonic: 91.749525ms (97%) | Ocean: 2.063151ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 340.182µs (0%) | Bio: 0s
+2026/01/01 17:14:22 [Seed 70] Score: 70.6 | Ocean: 55.9% | Temp: 4.7°C | Time: 3.95s
+Progress: 70/10000 seeds tested
+2026/01/01 17:14:22 [GEO PROFILE] Year 10000000 | Tectonic: 130.222276ms (98%) | Ocean: 1.852505ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 360.678µs (0%) | Bio: 0s
+2026/01/01 17:14:22 [Seed 71] Score: 74.1 | Ocean: 64.3% | Temp: -1.3°C | Time: 3.839s
+2026/01/01 17:14:22 [GEO PROFILE] Year 10000000 | Tectonic: 94.026849ms (98%) | Ocean: 1.85422ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 283.726µs (0%) | Bio: 0s
+2026/01/01 17:14:22 [Seed 72] Score: 73.7 | Ocean: 65.9% | Temp: 4.9°C | Time: 3.921s
+2026/01/01 17:14:25 [GEO PROFILE] Year 10000000 | Tectonic: 91.938011ms (98%) | Ocean: 1.671341ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 266.583µs (0%) | Bio: 0s
+2026/01/01 17:14:25 [Seed 73] Score: 72.1 | Ocean: 63.3% | Temp: 4.8°C | Time: 3.691s
+2026/01/01 17:14:25 [GEO PROFILE] Year 10000000 | Tectonic: 149.725123ms (99%) | Ocean: 1.774066ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 297.38µs (0%) | Bio: 0s
+2026/01/01 17:14:25 [Seed 74] Score: 77.7 | Ocean: 63.1% | Temp: 4.8°C | Time: 3.8s
+2026/01/01 17:14:26 [GEO PROFILE] Year 10000000 | Tectonic: 105.688054ms (98%) | Ocean: 1.900602ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 335.381µs (0%) | Bio: 0s
+2026/01/01 17:14:26 [Seed 76] Score: 75.0 | Ocean: 66.0% | Temp: -0.6°C | Time: 3.718s
+2026/01/01 17:14:26 [GEO PROFILE] Year 10000000 | Tectonic: 108.76644ms (98%) | Ocean: 1.791285ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 308.478µs (0%) | Bio: 0s
+2026/01/01 17:14:26 [Seed 75] Score: 66.3 | Ocean: 51.2% | Temp: 4.8°C | Time: 3.93s
+2026/01/01 17:14:28 [GEO PROFILE] Year 10000000 | Tectonic: 103.816437ms (98%) | Ocean: 1.756622ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 374.799µs (0%) | Bio: 0s
+2026/01/01 17:14:28 [Seed 77] Score: 68.1 | Ocean: 52.9% | Temp: 4.5°C | Time: 3.912s
+2026/01/01 17:14:29 [GEO PROFILE] Year 10000000 | Tectonic: 98.074997ms (98%) | Ocean: 1.858137ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 337.447µs (0%) | Bio: 0s
+2026/01/01 17:14:29 [Seed 78] Score: 74.7 | Ocean: 55.7% | Temp: 2.8°C | Time: 3.722s
+2026/01/01 17:14:30 [GEO PROFILE] Year 10000000 | Tectonic: 101.453645ms (98%) | Ocean: 1.664053ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 309.167µs (0%) | Bio: 0s
+2026/01/01 17:14:30 [GEO PROFILE] Year 10000000 | Tectonic: 91.199322ms (98%) | Ocean: 1.708046ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 301.867µs (0%) | Bio: 0s
+2026/01/01 17:14:30 [Seed 79] Score: 79.0 | Ocean: 68.4% | Temp: -1.3°C | Time: 3.82s
+2026/01/01 17:14:30 [Seed 80] Score: 68.2 | Ocean: 59.9% | Temp: 5.0°C | Time: 3.795s
+Progress: 80/10000 seeds tested
+2026/01/01 17:14:32 [GEO PROFILE] Year 10000000 | Tectonic: 88.029438ms (98%) | Ocean: 1.634498ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 255.339µs (0%) | Bio: 0s
+2026/01/01 17:14:32 [Seed 81] Score: 73.0 | Ocean: 62.6% | Temp: -1.6°C | Time: 3.615s
+2026/01/01 17:14:33 [GEO PROFILE] Year 10000000 | Tectonic: 118.746523ms (98%) | Ocean: 1.749466ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 295.096µs (0%) | Bio: 0s
+2026/01/01 17:14:33 [Seed 82] Score: 61.6 | Ocean: 46.3% | Temp: 4.4°C | Time: 3.963s
+2026/01/01 17:14:33 [GEO PROFILE] Year 10000000 | Tectonic: 109.076535ms (98%) | Ocean: 1.703728ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 351.677µs (0%) | Bio: 0s
+2026/01/01 17:14:33 [Seed 84] Score: 77.9 | Ocean: 63.2% | Temp: 4.8°C | Time: 3.809s
+2026/01/01 17:14:33 [GEO PROFILE] Year 10000000 | Tectonic: 97.301458ms (98%) | Ocean: 1.561448ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 280.716µs (0%) | Bio: 0s
+2026/01/01 17:14:33 [Seed 83] Score: 70.4 | Ocean: 55.8% | Temp: 4.6°C | Time: 3.927s
+2026/01/01 17:14:36 [GEO PROFILE] Year 10000000 | Tectonic: 94.89261ms (98%) | Ocean: 1.707475ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 261.157µs (0%) | Bio: 0s
+2026/01/01 17:14:36 [Seed 85] Score: 67.8 | Ocean: 50.1% | Temp: 3.4°C | Time: 3.749s
+2026/01/01 17:14:37 [GEO PROFILE] Year 10000000 | Tectonic: 97.514868ms (98%) | Ocean: 1.792755ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 275.691µs (0%) | Bio: 0s
+2026/01/01 17:14:37 [Seed 86] Score: 70.2 | Ocean: 55.1% | Temp: 4.5°C | Time: 3.906s
+2026/01/01 17:14:37 [GEO PROFILE] Year 10000000 | Tectonic: 137.946718ms (99%) | Ocean: 1.579253ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 284.971µs (0%) | Bio: 0s
+2026/01/01 17:14:37 [Seed 87] Score: 68.7 | Ocean: 53.9% | Temp: 4.9°C | Time: 3.862s
+2026/01/01 17:14:37 [GEO PROFILE] Year 10000000 | Tectonic: 101.522219ms (98%) | Ocean: 1.996129ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 323.462µs (0%) | Bio: 0s
+2026/01/01 17:14:37 [Seed 88] Score: 73.6 | Ocean: 58.6% | Temp: 4.9°C | Time: 3.84s
+2026/01/01 17:14:40 [GEO PROFILE] Year 10000000 | Tectonic: 86.16242ms (98%) | Ocean: 1.724481ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 265.382µs (0%) | Bio: 0s
+2026/01/01 17:14:40 [Seed 89] Score: 74.2 | Ocean: 65.2% | Temp: 4.7°C | Time: 3.719s
+2026/01/01 17:14:41 [GEO PROFILE] Year 10000000 | Tectonic: 133.44967ms (98%) | Ocean: 1.744087ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 358.96µs (0%) | Bio: 0s
+2026/01/01 17:14:41 [Seed 90] Score: 74.8 | Ocean: 58.9% | Temp: -0.2°C | Time: 4.002s
+Progress: 90/10000 seeds tested
+2026/01/01 17:14:41 [GEO PROFILE] Year 10000000 | Tectonic: 154.293771ms (99%) | Ocean: 1.822793ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 260.063µs (0%) | Bio: 0s
+2026/01/01 17:14:41 [Seed 91] Score: 78.5 | Ocean: 63.4% | Temp: -1.8°C | Time: 4.016s
+2026/01/01 17:14:41 [GEO PROFILE] Year 10000000 | Tectonic: 123.351881ms (98%) | Ocean: 1.649009ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 263.632µs (0%) | Bio: 0s
+2026/01/01 17:14:41 [Seed 92] Score: 75.8 | Ocean: 61.4% | Temp: 4.7°C | Time: 4.032s
+2026/01/01 17:14:43 [GEO PROFILE] Year 10000000 | Tectonic: 100.272873ms (98%) | Ocean: 1.710616ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 257.235µs (0%) | Bio: 0s
+2026/01/01 17:14:43 [Seed 93] Score: 78.9 | Ocean: 64.5% | Temp: 4.8°C | Time: 3.777s
+2026/01/01 17:14:45 [GEO PROFILE] Year 10000000 | Tectonic: 97.266893ms (98%) | Ocean: 1.865461ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 295.336µs (0%) | Bio: 0s
+2026/01/01 17:14:45 [Seed 95] Score: 76.0 | Ocean: 66.7% | Temp: -1.5°C | Time: 3.822s
+2026/01/01 17:14:45 [GEO PROFILE] Year 10000000 | Tectonic: 107.882344ms (98%) | Ocean: 1.690373ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 515.032µs (0%) | Bio: 0s
+2026/01/01 17:14:45 [Seed 94] Score: 64.9 | Ocean: 49.5% | Temp: 4.8°C | Time: 4.127s
+2026/01/01 17:14:45 [GEO PROFILE] Year 10000000 | Tectonic: 140.647835ms (99%) | Ocean: 1.791858ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 278.837µs (0%) | Bio: 0s
+2026/01/01 17:14:45 [Seed 96] Score: 67.8 | Ocean: 52.8% | Temp: 4.6°C | Time: 3.982s
+2026/01/01 17:14:47 [GEO PROFILE] Year 10000000 | Tectonic: 94.049639ms (98%) | Ocean: 1.731658ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 319.803µs (0%) | Bio: 0s
+2026/01/01 17:14:47 [Seed 97] Score: 76.5 | Ocean: 61.5% | Temp: 4.4°C | Time: 3.855s
+2026/01/01 17:14:49 [GEO PROFILE] Year 10000000 | Tectonic: 125.964704ms (98%) | Ocean: 1.759252ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 295.318µs (0%) | Bio: 0s
+2026/01/01 17:14:49 [Seed 98] Score: 83.4 | Ocean: 68.1% | Temp: -0.5°C | Time: 3.747s
+2026/01/01 17:14:49 [GEO PROFILE] Year 10000000 | Tectonic: 88.963253ms (98%) | Ocean: 1.740343ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 307.832µs (0%) | Bio: 0s
+2026/01/01 17:14:49 [Seed 99] Score: 69.9 | Ocean: 61.8% | Temp: 4.9°C | Time: 3.813s
+2026/01/01 17:14:49 [GEO PROFILE] Year 10000000 | Tectonic: 90.919076ms (98%) | Ocean: 1.741706ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 256.173µs (0%) | Bio: 0s
+2026/01/01 17:14:49 [Seed 100] Score: 84.6 | Ocean: 68.4% | Temp: 0.1°C | Time: 3.731s
+Progress: 100/10000 seeds tested
+2026/01/01 17:14:51 [GEO PROFILE] Year 10000000 | Tectonic: 106.761778ms (98%) | Ocean: 1.682001ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 296.367µs (0%) | Bio: 0s
+2026/01/01 17:14:51 [Seed 101] Score: 66.4 | Ocean: 52.2% | Temp: 4.9°C | Time: 3.81s
+2026/01/01 17:14:53 [GEO PROFILE] Year 10000000 | Tectonic: 119.999287ms (98%) | Ocean: 1.840023ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 314.236µs (0%) | Bio: 0s
+2026/01/01 17:14:53 [Seed 102] Score: 74.8 | Ocean: 66.2% | Temp: 4.9°C | Time: 3.726s
+2026/01/01 17:14:53 [GEO PROFILE] Year 10000000 | Tectonic: 163.32811ms (99%) | Ocean: 1.761595ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 254.653µs (0%) | Bio: 0s
+2026/01/01 17:14:53 [Seed 103] Score: 79.8 | Ocean: 65.4% | Temp: 4.8°C | Time: 3.849s
+2026/01/01 17:14:53 [GEO PROFILE] Year 10000000 | Tectonic: 100.17332ms (98%) | Ocean: 1.716472ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 257.93µs (0%) | Bio: 0s
+2026/01/01 17:14:53 [Seed 104] Score: 76.4 | Ocean: 67.2% | Temp: 4.6°C | Time: 3.909s
+2026/01/01 17:14:55 [GEO PROFILE] Year 10000000 | Tectonic: 109.604455ms (98%) | Ocean: 1.683858ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 252.793µs (0%) | Bio: 0s
+2026/01/01 17:14:55 [Seed 105] Score: 70.2 | Ocean: 55.7% | Temp: 4.9°C | Time: 4.323s
+2026/01/01 17:14:57 [GEO PROFILE] Year 10000000 | Tectonic: 100.703232ms (98%) | Ocean: 1.717478ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 322.499µs (0%) | Bio: 0s
+2026/01/01 17:14:57 [Seed 106] Score: 65.2 | Ocean: 50.6% | Temp: 4.9°C | Time: 4.398s
+2026/01/01 17:14:57 [GEO PROFILE] Year 10000000 | Tectonic: 141.505465ms (98%) | Ocean: 1.904095ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 318.145µs (0%) | Bio: 0s
+2026/01/01 17:14:57 [Seed 107] Score: 65.9 | Ocean: 50.7% | Temp: 4.8°C | Time: 4.421s
+2026/01/01 17:14:57 [GEO PROFILE] Year 10000000 | Tectonic: 94.942576ms (98%) | Ocean: 1.847114ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 312.072µs (0%) | Bio: 0s
+2026/01/01 17:14:57 [Seed 108] Score: 70.7 | Ocean: 61.9% | Temp: 4.9°C | Time: 4.366s
+2026/01/01 17:14:59 [GEO PROFILE] Year 10000000 | Tectonic: 113.195706ms (98%) | Ocean: 1.810815ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 319.161µs (0%) | Bio: 0s
+2026/01/01 17:14:59 [Seed 109] Score: 71.3 | Ocean: 62.7% | Temp: 5.0°C | Time: 3.819s
+2026/01/01 17:15:01 [GEO PROFILE] Year 10000000 | Tectonic: 127.542885ms (99%) | Ocean: 1.582742ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 294.212µs (0%) | Bio: 0s
+2026/01/01 17:15:01 [Seed 110] Score: 79.8 | Ocean: 68.0% | Temp: -0.6°C | Time: 3.9s
+Progress: 110/10000 seeds tested
+2026/01/01 17:15:01 [GEO PROFILE] Year 10000000 | Tectonic: 134.106457ms (98%) | Ocean: 1.765005ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 334.78µs (0%) | Bio: 0s
+2026/01/01 17:15:01 [Seed 111] Score: 71.2 | Ocean: 62.5% | Temp: 4.9°C | Time: 3.875s
+2026/01/01 17:15:01 [GEO PROFILE] Year 10000000 | Tectonic: 108.819301ms (98%) | Ocean: 1.712956ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 278.544µs (0%) | Bio: 0s
+2026/01/01 17:15:01 [Seed 112] Score: 72.2 | Ocean: 57.3% | Temp: 4.8°C | Time: 4.036s
+2026/01/01 17:15:03 [GEO PROFILE] Year 10000000 | Tectonic: 92.619906ms (98%) | Ocean: 1.734282ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 318.079µs (0%) | Bio: 0s
+2026/01/01 17:15:03 [Seed 113] Score: 75.5 | Ocean: 67.4% | Temp: 4.9°C | Time: 3.842s
+2026/01/01 17:15:05 [GEO PROFILE] Year 10000000 | Tectonic: 128.293606ms (98%) | Ocean: 1.729303ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 298.291µs (0%) | Bio: 0s
+2026/01/01 17:15:05 [Seed 114] Score: 67.3 | Ocean: 53.5% | Temp: 4.9°C | Time: 3.966s
+2026/01/01 17:15:05 [GEO PROFILE] Year 10000000 | Tectonic: 108.298638ms (98%) | Ocean: 1.694834ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 313.782µs (0%) | Bio: 0s
+2026/01/01 17:15:05 [Seed 115] Score: 75.4 | Ocean: 60.8% | Temp: 4.9°C | Time: 3.845s
+2026/01/01 17:15:05 [GEO PROFILE] Year 10000000 | Tectonic: 129.524882ms (99%) | Ocean: 1.638847ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 332.225µs (0%) | Bio: 0s
+2026/01/01 17:15:05 [Seed 116] Score: 72.2 | Ocean: 58.3% | Temp: 4.9°C | Time: 3.912s
+2026/01/01 17:15:07 [GEO PROFILE] Year 10000000 | Tectonic: 101.629068ms (98%) | Ocean: 1.761411ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 306.695µs (0%) | Bio: 0s
+2026/01/01 17:15:07 [Seed 117] Score: 77.0 | Ocean: 66.5% | Temp: -1.2°C | Time: 3.954s
+2026/01/01 17:15:09 [GEO PROFILE] Year 10000000 | Tectonic: 108.2345ms (98%) | Ocean: 1.721993ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 281.286µs (0%) | Bio: 0s
+2026/01/01 17:15:09 [Seed 118] Score: 73.8 | Ocean: 54.3% | Temp: 2.5°C | Time: 4.04s
+2026/01/01 17:15:09 [GEO PROFILE] Year 10000000 | Tectonic: 152.704752ms (99%) | Ocean: 1.742172ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 301.425µs (0%) | Bio: 0s
+2026/01/01 17:15:09 [Seed 119] Score: 73.0 | Ocean: 60.0% | Temp: -1.7°C | Time: 4.035s
+2026/01/01 17:15:09 [GEO PROFILE] Year 10000000 | Tectonic: 99.994344ms (98%) | Ocean: 1.773873ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 306.773µs (0%) | Bio: 0s
+2026/01/01 17:15:09 [Seed 120] Score: 72.0 | Ocean: 58.3% | Temp: 4.8°C | Time: 3.882s
+Progress: 120/10000 seeds tested
+2026/01/01 17:15:11 [GEO PROFILE] Year 10000000 | Tectonic: 100.966925ms (98%) | Ocean: 1.738607ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 241.419µs (0%) | Bio: 0s
+2026/01/01 17:15:11 [Seed 121] Score: 75.9 | Ocean: 61.0% | Temp: 4.5°C | Time: 3.83s
+2026/01/01 17:15:13 [GEO PROFILE] Year 10000000 | Tectonic: 162.383598ms (99%) | Ocean: 1.6898ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 308.362µs (0%) | Bio: 0s
+2026/01/01 17:15:13 [GEO PROFILE] Year 10000000 | Tectonic: 140.806214ms (99%) | Ocean: 1.65697ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 263.581µs (0%) | Bio: 0s
+2026/01/01 17:15:13 [Seed 122] Score: 69.1 | Ocean: 53.6% | Temp: 4.8°C | Time: 3.933s
+2026/01/01 17:15:13 [Seed 123] Score: 74.1 | Ocean: 62.6% | Temp: -1.3°C | Time: 3.806s
+2026/01/01 17:15:13 [GEO PROFILE] Year 10000000 | Tectonic: 114.398467ms (98%) | Ocean: 2.004535ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 335.466µs (0%) | Bio: 0s
+2026/01/01 17:15:13 [Seed 124] Score: 67.5 | Ocean: 52.6% | Temp: 4.8°C | Time: 3.9s
+2026/01/01 17:15:15 [GEO PROFILE] Year 10000000 | Tectonic: 92.45309ms (98%) | Ocean: 1.609568ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 312.586µs (0%) | Bio: 0s
+2026/01/01 17:15:15 [Seed 125] Score: 66.3 | Ocean: 57.8% | Temp: 4.7°C | Time: 3.88s
+2026/01/01 17:15:17 [GEO PROFILE] Year 10000000 | Tectonic: 102.360614ms (98%) | Ocean: 1.725268ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 312.686µs (0%) | Bio: 0s
+2026/01/01 17:15:17 [Seed 126] Score: 77.7 | Ocean: 68.6% | Temp: 4.6°C | Time: 4.016s
+2026/01/01 17:15:17 [GEO PROFILE] Year 10000000 | Tectonic: 103.389318ms (98%) | Ocean: 1.642309ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 273.35µs (0%) | Bio: 0s
+2026/01/01 17:15:17 [Seed 127] Score: 78.0 | Ocean: 56.3% | Temp: 1.6°C | Time: 4.268s
+2026/01/01 17:15:17 [GEO PROFILE] Year 10000000 | Tectonic: 144.845401ms (98%) | Ocean: 2.181182ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 367.412µs (0%) | Bio: 0s
+2026/01/01 17:15:17 [Seed 128] Score: 74.1 | Ocean: 59.0% | Temp: 4.8°C | Time: 4.148s
+2026/01/01 17:15:19 [GEO PROFILE] Year 10000000 | Tectonic: 108.119881ms (98%) | Ocean: 1.735499ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 310.399µs (0%) | Bio: 0s
+2026/01/01 17:15:19 [Seed 129] Score: 69.7 | Ocean: 55.5% | Temp: 4.9°C | Time: 4.116s
+2026/01/01 17:15:21 [GEO PROFILE] Year 10000000 | Tectonic: 96.957636ms (98%) | Ocean: 1.84798ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 296.204µs (0%) | Bio: 0s
+2026/01/01 17:15:21 [Seed 130] Score: 78.7 | Ocean: 68.1% | Temp: -0.6°C | Time: 3.758s
+Progress: 130/10000 seeds tested
+2026/01/01 17:15:21 [GEO PROFILE] Year 10000000 | Tectonic: 101.230425ms (98%) | Ocean: 1.799136ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 294.841µs (0%) | Bio: 0s
+2026/01/01 17:15:21 [Seed 131] Score: 72.8 | Ocean: 58.5% | Temp: 4.8°C | Time: 3.885s
+2026/01/01 17:15:21 [GEO PROFILE] Year 10000000 | Tectonic: 99.746532ms (98%) | Ocean: 1.927614ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 326.102µs (0%) | Bio: 0s
+2026/01/01 17:15:21 [Seed 132] Score: 64.6 | Ocean: 49.6% | Temp: 4.8°C | Time: 3.917s
+2026/01/01 17:15:22 [GEO PROFILE] Year 10000000 | Tectonic: 141.844152ms (99%) | Ocean: 1.761153ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 334.99µs (0%) | Bio: 0s
+2026/01/01 17:15:22 [Seed 133] Score: 75.1 | Ocean: 66.5% | Temp: -1.5°C | Time: 3.637s
+2026/01/01 17:15:24 [GEO PROFILE] Year 10000000 | Tectonic: 134.46133ms (98%) | Ocean: 1.778084ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 315.384µs (0%) | Bio: 0s
+2026/01/01 17:15:24 [Seed 134] Score: 77.2 | Ocean: 66.6% | Temp: -0.9°C | Time: 3.683s
+2026/01/01 17:15:25 [GEO PROFILE] Year 10000000 | Tectonic: 132.683379ms (99%) | Ocean: 1.635087ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 278.517µs (0%) | Bio: 0s
+2026/01/01 17:15:25 [Seed 135] Score: 79.3 | Ocean: 67.7% | Temp: -1.1°C | Time: 3.776s
+2026/01/01 17:15:25 [GEO PROFILE] Year 10000000 | Tectonic: 104.191847ms (98%) | Ocean: 1.681614ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 287.244µs (0%) | Bio: 0s
+2026/01/01 17:15:25 [Seed 136] Score: 71.0 | Ocean: 55.3% | Temp: 4.8°C | Time: 3.803s
+2026/01/01 17:15:26 [GEO PROFILE] Year 10000000 | Tectonic: 90.002587ms (98%) | Ocean: 1.774927ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 257.343µs (0%) | Bio: 0s
+2026/01/01 17:15:26 [Seed 137] Score: 84.3 | Ocean: 64.1% | Temp: 0.5°C | Time: 3.854s
+2026/01/01 17:15:28 [GEO PROFILE] Year 10000000 | Tectonic: 145.495013ms (99%) | Ocean: 1.657757ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 271.138µs (0%) | Bio: 0s
+2026/01/01 17:15:28 [Seed 138] Score: 67.5 | Ocean: 52.7% | Temp: 4.8°C | Time: 3.925s
+2026/01/01 17:15:28 [GEO PROFILE] Year 10000000 | Tectonic: 93.429659ms (98%) | Ocean: 1.789601ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 274.714µs (0%) | Bio: 0s
+2026/01/01 17:15:28 [Seed 139] Score: 79.9 | Ocean: 67.6% | Temp: -1.7°C | Time: 3.74s
+2026/01/01 17:15:29 [GEO PROFILE] Year 10000000 | Tectonic: 95.385638ms (98%) | Ocean: 1.739477ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 281.926µs (0%) | Bio: 0s
+2026/01/01 17:15:29 [Seed 140] Score: 63.9 | Ocean: 48.0% | Temp: 4.8°C | Time: 3.833s
+Progress: 140/10000 seeds tested
+2026/01/01 17:15:30 [GEO PROFILE] Year 10000000 | Tectonic: 96.627808ms (98%) | Ocean: 1.684414ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 304.891µs (0%) | Bio: 0s
+2026/01/01 17:15:30 [Seed 141] Score: 71.4 | Ocean: 57.9% | Temp: -0.7°C | Time: 3.744s
+2026/01/01 17:15:32 [GEO PROFILE] Year 10000000 | Tectonic: 90.578615ms (98%) | Ocean: 1.748408ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 261.627µs (0%) | Bio: 0s
+2026/01/01 17:15:32 [Seed 142] Score: 76.6 | Ocean: 63.4% | Temp: -1.1°C | Time: 3.682s
+2026/01/01 17:15:32 [GEO PROFILE] Year 10000000 | Tectonic: 87.157703ms (98%) | Ocean: 1.834397ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 251.425µs (0%) | Bio: 0s
+2026/01/01 17:15:32 [Seed 143] Score: 73.3 | Ocean: 62.1% | Temp: -1.2°C | Time: 3.648s
+2026/01/01 17:15:33 [GEO PROFILE] Year 10000000 | Tectonic: 93.788754ms (98%) | Ocean: 1.779114ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 319.341µs (0%) | Bio: 0s
+2026/01/01 17:15:33 [Seed 144] Score: 62.6 | Ocean: 47.3% | Temp: 4.7°C | Time: 3.867s
+2026/01/01 17:15:34 [GEO PROFILE] Year 10000000 | Tectonic: 102.169043ms (98%) | Ocean: 1.760936ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 312.794µs (0%) | Bio: 0s
+2026/01/01 17:15:34 [Seed 145] Score: 69.6 | Ocean: 54.6% | Temp: 4.9°C | Time: 3.678s
+2026/01/01 17:15:36 [GEO PROFILE] Year 10000000 | Tectonic: 100.157725ms (98%) | Ocean: 1.846775ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 353.062µs (0%) | Bio: 0s
+2026/01/01 17:15:36 [Seed 146] Score: 60.9 | Ocean: 47.0% | Temp: 4.9°C | Time: 3.922s
+2026/01/01 17:15:36 [GEO PROFILE] Year 10000000 | Tectonic: 95.328879ms (98%) | Ocean: 1.729184ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 260.247µs (0%) | Bio: 0s
+2026/01/01 17:15:36 [Seed 147] Score: 61.4 | Ocean: 46.8% | Temp: 4.8°C | Time: 3.854s
+2026/01/01 17:15:36 [GEO PROFILE] Year 10000000 | Tectonic: 103.116992ms (98%) | Ocean: 1.672386ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 264.429µs (0%) | Bio: 0s
+2026/01/01 17:15:36 [Seed 148] Score: 69.7 | Ocean: 54.8% | Temp: 4.8°C | Time: 3.794s
+2026/01/01 17:15:37 [GEO PROFILE] Year 10000000 | Tectonic: 117.270317ms (98%) | Ocean: 1.822367ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 356.358µs (0%) | Bio: 0s
+2026/01/01 17:15:37 [Seed 149] Score: 75.8 | Ocean: 63.4% | Temp: -1.3°C | Time: 3.73s
+2026/01/01 17:15:39 [GEO PROFILE] Year 10000000 | Tectonic: 107.563397ms (98%) | Ocean: 1.75196ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 287.763µs (0%) | Bio: 0s
+2026/01/01 17:15:40 [Seed 150] Score: 68.8 | Ocean: 53.6% | Temp: 4.9°C | Time: 3.744s
+Progress: 150/10000 seeds tested
+2026/01/01 17:15:40 [GEO PROFILE] Year 10000000 | Tectonic: 112.500617ms (98%) | Ocean: 1.769466ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 292.096µs (0%) | Bio: 0s
+2026/01/01 17:15:40 [Seed 151] Score: 78.7 | Ocean: 67.1% | Temp: -1.3°C | Time: 3.678s
+2026/01/01 17:15:40 [GEO PROFILE] Year 10000000 | Tectonic: 93.666854ms (98%) | Ocean: 1.609036ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 301.511µs (0%) | Bio: 0s
+2026/01/01 17:15:40 [Seed 152] Score: 77.9 | Ocean: 67.7% | Temp: -0.5°C | Time: 3.633s
+2026/01/01 17:15:41 [GEO PROFILE] Year 10000000 | Tectonic: 102.974825ms (98%) | Ocean: 1.734227ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 302.099µs (0%) | Bio: 0s
+2026/01/01 17:15:41 [Seed 153] Score: 76.3 | Ocean: 61.1% | Temp: -0.0°C | Time: 3.801s
+2026/01/01 17:15:43 [GEO PROFILE] Year 10000000 | Tectonic: 156.661145ms (99%) | Ocean: 1.671733ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 270.711µs (0%) | Bio: 0s
+2026/01/01 17:15:43 [Seed 154] Score: 71.7 | Ocean: 56.2% | Temp: 4.7°C | Time: 3.851s
+2026/01/01 17:15:43 [GEO PROFILE] Year 10000000 | Tectonic: 94.0661ms (96%) | Ocean: 3.330478ms (3%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 272.192µs (0%) | Bio: 0s
+2026/01/01 17:15:43 [Seed 155] Score: 74.2 | Ocean: 65.7% | Temp: 4.6°C | Time: 3.763s
+2026/01/01 17:15:44 [GEO PROFILE] Year 10000000 | Tectonic: 115.72291ms (98%) | Ocean: 1.814357ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 425.103µs (0%) | Bio: 0s
+2026/01/01 17:15:44 [Seed 156] Score: 61.1 | Ocean: 44.7% | Temp: 4.9°C | Time: 3.812s
+2026/01/01 17:15:45 [GEO PROFILE] Year 10000000 | Tectonic: 100.022659ms (98%) | Ocean: 1.721277ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 345.335µs (0%) | Bio: 0s
+2026/01/01 17:15:45 [Seed 157] Score: 71.3 | Ocean: 62.4% | Temp: 4.8°C | Time: 3.747s
+2026/01/01 17:15:47 [GEO PROFILE] Year 10000000 | Tectonic: 120.185447ms (98%) | Ocean: 1.684107ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 290.662µs (0%) | Bio: 0s
+2026/01/01 17:15:47 [Seed 158] Score: 71.5 | Ocean: 57.0% | Temp: 4.8°C | Time: 3.912s
+2026/01/01 17:15:47 [GEO PROFILE] Year 10000000 | Tectonic: 95.663651ms (98%) | Ocean: 1.740672ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 257.271µs (0%) | Bio: 0s
+2026/01/01 17:15:47 [Seed 159] Score: 69.5 | Ocean: 55.2% | Temp: 4.8°C | Time: 3.928s
+2026/01/01 17:15:48 [GEO PROFILE] Year 10000000 | Tectonic: 108.69547ms (98%) | Ocean: 1.796287ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 291.506µs (0%) | Bio: 0s
+2026/01/01 17:15:48 [Seed 160] Score: 62.9 | Ocean: 47.7% | Temp: 4.8°C | Time: 3.85s
+Progress: 160/10000 seeds tested
+2026/01/01 17:15:49 [GEO PROFILE] Year 10000000 | Tectonic: 103.386921ms (97%) | Ocean: 2.674895ms (3%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 316.394µs (0%) | Bio: 0s
+2026/01/01 17:15:49 [Seed 161] Score: 75.8 | Ocean: 60.6% | Temp: 4.8°C | Time: 3.653s
+2026/01/01 17:15:51 [GEO PROFILE] Year 10000000 | Tectonic: 90.755342ms (98%) | Ocean: 1.724268ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 303.092µs (0%) | Bio: 0s
+2026/01/01 17:15:51 [Seed 162] Score: 75.0 | Ocean: 65.1% | Temp: -1.1°C | Time: 3.681s
+2026/01/01 17:15:51 [GEO PROFILE] Year 10000000 | Tectonic: 101.397905ms (98%) | Ocean: 1.759516ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 267.615µs (0%) | Bio: 0s
+2026/01/01 17:15:51 [Seed 163] Score: 71.0 | Ocean: 56.8% | Temp: 4.9°C | Time: 3.83s
+2026/01/01 17:15:51 [GEO PROFILE] Year 10000000 | Tectonic: 90.175127ms (98%) | Ocean: 1.709938ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 264.679µs (0%) | Bio: 0s
+2026/01/01 17:15:51 [Seed 164] Score: 79.7 | Ocean: 68.9% | Temp: -1.4°C | Time: 3.616s
+2026/01/01 17:15:52 [GEO PROFILE] Year 10000000 | Tectonic: 94.914885ms (98%) | Ocean: 1.652ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 310.493µs (0%) | Bio: 0s
+2026/01/01 17:15:52 [Seed 165] Score: 78.9 | Ocean: 67.1% | Temp: -1.5°C | Time: 3.635s
+2026/01/01 17:15:55 [GEO PROFILE] Year 10000000 | Tectonic: 104.049885ms (98%) | Ocean: 1.695573ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 263.027µs (0%) | Bio: 0s
+2026/01/01 17:15:55 [GEO PROFILE] Year 10000000 | Tectonic: 101.630385ms (98%) | Ocean: 1.746451ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 326.496µs (0%) | Bio: 0s
+2026/01/01 17:15:55 [Seed 166] Score: 78.6 | Ocean: 56.7% | Temp: 1.1°C | Time: 4.016s
+2026/01/01 17:15:55 [Seed 167] Score: 78.3 | Ocean: 69.3% | Temp: -0.3°C | Time: 3.814s
+2026/01/01 17:15:55 [GEO PROFILE] Year 10000000 | Tectonic: 90.834193ms (98%) | Ocean: 1.761917ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 253.544µs (0%) | Bio: 0s
+2026/01/01 17:15:55 [Seed 168] Score: 70.1 | Ocean: 57.6% | Temp: -0.9°C | Time: 3.807s
+2026/01/01 17:15:56 [GEO PROFILE] Year 10000000 | Tectonic: 121.263767ms (98%) | Ocean: 1.697949ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 303.895µs (0%) | Bio: 0s
+2026/01/01 17:15:56 [Seed 169] Score: 73.6 | Ocean: 58.3% | Temp: 4.9°C | Time: 3.737s
+2026/01/01 17:15:59 [GEO PROFILE] Year 10000000 | Tectonic: 82.351989ms (98%) | Ocean: 1.802486ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 278.309µs (0%) | Bio: 0s
+2026/01/01 17:15:59 [Seed 170] Score: 78.1 | Ocean: 66.3% | Temp: -1.0°C | Time: 3.738s
+Progress: 170/10000 seeds tested
+2026/01/01 17:15:59 [GEO PROFILE] Year 10000000 | Tectonic: 140.733624ms (98%) | Ocean: 1.905132ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 574.91µs (0%) | Bio: 0s
+2026/01/01 17:15:59 [Seed 171] Score: 68.4 | Ocean: 59.4% | Temp: 4.6°C | Time: 3.978s
+2026/01/01 17:15:59 [GEO PROFILE] Year 10000000 | Tectonic: 78.42123ms (98%) | Ocean: 1.735731ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 263.578µs (0%) | Bio: 0s
+2026/01/01 17:15:59 [Seed 172] Score: 77.9 | Ocean: 65.4% | Temp: -1.7°C | Time: 3.898s
+2026/01/01 17:16:00 [GEO PROFILE] Year 10000000 | Tectonic: 98.535913ms (98%) | Ocean: 1.84576ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 352.554µs (0%) | Bio: 0s
+2026/01/01 17:16:00 [Seed 173] Score: 74.3 | Ocean: 58.9% | Temp: 4.9°C | Time: 3.748s
+2026/01/01 17:16:02 [GEO PROFILE] Year 10000000 | Tectonic: 103.609929ms (98%) | Ocean: 1.823886ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 296.688µs (0%) | Bio: 0s
+2026/01/01 17:16:02 [Seed 174] Score: 76.9 | Ocean: 65.1% | Temp: -1.1°C | Time: 3.676s
+2026/01/01 17:16:03 [GEO PROFILE] Year 10000000 | Tectonic: 93.396986ms (98%) | Ocean: 1.878171ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 319.533µs (0%) | Bio: 0s
+2026/01/01 17:16:03 [Seed 175] Score: 65.0 | Ocean: 56.6% | Temp: 4.9°C | Time: 3.847s
+2026/01/01 17:16:03 [GEO PROFILE] Year 10000000 | Tectonic: 135.687841ms (99%) | Ocean: 1.710477ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 256.381µs (0%) | Bio: 0s
+2026/01/01 17:16:03 [Seed 176] Score: 65.5 | Ocean: 49.8% | Temp: 4.5°C | Time: 3.889s
+2026/01/01 17:16:03 [GEO PROFILE] Year 10000000 | Tectonic: 100.052063ms (98%) | Ocean: 1.694312ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 307.454µs (0%) | Bio: 0s
+2026/01/01 17:16:03 [Seed 177] Score: 77.9 | Ocean: 64.6% | Temp: -0.8°C | Time: 3.669s
+2026/01/01 17:16:06 [GEO PROFILE] Year 10000000 | Tectonic: 121.483374ms (98%) | Ocean: 1.711943ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 319.059µs (0%) | Bio: 0s
+2026/01/01 17:16:06 [Seed 178] Score: 81.5 | Ocean: 69.4% | Temp: -1.6°C | Time: 3.702s
+2026/01/01 17:16:07 [GEO PROFILE] Year 10000000 | Tectonic: 110.8565ms (98%) | Ocean: 1.670681ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 296.821µs (0%) | Bio: 0s
+2026/01/01 17:16:07 [Seed 179] Score: 81.6 | Ocean: 62.2% | Temp: 2.1°C | Time: 3.729s
+2026/01/01 17:16:07 [GEO PROFILE] Year 10000000 | Tectonic: 141.248944ms (99%) | Ocean: 1.699611ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 289.882µs (0%) | Bio: 0s
+2026/01/01 17:16:07 [Seed 180] Score: 81.1 | Ocean: 61.7% | Temp: 1.2°C | Time: 3.782s
+Progress: 180/10000 seeds tested
+2026/01/01 17:16:07 [GEO PROFILE] Year 10000000 | Tectonic: 93.661648ms (98%) | Ocean: 1.679132ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 302.206µs (0%) | Bio: 0s
+2026/01/01 17:16:07 [Seed 181] Score: 71.0 | Ocean: 55.9% | Temp: 4.8°C | Time: 3.696s
+2026/01/01 17:16:10 [GEO PROFILE] Year 10000000 | Tectonic: 101.273806ms (98%) | Ocean: 2.151181ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 396.671µs (0%) | Bio: 0s
+2026/01/01 17:16:10 [Seed 182] Score: 67.9 | Ocean: 52.6% | Temp: 4.9°C | Time: 3.795s
+2026/01/01 17:16:10 [GEO PROFILE] Year 10000000 | Tectonic: 106.318913ms (98%) | Ocean: 1.657014ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 272.851µs (0%) | Bio: 0s
+2026/01/01 17:16:10 [Seed 183] Score: 62.4 | Ocean: 45.2% | Temp: 4.7°C | Time: 3.929s
+2026/01/01 17:16:11 [GEO PROFILE] Year 10000000 | Tectonic: 130.014002ms (85%) | Ocean: 23.221407ms (15%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 360.656µs (0%) | Bio: 0s
+2026/01/01 17:16:11 [Seed 184] Score: 69.5 | Ocean: 54.9% | Temp: 5.0°C | Time: 3.877s
+2026/01/01 17:16:11 [GEO PROFILE] Year 10000000 | Tectonic: 87.649186ms (98%) | Ocean: 1.851198ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 271.033µs (0%) | Bio: 0s
+2026/01/01 17:16:11 [Seed 185] Score: 75.9 | Ocean: 68.7% | Temp: -1.2°C | Time: 3.644s
+2026/01/01 17:16:13 [GEO PROFILE] Year 10000000 | Tectonic: 140.792167ms (99%) | Ocean: 1.650036ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 269.65µs (0%) | Bio: 0s
+2026/01/01 17:16:13 [Seed 186] Score: 74.1 | Ocean: 65.4% | Temp: -0.7°C | Time: 3.601s
+2026/01/01 17:16:14 [GEO PROFILE] Year 10000000 | Tectonic: 166.879221ms (99%) | Ocean: 1.730914ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 299.042µs (0%) | Bio: 0s
+2026/01/01 17:16:14 [Seed 187] Score: 79.8 | Ocean: 61.4% | Temp: 2.8°C | Time: 3.831s
+2026/01/01 17:16:14 [GEO PROFILE] Year 10000000 | Tectonic: 85.516471ms (98%) | Ocean: 1.789556ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 263.899µs (0%) | Bio: 0s
+2026/01/01 17:16:14 [Seed 188] Score: 69.7 | Ocean: 61.6% | Temp: 4.9°C | Time: 3.765s
+2026/01/01 17:16:14 [GEO PROFILE] Year 10000000 | Tectonic: 101.597458ms (98%) | Ocean: 1.767364ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 297.936µs (0%) | Bio: 0s
+2026/01/01 17:16:14 [Seed 189] Score: 69.3 | Ocean: 55.0% | Temp: 4.8°C | Time: 3.738s
+2026/01/01 17:16:17 [GEO PROFILE] Year 10000000 | Tectonic: 90.235351ms (98%) | Ocean: 1.603862ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 255.8µs (0%) | Bio: 0s
+2026/01/01 17:16:17 [Seed 190] Score: 79.5 | Ocean: 68.6% | Temp: -0.1°C | Time: 3.613s
+Progress: 190/10000 seeds tested
+2026/01/01 17:16:18 [GEO PROFILE] Year 10000000 | Tectonic: 230.993352ms (99%) | Ocean: 1.633373ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 295.338µs (0%) | Bio: 0s
+2026/01/01 17:16:18 [Seed 191] Score: 75.1 | Ocean: 61.8% | Temp: 4.9°C | Time: 4.099s
+2026/01/01 17:16:19 [GEO PROFILE] Year 10000000 | Tectonic: 109.646783ms (98%) | Ocean: 1.761367ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 313.666µs (0%) | Bio: 0s
+2026/01/01 17:16:19 [Seed 192] Score: 68.0 | Ocean: 52.8% | Temp: 4.9°C | Time: 4.189s
+2026/01/01 17:16:19 [GEO PROFILE] Year 10000000 | Tectonic: 93.954362ms (98%) | Ocean: 1.690366ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 318.635µs (0%) | Bio: 0s
+2026/01/01 17:16:19 [Seed 193] Score: 74.1 | Ocean: 66.6% | Temp: -0.6°C | Time: 4.098s
+2026/01/01 17:16:21 [GEO PROFILE] Year 10000000 | Tectonic: 104.880744ms (98%) | Ocean: 1.573068ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 279.118µs (0%) | Bio: 0s
+2026/01/01 17:16:21 [Seed 194] Score: 76.0 | Ocean: 67.2% | Temp: 4.9°C | Time: 4.005s
+2026/01/01 17:16:22 [GEO PROFILE] Year 10000000 | Tectonic: 135.770517ms (98%) | Ocean: 2.020016ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 298.993µs (0%) | Bio: 0s
+2026/01/01 17:16:22 [Seed 195] Score: 63.5 | Ocean: 49.0% | Temp: 4.9°C | Time: 3.941s
+2026/01/01 17:16:22 [GEO PROFILE] Year 10000000 | Tectonic: 101.062249ms (98%) | Ocean: 1.794137ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 318.097µs (0%) | Bio: 0s
+2026/01/01 17:16:22 [Seed 197] Score: 75.2 | Ocean: 60.6% | Temp: 4.9°C | Time: 3.848s
+2026/01/01 17:16:23 [GEO PROFILE] Year 10000000 | Tectonic: 134.853727ms (99%) | Ocean: 1.754775ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 261.279µs (0%) | Bio: 0s
+2026/01/01 17:16:23 [Seed 196] Score: 61.9 | Ocean: 46.4% | Temp: 4.6°C | Time: 4.057s
+2026/01/01 17:16:25 [GEO PROFILE] Year 10000000 | Tectonic: 108.129784ms (98%) | Ocean: 1.688014ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 264.841µs (0%) | Bio: 0s
+2026/01/01 17:16:25 [Seed 198] Score: 62.2 | Ocean: 46.5% | Temp: 4.7°C | Time: 3.919s
+2026/01/01 17:16:26 [GEO PROFILE] Year 10000000 | Tectonic: 131.485857ms (94%) | Ocean: 1.672286ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 6.308628ms (5%) | Bio: 0s
+2026/01/01 17:16:26 [Seed 199] Score: 67.5 | Ocean: 53.2% | Temp: 4.8°C | Time: 4.004s
+2026/01/01 17:16:26 [GEO PROFILE] Year 10000000 | Tectonic: 165.114835ms (99%) | Ocean: 1.7397ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 295.736µs (0%) | Bio: 0s
+2026/01/01 17:16:26 [Seed 200] Score: 67.3 | Ocean: 52.3% | Temp: 4.9°C | Time: 4.001s
+Progress: 200/10000 seeds tested
+2026/01/01 17:16:26 [GEO PROFILE] Year 10000000 | Tectonic: 195.181347ms (99%) | Ocean: 1.75485ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 274.018µs (0%) | Bio: 0s
+2026/01/01 17:16:27 [Seed 201] Score: 68.0 | Ocean: 53.4% | Temp: 5.0°C | Time: 3.924s
+2026/01/01 17:16:29 [GEO PROFILE] Year 10000000 | Tectonic: 97.638523ms (98%) | Ocean: 1.703735ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 296.244µs (0%) | Bio: 0s
+2026/01/01 17:16:29 [Seed 202] Score: 82.5 | Ocean: 59.9% | Temp: 0.6°C | Time: 3.933s
+2026/01/01 17:16:30 [GEO PROFILE] Year 10000000 | Tectonic: 116.034765ms (98%) | Ocean: 1.678894ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 311.006µs (0%) | Bio: 0s
+2026/01/01 17:16:30 [Seed 204] Score: 77.7 | Ocean: 67.7% | Temp: -0.8°C | Time: 3.94s
+2026/01/01 17:16:31 [GEO PROFILE] Year 10000000 | Tectonic: 130.476723ms (99%) | Ocean: 1.58821ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 269.685µs (0%) | Bio: 0s
+2026/01/01 17:16:31 [Seed 205] Score: 75.0 | Ocean: 60.5% | Temp: 4.9°C | Time: 4.084s
+2026/01/01 17:16:31 [GEO PROFILE] Year 10000000 | Tectonic: 100.843956ms (98%) | Ocean: 1.76446ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 318.532µs (0%) | Bio: 0s
+2026/01/01 17:16:31 [Seed 203] Score: 63.0 | Ocean: 48.1% | Temp: 4.6°C | Time: 4.351s
+2026/01/01 17:16:33 [GEO PROFILE] Year 10000000 | Tectonic: 100.304353ms (97%) | Ocean: 2.496878ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 247.302µs (0%) | Bio: 0s
+2026/01/01 17:16:33 [Seed 206] Score: 61.7 | Ocean: 46.5% | Temp: 4.8°C | Time: 3.937s
+2026/01/01 17:16:34 [GEO PROFILE] Year 10000000 | Tectonic: 120.824634ms (98%) | Ocean: 1.757632ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 309.461µs (0%) | Bio: 0s
+2026/01/01 17:16:34 [Seed 207] Score: 70.0 | Ocean: 55.5% | Temp: 4.8°C | Time: 3.825s
+2026/01/01 17:16:34 [GEO PROFILE] Year 10000000 | Tectonic: 122.80306ms (98%) | Ocean: 1.692366ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 253.973µs (0%) | Bio: 0s
+2026/01/01 17:16:34 [Seed 209] Score: 79.4 | Ocean: 68.6% | Temp: -0.7°C | Time: 3.766s
+2026/01/01 17:16:35 [GEO PROFILE] Year 10000000 | Tectonic: 119.954397ms (98%) | Ocean: 1.876091ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 326.718µs (0%) | Bio: 0s
+2026/01/01 17:16:35 [Seed 208] Score: 73.9 | Ocean: 62.2% | Temp: -1.3°C | Time: 3.947s
+2026/01/01 17:16:37 [GEO PROFILE] Year 10000000 | Tectonic: 131.068428ms (99%) | Ocean: 1.629152ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 282.55µs (0%) | Bio: 0s
+2026/01/01 17:16:37 [Seed 210] Score: 73.3 | Ocean: 60.3% | Temp: -1.0°C | Time: 3.732s
+Progress: 210/10000 seeds tested
+2026/01/01 17:16:38 [GEO PROFILE] Year 10000000 | Tectonic: 104.591784ms (98%) | Ocean: 1.77513ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 309.566µs (0%) | Bio: 0s
+2026/01/01 17:16:38 [Seed 211] Score: 72.0 | Ocean: 57.9% | Temp: -1.2°C | Time: 3.769s
+2026/01/01 17:16:38 [GEO PROFILE] Year 10000000 | Tectonic: 143.140273ms (98%) | Ocean: 2.013946ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 303.882µs (0%) | Bio: 0s
+2026/01/01 17:16:38 [Seed 212] Score: 69.2 | Ocean: 53.5% | Temp: -1.1°C | Time: 3.826s
+2026/01/01 17:16:38 [GEO PROFILE] Year 10000000 | Tectonic: 142.907234ms (99%) | Ocean: 1.735039ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 287.407µs (0%) | Bio: 0s
+2026/01/01 17:16:38 [Seed 213] Score: 63.5 | Ocean: 56.1% | Temp: 4.9°C | Time: 3.912s
+2026/01/01 17:16:40 [GEO PROFILE] Year 10000000 | Tectonic: 94.421949ms (98%) | Ocean: 1.803393ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 257.556µs (0%) | Bio: 0s
+2026/01/01 17:16:40 [Seed 214] Score: 77.2 | Ocean: 63.1% | Temp: 4.8°C | Time: 3.728s
+2026/01/01 17:16:42 [GEO PROFILE] Year 10000000 | Tectonic: 107.718548ms (98%) | Ocean: 1.796166ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 296.247µs (0%) | Bio: 0s
+2026/01/01 17:16:42 [Seed 215] Score: 67.0 | Ocean: 55.8% | Temp: -1.3°C | Time: 3.751s
+2026/01/01 17:16:42 [GEO PROFILE] Year 10000000 | Tectonic: 96.609465ms (98%) | Ocean: 1.728538ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 305.398µs (0%) | Bio: 0s
+2026/01/01 17:16:42 [Seed 216] Score: 74.8 | Ocean: 60.0% | Temp: 4.8°C | Time: 3.813s
+2026/01/01 17:16:42 [GEO PROFILE] Year 10000000 | Tectonic: 118.038664ms (98%) | Ocean: 1.771112ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 280.249µs (0%) | Bio: 0s
+2026/01/01 17:16:42 [Seed 217] Score: 71.3 | Ocean: 57.4% | Temp: 4.9°C | Time: 3.804s
+2026/01/01 17:16:44 [GEO PROFILE] Year 10000000 | Tectonic: 98.462036ms (98%) | Ocean: 1.737497ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 267.54µs (0%) | Bio: 0s
+2026/01/01 17:16:44 [Seed 218] Score: 65.2 | Ocean: 50.5% | Temp: 4.9°C | Time: 3.85s
+2026/01/01 17:16:46 [GEO PROFILE] Year 10000000 | Tectonic: 96.955378ms (98%) | Ocean: 1.767761ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 288.208µs (0%) | Bio: 0s
+2026/01/01 17:16:46 [Seed 219] Score: 77.2 | Ocean: 59.2% | Temp: -1.4°C | Time: 3.814s
+2026/01/01 17:16:46 [GEO PROFILE] Year 10000000 | Tectonic: 101.23944ms (98%) | Ocean: 1.835748ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 301.191µs (0%) | Bio: 0s
+2026/01/01 17:16:46 [Seed 220] Score: 74.4 | Ocean: 61.8% | Temp: -0.9°C | Time: 3.762s
+Progress: 220/10000 seeds tested
+2026/01/01 17:16:46 [GEO PROFILE] Year 10000000 | Tectonic: 106.594465ms (98%) | Ocean: 1.678951ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 287.206µs (0%) | Bio: 0s
+2026/01/01 17:16:46 [Seed 221] Score: 79.0 | Ocean: 66.5% | Temp: -0.3°C | Time: 3.705s
+2026/01/01 17:16:48 [GEO PROFILE] Year 10000000 | Tectonic: 92.954687ms (98%) | Ocean: 1.713018ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 244.769µs (0%) | Bio: 0s
+2026/01/01 17:16:48 [Seed 222] Score: 74.6 | Ocean: 62.6% | Temp: -1.7°C | Time: 3.678s
+2026/01/01 17:16:49 [GEO PROFILE] Year 10000000 | Tectonic: 104.003064ms (98%) | Ocean: 1.808151ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 275.474µs (0%) | Bio: 0s
+2026/01/01 17:16:49 [Seed 223] Score: 75.2 | Ocean: 63.5% | Temp: -1.4°C | Time: 3.685s
+2026/01/01 17:16:50 [GEO PROFILE] Year 10000000 | Tectonic: 91.505095ms (98%) | Ocean: 1.754594ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 300.493µs (0%) | Bio: 0s
+2026/01/01 17:16:50 [Seed 224] Score: 71.1 | Ocean: 63.0% | Temp: 4.6°C | Time: 3.745s
+2026/01/01 17:16:50 [GEO PROFILE] Year 10000000 | Tectonic: 99.886515ms (98%) | Ocean: 1.880458ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 302.531µs (0%) | Bio: 0s
+2026/01/01 17:16:50 [Seed 225] Score: 81.9 | Ocean: 64.0% | Temp: 1.2°C | Time: 3.757s
+2026/01/01 17:16:52 [GEO PROFILE] Year 10000000 | Tectonic: 98.66048ms (98%) | Ocean: 1.724566ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 250.568µs (0%) | Bio: 0s
+2026/01/01 17:16:52 [Seed 226] Score: 69.7 | Ocean: 55.1% | Temp: 4.6°C | Time: 3.819s
+2026/01/01 17:16:53 [GEO PROFILE] Year 10000000 | Tectonic: 133.999406ms (99%) | Ocean: 1.717678ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 309.481µs (0%) | Bio: 0s
+2026/01/01 17:16:53 [Seed 227] Score: 71.0 | Ocean: 56.2% | Temp: 4.8°C | Time: 3.727s
+2026/01/01 17:16:54 [GEO PROFILE] Year 10000000 | Tectonic: 289.697752ms (99%) | Ocean: 1.702054ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 274.41µs (0%) | Bio: 0s
+2026/01/01 17:16:54 [Seed 228] Score: 76.4 | Ocean: 61.2% | Temp: 4.9°C | Time: 3.94s
+2026/01/01 17:16:54 [GEO PROFILE] Year 10000000 | Tectonic: 97.850176ms (98%) | Ocean: 1.886341ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 252.966µs (0%) | Bio: 0s
+2026/01/01 17:16:54 [Seed 229] Score: 67.7 | Ocean: 52.8% | Temp: 4.8°C | Time: 4.03s
+2026/01/01 17:16:56 [GEO PROFILE] Year 10000000 | Tectonic: 94.847493ms (98%) | Ocean: 1.69941ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 262.901µs (0%) | Bio: 0s
+2026/01/01 17:16:56 [Seed 230] Score: 76.4 | Ocean: 67.0% | Temp: -0.5°C | Time: 3.899s
+Progress: 230/10000 seeds tested
+2026/01/01 17:16:57 [GEO PROFILE] Year 10000000 | Tectonic: 129.617487ms (99%) | Ocean: 1.653185ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 306.027µs (0%) | Bio: 0s
+2026/01/01 17:16:57 [Seed 231] Score: 77.8 | Ocean: 63.1% | Temp: 4.7°C | Time: 3.979s
+2026/01/01 17:16:57 [GEO PROFILE] Year 10000000 | Tectonic: 104.453174ms (98%) | Ocean: 1.927233ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 278.536µs (0%) | Bio: 0s
+2026/01/01 17:16:57 [Seed 232] Score: 69.6 | Ocean: 54.4% | Temp: 4.8°C | Time: 3.858s
+2026/01/01 17:16:58 [GEO PROFILE] Year 10000000 | Tectonic: 101.337166ms (98%) | Ocean: 2.021395ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 258.878µs (0%) | Bio: 0s
+2026/01/01 17:16:58 [Seed 233] Score: 81.7 | Ocean: 59.2% | Temp: 0.1°C | Time: 3.879s
+2026/01/01 17:17:00 [GEO PROFILE] Year 10000000 | Tectonic: 176.865419ms (99%) | Ocean: 1.751499ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 297.894µs (0%) | Bio: 0s
+2026/01/01 17:17:00 [Seed 234] Score: 74.8 | Ocean: 64.4% | Temp: -1.0°C | Time: 3.948s
+2026/01/01 17:17:01 [GEO PROFILE] Year 10000000 | Tectonic: 164.871213ms (99%) | Ocean: 1.711948ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 328.652µs (0%) | Bio: 0s
+2026/01/01 17:17:01 [Seed 235] Score: 75.2 | Ocean: 60.8% | Temp: 4.7°C | Time: 4.323s
+2026/01/01 17:17:02 [GEO PROFILE] Year 10000000 | Tectonic: 101.006617ms (98%) | Ocean: 1.730839ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 303.214µs (0%) | Bio: 0s
+2026/01/01 17:17:02 [Seed 236] Score: 73.1 | Ocean: 61.6% | Temp: -1.2°C | Time: 4.254s
+2026/01/01 17:17:02 [GEO PROFILE] Year 10000000 | Tectonic: 92.732912ms (98%) | Ocean: 1.692772ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 279.057µs (0%) | Bio: 0s
+2026/01/01 17:17:02 [Seed 237] Score: 75.7 | Ocean: 67.5% | Temp: 4.9°C | Time: 4.258s
+2026/01/01 17:17:04 [GEO PROFILE] Year 10000000 | Tectonic: 135.428702ms (99%) | Ocean: 1.500686ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 167.211µs (0%) | Bio: 0s
+2026/01/01 17:17:04 [Seed 238] Score: 77.5 | Ocean: 68.5% | Temp: -0.5°C | Time: 4.303s
+2026/01/01 17:17:06 [GEO PROFILE] Year 10000000 | Tectonic: 114.898514ms (97%) | Ocean: 3.243696ms (3%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 318.009µs (0%) | Bio: 0s
+2026/01/01 17:17:06 [Seed 239] Score: 73.7 | Ocean: 58.7% | Temp: 4.8°C | Time: 4.537s
+2026/01/01 17:17:06 [GEO PROFILE] Year 10000000 | Tectonic: 186.456194ms (99%) | Ocean: 1.744311ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 266.568µs (0%) | Bio: 0s
+2026/01/01 17:17:06 [Seed 240] Score: 77.8 | Ocean: 66.3% | Temp: -0.1°C | Time: 4.515s
+Progress: 240/10000 seeds tested
+2026/01/01 17:17:07 [GEO PROFILE] Year 10000000 | Tectonic: 222.262435ms (99%) | Ocean: 1.605065ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 290.091µs (0%) | Bio: 0s
+2026/01/01 17:17:07 [Seed 241] Score: 63.3 | Ocean: 47.8% | Temp: 4.8°C | Time: 4.781s
+2026/01/01 17:17:08 [GEO PROFILE] Year 10000000 | Tectonic: 117.525982ms (98%) | Ocean: 1.760419ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 284.768µs (0%) | Bio: 0s
+2026/01/01 17:17:08 [Seed 242] Score: 77.5 | Ocean: 65.6% | Temp: -1.0°C | Time: 4.6s
+2026/01/01 17:17:10 [GEO PROFILE] Year 10000000 | Tectonic: 125.487957ms (97%) | Ocean: 3.736842ms (3%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 390.638µs (0%) | Bio: 0s
+2026/01/01 17:17:10 [Seed 243] Score: 71.4 | Ocean: 58.9% | Temp: -1.3°C | Time: 4.208s
+2026/01/01 17:17:11 [GEO PROFILE] Year 10000000 | Tectonic: 252.466939ms (99%) | Ocean: 2.053157ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 274.09µs (0%) | Bio: 0s
+2026/01/01 17:17:11 [Seed 244] Score: 64.8 | Ocean: 49.4% | Temp: 4.8°C | Time: 4.905s
+2026/01/01 17:17:11 [GEO PROFILE] Year 10000000 | Tectonic: 91.909478ms (98%) | Ocean: 2.037077ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 315.843µs (0%) | Bio: 0s
+2026/01/01 17:17:11 [Seed 245] Score: 77.2 | Ocean: 68.0% | Temp: -0.5°C | Time: 4.621s
+2026/01/01 17:17:13 [GEO PROFILE] Year 10000000 | Tectonic: 124.337032ms (98%) | Ocean: 1.681634ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 316.76µs (0%) | Bio: 0s
+2026/01/01 17:17:13 [Seed 246] Score: 78.0 | Ocean: 63.5% | Temp: 4.8°C | Time: 4.726s
+2026/01/01 17:17:15 [GEO PROFILE] Year 10000000 | Tectonic: 144.310341ms (99%) | Ocean: 1.812414ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 297.088µs (0%) | Bio: 0s
+2026/01/01 17:17:15 [Seed 247] Score: 68.4 | Ocean: 53.1% | Temp: 4.9°C | Time: 4.754s
+2026/01/01 17:17:15 [GEO PROFILE] Year 10000000 | Tectonic: 106.435209ms (98%) | Ocean: 2.104399ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 290.904µs (0%) | Bio: 0s
+2026/01/01 17:17:15 [Seed 248] Score: 77.8 | Ocean: 59.7% | Temp: 2.5°C | Time: 4.085s
+2026/01/01 17:17:15 [GEO PROFILE] Year 10000000 | Tectonic: 100.376524ms (98%) | Ocean: 1.769048ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 258.725µs (0%) | Bio: 0s
+2026/01/01 17:17:16 [Seed 249] Score: 63.6 | Ocean: 49.7% | Temp: 5.0°C | Time: 4.2s
+2026/01/01 17:17:17 [GEO PROFILE] Year 10000000 | Tectonic: 104.598367ms (98%) | Ocean: 1.492437ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 278.159µs (0%) | Bio: 0s
+2026/01/01 17:17:17 [Seed 250] Score: 78.4 | Ocean: 59.9% | Temp: 2.1°C | Time: 3.868s
+Progress: 250/10000 seeds tested
+2026/01/01 17:17:19 [GEO PROFILE] Year 10000000 | Tectonic: 101.60838ms (98%) | Ocean: 1.757932ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 316.992µs (0%) | Bio: 0s
+2026/01/01 17:17:19 [Seed 251] Score: 66.3 | Ocean: 51.5% | Temp: 4.8°C | Time: 4.661s
+2026/01/01 17:17:20 [GEO PROFILE] Year 10000000 | Tectonic: 103.022565ms (98%) | Ocean: 1.818216ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 376.721µs (0%) | Bio: 0s
+2026/01/01 17:17:20 [Seed 252] Score: 70.9 | Ocean: 55.5% | Temp: 4.6°C | Time: 4.697s
+2026/01/01 17:17:20 [GEO PROFILE] Year 10000000 | Tectonic: 104.351399ms (98%) | Ocean: 1.7737ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 258.719µs (0%) | Bio: 0s
+2026/01/01 17:17:20 [Seed 253] Score: 74.5 | Ocean: 61.9% | Temp: -0.8°C | Time: 4.57s
+2026/01/01 17:17:22 [GEO PROFILE] Year 10000000 | Tectonic: 93.833713ms (98%) | Ocean: 1.767149ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 307.718µs (0%) | Bio: 0s
+2026/01/01 17:17:22 [Seed 254] Score: 77.0 | Ocean: 68.5% | Temp: -0.3°C | Time: 4.574s
+2026/01/01 17:17:23 [GEO PROFILE] Year 10000000 | Tectonic: 128.277628ms (98%) | Ocean: 2.072819ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 320.497µs (0%) | Bio: 0s
+2026/01/01 17:17:23 [Seed 255] Score: 74.1 | Ocean: 59.0% | Temp: 5.0°C | Time: 3.866s
+2026/01/01 17:17:24 [GEO PROFILE] Year 10000000 | Tectonic: 189.632457ms (99%) | Ocean: 1.66865ms (1%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 304.674µs (0%) | Bio: 0s
+2026/01/01 17:17:24 [Seed 256] Score: 77.0 | Ocean: 62.8% | Temp: 4.8°C | Time: 3.964s
+2026/01/01 17:17:24 [GEO PROFILE] Year 10000000 | Tectonic: 102.963362ms (98%) | Ocean: 1.776979ms (2%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 259.686µs (0%) | Bio: 0s
+2026/01/01 17:17:24 [Seed 257] Score: 69.8 | Ocean: 61.9% | Temp: 4.9°C | Time: 3.962s

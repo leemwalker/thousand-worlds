@@ -3,6 +3,7 @@ set -euo pipefail
 
 # Configuration
 TOTAL_SEEDS=${1:-1000000000} # Default to 1 Billion seeds if not specified
+PROFILE=${2:-modern}         # Default to 'modern' (71% ocean), use 'hadean' for 92% ocean
 SEARCH_BATCH_SIZE=10000      # Number of seeds to search per batch
 WORKERS=16                   # Increased workers for server environment (adjust if needed)
 YEARS=10000000               # 10M years
@@ -11,6 +12,7 @@ TEMP_LOG="search_progress.log"
 
 echo "🌍 Starting Long-Running Golden Seed Harvest..."
 echo "Target: Scan $TOTAL_SEEDS seeds for top 1% Earth-like matches"
+echo "Profile: $PROFILE"
 echo "Workers: $WORKERS"
 echo "Output: $OUTPUT_FILE"
 echo "Logging to: $TEMP_LOG"
@@ -39,6 +41,7 @@ for (( i=0; i<$TOTAL_SEEDS; i+=$SEARCH_BATCH_SIZE )); do
         -years "$YEARS" \
         -resolution 128 \
         -top 10 \
+        -profile "$PROFILE" \
         -json > "batch_${i}.json"
 
     # Merge results into main file using jq (if installed) or simple appending
