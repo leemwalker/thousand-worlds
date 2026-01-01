@@ -272,11 +272,11 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 										r, g, b = 25, 50, 70
 									}
 								} else {
-									// Deep ocean gradient
-									f := 1.0 - depthFactor // 0 = Deep, 1 = Shallow
-									r = uint8(5.0 + f*25.0)
-									g = uint8(10.0 + f*50.0)
-									b = uint8(25.0 + f*65.0)
+									// Deep ocean gradient - brightened to match lakes
+									f := 1.0 - depthFactor   // 0 = Deep, 1 = Shallow
+									r = uint8(15.0 + f*40.0) // 15-55 (was 5-30)
+									g = uint8(35.0 + f*60.0) // 35-95 (was 10-60)
+									b = uint8(65.0 + f*70.0) // 65-135 (was 25-90)
 								}
 
 							} else if cellData.IsLake {
@@ -591,7 +591,7 @@ func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeolo
 							if lighting < 0 {
 								lighting = 0
 							}
-							lighting = 0.4 + lighting*0.8
+							lighting = 0.5 + lighting*0.7 // Brightened: was 0.4 + 0.8
 
 							// Add ambient occlusion for valleys (lower elevations get darker)
 							// Only apply to land, not water (oceans or lakes)
