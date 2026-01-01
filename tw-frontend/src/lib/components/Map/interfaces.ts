@@ -135,6 +135,12 @@ export interface IPlayerController {
  */
 export enum ViewMode {
     ORBIT = "orbit",
+    TILE = "tile",
     TRANSITION = "transition",
     TERRAIN = "terrain",
 }
+
+/**
+ * String type alias for ViewMode values.
+ */
+export type ViewModeString = "orbit" | "tile" | "transition" | "terrain";
