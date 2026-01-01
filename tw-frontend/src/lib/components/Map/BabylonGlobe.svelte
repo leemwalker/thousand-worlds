@@ -601,7 +601,18 @@
 
             // Normalize height to displacement (0 = sea level, varies by elevation)
             const normalizedHeight = (height - seaLevel) / elevationRange;
-            const displacement = normalizedHeight * TERRAIN_SCALE;
+
+            // Skip displacement at poles to avoid vertex convergence artifact
+            // At poles (|lat| > 80°), reduce displacement to prevent "rod" artifact
+            const poleThreshold = (80 * Math.PI) / 180; // 80 degrees
+            const poleFactor =
+                Math.abs(lat) > poleThreshold
+                    ? 1 -
+                      (Math.abs(lat) - poleThreshold) /
+                          (Math.PI / 2 - poleThreshold)
+                    : 1;
+
+            const displacement = normalizedHeight * TERRAIN_SCALE * poleFactor;
 
             // Displace vertex along normal
             newPositions[i] = x + nx * displacement;
