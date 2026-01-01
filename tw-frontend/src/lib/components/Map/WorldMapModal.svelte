@@ -51,8 +51,8 @@
     // Globe view toggle (3D sphere vs 2D flat map) - Globe is now default
     let useGlobeView = true;
     let globeTextureBlob: Blob | null = null;
-    let globeHeightData: ArrayBuffer | null = null;
-    let globeSeaLevel = 0;
+    let globeHeightmapBlob: Blob | null = null;
+    let globeHeightData: Float32Array | null = null; // Deprecated, but keep for now if neededaLevel = 0;
     let globeMaxElevation = 8848;
     let globeMinElevation = -11000;
 
@@ -342,10 +342,19 @@
                 payload.imageBlob &&
                 !useGlobeView
             ) {
-                // Update metadata (sets grid/world size, player pos)
-                webglRenderer.updateData(payload);
-                // Then upload image texture override
-                webglRenderer.updateTextureFromBlob(payload.imageBlob);
+                // Store text image logic or image bytes
+                if (payload.imageBlob) {
+                    console.log("[WorldMapModal] Received Map Image Blob");
+                    globeTextureBlob = payload.imageBlob;
+                }
+
+                if (payload.heightmapBlob) {
+                    console.log("[WorldMapModal] Received Heightmap PNG Blob");
+                    globeHeightmapBlob = payload.heightmapBlob;
+                } else if (!isHighRes) {
+                    // Reset heightmap blob on initial/low-res load
+                    globeHeightmapBlob = null;
+                }
 
                 // Parse binary grid data for tooltips (Sprint 2)
                 if (payload.gridData && payload.gridData.byteLength > 0) {
@@ -741,7 +750,7 @@
                         <!-- 3D Globe View (Babylon.js) -->
                         <BabylonGlobe
                             textureBlob={globeTextureBlob}
-                            heightData={globeHeightData}
+                            {globeHeightmapBlob}
                             seaLevel={globeSeaLevel}
                             maxElevation={globeMaxElevation}
                             minElevation={globeMinElevation}

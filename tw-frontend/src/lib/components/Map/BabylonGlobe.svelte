@@ -26,8 +26,8 @@
     }
 
     // Props
-    export let textureBlob: Blob | null = null;
-    export let heightData: ArrayBuffer | null = null; // Binary elevation data
+    export let globeTextureBlob: Blob | null = null;
+    export let globeHeightmapBlob: Blob | null = null;
     export let seaLevel: number = 0;
     export let maxElevation: number = 8848;
     export let minElevation: number = -11000;
@@ -298,13 +298,9 @@
     // React to height data changes (with guard)
     $: if (
         heightData &&
-        scene &&
-        globe &&
-        heightData.byteLength !== lastAppliedHeightDataLength
-    ) {
-        console.log("[BabylonGlobe] Reactive: heightData received");
-        lastAppliedHeightDataLength = heightData.byteLength;
-        applyHeightDisplacement(heightData);
+    // Watch for heightmap blob changes
+    $: if (globeHeightmapBlob && scene && displacementShader) {
+        applyHeightDisplacement(globeHeightmapBlob);
     }
 
     function createMoons(s: Scene) {
@@ -570,186 +566,83 @@
             // Draw to canvas to get pixel data
             const canvas = document.createElement("canvas");
             canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext("2d");
-
-            if (!ctx) {
-                console.error("[BabylonGlobe] Failed to get canvas context");
-                return;
-            }
-
-            // Flip vertically for WebGL
-            ctx.translate(0, img.height);
-            ctx.scale(1, -1);
-            ctx.drawImage(img, 0, 0);
-
-            const imageData = ctx.getImageData(0, 0, img.width, img.height);
-            const pixels = imageData.data;
-
-            // Generate specular map from color analysis
-            const specularData = new Uint8ClampedArray(pixels.length);
-
-            for (let i = 0; i < pixels.length; i += 4) {
-                const r = pixels[i];
-                const g = pixels[i + 1];
-                const b = pixels[i + 2];
-
-                // Calculate material type from color
-                // Water: high blue relative to green/red, low brightness
-                // Snow/Ice: high overall brightness (white)
-                // Land: everything else (low specular)
-
-                const brightness = (r + g + b) / 3;
-                const isWater = b > r + 20 && b > g + 10 && brightness < 180;
-                const isSnow =
-                    brightness > 200 && r > 180 && g > 180 && b > 180;
-                const isIce =
-                    b > 150 && g > 130 && brightness > 140 && brightness < 220;
-
-                let specular = 20; // Default low specular for land
-
-                if (isWater) {
-                    specular = 180; // High specular for water (shiny)
-                } else if (isSnow) {
-                    specular = 100; // Medium specular for snow
-                } else if (isIce) {
-                    specular = 140; // Higher specular for ice
-                }
-
-                // RGB specular color (grayscale)
-                specularData[i] = specular; // R
-                specularData[i + 1] = specular; // G
-                specularData[i + 2] = specular; // B
-                specularData[i + 3] = 255; // A
-            }
-
-            // Create diffuse texture from pixel data
-            globeTexture = RawTexture.CreateRGBATexture(
-                imageData.data,
-                img.width,
-                img.height,
-                scene!,
-                true, // generateMipMaps
-                false, // invertY (already flipped)
-                Texture.TRILINEAR_SAMPLINGMODE,
-            );
-
-            // Create specular texture
-            const specularTexture = RawTexture.CreateRGBATexture(
-                specularData,
-                img.width,
-                img.height,
-                scene!,
-                true,
-                false,
-                Texture.TRILINEAR_SAMPLINGMODE,
-            );
-
-            // Apply textures to material
-            globeMaterial!.diffuseTexture = globeTexture;
-            globeMaterial!.specularTexture = specularTexture;
-            globeMaterial!.specularColor = new Color3(0.8, 0.8, 0.9); // Slightly blue tint for water reflections
-            globeMaterial!.specularPower = 64; // Sharper highlights
-
-            // Note: Water bump texture disabled - applies to entire mesh, not just water
-            // TODO: Create water-masked bump or use separate water mesh (Option 3)
-            // waterBumpTexture = createWaterBumpTexture(scene!);
-            // globeMaterial!.bumpTexture = waterBumpTexture;
-
-            console.log(
-                "[BabylonGlobe] Planet texture and specular map applied",
-            );
-        } catch (err) {
-            console.error("[BabylonGlobe] Texture load failed:", err);
-        }
+           // Watch for heightmap blob changes
+    $: if (globeHeightmapBlob && scene && displacementShader) {
+        applyHeightDisplacement(globeHeightmapBlob);
     }
 
-    function applyHeightDisplacement(data: ArrayBuffer) {
-        if (!globe || !scene) return;
+    function createMoons(s: Scene) {
+        // ... (unchanged)
+        // Clear existing moons
+        moonMeshes.forEach((m) => m.dispose());
+        moonOrbitNodes.forEach((n) => n.dispose());
+        moonMeshes = [];
+        moonOrbitNodes = [];
 
-        // Parse height data (assuming Float32Array of normalized elevations)
-        // Format: width (u16), height (u16), then Float32 elevation values
-        const view = new DataView(data);
-        const gridWidth = view.getUint16(0, true);
-        const gridHeight = view.getUint16(2, true);
+        satellites.forEach((sat, index) => {
+            // Create orbit pivot (for rotation)
+            const moonOrbit = new TransformNode(`moonOrbit_${index}`, s);
+            moonOrbit.parent = solarSystemRoot;
+            moonOrbit.position = Vector3.Zero();
 
-        console.log(
-            `[BabylonGlobe] Applying displacement: ${gridWidth}x${gridHeight}`,
-        );
+            // Randomize initial orbit angle
+            moonOrbit.rotation.y = Math.random() * Math.PI * 2;
+            
+            // Create moon mesh
+            // Scale size by mass (cube root approx for radius), but clamped for visibility
+            // 1 Earth Moon Mass = 1.0 unit size (relative)
+            // Real scale: Moon r=1737km, Earth r=6371km => ratio 0.27
+            // Babylon: Earth=2 units. Moon should be ~0.54 units
+            const sizeRatio = 0.27 * Math.pow(sat.mass / 7.34e22, 1/3); 
+            const moonSize = Math.max(0.2, Math.min(1.0, sizeRatio * 2));
 
-        // Get vertex positions from sphere
-        const positions = globe.getVerticesData("position");
-        const normals = globe.getVerticesData("normal");
+            const moon = MeshBuilder.CreateSphere(`moon_${index}`, { diameter: moonSize, segments: 16 }, s);
+            moon.parent = moonOrbit;
+            
+            // Distance: Scale down for visibility. Real Moon is 384,000 km (60 Earth radii)
+            // We'll use a log scale or simple divisor so it fits in view
+            // e.g. 10 * (distance / 384000) + 4 (min distance)
+            const orbitDist = 4 + (sat.distance / 100000); 
+            moon.position.x = orbitDist;
 
-        if (!positions || !normals) {
-            console.error("[BabylonGlobe] No vertex data available");
-            return;
+            // Simple material
+            const moonMat = new StandardMaterial(`moonMat_${index}`, s);
+            moonMat.diffuseColor = new Color3(0.7, 0.7, 0.7);
+            moonMat.specularColor = new Color3(0.1, 0.1, 0.1);
+            moon.material = moonMat;
+
+            moonMeshes.push(moon);
+            moonOrbitNodes.push(moonOrbit);
+        });
+    }
+
+    async function applyHeightDisplacement(blob: Blob) {
+        if (!scene || !displacementShader) return;
+
+        console.log(`[BabylonGlobe] Applying heightmap displacement from blob (${blob.size} bytes)`);
+
+        try {
+            const url = URL.createObjectURL(blob);
+            // Load texture from blob URL
+            const heightmapTexture = new Texture(url, scene);
+            
+            // Wait for load
+            heightmapTexture.onLoadObservable.addOnce(() => {
+                console.log("[BabylonGlobe] Heightmap texture loaded");
+                
+                // Update shader with texture and scale
+                // Scale factor: maxElevation (8848m) / Earth Radius (6371000m) * Globe Radius (1.0)
+                // = ~0.0014. But we want exaggerated terrain.
+                // Let's try 0.05 for visible relief.
+                displacementShader?.createMaterial(heightmapTexture, 0.05);
+                
+                // Cleanup URL
+                setTimeout(() => URL.revokeObjectURL(url), 1000); 
+            });
+            
+        } catch (err) {
+            console.error("[BabylonGlobe] Failed to apply heightmap:", err);
         }
-
-        const newPositions = new Float32Array(positions.length);
-        const elevationRange = maxElevation - minElevation;
-
-        // For each vertex, sample height and displace along normal
-        for (let i = 0; i < positions.length; i += 3) {
-            const x = positions[i];
-            const y = positions[i + 1];
-            const z = positions[i + 2];
-
-            const nx = normals[i];
-            const ny = normals[i + 1];
-            const nz = normals[i + 2];
-
-            // Convert vertex position to UV coordinates (equirectangular)
-            // Position is on unit sphere, convert to lat/lon
-            const len = Math.sqrt(x * x + y * y + z * z);
-            const lat = Math.asin(y / len); // -PI/2 to PI/2
-            const lon = Math.atan2(z, x); // -PI to PI
-
-            // UV coordinates
-            const u = (lon + Math.PI) / (2 * Math.PI); // 0 to 1
-            const v = (lat + Math.PI / 2) / Math.PI; // 0 to 1
-
-            // Sample height from grid
-            const gridX = Math.floor(u * (gridWidth - 1));
-            const gridY = Math.floor((1 - v) * (gridHeight - 1)); // Flip Y
-            const idx = 4 + (gridY * gridWidth + gridX) * 4; // Skip header, 4 bytes per float
-
-            let height = 0;
-            if (idx + 4 <= data.byteLength) {
-                height = view.getFloat32(idx, true);
-            }
-
-            // Normalize height to displacement (0 = sea level, varies by elevation)
-            const normalizedHeight = (height - seaLevel) / elevationRange;
-
-            // At poles, all vertices converge causing artifacts
-            // Blend displacement toward 0 (sea level surface) near poles for smooth appearance
-            // This keeps the sphere smooth at poles rather than creating spikes or dimples
-            const poleThreshold = (75 * Math.PI) / 180; // 75 degrees
-            let poleFactor = 1;
-            if (Math.abs(lat) > poleThreshold) {
-                // Smooth cosine interpolation to avoid hard edges
-                const t =
-                    (Math.abs(lat) - poleThreshold) /
-                    (Math.PI / 2 - poleThreshold);
-                poleFactor = 0.5 * (1 + Math.cos(t * Math.PI)); // Cosine fade from 1 to 0
-            }
-
-            const displacement = normalizedHeight * TERRAIN_SCALE * poleFactor;
-
-            // Displace vertex along normal
-            newPositions[i] = x + nx * displacement;
-            newPositions[i + 1] = y + ny * displacement;
-            newPositions[i + 2] = z + nz * displacement;
-        }
-
-        // Update mesh with new positions
-        globe.updateVerticesData("position", newPositions);
-
-        // Recompute normals for proper lighting
-        globe.createNormals(true);
-
-        console.log("[BabylonGlobe] Displacement applied successfully");
     }
 
     onDestroy(() => {

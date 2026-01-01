@@ -319,7 +319,7 @@ export class GameWebSocket {
             const binSectionLen = view.getUint32(offset, false);
             offset += 4;
 
-            // 5. Parse Binary Section: [ImageLen:4][Image][GridLen:4][Grid]
+            // 5. Parse Binary Section: [ImageLen:4][Image][GridLen:4][Grid][HeightMapLen:4][HeightMap]
             // Read Image Length and Data
             const imageLen = view.getUint32(offset, false);
             offset += 4;
@@ -342,13 +342,28 @@ export class GameWebSocket {
                 }
             }
 
+            // Read Heightmap Length and Data (if present)
+            let heightmapBlob: Blob | null = null;
+            if (offset + 4 <= buffer.byteLength) {
+                const heightmapLen = view.getUint32(offset, false);
+                offset += 4;
+
+                if (heightmapLen > 0 && offset + heightmapLen <= buffer.byteLength) {
+                    const heightmapBytes = new Uint8Array(buffer, offset, heightmapLen);
+                    heightmapBlob = new Blob([heightmapBytes], { type: 'image/png' });
+                    offset += heightmapLen;
+                    console.log(`[WebSocket] Parsed heightmap data: ${heightmapLen} bytes`);
+                }
+            }
+
             // Construct a ServerMessage to dispatch
             const message: ServerMessage = {
                 type: 'world_map_image_response',
                 data: {
                     ...jsonData,
-                    imageBlob: imageBlob, // WebP image blob
-                    gridData: gridData     // Binary grid data (or null if not present)
+                    imageBlob: imageBlob,    // WebP image blob
+                    gridData: gridData,      // Binary grid data (or null)
+                    heightmapBlob: heightmapBlob // PNG heightmap blob (or null)
                 },
                 timestamp: Date.now()
             };
