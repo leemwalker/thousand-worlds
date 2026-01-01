@@ -145,10 +145,11 @@
             scene,
         );
         camera.attachControl(canvas, true);
-        camera.lowerRadiusLimit = 1.5; // Prevent clipping into planet
+        camera.lowerRadiusLimit = 1.05; // Allow very close zoom (just above surface)
         camera.upperRadiusLimit = 50; // Allow zooming out to see sun
         camera.wheelPrecision = 30; // Scroll zoom sensitivity
         camera.panningSensibility = 0; // Disable panning, only rotate
+        camera.minZ = 0.01; // Near clip plane - prevents clipping at close range
 
         // Initialize LOD manager with distance thresholds
         lodManager = new LODManager({
