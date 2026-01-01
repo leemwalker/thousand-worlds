@@ -602,15 +602,18 @@
             // Normalize height to displacement (0 = sea level, varies by elevation)
             const normalizedHeight = (height - seaLevel) / elevationRange;
 
-            // Skip displacement at poles to avoid vertex convergence artifact
-            // At poles (|lat| > 80°), reduce displacement to prevent "rod" artifact
-            const poleThreshold = (80 * Math.PI) / 180; // 80 degrees
-            const poleFactor =
-                Math.abs(lat) > poleThreshold
-                    ? 1 -
-                      (Math.abs(lat) - poleThreshold) /
-                          (Math.PI / 2 - poleThreshold)
-                    : 1;
+            // At poles, all vertices converge causing artifacts
+            // Blend displacement toward 0 (sea level surface) near poles for smooth appearance
+            // This keeps the sphere smooth at poles rather than creating spikes or dimples
+            const poleThreshold = (75 * Math.PI) / 180; // 75 degrees
+            let poleFactor = 1;
+            if (Math.abs(lat) > poleThreshold) {
+                // Smooth cosine interpolation to avoid hard edges
+                const t =
+                    (Math.abs(lat) - poleThreshold) /
+                    (Math.PI / 2 - poleThreshold);
+                poleFactor = 0.5 * (1 + Math.cos(t * Math.PI)); // Cosine fade from 1 to 0
+            }
 
             const displacement = normalizedHeight * TERRAIN_SCALE * poleFactor;
 
