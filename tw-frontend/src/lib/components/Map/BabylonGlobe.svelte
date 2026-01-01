@@ -202,12 +202,12 @@
 
         console.log("[BabylonGlobe] Solar system initialized");
 
-        // Check if textureBlob was already set before scene was ready
-        if (textureBlob && globeMaterial) {
+        // Check if globeTextureBlob was already set before scene was ready
+        if (globeTextureBlob && globeMaterial) {
             console.log(
-                "[BabylonGlobe] Found existing textureBlob, applying now...",
+                "[BabylonGlobe] Found existing globeTextureBlob, applying now...",
             );
-            updateTexture(textureBlob);
+            updateTexture(globeTextureBlob);
         }
 
         // Animation and render loop
@@ -237,6 +237,8 @@
                 // Update camera target to follow planet
                 if (camera) {
                     camera.target = orbitNode.position;
+                    // Update LOD based on camera distance
+                    lodManager?.update(camera);
                 }
 
                 // Moon orbital animation
@@ -280,27 +282,19 @@
         };
     });
 
-    // React to texture blob changes (with guard to prevent re-applying same texture)
+    // React to texture blob changes (with guard to avoid re-applying same blob)
     $: if (
-        textureBlob &&
+        globeTextureBlob &&
         scene &&
         globeMaterial &&
-        textureBlob.size !== lastAppliedBlobSize
+        globeTextureBlob.size !== lastAppliedBlobSize
     ) {
         console.log(
-            "[BabylonGlobe] Reactive: textureBlob received, size:",
-            textureBlob.size,
+            "[BabylonGlobe] Reactive: globeTextureBlob received, size:",
+            globeTextureBlob.size,
         );
-        lastAppliedBlobSize = textureBlob.size;
-        updateTexture(textureBlob);
-    }
-
-    // React to height data changes (with guard)
-    $: if (
-        heightData &&
-    // Watch for heightmap blob changes
-    $: if (globeHeightmapBlob && scene && displacementShader) {
-        applyHeightDisplacement(globeHeightmapBlob);
+        lastAppliedBlobSize = globeTextureBlob.size;
+        updateTexture(globeTextureBlob);
     }
 
     function createMoons(s: Scene) {
@@ -633,8 +627,19 @@
                 // Update shader with texture and scale
                 // Scale factor: maxElevation (8848m) / Earth Radius (6371000m) * Globe Radius (1.0)
                 // = ~0.0014. But we want exaggerated terrain.
-                // Let's try 0.05 for visible relief.
-                displacementShader?.createMaterial(heightmapTexture, 0.05);
+                const material = displacementShader?.createMaterial(heightmapTexture, 0.05);
+                
+                // Apply shader material to all LOD meshes
+                if (material && lodManager) {
+                    // Apply to known LOD levels (0, 1, 2)
+                    for (let i = 0; i <= 2; i++) {
+                        const mesh = lodManager.getMesh(i);
+                        if (mesh) {
+                            mesh.material = material;
+                            console.log(`[BabylonGlobe] Applied shader to LOD mesh ${i}`);
+                        }
+                    }
+                }
                 
                 // Cleanup URL
                 setTimeout(() => URL.revokeObjectURL(url), 1000); 
