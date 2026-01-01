@@ -43,6 +43,8 @@
     let objectUrl: string | null = null;
     let lastAppliedBlobSize: number = 0; // Guard to prevent re-applying same texture
     let lastAppliedHeightDataLength: number = 0; // Guard for height data
+    let waterBumpTexture: Texture | null = null; // Animated water normals
+    let waterTime = 0; // Time accumulator for water animation
 
     // Solar system nodes
     let solarSystemRoot: TransformNode | null = null;
@@ -217,6 +219,13 @@
                     moonOrbit.rotation.y += moonRotation;
                 });
 
+                // Animate water bump texture UV offset for wave motion
+                waterTime += deltaTime * 0.05 * simulationSpeed;
+                if (waterBumpTexture) {
+                    waterBumpTexture.uOffset = Math.sin(waterTime) * 0.02;
+                    waterBumpTexture.vOffset = Math.cos(waterTime * 0.7) * 0.01;
+                }
+
                 scene.render();
             }
         });
@@ -315,6 +324,75 @@
     // Placeholder for future water mesh (Option 3)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     let waterMesh: Mesh | null = null;
+
+    function createWaterBumpTexture(s: Scene): Texture {
+        // Generate procedural water normal map using canvas
+        const size = 256;
+        const bumpCanvas = document.createElement("canvas");
+        bumpCanvas.width = size;
+        bumpCanvas.height = size;
+        const ctx = bumpCanvas.getContext("2d");
+
+        if (ctx) {
+            // Create wave-like normal map pattern
+            const imageData = ctx.createImageData(size, size);
+            const data = imageData.data;
+
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const idx = (y * size + x) * 4;
+
+                    // Multiple wave frequencies for realistic ocean look
+                    const freq1 = 0.05;
+                    const freq2 = 0.12;
+                    const freq3 = 0.25;
+
+                    // Height at this point (using sine waves)
+                    const h1 = Math.sin(x * freq1) * Math.cos(y * freq1);
+                    const h2 =
+                        Math.sin(x * freq2 + 0.5) *
+                        Math.cos(y * freq2 + 0.3) *
+                        0.5;
+                    const h3 = Math.sin(x * freq3) * Math.sin(y * freq3) * 0.25;
+
+                    // Calculate normal from height differences
+                    const scale = 2.0;
+                    const dx =
+                        Math.cos(x * freq1) * freq1 * scale +
+                        Math.cos(x * freq2 + 0.5) * freq2 * scale * 0.5 +
+                        Math.cos(x * freq3) * freq3 * scale * 0.25;
+                    const dy =
+                        -Math.sin(y * freq1) * freq1 * scale -
+                        Math.sin(y * freq2 + 0.3) * freq2 * scale * 0.5 +
+                        Math.cos(y * freq3) * freq3 * scale * 0.25;
+
+                    // Convert to normal map format (0-255)
+                    // Normal map: R=X, G=Y, B=Z (Z points up)
+                    data[idx] = Math.floor((dx + 1) * 0.5 * 255); // R: X
+                    data[idx + 1] = Math.floor((dy + 1) * 0.5 * 255); // G: Y
+                    data[idx + 2] = 255; // B: Z (up)
+                    data[idx + 3] = 255; // A
+                }
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        // Create texture from canvas
+        const texture = new Texture(
+            bumpCanvas.toDataURL(),
+            s,
+            true, // noMipmap
+            false, // invertY
+            Texture.TRILINEAR_SAMPLINGMODE,
+        );
+        texture.wrapU = Texture.WRAP_ADDRESSMODE;
+        texture.wrapV = Texture.WRAP_ADDRESSMODE;
+        texture.uScale = 10; // Tile the wave pattern
+        texture.vScale = 5;
+
+        return texture;
+    }
 
     function createWaterLayer(_s: Scene) {
         // TODO: Option 3 - Create transparent water sphere with:
@@ -536,8 +614,13 @@
             globeMaterial!.specularColor = new Color3(0.8, 0.8, 0.9); // Slightly blue tint for water reflections
             globeMaterial!.specularPower = 64; // Sharper highlights
 
+            // Create and apply water bump texture for wave animation
+            waterBumpTexture = createWaterBumpTexture(scene!);
+            globeMaterial!.bumpTexture = waterBumpTexture;
+            globeMaterial!.bumpTexture.level = 0.3; // Subtle wave effect
+
             console.log(
-                "[BabylonGlobe] Planet texture and specular map applied successfully",
+                "[BabylonGlobe] Planet texture, specular map, and water bump applied",
             );
         } catch (err) {
             console.error("[BabylonGlobe] Texture load failed:", err);
