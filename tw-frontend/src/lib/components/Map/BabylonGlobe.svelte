@@ -840,6 +840,8 @@
             engine.dispose();
         }
     });
+    } // Emergency fix for missing brace
+    } // Emergency fix for missing brace
 </script>
 
 <canvas bind:this={canvas} class="globe-canvas"></canvas>
