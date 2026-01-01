@@ -529,61 +529,10 @@
             );
 
             starMaterial.emissiveTexture = starTexture;
-        );
-
-        // Create material for stars - emissive only (no lighting needed)
-        const starMaterial = new StandardMaterial("starMaterial", s);
-        starMaterial.diffuseColor = new Color3(0, 0, 0); // No diffuse
-        starMaterial.specularColor = new Color3(0, 0, 0); // No specular
-        starMaterial.disableLighting = true;
-
-        // Create a procedural star texture using canvas
-        const width = 2048;
-        const height = 1024;
-        const starCanvas = document.createElement("canvas");
-        starCanvas.width = width;
-        starCanvas.height = height;
-        const ctx = starCanvas.getContext("2d");
-
-        if (ctx) {
-            // Dark background
-            ctx.fillStyle = "#030308";
-            ctx.fillRect(0, 0, width, height);
-
-            // Generate random stars
-            const numStars = 3000;
-            for (let i = 0; i < numStars; i++) {
-                const x = Math.random() * width;
-                const y = Math.random() * height;
-                const size = Math.random() * 2 + 0.5;
-                const brightness = Math.random() * 0.7 + 0.3;
-                
-                // Simple white/blue stars
-                ctx.fillStyle = `rgba(255, 255, 255, ${brightness})`;
-                ctx.beginPath();
-                ctx.arc(x, y, size, 0, Math.PI * 2);
-                ctx.fill();
-            }
-
-            // Get image data and create RawTexture
-            const imageData = ctx.getImageData(0, 0, width, height);
-            const starTexture = RawTexture.CreateRGBATexture(
-                imageData.data,
-                width,
-                height,
-                s,
-                false, // generateMipMaps
-                false, // invertY
-                Texture.TRILINEAR_SAMPLINGMODE,
-            );
-
-            starMaterial.emissiveTexture = starTexture;
         }
 
         starSphere.material = starMaterial;
     }
-
-
 
     async function updateTexture(blob: Blob) {
         if (!scene || !globeMaterial) return;
@@ -635,17 +584,17 @@
             // Generate specular map
             const specularData = new Uint8ClampedArray(pixels.length);
             for (let i = 0; i < pixels.length; i += 4) {
-                 const r = pixels[i];
-                 const g = pixels[i+1];
-                 const b = pixels[i+2];
-                 // Water detection (blue dominant)
-                 const isWater = b > r + 20 && b > g + 10;
-                 const specular = isWater ? 200 : 20;
-                 
-                 specularData[i] = specular;
-                 specularData[i+1] = specular;
-                 specularData[i+2] = specular;
-                 specularData[i+3] = 255;
+                const r = pixels[i];
+                const g = pixels[i + 1];
+                const b = pixels[i + 2];
+                // Water detection (blue dominant)
+                const isWater = b > r + 20 && b > g + 10;
+                const specular = isWater ? 200 : 20;
+
+                specularData[i] = specular;
+                specularData[i + 1] = specular;
+                specularData[i + 2] = specular;
+                specularData[i + 3] = 255;
             }
 
             // Create diffuse texture
@@ -674,31 +623,35 @@
             globeMaterial.specularTexture = specularTexture;
 
             console.log("[BabylonGlobe] Planet texture updated");
-
         } catch (err) {
-             console.error("[BabylonGlobe] Failed to update texture:", err);
+            console.error("[BabylonGlobe] Failed to update texture:", err);
         }
     }
 
     async function applyHeightDisplacement(blob: Blob) {
         if (!scene || !displacementShader) return;
 
-        console.log(`[BabylonGlobe] Applying heightmap displacement from blob (${blob.size} bytes)`);
+        console.log(
+            `[BabylonGlobe] Applying heightmap displacement from blob (${blob.size} bytes)`,
+        );
 
         try {
             const url = URL.createObjectURL(blob);
             // Load texture from blob URL
             const heightmapTexture = new Texture(url, scene);
-            
+
             // Wait for load
             heightmapTexture.onLoadObservable.addOnce(() => {
                 console.log("[BabylonGlobe] Heightmap texture loaded");
-                
+
                 // Update shader with texture and scale
                 // Scale factor: maxElevation (8848m) / Earth Radius (6371000m) * Globe Radius (1.0)
                 // = ~0.0014. But we want exaggerated terrain.
-                const material = displacementShader?.createMaterial(heightmapTexture, 0.05);
-                
+                const material = displacementShader?.createMaterial(
+                    heightmapTexture,
+                    0.05,
+                );
+
                 // Apply shader material to all LOD meshes
                 if (material && lodManager) {
                     // Apply to known LOD levels (0, 1, 2)
@@ -706,15 +659,16 @@
                         const mesh = lodManager.getMesh(i);
                         if (mesh) {
                             mesh.material = material;
-                            console.log(`[BabylonGlobe] Applied shader to LOD mesh ${i}`);
+                            console.log(
+                                `[BabylonGlobe] Applied shader to LOD mesh ${i}`,
+                            );
                         }
                     }
                 }
-                
+
                 // Cleanup URL
-                setTimeout(() => URL.revokeObjectURL(url), 1000); 
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
             });
-            
         } catch (err) {
             console.error("[BabylonGlobe] Failed to apply heightmap:", err);
         }
