@@ -52,7 +52,8 @@
     let useGlobeView = true;
     let globeTextureBlob: Blob | null = null;
     let globeHeightmapBlob: Blob | null = null;
-    let globeHeightData: Float32Array | null = null; // Deprecated, but keep for now if neededaLevel = 0;
+    let globeHeightData: Float32Array | null = null; // Deprecated
+    let globeSeaLevel = 0;
     let globeMaxElevation = 8848;
     let globeMinElevation = -11000;
 
@@ -749,7 +750,7 @@
                     {#if useGlobeView}
                         <!-- 3D Globe View (Babylon.js) -->
                         <BabylonGlobe
-                            textureBlob={globeTextureBlob}
+                            {globeTextureBlob}
                             {globeHeightmapBlob}
                             seaLevel={globeSeaLevel}
                             maxElevation={globeMaxElevation}

@@ -614,6 +614,161 @@
         });
     }
 
+    function createStarfield(s: Scene) {
+        // Create a large sphere for the starfield (inside-out rendering)
+        const starSphere = MeshBuilder.CreateSphere(
+            "starfield",
+            { segments: 32, diameter: 100, sideOrientation: 1 }, // sideOrientation: 1 = BACKSIDE
+            s,
+        );
+
+        // Create material for stars - emissive only (no lighting needed)
+        const starMaterial = new StandardMaterial("starMaterial", s);
+        starMaterial.diffuseColor = new Color3(0, 0, 0); // No diffuse
+        starMaterial.specularColor = new Color3(0, 0, 0); // No specular
+        starMaterial.disableLighting = true;
+
+        // Create a procedural star texture using canvas
+        const width = 2048;
+        const height = 1024;
+        const starCanvas = document.createElement("canvas");
+        starCanvas.width = width;
+        starCanvas.height = height;
+        const ctx = starCanvas.getContext("2d");
+
+        if (ctx) {
+            // Dark background
+            ctx.fillStyle = "#030308";
+            ctx.fillRect(0, 0, width, height);
+
+            // Generate random stars
+            const numStars = 3000;
+            for (let i = 0; i < numStars; i++) {
+                const x = Math.random() * width;
+                const y = Math.random() * height;
+                const size = Math.random() * 2 + 0.5;
+                const brightness = Math.random() * 0.7 + 0.3;
+                
+                // Simple white/blue stars
+                ctx.fillStyle = `rgba(255, 255, 255, ${brightness})`;
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Get image data and create RawTexture
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const starTexture = RawTexture.CreateRGBATexture(
+                imageData.data,
+                width,
+                height,
+                s,
+                false, // generateMipMaps
+                false, // invertY
+                Texture.TRILINEAR_SAMPLINGMODE,
+            );
+
+            starMaterial.emissiveTexture = starTexture;
+        }
+
+        starSphere.material = starMaterial;
+    }
+
+    async function updateTexture(blob: Blob) {
+        if (!scene || !globeMaterial) return;
+
+        // Dispose old texture and object URL
+        if (globeTexture) {
+            globeTexture.dispose();
+            globeTexture = null;
+        }
+        if (objectUrl) {
+            URL.revokeObjectURL(objectUrl);
+            objectUrl = null;
+        }
+
+        try {
+            // Create object URL and load as image
+            objectUrl = URL.createObjectURL(blob);
+            const img = new Image();
+
+            await new Promise<void>((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = () => reject(new Error("Failed to load image"));
+                img.src = objectUrl!;
+            });
+
+            console.log(
+                `[BabylonGlobe] Image loaded: ${img.width}x${img.height}`,
+            );
+
+            // Draw to canvas to get pixel data
+            const tempCanvas = document.createElement("canvas");
+            tempCanvas.width = img.width;
+            tempCanvas.height = img.height;
+            const ctx = tempCanvas.getContext("2d");
+
+            if (!ctx) {
+                console.error("[BabylonGlobe] Failed to get canvas context");
+                return;
+            }
+
+            // Flip vertically for WebGL
+            ctx.translate(0, img.height);
+            ctx.scale(1, -1);
+            ctx.drawImage(img, 0, 0);
+
+            const imageData = ctx.getImageData(0, 0, img.width, img.height);
+            const pixels = imageData.data;
+
+            // Generate specular map
+            const specularData = new Uint8ClampedArray(pixels.length);
+            for (let i = 0; i < pixels.length; i += 4) {
+                 const r = pixels[i];
+                 const g = pixels[i+1];
+                 const b = pixels[i+2];
+                 // Water detection (blue dominant)
+                 const isWater = b > r + 20 && b > g + 10;
+                 const specular = isWater ? 200 : 20;
+                 
+                 specularData[i] = specular;
+                 specularData[i+1] = specular;
+                 specularData[i+2] = specular;
+                 specularData[i+3] = 255;
+            }
+
+            // Create diffuse texture
+            globeTexture = RawTexture.CreateRGBATexture(
+                imageData.data,
+                img.width,
+                img.height,
+                scene!,
+                true,
+                false,
+                Texture.TRILINEAR_SAMPLINGMODE,
+            );
+
+            // Create specular texture
+            const specularTexture = RawTexture.CreateRGBATexture(
+                specularData,
+                img.width,
+                img.height,
+                scene!,
+                true,
+                false,
+                Texture.TRILINEAR_SAMPLINGMODE,
+            );
+
+            globeMaterial.diffuseTexture = globeTexture;
+            globeMaterial.specularTexture = specularTexture;
+
+            console.log("[BabylonGlobe] Planet texture updated");
+
+        } catch (err) {
+             console.error("[BabylonGlobe] Failed to update texture:", err);
+        }
+    }
+
     async function applyHeightDisplacement(blob: Blob) {
         if (!scene || !displacementShader) return;
 
