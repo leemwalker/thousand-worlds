@@ -46,6 +46,9 @@ type Service struct {
 
 	// renderer handles high-resolution map generation
 	renderer *Renderer
+
+	// tileRenderer handles cube-face tile generation
+	tileRenderer *TileRenderer
 }
 
 // NewService creates a new map service
@@ -83,6 +86,7 @@ func NewService(
 	cache := NewMapCache(300 * time.Second) // 5 min TTL cache
 
 	s.renderer = NewRenderer(config, pool, cache)
+	s.tileRenderer = NewTileRenderer(config)
 
 	return s
 }
@@ -130,6 +134,11 @@ func (s *Service) getWorldGeology(worldID uuid.UUID) *ecosystem.WorldGeology {
 // GetWorldGeology retrieves cached geology data (exported)
 func (s *Service) GetWorldGeology(worldID uuid.UUID) *ecosystem.WorldGeology {
 	return s.getWorldGeology(worldID)
+}
+
+// TileRenderer returns the tile renderer for cube-face tile generation
+func (s *Service) TileRenderer() *TileRenderer {
+	return s.tileRenderer
 }
 
 // RenderHeightmapPNG renders a heightmap PNG for the given world geometry

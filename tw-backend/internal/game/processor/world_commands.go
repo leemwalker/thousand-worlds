@@ -19,6 +19,7 @@ import (
 	"tw-backend/internal/ecosystem/pathogen"
 	"tw-backend/internal/ecosystem/population"
 	"tw-backend/internal/ecosystem/sapience"
+	gamemap "tw-backend/internal/game/services/map"
 	"tw-backend/internal/worldgen/astronomy"
 	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/weather"
@@ -1872,5 +1873,135 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 	// Send Raw Binary Message
 	client.SendRawBytes(buf.Bytes())
 
+	return nil
+}
+
+// handleWorldTile handles individual tile requests for the cube-face tile system.
+// Message format: "face,level,x,y,size" (e.g., "0,2,1,3,256")
+func (p *GameProcessor) handleWorldTile(ctx context.Context, client websocket.GameClient, cmd *websocket.CommandData) error {
+	char, err := p.authRepo.GetCharacter(ctx, client.GetCharacterID())
+	if err != nil || char == nil {
+		client.SendGameMessage("error", "Could not get character", nil)
+		return nil
+	}
+
+	if p.mapService == nil {
+		client.SendGameMessage("error", "Map service not available", nil)
+		return nil
+	}
+
+	geo := p.mapService.GetWorldGeology(char.WorldID)
+	if geo == nil {
+		client.SendGameMessage("error", "World geology not initialized. Run simulation first.", nil)
+		return nil
+	}
+
+	// Parse tile request from message
+	if cmd.Message == nil {
+		client.SendGameMessage("error", "Usage: world_tile face,level,x,y,size", nil)
+		return nil
+	}
+
+	// Parse comma-separated values
+	parts := strings.Split(*cmd.Message, ",")
+	if len(parts) != 5 {
+		client.SendGameMessage("error", "Invalid tile request format. Expected: face,level,x,y,size", nil)
+		return nil
+	}
+
+	face, err := strconv.Atoi(parts[0])
+	if err != nil || face < 0 || face > 5 {
+		client.SendGameMessage("error", "Invalid face (must be 0-5)", nil)
+		return nil
+	}
+
+	level, err := strconv.Atoi(parts[1])
+	if err != nil || level < 0 {
+		client.SendGameMessage("error", "Invalid level (must be >= 0)", nil)
+		return nil
+	}
+
+	tileX, err := strconv.Atoi(parts[2])
+	if err != nil || tileX < 0 {
+		client.SendGameMessage("error", "Invalid x coordinate", nil)
+		return nil
+	}
+
+	tileY, err := strconv.Atoi(parts[3])
+	if err != nil || tileY < 0 {
+		client.SendGameMessage("error", "Invalid y coordinate", nil)
+		return nil
+	}
+
+	size, err := strconv.Atoi(parts[4])
+	if err != nil || size < 64 || size > 1024 {
+		client.SendGameMessage("error", "Invalid size (must be 64-1024)", nil)
+		return nil
+	}
+
+	// Render the tile
+	tileRenderer := p.mapService.TileRenderer()
+	if tileRenderer == nil {
+		client.SendGameMessage("error", "Tile renderer not available", nil)
+		return nil
+	}
+
+	req := gamemap.TileRequest{
+		Face:  gamemap.CubeFace(face),
+		Level: level,
+		X:     tileX,
+		Y:     tileY,
+		Size:  size,
+	}
+
+	tileData, err := tileRenderer.RenderTile(ctx, req, geo)
+	if err != nil {
+		client.SendGameMessage("error", fmt.Sprintf("Failed to render tile: %v", err), nil)
+		return err
+	}
+
+	// Build binary response
+	// Format: [type:1][json_len:4][json][bin_len:4][image][heightmap_len:4][heightmap]
+	metadata := map[string]interface{}{
+		"type":          "world_tile",
+		"face":          face,
+		"level":         level,
+		"x":             tileX,
+		"y":             tileY,
+		"width":         tileData.Width,
+		"height":        tileData.Height,
+		"imageSize":     len(tileData.Image),
+		"heightmapSize": len(tileData.Heightmap),
+	}
+
+	jsonBytes, err := json.Marshal(metadata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tile metadata: %w", err)
+	}
+
+	// Build binary payload
+	binSection := bytes.NewBuffer(nil)
+	binSection.Write(tileData.Image)
+	binSection.Write(tileData.Heightmap)
+
+	// Calculate total size
+	totalSize := 1 + 4 + len(jsonBytes) + 4 + len(binSection.Bytes())
+	buf := bytes.NewBuffer(make([]byte, 0, totalSize))
+
+	// Write Header (Type 0x02 for tiles)
+	buf.WriteByte(0x02)
+
+	// Write JSON Length (Big Endian)
+	binary.Write(buf, binary.BigEndian, uint32(len(jsonBytes)))
+	buf.Write(jsonBytes)
+
+	// Write Binary Section Length
+	binary.Write(buf, binary.BigEndian, uint32(len(binSection.Bytes())))
+	buf.Write(binSection.Bytes())
+
+	log.Printf("[TILE] Sending tile f=%d l=%d (%d,%d): %dx%d, image=%d bytes, heightmap=%d bytes",
+		face, level, tileX, tileY, tileData.Width, tileData.Height, len(tileData.Image), len(tileData.Heightmap))
+
+	client.SendRawBytes(buf.Bytes())
 	return nil
 }
