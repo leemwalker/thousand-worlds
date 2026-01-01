@@ -1774,25 +1774,55 @@ func (g *WorldGeology) GetStats() GeologyStats {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	if g.Heightmap == nil {
-		return GeologyStats{PlateCount: len(g.Plates)}
-	}
+	var avgElev, landPercent, minElev, maxElev float64
+	var plateCount, hotspotCount, riverCount, biomeCount int
 
-	// Calculate average elevation
-	sum := 0.0
-	landCount := 0
-	for _, elev := range g.Heightmap.Elevations {
-		sum += elev
-		if elev > g.SeaLevel {
-			landCount++
+	plateCount = len(g.Plates)
+	hotspotCount = len(g.Hotspots)
+	riverCount = len(g.Rivers)
+	biomeCount = len(g.Biomes)
+
+	// Prefer SphereHeightmap (primary data source) over flat Heightmap
+	if g.SphereHeightmap != nil {
+		// Use sphere heightmap for elevation stats
+		minElev, maxElev = g.SphereHeightmap.MinMax()
+		topo := g.SphereHeightmap.Topology()
+		numCells := topo.Resolution() * topo.Resolution() * 6
+
+		sum := 0.0
+		landCount := 0
+		for i := 0; i < numCells; i++ {
+			coord := spatial.Coordinate{Face: i / (topo.Resolution() * topo.Resolution()), X: (i / topo.Resolution()) % topo.Resolution(), Y: i % topo.Resolution()}
+			elev := g.SphereHeightmap.Get(coord)
+			sum += elev
+			if elev > g.SeaLevel {
+				landCount++
+			}
 		}
+
+		if numCells > 0 {
+			avgElev = sum / float64(numCells)
+			landPercent = float64(landCount) / float64(numCells) * 100
+		}
+	} else if g.Heightmap != nil && len(g.Heightmap.Elevations) > 0 {
+		// Fallback to flat heightmap
+		sum := 0.0
+		landCount := 0
+		for _, elev := range g.Heightmap.Elevations {
+			sum += elev
+			if elev > g.SeaLevel {
+				landCount++
+			}
+		}
+
+		totalPixels := float64(len(g.Heightmap.Elevations))
+		avgElev = sum / totalPixels
+		landPercent = float64(landCount) / totalPixels * 100
+		maxElev = g.Heightmap.MaxElev
+		minElev = g.Heightmap.MinElev
 	}
 
-	totalPixels := float64(len(g.Heightmap.Elevations))
-	avgElev := sum / totalPixels
-	landPercent := float64(landCount) / totalPixels * 100
-
-	// Calculate average temperature
+	// Calculate average temperature from biomes
 	avgTemp := 0.0
 	if len(g.Biomes) > 0 {
 		totalTemp := 0.0
@@ -1805,14 +1835,14 @@ func (g *WorldGeology) GetStats() GeologyStats {
 	return GeologyStats{
 		AverageElevation:   avgElev,
 		AverageTemperature: avgTemp,
-		MaxElevation:       g.Heightmap.MaxElev,
-		MinElevation:       g.Heightmap.MinElev,
+		MaxElevation:       maxElev,
+		MinElevation:       minElev,
 		SeaLevel:           g.SeaLevel,
 		LandPercent:        landPercent,
-		PlateCount:         len(g.Plates),
-		HotspotCount:       len(g.Hotspots),
-		RiverCount:         len(g.Rivers),
-		BiomeCount:         len(g.Biomes),
+		PlateCount:         plateCount,
+		HotspotCount:       hotspotCount,
+		RiverCount:         riverCount,
+		BiomeCount:         biomeCount,
 		YearsSimulated:     g.TotalYearsSimulated,
 	}
 }
