@@ -106,10 +106,8 @@
         sunLight.diffuse = new Color3(1.0, 0.98, 0.95); // Warm sunlight
         sunLight.parent = solarSystemRoot;
 
-        // Glow effect for sun
-        const glowLayer = new GlowLayer("glow", scene);
-        glowLayer.intensity = 0.8;
-        glowLayer.addIncludedOnlyMesh(sunMesh);
+        // Note: GlowLayer removed - it ignores depth testing and makes sun visible through planet
+        // The sun's emissive material still makes it bright without needing glow
 
         // Orbit node (rotates around sun - handles year)
         orbitNode = new TransformNode("orbitNode", scene);
