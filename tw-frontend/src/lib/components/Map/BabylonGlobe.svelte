@@ -151,40 +151,25 @@
         camera.panningSensibility = 0; // Disable panning, only rotate
         camera.minZ = 0.01; // Near clip plane - prevents clipping at close range
 
-        // Initialize LOD manager with distance thresholds
-        lodManager = new LODManager({
-            levels: [
-                { distance: 3, segments: 128 }, // High detail when close
-                { distance: 8, segments: 64 }, // Medium detail
-                { distance: 20, segments: 32 }, // Low detail when far
-            ],
-            hysteresis: 0.15,
-        });
-
-        // Create globe mesh using LODManager (starts with high detail)
-        globe = lodManager.createMesh(scene, 0, "globe");
+        // Note: LODManager requires shader-based displacement to work properly.
+        // CPU displacement modifies mesh vertices, which doesn't transfer to other LOD meshes.
+        // TODO: Enable LOD when shader displacement is implemented in Phase 2.
+        //
+        // For now, create a single high-detail mesh:
+        globe = MeshBuilder.CreateSphere(
+            "globe",
+            { segments: 128, diameter: 2, updatable: true },
+            scene,
+        );
         globe.parent = planetNode;
 
-        // Create additional LOD meshes (hidden by default)
-        const mediumMesh = lodManager.createMesh(scene, 1, "globe");
-        mediumMesh.parent = planetNode;
-        mediumMesh.setEnabled(false);
-
-        const lowMesh = lodManager.createMesh(scene, 2, "globe");
-        lowMesh.parent = planetNode;
-        lowMesh.setEnabled(false);
-
-        // Create material for globe (shared across LOD meshes)
+        // Create material for globe
         globeMaterial = new StandardMaterial("globeMaterial", scene);
         globeMaterial.diffuseColor = new Color3(0.2, 0.2, 0.25);
         globeMaterial.specularColor = new Color3(0.2, 0.2, 0.25);
         globeMaterial.specularPower = 32;
         globeMaterial.backFaceCulling = true;
-
-        // Apply material to all LOD meshes
         globe.material = globeMaterial;
-        mediumMesh.material = globeMaterial;
-        lowMesh.material = globeMaterial;
 
         // ===========================================
         // Create Moons (if any satellites provided)
@@ -250,13 +235,12 @@
                     waterBumpTexture.vOffset = Math.cos(waterTime * 0.7) * 0.01;
                 }
 
-                // Update LOD based on camera distance
-                if (lodManager && camera) {
-                    lodManager.update(camera);
-                    // Update globe reference to currently active LOD mesh
-                    const currentLevel = lodManager.getCurrentLevel();
-                    globe = lodManager.getMesh(currentLevel);
-                }
+                // TODO: LOD update disabled until shader displacement is implemented
+                // if (lodManager && camera) {
+                //     lodManager.update(camera);
+                //     const currentLevel = lodManager.getCurrentLevel();
+                //     globe = lodManager.getMesh(currentLevel);
+                // }
 
                 scene.render();
             }
