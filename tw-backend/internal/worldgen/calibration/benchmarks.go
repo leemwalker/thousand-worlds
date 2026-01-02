@@ -103,6 +103,66 @@ func HadeanEarthBenchmarks() EarthBenchmarks {
 	}
 }
 
+// ArcheanEarthBenchmarks returns target values for the Archean Eon (4.0-2.5 Ga).
+// First stable continents form, still mostly water world, anoxic atmosphere.
+func ArcheanEarthBenchmarks() EarthBenchmarks {
+	return EarthBenchmarks{
+		// Hypsometry: Transition from water world to first continents
+		OceanCoveragePercent: 85.0,    // Still mostly ocean
+		MeanOceanDepthM:      -3200.0, // Slightly deeper oceans
+		MeanLandHeightM:      600.0,   // Building cratons
+		BimodalPeakOceanM:    -4300.0,
+		BimodalPeakLandM:     300.0,
+
+		// Climate: Warm but cooler than Hadean
+		GlobalMeanTempC:    40.0, // Hot greenhouse
+		EquatorToPoleGradC: 25.0, // Still relatively uniform
+
+		// Hydrology
+		RiverDensityPercent: 8.0, // Developing drainage systems
+
+		// Geology
+		PlateCount:       10, // Still fast-cycling plates
+		SubplateCount:    40,
+		ContinentCount:   3,  // Vaalbara, Ur, Kenorland forming
+		HotspotCount:     50, // High volcanism
+		OceanTrenchCount: 25,
+
+		// Astronomy
+		MoonCount: 1,
+	}
+}
+
+// ProterozoicEarthBenchmarks returns target values for the Proterozoic Eon (2.5-0.5 Ga).
+// Stable continents, supercontinent cycles, Great Oxidation Event.
+func ProterozoicEarthBenchmarks() EarthBenchmarks {
+	return EarthBenchmarks{
+		// Hypsometry: Recognizable continents forming
+		OceanCoveragePercent: 78.0,    // Approaching modern
+		MeanOceanDepthM:      -3500.0, // Approaching modern
+		MeanLandHeightM:      750.0,   // Higher mountains forming
+		BimodalPeakOceanM:    -4400.0,
+		BimodalPeakLandM:     400.0,
+
+		// Climate: Variable (Snowball Earth events in Neoproterozoic)
+		GlobalMeanTempC:    20.0, // Cooler than Archean, variable
+		EquatorToPoleGradC: 35.0, // Developing gradient
+
+		// Hydrology
+		RiverDensityPercent: 12.0, // Mature drainage systems
+
+		// Geology
+		PlateCount:       9, // Slowing plate motion
+		SubplateCount:    45,
+		ContinentCount:   5,  // Multiple continents (Rodinia, Columbia)
+		HotspotCount:     45, // Moderate volcanism
+		OceanTrenchCount: 22,
+
+		// Astronomy
+		MoonCount: 1,
+	}
+}
+
 // =============================================================================
 // Tolerance Configuration
 // =============================================================================
