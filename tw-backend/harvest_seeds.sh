@@ -66,6 +66,23 @@ fi
 BATCH_IDX=0
 CURRENT_START=$START_SEED
 
+# Trap Ctrl+C (SIGINT) to show results before exiting
+trap show_results SIGINT
+
+show_results() {
+    echo ""
+    echo "🛑 Caught signal, stopping harvest..."
+    echo "==================================================="
+    echo "✅ Harvest Interrupted"
+    echo "Candidates saved to: all_golden_candidates.jsonl"
+    
+    if [ -f "all_golden_candidates.jsonl" ] && command -v jq &> /dev/null; then
+        echo "Top Found Seeds:"
+        jq -s 'sort_by(-.score) | .[0:10] | .[] | "Seed: \(.seed) | Score: \(.score | floor)"' all_golden_candidates.jsonl
+    fi
+    exit 0
+}
+
 while true; do
     if [ "$INFINITE_MODE" = false ] && [ $BATCH_IDX -ge $NUM_BATCHES ]; then
         break
