@@ -7,7 +7,7 @@ Configuration:
   Years: 0 (0.0 billion years)
   Resolution: 32
   Workers: 16
-  Profile: modern
+  Profile: hadean
 
-🌍 Using MODERN Earth benchmarks (71% Ocean, Cooler, Stable Plates)
+🌊 Using HADEAN benchmarks (92% Ocean, Hotter, Faster Plates)
 🌲 Half-Tree Strategy: exploring range [1, 10000000000] with budget of 10000 candidates

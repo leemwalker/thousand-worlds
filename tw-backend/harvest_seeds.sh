@@ -3,14 +3,20 @@ set -euo pipefail
 
 # Configuration
 # Configuration
-if [ "${1:-}" == "forever" ] || [ "${1:-}" == "infinite" ]; then
+if [[ "${1:-}" == "forever" || "${1:-}" == "infinite" ]]; then
     INFINITE_MODE=true
     TOTAL_SEEDS=0 # Unused in infinite mode
     START_SEED=${2:-1}
     PROFILE=${3:-modern}
 else
     INFINITE_MODE=false
-    TOTAL_SEEDS=${1:-1000000} # Default to 1M
+    # Ensure first arg is a number, otherwise default to 1M
+    if [[ "${1:-}" =~ ^[0-9]+$ ]]; then
+        TOTAL_SEEDS=${1:-1000000}
+    else
+        echo "⚠️ Invalid seed count '$1', defaulting to 1,000,000"
+        TOTAL_SEEDS=1000000
+    fi
     START_SEED=${2:-1}
     PROFILE=${3:-modern}
 fi
@@ -29,7 +35,7 @@ if [ "$INFINITE_MODE" = true ]; then
 else
     echo "Target: $TOTAL_SEEDS seeds starting from $START_SEED"
 fi
-echo "Strategy: $STRATEGY | Years: $YEARS | Resolution: $RESOLUTION"
+echo "Strategy: $STRATEGY | Profile: $PROFILE | Years: $YEARS | Resolution: $RESOLUTION"
 echo "Workers: $WORKERS"
 echo "Output: $OUTPUT_FILE"
 echo "Logging to: $TEMP_LOG"
@@ -76,6 +82,7 @@ while true; do
         -years "$YEARS" \
         -resolution "$RESOLUTION" \
         -strategy "$STRATEGY" \
+        -profile "$PROFILE" \
         -min-score 80.0 \
         -json > "batch_${BATCH_IDX}.json"
     
