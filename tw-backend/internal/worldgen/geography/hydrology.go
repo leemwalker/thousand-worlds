@@ -1,7 +1,9 @@
 package geography
 
 import (
+	"runtime"
 	"sort"
+	"sync"
 	"tw-backend/internal/spatial"
 )
 
@@ -59,33 +61,51 @@ func CalculateFlowField(hm *SphereHeightmap, rainfall []float64) *HydrologyLayer
 	}
 	nodes := make([]cellNode, totalCells)
 
-	for idx := 0; idx < totalCells; idx++ {
-		// Reconstruct coordinate from index
-		face := idx / resSq
-		rem := idx % resSq
-		y := rem / res
-		x := rem % res
-		coord := spatial.Coordinate{Face: face, X: x, Y: y}
+	// Worker pool for parallel flow calculation
+	workers := runtime.NumCPU()
+	chunkSize := totalCells / workers
+	var wg sync.WaitGroup
 
-		currentElev := hm.Get(coord)
-		nodes[idx] = cellNode{idx: idx, elev: currentElev}
-
-		// Find steepest descent neighbor
-		lowestElev := currentElev
-		lowestIdx := -1
-
-		for _, dir := range directions {
-			neighbor := topology.GetNeighbor(coord, dir)
-			neighborElev := hm.Get(neighbor)
-
-			if neighborElev < lowestElev {
-				lowestElev = neighborElev
-				lowestIdx = neighbor.Face*resSq + neighbor.Y*res + neighbor.X
-			}
+	for w := 0; w < workers; w++ {
+		start := w * chunkSize
+		end := start + chunkSize
+		if w == workers-1 {
+			end = totalCells
 		}
 
-		hydro.FlowDirection[idx] = lowestIdx
+		wg.Add(1)
+		go func(s, e int) {
+			defer wg.Done()
+			for idx := s; idx < e; idx++ {
+				// Reconstruct coordinate from index
+				face := idx / resSq
+				rem := idx % resSq
+				y := rem / res
+				x := rem % res
+				coord := spatial.Coordinate{Face: face, X: x, Y: y}
+
+				currentElev := hm.Get(coord)
+				nodes[idx] = cellNode{idx: idx, elev: currentElev}
+
+				// Find steepest descent neighbor
+				lowestElev := currentElev
+				lowestIdx := -1
+
+				for _, dir := range directions {
+					neighbor := topology.GetNeighbor(coord, dir)
+					neighborElev := hm.Get(neighbor)
+
+					if neighborElev < lowestElev {
+						lowestElev = neighborElev
+						lowestIdx = neighbor.Face*resSq + neighbor.Y*res + neighbor.X
+					}
+				}
+
+				hydro.FlowDirection[idx] = lowestIdx
+			}
+		}(start, end)
 	}
+	wg.Wait()
 
 	// Step 2: Sort cells by elevation (highest to lowest)
 	sort.Slice(nodes, func(i, j int) bool {

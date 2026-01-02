@@ -7,9 +7,9 @@ import (
 )
 
 func TestIceSheet_Accumulation(t *testing.T) {
-	is := NewIceSheet()
-	topology := spatial.NewCubeSphereTopology(32)
 	resolution := 32
+	is := NewIceSheet(resolution)
+	topology := spatial.NewCubeSphereTopology(resolution)
 
 	// Create mock temperature and precipitation grids
 	totalCells := 6 * resolution * resolution
@@ -42,7 +42,8 @@ func TestIceSheet_Accumulation(t *testing.T) {
 	// Verify ice accumulated only in cold regions
 	polarIce := 0
 	equatorIce := 0
-	for coord, ice := range is.Ice {
+	for idx, ice := range is.Ice {
+		coord := iceIndexToCoord(idx, resolution)
 		if coord.Face == 0 || coord.Face == 5 {
 			if ice.Thickness > 0 {
 				polarIce++
@@ -66,9 +67,9 @@ func TestIceSheet_Accumulation(t *testing.T) {
 }
 
 func TestIceSheet_Flow(t *testing.T) {
-	is := NewIceSheet()
-	topology := spatial.NewCubeSphereTopology(16)
 	resolution := 16
+	is := NewIceSheet(resolution)
+	topology := spatial.NewCubeSphereTopology(resolution)
 	totalCells := 6 * resolution * resolution
 
 	// Create heightmap with slope (high at center, low at edges)
@@ -84,7 +85,8 @@ func TestIceSheet_Flow(t *testing.T) {
 
 	// Place a thick ice dome at center of face 0
 	centerCoord := spatial.Coordinate{Face: 0, X: resolution / 2, Y: resolution / 2}
-	is.Ice[centerCoord] = &IceData{Thickness: 3000.0}
+	centerIdx := iceCoordToIndex(centerCoord, resolution)
+	is.Ice[centerIdx] = IceData{Thickness: 3000.0}
 
 	// Cold everywhere, no new accumulation
 	tempGrid := make([]float64, totalCells)
@@ -94,20 +96,17 @@ func TestIceSheet_Flow(t *testing.T) {
 		precipGrid[i] = 0.0 // No new ice
 	}
 
-	initialThickness := is.Ice[centerCoord].Thickness
+	initialThickness := is.Ice[centerIdx].Thickness
 
 	// Run for 10000 years
 	is.Update(10000, tempGrid, precipGrid, heightmap, topology)
 
 	// Ice should have spread (center thinner, neighbors have ice)
-	centerIce := 0.0
-	if ice, ok := is.Ice[centerCoord]; ok {
-		centerIce = ice.Thickness
-	}
+	centerIce := is.Ice[centerIdx].Thickness
 
 	spreadCount := 0
-	for coord, ice := range is.Ice {
-		if coord != centerCoord && ice.Thickness > 0 {
+	for idx, ice := range is.Ice {
+		if idx != centerIdx && ice.Thickness > 0 {
 			spreadCount++
 		}
 	}
@@ -120,15 +119,14 @@ func TestIceSheet_Flow(t *testing.T) {
 }
 
 func TestIceSheet_Ablation(t *testing.T) {
-	is := NewIceSheet()
-	topology := spatial.NewCubeSphereTopology(16)
 	resolution := 16
+	is := NewIceSheet(resolution)
+	topology := spatial.NewCubeSphereTopology(resolution)
 	totalCells := 6 * resolution * resolution
 
 	// Place ice everywhere
 	for i := 0; i < totalCells; i++ {
-		coord := iceIndexToCoord(i, resolution)
-		is.Ice[coord] = &IceData{Thickness: 100.0}
+		is.Ice[i] = IceData{Thickness: 100.0}
 	}
 
 	// Create heightmap
@@ -148,22 +146,20 @@ func TestIceSheet_Ablation(t *testing.T) {
 	// All ice should be gone
 	remainingIce := 0
 	for _, ice := range is.Ice {
-		if ice.Thickness > MinIceThickness {
+		if ice.Thickness > 0 {
 			remainingIce++
 		}
 	}
 
 	if remainingIce > 0 {
-		t.Errorf("Expected all ice to melt, but %d cells still have ice", remainingIce)
+		t.Errorf("%d cells still have ice, should have melted", remainingIce)
 	}
-
-	t.Log("Ablation test passed - ice melted completely")
 }
 
 func TestIceSheet_Erosion(t *testing.T) {
-	is := NewIceSheet()
-	topology := spatial.NewCubeSphereTopology(16)
 	resolution := 16
+	is := NewIceSheet(resolution)
+	topology := spatial.NewCubeSphereTopology(resolution)
 	totalCells := 6 * resolution * resolution
 
 	// Create heightmap with initial elevation
@@ -176,7 +172,8 @@ func TestIceSheet_Erosion(t *testing.T) {
 
 	// Place flowing ice
 	centerCoord := spatial.Coordinate{Face: 0, X: 8, Y: 8}
-	is.Ice[centerCoord] = &IceData{
+	centerIdx := iceCoordToIndex(centerCoord, resolution)
+	is.Ice[centerIdx] = IceData{
 		Thickness: 2000.0,
 		FlowSpeed: 100.0, // 100 m/year
 	}

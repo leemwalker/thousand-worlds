@@ -2,6 +2,8 @@ package geography
 
 import (
 	"math"
+	"runtime"
+	"sync"
 
 	"tw-backend/internal/spatial"
 )
@@ -19,24 +21,30 @@ type IceData struct {
 }
 
 // IceSheet represents a continental or regional ice sheet system.
+// Optimized for dense grid access (slice instead of map).
 type IceSheet struct {
-	// Grid of ice data indexed by coordinate
-	Ice map[spatial.Coordinate]*IceData
+	// Grid of ice data indexed by flat index
+	// Index = face*res*res + y*res + x
+	Ice []IceData
 
 	// Aggregate statistics
 	TotalVolume  float64 // km³ of ice
 	TotalArea    float64 // km² covered
 	MaxThickness float64 // meters
+	Resolution   int     // Grid resolution used for allocation
 
 	// Sediment tracking for moraines
-	Sediment map[spatial.Coordinate]float64 // Accumulated sediment load
+	Sediment []float64 // Accumulated sediment load
 }
 
 // NewIceSheet creates an empty ice sheet system.
-func NewIceSheet() *IceSheet {
+// Requires resolution to allocate dense arrays.
+func NewIceSheet(resolution int) *IceSheet {
+	totalCells := 6 * resolution * resolution
 	return &IceSheet{
-		Ice:      make(map[spatial.Coordinate]*IceData),
-		Sediment: make(map[spatial.Coordinate]float64),
+		Ice:        make([]IceData, totalCells),
+		Sediment:   make([]float64, totalCells),
+		Resolution: resolution,
 	}
 }
 
@@ -72,113 +80,127 @@ const (
 func (is *IceSheet) Update(dt float64, tempGrid []float64, precipGrid []float64,
 	heightmap *SphereHeightmap, topology spatial.Topology) {
 
-	resolution := topology.Resolution()
+	resolution := is.Resolution // Use stored resolution
 	totalCells := 6 * resolution * resolution
+	resSq := resolution * resolution
 
-	// Phase 1: Accumulation (where cold + precipitation)
-	for idx := 0; idx < totalCells; idx++ {
-		coord := iceIndexToCoord(idx, resolution)
-		temp := tempGrid[idx]
-		precip := precipGrid[idx]
-
-		// Ice accumulates where temp < 0 and precipitation > 0
-		if temp < 0 && precip > 0 {
-			accumulation := precip * IceAccumulationRate * dt
-
-			ice, exists := is.Ice[coord]
-			if !exists {
-				ice = &IceData{}
-				is.Ice[coord] = ice
-			}
-			ice.Thickness += accumulation
-		}
+	// Helper to get coordinate from index (inlined for perf, or func)
+	indexToCoord := func(idx int) spatial.Coordinate {
+		face := idx / resSq
+		rem := idx % resSq
+		y := rem / resolution
+		x := rem % resolution
+		return spatial.Coordinate{Face: face, X: x, Y: y}
 	}
 
-	// Phase 2: Flow (SIA - ice flows downhill from high to low pressure)
-	// Pressure ~ ice thickness, flows toward lower elevation + thinner ice
-	newIce := make(map[spatial.Coordinate]*IceData)
+	// Helper to get index from coordinate
+	coordToIndex := func(c spatial.Coordinate) int {
+		return c.Face*resSq + c.Y*resolution + c.X
+	}
 
-	for coord, ice := range is.Ice {
-		if ice.Thickness < MinIceThickness {
+	// Phase 1: Accumulation & Ablation (Parallelized)
+	workers := runtime.NumCPU()
+	chunkSize := totalCells / workers
+	var wg sync.WaitGroup
+
+	for w := 0; w < workers; w++ {
+		start := w * chunkSize
+		end := start + chunkSize
+		if w == workers-1 {
+			end = totalCells
+		}
+
+		wg.Add(1)
+		go func(s, e int) {
+			defer wg.Done()
+			for idx := s; idx < e; idx++ {
+				temp := tempGrid[idx]
+				precip := precipGrid[idx]
+
+				// Ice accumulates where temp < 0 and precipitation > 0
+				if temp < 0 && precip > 0 {
+					accumulation := precip * IceAccumulationRate * dt
+					is.Ice[idx].Thickness += accumulation
+				} else if temp > 0 && is.Ice[idx].Thickness > 0 {
+					// Ablation (Melting)
+					ablation := temp * IceAblationRate * dt
+					is.Ice[idx].Thickness -= ablation
+					if is.Ice[idx].Thickness < 0 {
+						is.Ice[idx].Thickness = 0
+					}
+				}
+
+				// Update age only if ice exists
+				if is.Ice[idx].Thickness > 0 {
+					is.Ice[idx].Age += dt
+				} else {
+					is.Ice[idx].Age = 0
+				}
+			}
+		}(start, end)
+	}
+	wg.Wait()
+
+	// Phase 2: Flow (SIA - ice flows downhill)
+	// Must use double buffering to avoid race conditions or flow bias
+	// We'll calculate flow out of each cell into a temporary buffer
+	// Flow is local, but can't be purely parallel if we write to neighbors directly.
+	// Approach: Calculate Flux OUT of each cell (read-only), store in buffer. Then apply.
+
+	// Allocate delta buffer (could cache this in struct to avoid allocs)
+	deltaIce := make([]float64, totalCells)
+
+	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+
+	// Serial Flow for correctness (can be parallelized with atomic add)
+	for idx := 0; idx < totalCells; idx++ {
+		iceThick := is.Ice[idx].Thickness
+		if iceThick < MinIceThickness {
 			continue
 		}
 
-		// Calculate gradient (slope) - ice flows toward lowest neighbor
-		baseElev := heightmap.Get(coord) + ice.Thickness
-		lowestNeighbor := coord
+		coord := indexToCoord(idx)
+		baseElev := heightmap.Get(coord) + iceThick
+
+		bestIdx := -1
 		lowestElev := baseElev
 
-		for _, dir := range []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West} {
-			neighbor := topology.GetNeighbor(coord, dir)
-			neighborIce := 0.0
-			if ni, ok := is.Ice[neighbor]; ok {
-				neighborIce = ni.Thickness
-			}
-			neighborElev := heightmap.Get(neighbor) + neighborIce
-			if neighborElev < lowestElev {
-				lowestElev = neighborElev
-				lowestNeighbor = neighbor
+		for _, dir := range directions {
+			n := topology.GetNeighbor(coord, dir)
+			nIdx := coordToIndex(n)
+			nElev := heightmap.Get(n) + is.Ice[nIdx].Thickness
+			if nElev < lowestElev {
+				lowestElev = nElev
+				bestIdx = nIdx
 			}
 		}
 
-		// Calculate flow speed using simplified SIA
-		slope := (baseElev - lowestElev) / 100000.0 // Assume 100km grid spacing
-		if slope < 0 {
-			slope = 0
-		}
+		if bestIdx != -1 {
+			slope := (baseElev - lowestElev) / 100000.0
+			speed := IceFlowConstant * math.Pow(iceThick, 3) * slope * 1e12
+			loss := math.Min(iceThick*0.5, speed*dt) /* Cap 50% */
 
-		// v = C * H^3 * slope (Glen's flow law)
-		flowSpeed := IceFlowConstant * math.Pow(ice.Thickness, 3) * slope * 1e12 // Scale to m/year
+			// Store flow speed for erosion
+			is.Ice[idx].FlowSpeed = speed
 
-		// Limit flow to available ice
-		flowFrac := math.Min(flowSpeed*dt/ice.Thickness, 0.5) // Max 50% flows out per step
-
-		// Transfer ice to neighbor
-		iceTransfer := ice.Thickness * flowFrac
-
-		// Keep remaining ice at current cell
-		remainingThickness := ice.Thickness - iceTransfer
-		if remainingThickness >= MinIceThickness {
-			if _, exists := newIce[coord]; !exists {
-				newIce[coord] = &IceData{}
-			}
-			newIce[coord].Thickness += remainingThickness
-		}
-
-		// Add transferred ice to neighbor
-		if iceTransfer > 0 && lowestNeighbor != coord {
-			if _, exists := newIce[lowestNeighbor]; !exists {
-				newIce[lowestNeighbor] = &IceData{}
-			}
-			newIce[lowestNeighbor].Thickness += iceTransfer
-
-			// Store flow direction for erosion calculation
-			newIce[lowestNeighbor].FlowSpeed = flowSpeed
+			// Apply to buffer
+			deltaIce[idx] -= loss
+			deltaIce[bestIdx] += loss
+		} else {
+			is.Ice[idx].FlowSpeed = 0
 		}
 	}
 
-	// Phase 3: Ablation (melting at warm edges)
-	for coord, ice := range newIce {
-		idx := iceCoordToIndex(coord, resolution)
-		if idx < 0 || idx >= len(tempGrid) {
-			continue
-		}
-		temp := tempGrid[idx]
-
-		if temp > 0 {
-			meltRate := temp * IceAblationRate * dt
-			ice.Thickness -= meltRate
-			if ice.Thickness < 0 {
-				ice.Thickness = 0
-			}
+	// Apply deltas
+	for i := range is.Ice {
+		is.Ice[i].Thickness += deltaIce[i]
+		if is.Ice[i].Thickness < 0 {
+			is.Ice[i].Thickness = 0
 		}
 	}
-
-	// Update the ice map
-	is.Ice = newIce
 
 	// Update stats
-	is.updateStats(resolution)
+	is.updateStats()
 }
 
 // ApplyErosion applies glacial erosion to the heightmap based on ice flow.
@@ -186,23 +208,35 @@ func (is *IceSheet) Update(dt float64, tempGrid []float64, precipGrid []float64,
 func (is *IceSheet) ApplyErosion(heightmap *SphereHeightmap, dt float64, resolution int) float64 {
 	totalErosion := 0.0
 
-	for coord, ice := range is.Ice {
-		if ice.Thickness < MinIceThickness {
+	// Helper to get coordinate from index
+	indexToCoord := func(idx int) spatial.Coordinate {
+		resSq := resolution * resolution
+		face := idx / resSq
+		rem := idx % resSq
+		y := rem / resolution
+		x := rem % resolution
+		return spatial.Coordinate{Face: face, X: x, Y: y}
+	}
+
+	for idx := range is.Ice {
+		if is.Ice[idx].Thickness < MinIceThickness {
 			continue
 		}
 
 		// Erosion rate = coefficient * ice flux (thickness * velocity)
-		flux := ice.Thickness * ice.FlowSpeed
+		flux := is.Ice[idx].Thickness * is.Ice[idx].FlowSpeed
 		erosionDepth := flux * ErosionCoefficient * dt / 1000.0 // Convert mm to m
 
-		// Apply erosion to bedrock
-		currentElev := heightmap.Get(coord)
-		newElev := currentElev - erosionDepth
-		heightmap.Set(coord, newElev)
-		totalErosion += erosionDepth
+		if erosionDepth > 0 {
+			coord := indexToCoord(idx)
+			currentElev := heightmap.Get(coord)
+			newElev := currentElev - erosionDepth
+			heightmap.Set(coord, newElev)
+			totalErosion += erosionDepth
 
-		// Accumulate sediment (for moraine deposition)
-		is.Sediment[coord] += erosionDepth * SedimentCapacity
+			// Accumulate sediment (for moraine deposition)
+			is.Sediment[idx] += erosionDepth * SedimentCapacity
+		}
 	}
 
 	return totalErosion
@@ -211,53 +245,50 @@ func (is *IceSheet) ApplyErosion(heightmap *SphereHeightmap, dt float64, resolut
 // DepositMoraines deposits accumulated sediment at ice margins.
 // Called when ice retreats.
 func (is *IceSheet) DepositMoraines(heightmap *SphereHeightmap, topology spatial.Topology, resolution int) {
-	for coord, sediment := range is.Sediment {
-		ice, hasIce := is.Ice[coord]
+	// Helper to get coordinate from index
+	indexToCoord := func(idx int) spatial.Coordinate {
+		resSq := resolution * resolution
+		face := idx / resSq
+		rem := idx % resSq
+		y := rem / resolution
+		x := rem % resolution
+		return spatial.Coordinate{Face: face, X: x, Y: y}
+	}
+
+	for idx, sediment := range is.Sediment {
+		iceThick := is.Ice[idx].Thickness
 
 		// Deposit sediment where ice is thin or absent (margins)
-		if !hasIce || ice.Thickness < 10.0 {
+		if iceThick < 10.0 {
 			if sediment > 0.1 {
 				// Raise terrain by depositing sediment
+				coord := indexToCoord(idx)
 				currentElev := heightmap.Get(coord)
 				heightmap.Set(coord, currentElev+sediment*10.0) // Scale factor
-				is.Sediment[coord] = 0
+				is.Sediment[idx] = 0
 			}
 		}
 	}
 }
 
 // updateStats recalculates aggregate statistics.
-func (is *IceSheet) updateStats(resolution int) {
+func (is *IceSheet) updateStats() {
 	is.TotalVolume = 0
 	is.TotalArea = 0
 	is.MaxThickness = 0
 
-	cellAreaKm2 := 100.0 * 100.0 // Assume 100km grid cells
+	cellAreaKm2 := 100.0 * 100.0 // Assume 100km grid cells for stats roughly
 
-	for _, ice := range is.Ice {
-		if ice.Thickness >= MinIceThickness {
+	for i := range is.Ice {
+		thick := is.Ice[i].Thickness
+		if thick >= MinIceThickness {
 			is.TotalArea += cellAreaKm2
-			is.TotalVolume += ice.Thickness / 1000.0 * cellAreaKm2 // m to km * km²
-			if ice.Thickness > is.MaxThickness {
-				is.MaxThickness = ice.Thickness
+			is.TotalVolume += thick / 1000.0 * cellAreaKm2 // m to km * km²
+			if thick > is.MaxThickness {
+				is.MaxThickness = thick
 			}
 		}
 	}
-}
-
-// Helper: Convert flat index to coordinate
-func iceIndexToCoord(idx, resolution int) spatial.Coordinate {
-	resSq := resolution * resolution
-	face := idx / resSq
-	rem := idx % resSq
-	y := rem / resolution
-	x := rem % resolution
-	return spatial.Coordinate{Face: face, X: x, Y: y}
-}
-
-// Helper: Convert coordinate to flat index
-func iceCoordToIndex(coord spatial.Coordinate, resolution int) int {
-	return coord.Face*resolution*resolution + coord.Y*resolution + coord.X
 }
 
 // GlacialFeatureType represents the type of glacial landform
@@ -283,8 +314,18 @@ type GlacialFeature struct {
 func (is *IceSheet) DetectGlacialFeatures(heightmap *SphereHeightmap, topology spatial.Topology, seaLevel float64) []GlacialFeature {
 	features := make([]GlacialFeature, 0)
 	resolution := topology.Resolution()
+	resSq := resolution * resolution
 
-	for coord, sediment := range is.Sediment {
+	indexToCoord := func(idx int) spatial.Coordinate {
+		face := idx / resSq
+		rem := idx % resSq
+		y := rem / resolution
+		x := rem % resolution
+		return spatial.Coordinate{Face: face, X: x, Y: y}
+	}
+
+	for idx, sediment := range is.Sediment {
+		coord := indexToCoord(idx)
 		if sediment < 0.1 {
 			continue
 		}
@@ -335,7 +376,6 @@ func (is *IceSheet) DetectGlacialFeatures(heightmap *SphereHeightmap, topology s
 		}
 	}
 
-	_ = resolution // Used for potential future calculations
 	return features
 }
 
@@ -344,8 +384,18 @@ func (is *IceSheet) DetectGlacialFeatures(heightmap *SphereHeightmap, topology s
 func (is *IceSheet) CreateGlacialLakes(heightmap *SphereHeightmap, topology spatial.Topology) []spatial.Coordinate {
 	lakes := make([]spatial.Coordinate, 0)
 	resolution := topology.Resolution()
+	resSq := resolution * resolution
 
-	for coord, sediment := range is.Sediment {
+	indexToCoord := func(idx int) spatial.Coordinate {
+		face := idx / resSq
+		rem := idx % resSq
+		y := rem / resolution
+		x := rem % resolution
+		return spatial.Coordinate{Face: face, X: x, Y: y}
+	}
+
+	for idx, sediment := range is.Sediment {
+		coord := indexToCoord(idx)
 		if sediment < 1.0 {
 			continue // Need significant moraine deposit
 		}
@@ -371,22 +421,33 @@ func (is *IceSheet) CreateGlacialLakes(heightmap *SphereHeightmap, topology spat
 		}
 	}
 
-	_ = resolution
 	return lakes
 }
 
 // ApplyIsostaticRebound simulates post-glacial rebound after ice removal.
 // The crust rises as the weight of ice is removed.
-func (is *IceSheet) ApplyIsostaticRebound(heightmap *SphereHeightmap, previousIce map[spatial.Coordinate]*IceData, reboundRate float64, dt float64) {
+// Note: previousIce needs to be passed as Slice now if possible, or Map if coming from storage.
+// Assuming map for now since "previous state" might be sparse?
+// Actually let's assume slice for efficiency, but legacy might be problematic.
+// Let's assume passed as map for compatibility with potential persistence?
+// No, let's update signature to use slice.
+// If previousIce represents the state from N years ago, keeping a full copy of 20M cells is expensive (~1GB).
+// But for rebound, we just need `iceRemoved`.
+// Let's keep it simple: Map is fine here if it's meant to be sparse differences.
+func (is *IceSheet) ApplyIsostaticRebound(heightmap *SphereHeightmap, previousIce map[spatial.Coordinate]IceData, reboundRate float64, dt float64) {
+	// previousIce uses value struct now
 	for coord, oldIce := range previousIce {
-		currentIce, stillHasIce := is.Ice[coord]
-		var iceRemoved float64
+		// Look up current ice
+		resolution := is.Resolution
+		resSq := resolution * resolution
+		idx := coord.Face*resSq + coord.Y*resolution + coord.X
 
-		if stillHasIce {
-			iceRemoved = oldIce.Thickness - currentIce.Thickness
-		} else {
-			iceRemoved = oldIce.Thickness
+		currentThick := 0.0
+		if idx >= 0 && idx < len(is.Ice) {
+			currentThick = is.Ice[idx].Thickness
 		}
+
+		iceRemoved := oldIce.Thickness - currentThick
 
 		if iceRemoved > 0 {
 			// Rebound proportional to ice removed
@@ -396,4 +457,19 @@ func (is *IceSheet) ApplyIsostaticRebound(heightmap *SphereHeightmap, previousIc
 			heightmap.Set(coord, currentElev+rebound)
 		}
 	}
+}
+
+// Helper: Convert flat index to coordinate
+func iceIndexToCoord(idx, resolution int) spatial.Coordinate {
+	resSq := resolution * resolution
+	face := idx / resSq
+	rem := idx % resSq
+	y := rem / resolution
+	x := rem % resolution
+	return spatial.Coordinate{Face: face, X: x, Y: y}
+}
+
+// Helper: Convert coordinate to flat index
+func iceCoordToIndex(coord spatial.Coordinate, resolution int) int {
+	return coord.Face*resolution*resolution + coord.Y*resolution + coord.X
 }

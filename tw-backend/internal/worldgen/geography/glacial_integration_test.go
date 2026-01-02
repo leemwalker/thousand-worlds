@@ -9,9 +9,9 @@ import (
 // TestScandinaviaSimulation verifies that an ice age followed by retreat
 // produces realistic glacial landforms: fjords, U-valleys, and glacial lakes.
 func TestScandinaviaSimulation(t *testing.T) {
-	is := NewIceSheet()
-	topology := spatial.NewCubeSphereTopology(32)
 	resolution := 32
+	is := NewIceSheet(resolution)
+	topology := spatial.NewCubeSphereTopology(resolution)
 	totalCells := 6 * resolution * resolution
 
 	// Create a mountainous coastal terrain (like Scandinavia)
@@ -81,10 +81,13 @@ func TestScandinaviaSimulation(t *testing.T) {
 		}
 	}
 
-	// Save pre-retreat ice for rebound calculation
-	previousIce := make(map[spatial.Coordinate]*IceData)
-	for c, ice := range is.Ice {
-		previousIce[c] = &IceData{Thickness: ice.Thickness}
+	// Save pre-retreat ice for rebound calculation (using map for sparsity/test convenience)
+	previousIce := make(map[spatial.Coordinate]IceData)
+	for idx, ice := range is.Ice {
+		if ice.Thickness > 0 {
+			coord := iceIndexToCoord(idx, resolution)
+			previousIce[coord] = ice
+		}
 	}
 
 	// Simulate 10,000 years of warming
@@ -134,9 +137,9 @@ func TestScandinaviaSimulation(t *testing.T) {
 
 // TestGreatLakesSimulation verifies moraine-dammed lake formation.
 func TestGreatLakesSimulation(t *testing.T) {
-	is := NewIceSheet()
-	topology := spatial.NewCubeSphereTopology(32)
 	resolution := 32
+	is := NewIceSheet(resolution)
+	topology := spatial.NewCubeSphereTopology(resolution)
 	totalCells := 6 * resolution * resolution
 
 	// Create a terrain with a depression that could become a lake
@@ -180,7 +183,15 @@ func TestGreatLakesSimulation(t *testing.T) {
 		is.Update(1000, tempGrid, precipGrid, heightmap, topology)
 	}
 
-	t.Logf("Ice coverage: %d cells, Volume=%.2f km³", len(is.Ice), is.TotalVolume)
+	// Evaluate coverage
+	coverage := 0
+	for _, ice := range is.Ice {
+		if ice.Thickness > 0 {
+			coverage++
+		}
+	}
+
+	t.Logf("Ice coverage: %d cells, Volume=%.2f km³", coverage, is.TotalVolume)
 
 	// Erode the basin deeper
 	for step := 0; step < 30; step++ {
@@ -222,9 +233,9 @@ func TestGreatLakesSimulation(t *testing.T) {
 
 // TestErosionBalance verifies that glacial erosion rate exceeds river erosion.
 func TestErosionBalance(t *testing.T) {
-	is := NewIceSheet()
-	topology := spatial.NewCubeSphereTopology(16)
 	resolution := 16
+	is := NewIceSheet(resolution)
+	topology := spatial.NewCubeSphereTopology(resolution)
 	totalCells := 6 * resolution * resolution
 
 	heightmap := NewSphereHeightmap(topology)
@@ -236,7 +247,9 @@ func TestErosionBalance(t *testing.T) {
 
 	// Place thick, fast-flowing ice
 	centerCoord := spatial.Coordinate{Face: 0, X: 8, Y: 8}
-	is.Ice[centerCoord] = &IceData{
+	idx := centerCoord.Face*resolution*resolution + centerCoord.Y*resolution + centerCoord.X
+
+	is.Ice[idx] = IceData{
 		Thickness: 3000.0,
 		FlowSpeed: 200.0, // Fast glacier
 	}

@@ -304,8 +304,10 @@ func (g *WorldGeology) InitializeGeology() {
 	// Initialize underground column grid (Phase 3)
 	g.initializeColumns(width, height)
 
-	// Initialize ice sheet system (Phase 10: Glacial Geomorphology)
-	g.IceSheet = geography.NewIceSheet()
+	// Phase 10: Initialize Ice Sheet (if not exists)
+	if g.IceSheet == nil {
+		g.IceSheet = geography.NewIceSheet(g.Topology.Resolution())
+	}
 }
 
 // markSphereNeedsSync marks that the sphere heightmap has been modified
