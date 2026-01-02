@@ -201,10 +201,10 @@ func (g *WorldGeology) InitializeGeology() {
 	circumKm := g.Circumference / 1000.0
 
 	// Target: ~10 km per pixel for reasonable detail
-	// For Earth-like (40,000 km), this gives 4000x2000 (too large for memory)
-	// Let's cap at 512x256 and adjust scale
-	maxWidth := 512
-	maxHeight := 256
+	// For Earth-like (40,000 km), this gives 4000x2000
+	// Updated: Cap at 2048x1024 per user request for high fidelity
+	maxWidth := 2048
+	maxHeight := 1024
 
 	// Calculate pixels per km based on circumference
 	// width = circumference, height = circumference/2 (latitude)
