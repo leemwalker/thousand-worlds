@@ -173,4 +173,56 @@ func (cc *CarbonCycle) Update(dt float64, volcanicActivity, continentalArea, rai
 	// For simulation stability, we use a fixed conversion scaler.
 	const GtToPPRatio = 0.5
 	cc.State.CO2ppm = cc.Reservoir.Atmosphere * GtToPPRatio
+
+	// =========================================================================
+	// Phase 9c: GREAT OXIDATION EVENT (GOE)
+	// =========================================================================
+	// Models the rise of atmospheric oxygen from ~0% to ~21% over ~2 billion years.
+	// Key players:
+	// - Cyanobacteria: Produce O2 via photosynthesis (Source)
+	// - Iron Sinks: Dissolved Fe2+ in oceans absorbs O2 -> Banded Iron Formations (Sink)
+	// - Methane Collapse: O2 destroys CH4 -> Reduces greenhouse -> Cooling spike
+
+	// Nutrient-limited oxygen production (Cyanobacteria)
+	// Rate scales with Phosphorous availability (from weathering) and non-frozen conditions.
+	// Base rate ~0.001%/My when nutrients available.
+	if cc.Flux.Phosphorous > 0 && cc.State.Temperature > 0 {
+		// O2 production rate: Phosphorous flux * nutrient efficiency
+		// Capped at 0.5% per million years (realistic biological growth)
+		o2ProductionRate := math.Min(cc.Flux.Phosphorous*0.1, 0.005)
+		cc.State.OxygenLevel += o2ProductionRate * dt
+	}
+
+	// Iron Sink (Banded Iron Formations)
+	// Early oceans were anoxic with dissolved Fe2+.
+	// O2 reacts with Fe2+ -> Fe2O3 (precipitates, forms BIFs).
+	// This "sponges" O2 until iron is exhausted (~2.4B years on Earth).
+	// We model as: If O2 < 2% and planetAge < 2.5B, sink consumes O2.
+	// Simplified: Sink rate = 0.3 * O2Level (first-order consumption)
+	if cc.State.OxygenLevel > 0 && cc.State.OxygenLevel < 0.02 {
+		ironSinkRate := 0.3 * cc.State.OxygenLevel * dt
+		cc.State.OxygenLevel -= ironSinkRate
+		if cc.State.OxygenLevel < 0 {
+			cc.State.OxygenLevel = 0
+		}
+	}
+
+	// Methane Collapse
+	// Once O2 rises above ~1%, it rapidly oxidizes atmospheric CH4.
+	// CH4 + 2 O2 -> CO2 + 2 H2O (Exothermic, but net cooling due to CH4 loss)
+	// Methane is a powerful greenhouse gas; its destruction causes cooling.
+	// Model: If O2 > 1%, CH4 decays exponentially with half-life of ~50My.
+	if cc.State.OxygenLevel > 0.01 && cc.State.Methaneppm > 0.1 {
+		// Decay constant: Half-life of 50My -> lambda = ln(2)/50 = 0.0139
+		decayRate := 0.0139 * dt
+		cc.State.Methaneppm *= math.Exp(-decayRate)
+		if cc.State.Methaneppm < 0.1 {
+			cc.State.Methaneppm = 0.1 // Trace minimum
+		}
+	}
+
+	// Clamp Oxygen Level to [0, 0.21] (max 21% like modern Earth)
+	if cc.State.OxygenLevel > 0.21 {
+		cc.State.OxygenLevel = 0.21
+	}
 }
