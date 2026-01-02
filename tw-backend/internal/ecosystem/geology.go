@@ -860,7 +860,7 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 
 				// Apply passive margin decay - erode cells no longer at boundaries
 				// This prevents phantom mountains from persisting after plate boundaries move
-				geography.ApplyBoundaryDecay(g.Plates, g.SphereHeightmap, g.BoundaryCache, g.Topology, scaleFactor)
+				geography.ApplyBoundaryDecay(g.Plates, g.SphereHeightmap, g.BoundaryCache, g.Topology, scaleFactor, g.Seed)
 
 				g.markSphereNeedsSync()
 

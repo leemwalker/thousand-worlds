@@ -547,7 +547,7 @@ const PassiveMarginDecayRate = 0.02
 // ApplyBoundaryDecay erodes cells that are NO LONGER at plate boundaries toward base elevation.
 // This prevents "phantom mountains" from persisting after plate boundaries move away.
 // Should be called after SimulateTectonicsWithCache to handle passive margins.
-func ApplyBoundaryDecay(plates []TectonicPlate, heightmap *SphereHeightmap, cache *BoundaryCache, topology spatial.Topology, scaleFactor float64) {
+func ApplyBoundaryDecay(plates []TectonicPlate, heightmap *SphereHeightmap, cache *BoundaryCache, topology spatial.Topology, scaleFactor float64, seed int64) {
 	if debug.Is(debug.Perf) {
 		defer debug.Time(debug.Perf, "ApplyBoundaryDecay")()
 	}
@@ -604,6 +604,22 @@ func ApplyBoundaryDecay(plates []TectonicPlate, heightmap *SphereHeightmap, cach
 				if plate.Type == PlateContinental || cellData.IsContinental {
 					baseElev = 100.0 // Continental shelf
 				}
+
+				// Add base noise to prevent flat "mosaic" look
+				// We decay towards a noisy baseline so the plate interiors serve as organic terrain
+				// Simple 3D noise using coordinate and seed
+				sx, sy, sz := topology.ToSphere(coord)
+				// Use a simplified inline noise or pseudo-random mix for performance
+				// (Full FBM might be too heavy for every cell every tick?
+				// Actually, ApplyBoundaryDecay runs every ~100k years on all cells. Performance matters.)
+				// Let's use a deterministic hash-based noise:
+				h := int64(sx*1000) ^ int64(sy*1000) ^ int64(sz*1000) ^ seed
+				h *= 1664525
+				noiseVal := float64(h&0xFFFF) / 65535.0 // 0.0 to 1.0
+
+				// Map noise to range [-300, +300] for base variation
+				noiseOffset := (noiseVal * 600.0) - 300.0
+				baseElev += noiseOffset
 
 				// Apply slow decay toward base elevation (isostatic rebound)
 				// This makes old mountains erode and old ocean ridges sink
