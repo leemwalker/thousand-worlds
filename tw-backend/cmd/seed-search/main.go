@@ -151,23 +151,23 @@ func main() {
 		*workers = runtime.NumCPU()
 	}
 
-	fmt.Printf("🔍 Golden Seed Search\n")
-	fmt.Printf("====================\n\n")
-	fmt.Printf("Configuration:\n")
-	fmt.Printf("  Strategy: %s\n", *strategyName)
-	fmt.Printf("  Target Count: %d\n", *seedCount)
-	fmt.Printf("  Years: %d (%.1f billion years)\n", *years, float64(*years)/1e9)
-	fmt.Printf("  Resolution: %d\n", *resolution)
-	fmt.Printf("  Workers: %d\n", *workers)
-	fmt.Printf("  Profile: %s\n\n", *profile)
+	fmt.Fprintf(os.Stderr, "🔍 Golden Seed Search\n")
+	fmt.Fprintf(os.Stderr, "====================\n\n")
+	fmt.Fprintf(os.Stderr, "Configuration:\n")
+	fmt.Fprintf(os.Stderr, "  Strategy: %s\n", *strategyName)
+	fmt.Fprintf(os.Stderr, "  Target Count: %d\n", *seedCount)
+	fmt.Fprintf(os.Stderr, "  Years: %d (%.1f billion years)\n", *years, float64(*years)/1e9)
+	fmt.Fprintf(os.Stderr, "  Resolution: %d\n", *resolution)
+	fmt.Fprintf(os.Stderr, "  Workers: %d\n", *workers)
+	fmt.Fprintf(os.Stderr, "  Profile: %s\n\n", *profile)
 
 	var benchmarks calibration.EarthBenchmarks
 	if *profile == "hadean" {
 		benchmarks = calibration.HadeanEarthBenchmarks()
-		fmt.Println("🌊 Using HADEAN benchmarks (92% Ocean, Hotter, Faster Plates)")
+		fmt.Fprintln(os.Stderr, "🌊 Using HADEAN benchmarks (92% Ocean, Hotter, Faster Plates)")
 	} else {
 		benchmarks = calibration.DefaultEarthBenchmarks()
-		fmt.Println("🌍 Using MODERN Earth benchmarks (71% Ocean, Cooler, Stable Plates)")
+		fmt.Fprintln(os.Stderr, "🌍 Using MODERN Earth benchmarks (71% Ocean, Cooler, Stable Plates)")
 	}
 
 	// Select Strategy
@@ -244,7 +244,7 @@ func main() {
 		}
 
 		if !*jsonOutput && completed%1000 == 0 {
-			fmt.Printf("Progress: %d seeds tested\n", completed)
+			fmt.Fprintf(os.Stderr, "Progress: %d seeds tested\n", completed)
 		}
 	}
 
