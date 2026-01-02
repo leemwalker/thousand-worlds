@@ -44,10 +44,10 @@ func UpdatePlatePositions(plates []TectonicPlate, dt float64, topology spatial.T
 
 // RecalculateRegions clears existing plate regions and re-assigns every cell
 // on the sphere to the nearest plate centroid using Multi-Source BFS (Voronoi).
-func RecalculateRegions(plates []TectonicPlate, topology spatial.Topology) {
+func RecalculateRegions(plates []TectonicPlate, topology spatial.Topology, seed int64) {
 	// reuse the existing ReassignPlateRegions function in tectonics.go
 	// Since it's in the same package 'geography', we can call it directly.
-	ReassignPlateRegions(plates, topology)
+	ReassignPlateRegions(plates, topology, seed)
 }
 
 // InitializePlateMotion assigns random rotation axes and speeds to plates.

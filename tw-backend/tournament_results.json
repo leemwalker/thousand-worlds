@@ -2,60 +2,60 @@
   "golden_seeds": [
     {
       "seed": 1,
-      "final_score": 60.63594193258475,
+      "final_score": 60.13904216875739,
       "era_scores": [
         {
           "era": "Hadean",
-          "score": 63.77957403505599
+          "score": 63.71535331581444
         },
         {
           "era": "Archean",
-          "score": 41.18850605589528
+          "score": 40.62936833962798
         },
         {
           "era": "Proterozoic",
-          "score": 62.04024253974701
+          "score": 61.3594230989245
         },
         {
           "era": "Modern",
-          "score": 75.53544509964073
+          "score": 74.85202392066265
         }
       ]
     }
   ],
-  "total_time": 348622803998,
+  "total_time": 252643879227,
   "era_stats": [
     {
       "era": "Hadean",
       "seeds_in": 1,
       "seeds_out": 1,
-      "top_score": 63.77957403505599,
-      "bottom_score": 63.77957403505599,
-      "duration": 8649901039
+      "top_score": 63.71535331581444,
+      "bottom_score": 63.71535331581444,
+      "duration": 7587211846
     },
     {
       "era": "Archean",
       "seeds_in": 1,
       "seeds_out": 1,
-      "top_score": 41.18850605589528,
-      "bottom_score": 41.18850605589528,
-      "duration": 94163194670
+      "top_score": 40.62936833962798,
+      "bottom_score": 40.62936833962798,
+      "duration": 65527530944
     },
     {
       "era": "Proterozoic",
       "seeds_in": 1,
       "seeds_out": 1,
-      "top_score": 62.04024253974701,
-      "bottom_score": 62.04024253974701,
-      "duration": 136752912870
+      "top_score": 61.3594230989245,
+      "bottom_score": 61.3594230989245,
+      "duration": 86227419475
     },
     {
       "era": "Modern",
       "seeds_in": 1,
       "seeds_out": 1,
-      "top_score": 75.53544509964073,
-      "bottom_score": 75.53544509964073,
-      "duration": 109056598216
+      "top_score": 74.85202392066265,
+      "bottom_score": 74.85202392066265,
+      "duration": 93301557708
     }
   ]
 }

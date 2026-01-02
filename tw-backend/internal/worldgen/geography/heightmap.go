@@ -71,9 +71,9 @@ func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereH
 	// Use the Region map from plates to assign base elevation
 	for i := range plates {
 		plate := &plates[i]
-		baseElev := -4000.0 // Oceanic default
+		baseElev := OceanicBaseElevation // -4500.0
 		if plate.Type == PlateContinental {
-			baseElev = 100.0 // Continental default
+			baseElev = ContinentalBaseElevation // 300.0
 		}
 
 		for coord := range plate.Region {

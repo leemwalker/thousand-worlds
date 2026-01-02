@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Configuration
-TOTAL_SEEDS=${1:-1000000000} # Default to 1 Billion seeds if not specified
+TOTAL_SEEDS=${1:-10000000000} # Default to 10 Billion seeds if not specified
 PROFILE=${2:-modern}         # Default to 'modern' (71% ocean), use 'hadean' for 92% ocean
 SEARCH_BATCH_SIZE=10000      # Number of seeds to search per batch
 WORKERS=16                   # Increased workers for server environment (adjust if needed)
@@ -57,8 +57,8 @@ for (( i=0; i<$TOTAL_SEEDS; i+=$SEARCH_BATCH_SIZE )); do
     
     echo "  > Batch complete. Merging top candidates..."
     
-    # Check if we found any golden seeds (>80 score)
-    grep -o '{"seed":[^}]*"score":[8-9][0-9]\.[0-9]*[^}]*}' "batch_${i}.json" >> "all_golden_candidates.jsonl" || true
+    # Check if we found any golden seeds (>80 score) including 100
+    grep -o '{"seed":[^}]*"score":\s*\(100\|[8-9][0-9]\)\.[0-9]*[^}]*}' "batch_${i}.json" >> "all_golden_candidates.jsonl" || true
     
     # Clean up batch file
     rm "batch_${i}.json"

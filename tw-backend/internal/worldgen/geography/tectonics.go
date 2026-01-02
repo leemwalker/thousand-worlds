@@ -2,6 +2,7 @@ package geography
 
 import (
 	"container/heap"
+	"fmt"
 	"log"
 	"math"
 	"math/rand"
@@ -35,10 +36,10 @@ const (
 	// Raised from 20m/150m to ensure continents emerge clearly above sea level
 	ContinentalBaseElevation = 300.0
 	// OceanicBaseElevation is the natural elevation of oceanic crust (-4000m abyssal plain)
-	OceanicBaseElevation = -4000.0
-	// IsostaticRelaxationRate is how quickly crust drifts toward base (5% per step)
-	// This allows tectonic deformations to persist while slowly returning toward equilibrium
-	IsostaticRelaxationRate = 0.05
+	OceanicBaseElevation = -4500.0
+	// IsostaticRelaxationRate is how quickly crust drifts toward base
+	// Lowered from 0.05 to 0.02 to allow tectonic features to persist longer
+	IsostaticRelaxationRate = 0.02
 )
 
 // FeatureType describes the tectonic feature created at a boundary
@@ -253,8 +254,8 @@ func GeneratePlates(count int, topology spatial.Topology, seed int64, continenta
 		}
 	}
 
-	// 2. Multi-Source BFS to assign all cells to nearest plate
-	ReassignPlateRegions(plates, topology)
+	// 2. Multi-Source BFS
+	ReassignPlateRegions(plates, topology, seed)
 
 	// 3. Sort plates by area (region size) descending
 	// Use a simple index sort to find largest plates
@@ -294,10 +295,12 @@ func GeneratePlates(count int, topology spatial.Topology, seed int64, continenta
 		plates[pa.index].MeanDensity = DensityGranite        // 2700 kg/m³
 		coveredArea += float64(pa.area)
 
-		if debug.Is(debug.Geology) {
-			log.Printf("[PLATE INIT] Plate %d: Type=Continental Area=%d (%.1f%% of target)",
-				pa.index, pa.area, coveredArea/targetContinentalArea*100)
-		}
+		// fmt.Printf("[PLATE INIT] Plate %d: Type=Continental Area=%d (%.1f%% of target)\n",
+		// 	pa.index, pa.area, coveredArea/targetContinentalArea*100)
+	}
+	// Debug areas
+	for _, pa := range areas {
+		fmt.Printf("Plate %d Area: %d\n", pa.index, pa.area)
 	}
 
 	if debug.Is(debug.Geology) {
@@ -338,14 +341,15 @@ type bfsItem struct {
 	plateIdx int
 }
 
-// ReassignPlateRegions uses Multi-Source BFS to assign every cell to the nearest plate.
-// This naturally handles wrap-around and creates perfect Voronoi regions.
+// ReassignPlateRegions uses Multi-Source Dijkstra to assign every cell to the nearest plate
+// with added noise to create organic, non-linear boundaries.
 // Can be called after plate movement to update regions.
-func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology) {
+func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology, seed int64) {
 	resolution := topology.Resolution()
 	totalCells := 6 * resolution * resolution
 
 	// IMPORTANT: Clear existing regions before reassignment to prevent memory leak
+	// Also re-init plate grid if passed? Actually we usually rely on plates.Region map.
 	for i := range plates {
 		plates[i].Region = make(map[spatial.Coordinate]struct{})
 	}
@@ -353,33 +357,68 @@ func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology) {
 	// Track which cells are assigned
 	assigned := make(map[spatial.Coordinate]int, totalCells)
 
+	// Initialize noise generator for organic borders
+	noiseConfig := DefaultTerrainFBMConfig()
+	noiseConfig.Frequency = 2.0 // Higher frequency for border detail
+	noiseConfig.Octaves = 2
+	gen := NewFBMGenerator(seed, noiseConfig)
+
+	// Priority Queue for Dijkstra
+	pq := &borderPQ{}
+	heap.Init(pq)
+
 	// Initialize queue with all plate centroids
-	queue := make([]bfsItem, 0, len(plates))
 	for i, p := range plates {
-		queue = append(queue, bfsItem{coord: p.Centroid, plateIdx: i})
-		assigned[p.Centroid] = i
-		plates[i].Region[p.Centroid] = struct{}{}
+		// Centroids start with cost 0
+		heap.Push(pq, &borderItem{
+			coord:    p.Centroid,
+			plateIdx: i,
+			cost:     0,
+		})
 	}
 
 	// Cardinal directions for neighbor traversal
 	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
 
-	// BFS expansion
-	for len(queue) > 0 {
-		current := queue[0]
-		queue = queue[1:]
+	// Dijkstra expansion
+	for pq.Len() > 0 {
+		current := heap.Pop(pq).(*borderItem)
 
-		// Check all 4 neighbors
+		// If already assigned (by a shorter/better path), skip
+		if _, exists := assigned[current.coord]; exists {
+			continue
+		}
+
+		// Assign cell to plate
+		assigned[current.coord] = current.plateIdx
+		plates[current.plateIdx].Region[current.coord] = struct{}{}
+
+		// Check neighbors
 		for _, dir := range directions {
 			neighbor := topology.GetNeighbor(current.coord, dir)
 
-			// If not already assigned, claim it for this plate
 			if _, exists := assigned[neighbor]; !exists {
-				assigned[neighbor] = current.plateIdx
-				plates[current.plateIdx].Region[neighbor] = struct{}{}
-				queue = append(queue, bfsItem{coord: neighbor, plateIdx: current.plateIdx})
+				// Calculate dynamic cost
+				// Base cost = 1.0 (Distance)
+				// Noise cost = adds "resistance" or "roughness" to travel
+				sx, sy, sz := topology.ToSphere(neighbor)
+				noiseVal := gen.FBM3D(sx, sy, sz) // -1 to 1
+
+				// Cost variation: 1.0 to 9.0
+				// This distorts the Voronoi cells significantly
+				costModifier := 1.0 + (noiseVal+1.0)*4.0
+				newCost := current.cost + costModifier
+
+				heap.Push(pq, &borderItem{
+					coord:    neighbor,
+					plateIdx: current.plateIdx,
+					cost:     newCost,
+				})
 			}
 		}
+	}
+	if len(assigned) != totalCells {
+		fmt.Printf("ReassignPlateRegions WARNING: Only assigned %d/%d cells!\n", len(assigned), totalCells)
 	}
 }
 
@@ -470,10 +509,14 @@ func ComputeBoundaryCache(plates []TectonicPlate, topology spatial.Topology) *Bo
 
 // SimulateTectonicsWithCache uses a pre-computed boundary cache for fast processing.
 // Only iterates over boundary cells instead of all cells - typically 90% faster.
-func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightmap, cache *BoundaryCache, topology spatial.Topology, scaleFactor float64) *SphereHeightmap {
+func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightmap, cache *BoundaryCache, topology spatial.Topology, scaleFactor float64, seed int64) *SphereHeightmap {
 	if debug.Is(debug.Perf) {
 		defer debug.Time(debug.Perf, "SimulateTectonicsWithCache")()
 	}
+
+	// Noise generator for accretion (Organic/Coherent shapes)
+	// Use different seed offset for accretion noise
+	accretionNoise := NewFBMGenerator(seed+777, DefaultTerrainFBMConfig())
 
 	// Process only cached boundary cells
 	for _, bc := range cache.Cells {
@@ -512,10 +555,18 @@ func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightm
 					// 1. Convert center cell
 					cellData.IsContinental = true
 
-					// Fix: Create rugged initial terrain instead of flat shelf
-					// Accretion forms mountains and hills, not flat plains
-					// Range: 50m to 500m based on random chance
-					elevation := 50.0 + rand.Float64()*450.0
+					// Fix: Use FBM noise for accretion to create coherent landmasses (Hills/Mountains)
+					// instead of white noise (Lakes/Pits)
+					// Range: 50m to 600m
+					sx, sy, sz := topology.ToSphere(bc.Coord)
+					nVal := accretionNoise.FBM3D(sx, sy, sz) // approx -1 to 1
+
+					// Normalize to 0-1
+					nVal = (nVal + 1.0) * 0.5
+
+					// Target Elevation
+					elevation := 50.0 + nVal*550.0
+
 					if currentElev < elevation {
 						heightmap.Set(bc.Coord, elevation)
 						currentElev = elevation
@@ -524,20 +575,24 @@ func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightm
 					plates[bc.PlateIdx].ContinentalArea += 1
 
 					// 2. WIDEN: Spread to neighbors to break linearity (Island Arcs are wide!)
-					// 50% chance for each neighbor to also accrete
+					// Use noise for widening probability too?
 					directions := []spatial.Direction{spatial.North, spatial.East, spatial.South, spatial.West}
 					for _, dir := range directions {
-						if rand.Float64() < 0.5 {
+						if rand.Float64() < 0.5 { // Keep some randomness for rugged edges
 							nb := topology.GetNeighbor(bc.Coord, dir)
 							nbData := heightmap.GetCellData(nb)
 							if !nbData.IsContinental {
 								nbData.IsContinental = true
 								heightmap.SetCellData(nb, nbData)
 
-								// Also bump elevation if deep
-								// Make neighbors slightly lower but still emerged or shallow
+								// Sample noise for neighbor too
+								nx, ny, nz := topology.ToSphere(nb)
+								nNb := accretionNoise.FBM3D(nx, ny, nz)
+								nNb = (nNb + 1.0) * 0.5
+
+								// Neighbors are slightly lower / shelves
+								targetNbElev := 10.0 + nNb*300.0
 								nbElev := heightmap.Get(nb)
-								targetNbElev := 10.0 + rand.Float64()*100.0 // Shallow shelf / coastal
 								if nbElev < targetNbElev {
 									heightmap.Set(nb, targetNbElev)
 								}
@@ -866,11 +921,11 @@ func GetTargetElevation(p1, p2 TectonicPlate, boundaryType BoundaryType) float64
 
 	case BoundaryConvergent:
 		if p1.Type == PlateOceanic && p2.Type == PlateOceanic {
-			return -8000 // Oceanic trench (Mariana-scale)
+			return -9000 // Oceanic trench (Deeper)
 		} else if p1.Type == PlateContinental && p2.Type == PlateContinental {
-			return 6000 // Himalaya-scale mountains
+			return 8000 // Himalaya-scale mountains (Exaggerated for visibility)
 		}
-		return 4000 // Oceanic-Continental (Andes-scale coastal mountains)
+		return 6000 // Oceanic-Continental (Andes-scale coastal mountains, Exaggerated)
 
 	case BoundaryTransform:
 		return 0 // No significant elevation change

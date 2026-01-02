@@ -58,14 +58,14 @@ func TestHadeanGrowth(t *testing.T) {
 		UpdatePlatePositions(plates, dt, topology)
 
 		// B. Reassign Regions (expensive but necessary for collision detection)
-		ReassignPlateRegions(plates, topology)
+		ReassignPlateRegions(plates, topology, 12345)
 
 		// C. Compute Cache
 		cache := ComputeBoundaryCache(plates, topology)
 
 		// D. Simulate Tectonics (Accretion happens here)
 		// scaleFactor represents time duration for flux
-		_ = SimulateTectonicsWithCache(plates, shm, cache, topology, dt)
+		_ = SimulateTectonicsWithCache(plates, shm, cache, topology, dt, 12345)
 
 		// Optional: Log progress every 10 ticks
 		if i%10 == 0 {

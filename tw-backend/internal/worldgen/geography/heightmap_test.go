@@ -52,6 +52,26 @@ func TestGenerateHeightmap(t *testing.T) {
 		}
 	}
 
+	t.Logf("Stats: Ocean=%v Land=%v Mtn=%v Trench=%v", hasOcean, hasLand, hasMountains, hasTrenches)
+	t.Logf("Min: %f Max: %f", hm.MinElev, hm.MaxElev)
+
+	countOcean := 0
+	countLand := 0
+	for face := 0; face < 6; face++ {
+		for y := 0; y < resolution; y++ {
+			for x := 0; x < resolution; x++ {
+				val := hm.Get(spatial.Coordinate{Face: face, X: x, Y: y})
+				if val < -2000 {
+					countOcean++
+				}
+				if val > 0 {
+					countLand++
+				}
+			}
+		}
+	}
+	t.Logf("Counts: OceanCells=%d LandCells=%d Total=%d", countOcean, countLand, 6*resolution*resolution)
+
 	assert.True(t, hasOcean, "Should have deep ocean")
 	assert.True(t, hasLand, "Should have land")
 	// Mountains and trenches depend on random plate movement, but with 5 plates and seed 12345,

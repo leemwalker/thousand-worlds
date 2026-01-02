@@ -72,8 +72,8 @@ func TestAccretionCreatesRuggedTerrain(t *testing.T) {
 
 	accreted := false
 	for i := 0; i < 100; i++ {
-		// Pass scaleFactor 1.0
-		hm = SimulateTectonicsWithCache(plates, hm, cache, topology, 1.0)
+		// Pass scaleFactor 1.0 and seed 12345
+		hm = SimulateTectonicsWithCache(plates, hm, cache, topology, 1.0, 12345)
 
 		cellData := hm.GetCellData(coord)
 		if cellData.IsContinental {

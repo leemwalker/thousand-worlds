@@ -858,7 +858,7 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 					}
 					g.BoundaryCache = geography.ComputeBoundaryCache(g.Plates, g.Topology)
 				}
-				g.SphereHeightmap = geography.SimulateTectonicsWithCache(g.Plates, g.SphereHeightmap, g.BoundaryCache, g.Topology, scaleFactor)
+				g.SphereHeightmap = geography.SimulateTectonicsWithCache(g.Plates, g.SphereHeightmap, g.BoundaryCache, g.Topology, scaleFactor, g.Seed)
 
 				// Apply passive margin decay - erode cells no longer at boundaries
 				// This prevents phantom mountains from persisting after plate boundaries move
@@ -1315,7 +1315,7 @@ func (g *WorldGeology) advancePlates(years float64) {
 		geography.UpdatePlatePositions(g.Plates, dt, g.Topology)
 
 		// Now reassign cell ownership based on new plate positions
-		geography.ReassignPlateRegions(g.Plates, g.Topology)
+		geography.ReassignPlateRegions(g.Plates, g.Topology, g.Seed)
 
 		// Invalidate boundary cache so it's recomputed with new boundaries
 		g.BoundaryCache = nil

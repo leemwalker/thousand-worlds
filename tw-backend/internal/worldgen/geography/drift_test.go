@@ -167,7 +167,7 @@ func TestAccretion(t *testing.T) {
 	// Use high scale factor to guarantee accretion event
 	scaleFactor := 100.0 // High flux, guaranteed probability
 
-	_ = SimulateTectonicsWithCache(plates, shm, cache, topology, scaleFactor)
+	_ = SimulateTectonicsWithCache(plates, shm, cache, topology, scaleFactor, 123)
 
 	// 5. Verify Accretion matches Subduction Roles
 	// Plate 0 (Old) should subduct under Plate 1 (Young)
