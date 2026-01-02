@@ -587,14 +587,17 @@ func ApplyBoundaryDecay(plates []TectonicPlate, heightmap *SphereHeightmap, cach
 				}
 				plate := plates[plateIdx]
 
-				// Determine base elevation for this plate type
-				baseElev := -4000.0 // Ocean floor
-				if plate.Type == PlateContinental {
-					baseElev = 100.0 // Continental shelf
-				}
-
 				// Get current elevation
 				currentElev := heightmap.Get(coord)
+				cellData := heightmap.GetCellData(coord)
+
+				// Determine base elevation
+				// If the cell itself is continental (accreted land), it floats high
+				// regardless of whether the underlying plate is officially "Continental" yet.
+				baseElev := -4000.0 // Ocean floor
+				if plate.Type == PlateContinental || cellData.IsContinental {
+					baseElev = 100.0 // Continental shelf
+				}
 
 				// Apply slow decay toward base elevation (isostatic rebound)
 				// This makes old mountains erode and old ocean ridges sink
