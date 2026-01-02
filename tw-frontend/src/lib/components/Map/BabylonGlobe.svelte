@@ -147,7 +147,7 @@
             new Vector3(0, 1, 0),
             scene,
         );
-        ambient.intensity = 0.25;
+        ambient.intensity = 0.6;
         ambient.groundColor = new Color3(0.05, 0.05, 0.1);
 
         // ArcRotateCamera for orbit controls - targets planet

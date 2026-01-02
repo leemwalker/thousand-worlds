@@ -498,18 +498,39 @@ func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightm
 
 				// Simplified: Just use a probability roll scaled by flux
 				// This simulates that arcs form at specific points, not everywhere at once
-				if rand.Float64() < (0.05 * scaleFactor) {
+				// Simplified: Just use a probability roll scaled by flux
+				// This simulates that arcs form at specific points, not everywhere at once
+				// BOOSTED: 0.15 (was 0.05) to increase land coverage rate
+				if rand.Float64() < (0.15 * scaleFactor) {
+					// 1. Convert center cell
 					cellData.IsContinental = true
-					// Raise elevation immediately to sea level to simulate rapid volcano growth
-					if currentElev < -500 {
-						heightmap.Set(bc.Coord, -500) // Just below surface
-						// Update currentElev for the smoothing calculation below
-						currentElev = -500
+					if currentElev < -100 {
+						heightmap.Set(bc.Coord, -100) // Shallow shelf, ready to emerge
+						currentElev = -100
 					}
 					heightmap.SetCellData(bc.Coord, cellData)
+					plates[bc.PlateIdx].ContinentalArea += 1
 
-					// Update plate's continental area tracking
-					plates[bc.PlateIdx].ContinentalArea += 1 // Approx 100km^2
+					// 2. WIDEN: Spread to neighbors to break linearity (Island Arcs are wide!)
+					// 50% chance for each neighbor to also accrete
+					directions := []spatial.Direction{spatial.North, spatial.East, spatial.South, spatial.West}
+					for _, dir := range directions {
+						if rand.Float64() < 0.5 {
+							nb := topology.GetNeighbor(bc.Coord, dir)
+							nbData := heightmap.GetCellData(nb)
+							if !nbData.IsContinental {
+								nbData.IsContinental = true
+								heightmap.SetCellData(nb, nbData)
+
+								// Also bump elevation if deep
+								nbElev := heightmap.Get(nb)
+								if nbElev < -500 {
+									heightmap.Set(nb, -500)
+								}
+								plates[bc.PlateIdx].ContinentalArea += 1
+							}
+						}
+					}
 				}
 			}
 		}
