@@ -1303,10 +1303,16 @@ func (g *WorldGeology) advancePlates(years float64) {
 
 	if g.PlateReassignmentAccumulator >= reassignmentInterval && g.Topology != nil {
 		if debug.Is(debug.Geology) {
-			log.Printf("[PLATE DRIFT] Reassigning plate regions after %.0fM years", g.PlateReassignmentAccumulator/1_000_000)
+			log.Printf("[PLATE DRIFT] Moving plates and reassigning regions after %.0fM years", g.PlateReassignmentAccumulator/1_000_000)
 		}
 
-		// Reassign cell ownership based on new plate positions
+		// CRITICAL: Actually MOVE the plate centroids first!
+		// dt = time in ticks (1 tick = 1M years), we've accumulated reassignmentInterval years
+		// so dt = reassignmentInterval / 1_000_000 ticks
+		dt := g.PlateReassignmentAccumulator / 1_000_000.0
+		geography.UpdatePlatePositions(g.Plates, dt, g.Topology)
+
+		// Now reassign cell ownership based on new plate positions
 		geography.ReassignPlateRegions(g.Plates, g.Topology)
 
 		// Invalidate boundary cache so it's recomputed with new boundaries
