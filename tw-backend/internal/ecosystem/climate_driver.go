@@ -57,6 +57,14 @@ type ClimateDriver struct {
 	// Early Earth: High CO2 → +50°C, Modern: Low CO2 → ~0°C
 	GreenhouseOffset float64
 
+	// GlobalAlbedo is the planetary reflectivity (0.0 = black body, 1.0 = perfect reflector)
+	// Modern Earth ≈ 0.30, Snowball Earth ≈ 0.70
+	GlobalAlbedo float64
+
+	// IsSnowball indicates if the planet is in a global glaciation state
+	// Triggers when global temp < SnowballThreshold and recovery when CO2 builds up
+	IsSnowball bool
+
 	// eventManager is the geological event system
 	eventManager *GeologicalEventManager
 }
@@ -73,6 +81,8 @@ func NewClimateDriver(eventManager *GeologicalEventManager) *ClimateDriver {
 		SolarLuminosity:    0.71, // Early Earth baseline
 		OrbitalInsolation:  1.0,  // Initial value
 		GreenhouseOffset:   0.0,  // Will be set by atmosphere
+		GlobalAlbedo:       0.30, // Modern Earth baseline
+		IsSnowball:         false,
 	}
 }
 
@@ -124,6 +134,64 @@ func (cd *ClimateDriver) Update(year int64) {
 			// Only end if minimum duration has passed
 			if year-cd.IceAgeStartYear >= IceAgeDurationBase {
 				cd.endIceAge(year)
+			}
+		}
+	}
+
+	// =========================================================================
+	// Phase 9b: SNOWBALL EARTH (Global Glaciation / Ice-Albedo Feedback)
+	// =========================================================================
+	// Calculate approximate global temperature for Snowball trigger.
+	// This is a simplified energy balance: Solar * (1 - Albedo) + Greenhouse + Geothermal.
+	// We don't recalculate from scratch; we use offsets.
+	//
+	// Base temp at Solar Constant = 1.0, Albedo = 0.30 is ~14°C (Modern Earth).
+	// Offset from solar dimming: (Luminosity - 1.0) * 70 (rough sensitivity).
+	// Then add GreenhouseOffset and GeothermalOffset.
+	solarTempDelta := (cd.SolarLuminosity - 1.0) * 70.0
+
+	// Albedo feedback: Higher albedo = colder.
+	// Modern albedo 0.30 is baseline. Snowball at 0.70.
+	// Each 0.1 increase in albedo from 0.30 drops temp by ~10°C.
+	albedoTempDelta := (0.30 - cd.GlobalAlbedo) * 100.0 // 0.30 -> 0, 0.70 -> -40
+
+	globalTemp := 14.0 + solarTempDelta + albedoTempDelta + cd.GreenhouseOffset + cd.GeothermalOffset
+
+	// Snowball Trigger: If temp drops below -10°C globally, ice covers oceans.
+	// This is a runaway feedback: more ice -> higher albedo -> colder -> more ice.
+	const (
+		SnowballTriggerTemp  = -10.0 // °C
+		SnowballRecoveryTemp = 10.0  // °C (requires massive greenhouse buildup)
+		SnowballAlbedo       = 0.70  // Ice-covered planet
+		ModernAlbedo         = 0.30  // Normal Earth
+	)
+
+	if !cd.IsSnowball && globalTemp < SnowballTriggerTemp {
+		cd.IsSnowball = true
+		cd.GlobalAlbedo = SnowballAlbedo
+
+		if cd.eventManager != nil {
+			cd.eventManager.ActiveEvents = append(cd.eventManager.ActiveEvents, GeologicalEvent{
+				Type:           EventGlobalGlaciation,
+				StartTick:      year * 365,
+				DurationTicks:  1_000_000 * 365, // Long duration
+				Severity:       1.0,
+				TemperatureMod: -40,
+				SunlightMod:    0.5, // Ice reflects
+				OxygenMod:      0.9, // Reduced biosphere
+			})
+		}
+	} else if cd.IsSnowball && globalTemp > SnowballRecoveryTemp {
+		// Recovery: Volcanic CO2 buildup has warmed the planet enough to melt ice.
+		cd.IsSnowball = false
+		cd.GlobalAlbedo = ModernAlbedo
+
+		// End the glaciation event (truncate to current year)
+		if cd.eventManager != nil {
+			for i := range cd.eventManager.ActiveEvents {
+				if cd.eventManager.ActiveEvents[i].Type == EventGlobalGlaciation {
+					cd.eventManager.ActiveEvents[i].DurationTicks = year*365 - cd.eventManager.ActiveEvents[i].StartTick
+				}
 			}
 		}
 	}

@@ -16,8 +16,9 @@ const (
 	EventOceanAnoxia      GeologicalEventType = "ocean_anoxia"
 	EventContinentalDrift GeologicalEventType = "continental_drift"
 	EventFloodBasalt      GeologicalEventType = "flood_basalt"
-	EventWarming          GeologicalEventType = "warming"          // Post-glacial warming
-	EventGreenhouseSpike  GeologicalEventType = "greenhouse_spike" // CO2-driven warming
+	EventWarming          GeologicalEventType = "warming"           // Post-glacial warming
+	EventGreenhouseSpike  GeologicalEventType = "greenhouse_spike"  // CO2-driven warming
+	EventGlobalGlaciation GeologicalEventType = "global_glaciation" // Snowball Earth (Phase 9b)
 )
 
 // GeologicalEvent represents an active environmental event
