@@ -20,7 +20,7 @@ func TestCarbonCycleIntegration(t *testing.T) {
 
 	// Inject Geology manually to ensure Carbon Cycle runs
 	geo := NewWorldGeology(config.WorldID, 12345, 40000000)
-	geo.InitializeGeology() // Generates plates
+	geo.InitializeGeology(0) // Generates plates
 	runner.SetGeology(geo)
 
 	// Manually inject a known geology state if possible,

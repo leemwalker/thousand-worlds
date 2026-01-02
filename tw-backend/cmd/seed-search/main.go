@@ -135,11 +135,13 @@ func main() {
 	startSeed := flag.Int64("start", 1, "Starting seed")
 	seedCount := flag.Int("count", 100, "Number of seeds to test")
 	workers := flag.Int("workers", 0, "Parallel workers (0 = NumCPU)")
-	years := flag.Int64("years", 500_000_000, "Years to simulate (500M = Hadean era)")
+	years := flag.Int64("years", 500_000_000, "Years to simulate (500M = Hadean era). Set to 0 to skip simulation.")
 	resolution := flag.Int("resolution", 128, "Map resolution (lower = faster)")
 	topN := flag.Int("top", 10, "Show top N results")
+	minScore := flag.Float64("min-score", 80.0, "Minimum score to log to stderr immediately")
 	jsonOutput := flag.Bool("json", false, "Output as JSON")
 	profile := flag.String("profile", "modern", "Benchmark profile: 'modern' or 'hadean'")
+	strategyName := flag.String("strategy", "linear", "Search strategy: 'linear' or 'halftree'")
 	flag.Parse()
 
 	if *workers == 0 {
@@ -149,7 +151,8 @@ func main() {
 	fmt.Printf("🔍 Golden Seed Search\n")
 	fmt.Printf("====================\n\n")
 	fmt.Printf("Configuration:\n")
-	fmt.Printf("  Seeds: %d to %d (%d total)\n", *startSeed, *startSeed+int64(*seedCount)-1, *seedCount)
+	fmt.Printf("  Strategy: %s\n", *strategyName)
+	fmt.Printf("  Target Count: %d\n", *seedCount)
 	fmt.Printf("  Years: %d (%.1f billion years)\n", *years, float64(*years)/1e9)
 	fmt.Printf("  Resolution: %d\n", *resolution)
 	fmt.Printf("  Workers: %d\n", *workers)
@@ -164,9 +167,22 @@ func main() {
 		fmt.Println("🌍 Using MODERN Earth benchmarks (71% Ocean, Cooler, Stable Plates)")
 	}
 
-	// Create work channel and result channel
-	seeds := make(chan int64, *seedCount)
-	results := make(chan SeedResult, *seedCount)
+	// Select Strategy
+	var strategy SearchStrategy
+	switch *strategyName {
+	case "halftree":
+		strategy = &HalfTreeStrategy{}
+	case "linear":
+		strategy = &LinearStrategy{}
+	default:
+		log.Fatalf("Unknown strategy: %s", *strategyName)
+	}
+
+	// Create channels
+	// Seeds: passed TO workers (from strategy)
+	seeds := make(chan int64, *workers*2)
+	// Worker Results: passed FROM workers (to strategy)
+	workerResults := make(chan SeedResult, *workers*2)
 
 	// Start workers
 	var wg sync.WaitGroup
@@ -176,33 +192,56 @@ func main() {
 			defer wg.Done()
 			for seed := range seeds {
 				result := testSeed(seed, *years, *resolution, benchmarks)
-				results <- result
+				workerResults <- result
 			}
 		}(i)
 	}
 
-	// Feed seeds to workers
-	go func() {
-		for i := int64(0); i < int64(*seedCount); i++ {
-			seeds <- *startSeed + i
-		}
-		close(seeds)
-	}()
-
-	// Wait for all workers to finish
+	// Close workerResults when all workers are done
 	go func() {
 		wg.Wait()
-		close(results)
+		close(workerResults)
 	}()
 
-	// Collect results
+	// Run Strategy
+	config := SearchConfig{
+		StartSeed:  *startSeed,
+		Count:      *seedCount,
+		Years:      *years,
+		Resolution: *resolution,
+		Workers:    *workers,
+		Benchmarks: benchmarks,
+	}
+
+	// Strategy returns a channel of results to display.
+	// It manages feeding 'seeds' and consuming 'workerResults'.
+	displayResults := strategy.Run(seeds, workerResults, config)
+
+	// Collect results for display
 	allResults := make([]SeedResult, 0, *seedCount)
 	completed := 0
-	for result := range results {
+
+	// Read from the channel returned by strategy
+	for result := range displayResults {
 		allResults = append(allResults, result)
 		completed++
-		if !*jsonOutput && completed%10 == 0 {
-			fmt.Printf("Progress: %d/%d seeds tested\n", completed, *seedCount)
+
+		// Real-time logging of high scores to Stderr (visible even if stdout is redirected)
+		if result.Score >= *minScore {
+			// Format similar to final output but succinct
+			msg := fmt.Sprintf("\n🔥 FOUND CANDIDATE: Seed %d | Score: %.1f\n", result.Seed, result.Score)
+			if result.SimulationTime < 100*time.Millisecond {
+				msg += fmt.Sprintf("   [FAST] Plates: %d | Continents: %d | Temp: %.1f°C\n",
+					result.PlateCount, result.ContinentCount, result.GlobalTemp)
+			} else {
+				msg += fmt.Sprintf("   Ocean: %.1f%% | Depth: %.0fm | Land: %.0fm | Temp: %.1f°C\n",
+					result.OceanCoverage, result.MeanOceanDepth, result.MeanLandHeight, result.GlobalTemp)
+			}
+			fmt.Fprintln(os.Stderr, msg)
+		}
+
+		if !*jsonOutput && completed%1000 == 0 {
+			fmt.Printf("Progress: %d seeds tested\n", completed)
 		}
 	}
 
@@ -231,10 +270,17 @@ func main() {
 		for i := 0; i < showCount; i++ {
 			r := allResults[i]
 			fmt.Printf("#%d: Seed %d (Score: %.1f/100)\n", i+1, r.Seed, r.Score)
-			fmt.Printf("    Ocean: %.1f%% | Depth: %.0fm | Land: %.0fm | Temp: %.1f°C\n",
-				r.OceanCoverage, r.MeanOceanDepth, r.MeanLandHeight, r.GlobalTemp)
-			fmt.Printf("    Plates: %d | Continents: %d | Bimodal: %v\n",
-				r.PlateCount, r.ContinentCount, r.BimodalDetected)
+			// Only show metrics relevant to the simulation type
+			if r.SimulationTime < 100*time.Millisecond {
+				// Fast pass / Zero year
+				fmt.Printf("    [FAST] Plates: %d | Continents: %d | Temp: %.1f°C\n",
+					r.PlateCount, r.ContinentCount, r.GlobalTemp)
+			} else {
+				fmt.Printf("    Ocean: %.1f%% | Depth: %.0fm | Land: %.0fm | Temp: %.1f°C\n",
+					r.OceanCoverage, r.MeanOceanDepth, r.MeanLandHeight, r.GlobalTemp)
+				fmt.Printf("    Plates: %d | Continents: %d | Bimodal: %v\n",
+					r.PlateCount, r.ContinentCount, r.BimodalDetected)
+			}
 			fmt.Printf("    Pass/Fail/Warn: %d/%d/%d | Time: %v\n\n",
 				r.PassCount, r.FailCount, r.WarnCount, r.SimulationTime.Round(time.Millisecond))
 		}
@@ -244,7 +290,12 @@ func main() {
 			best := allResults[0]
 			fmt.Printf("🌟 GOLDEN SEED: %d (Score: %.1f/100)\n", best.Seed, best.Score)
 			fmt.Printf("\nTo use this seed:\n")
-			fmt.Printf("  world simulate %d --seed %d --geology\n", *years, best.Seed)
+			// Suggest reasonable simulation parameters
+			simYears := *years
+			if simYears == 0 {
+				simYears = 500_000_000
+			}
+			fmt.Printf("  world simulate %d --seed %d --geology\n", simYears, best.Seed)
 		}
 	}
 
@@ -258,20 +309,37 @@ func testSeed(seed, years int64, resolution int, bench calibration.EarthBenchmar
 	worldID := uuid.New()
 	circumference := 40_000_000.0 // 40,000 km (Earth)
 
+	// === FAST PASS: Static Checks ===
+	// Check properties that are deterministic from seed without full simulation
+	// 1. Moons (Super fast)
 	geo := ecosystem.NewWorldGeology(worldID, seed, circumference)
-	geo.InitializeGeology()
+
+	// Check moons
+	// === FAST PASS: Static Checks ===
+	// Check properties that are deterministic from seed without full simulation
+	// 1. Moons (Super fast)
+	// geo is already initialized above
+
+	// 3. FULL INITIALIZATION (at low res for speed)
+	// We run the full init because it provides the Ocean Coverage baseline.
+	geo.InitializeGeology(resolution)
 
 	// Simulate in chunks for long durations
-	chunkSize := int64(10_000_000) // 10M years per chunk
-	remaining := years
+	if years > 0 {
+		chunkSize := int64(10_000_000) // 10M years per chunk
+		remaining := years
 
-	for remaining > 0 {
-		step := chunkSize
-		if step > remaining {
-			step = remaining
+		for remaining > 0 {
+			step := chunkSize
+			if step > remaining {
+				step = remaining
+			}
+			geo.SimulateGeology(step, 0.0)
+			remaining -= step
 		}
-		geo.SimulateGeology(step, 0.0)
-		remaining -= step
+	} else {
+		// Fast Pass: Just ensure basic systems are ready
+		// InitializeGeology already does this, so nothing to do here.
 	}
 
 	// Collect statistics

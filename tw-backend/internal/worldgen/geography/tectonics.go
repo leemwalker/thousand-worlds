@@ -254,8 +254,42 @@ func GeneratePlates(count int, topology spatial.Topology, seed int64, continenta
 		}
 	}
 
-	// 2. Multi-Source BFS
-	ReassignPlateRegions(plates, topology, seed)
+	// 2. Assign Regions
+	if resolution <= 32 {
+		// FAST PASS: Simple Voronoi (O(Cells * Plates))
+		// Much faster than Dijkstra for low res
+		for face := 0; face < 6; face++ {
+			for y := 0; y < resolution; y++ {
+				for x := 0; x < resolution; x++ {
+					coord := spatial.Coordinate{Face: face, X: x, Y: y}
+					cx, cy, cz := topology.ToSphere(coord)
+
+					bestDist := math.MaxFloat64
+					bestPlate := 0
+
+					// Find nearest plate centroid
+					for pid, p := range plates {
+						// Squared Euclidean distance is sufficient for comparison
+						dx := cx - p.Position.X
+						dy := cy - p.Position.Y
+						dz := cz - p.Position.Z
+						distSq := dx*dx + dy*dy + dz*dz
+
+						if distSq < bestDist {
+							bestDist = distSq
+							bestPlate = pid
+						}
+					}
+
+					// Assign
+					plates[bestPlate].Region[coord] = struct{}{}
+				}
+			}
+		}
+	} else {
+		// FULL PASS: Multi-Source Dijkstra with Noise
+		ReassignPlateRegions(plates, topology, seed)
+	}
 
 	// 3. Sort plates by area (region size) descending
 	// Use a simple index sort to find largest plates
@@ -297,10 +331,6 @@ func GeneratePlates(count int, topology spatial.Topology, seed int64, continenta
 
 		// fmt.Printf("[PLATE INIT] Plate %d: Type=Continental Area=%d (%.1f%% of target)\n",
 		// 	pa.index, pa.area, coveredArea/targetContinentalArea*100)
-	}
-	// Debug areas
-	for _, pa := range areas {
-		fmt.Printf("Plate %d Area: %d\n", pa.index, pa.area)
 	}
 
 	if debug.Is(debug.Geology) {

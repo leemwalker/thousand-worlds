@@ -215,7 +215,7 @@ func createTestWorld(t *testing.T) *ecosystem.WorldGeology {
 	geo := ecosystem.NewWorldGeology(worldID, testSeed, circumference)
 	require.NotNil(t, geo, "Failed to create WorldGeology")
 
-	geo.InitializeGeology()
+	geo.InitializeGeology(0)
 	require.NotNil(t, geo.Heightmap, "Failed to initialize geology")
 
 	// Run minimal simulation

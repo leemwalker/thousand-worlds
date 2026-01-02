@@ -265,7 +265,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	// Initialize terrain if first simulation
 	if !geology.IsInitialized() {
 		client.SendGameMessage("system", "Initializing world geology...", nil)
-		geology.InitializeGeology()
+		geology.InitializeGeology(0)
 		client.SendGameMessage("system", "Geology initialized with tectonic plates and terrain.", nil)
 
 		// Spawn initial creatures based on generated biomes

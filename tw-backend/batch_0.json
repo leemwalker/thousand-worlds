@@ -1,0 +1,13 @@
+🔍 Golden Seed Search
+====================
+
+Configuration:
+  Strategy: halftree
+  Target Count: 10000
+  Years: 0 (0.0 billion years)
+  Resolution: 32
+  Workers: 16
+  Profile: modern
+
+🌍 Using MODERN Earth benchmarks (71% Ocean, Cooler, Stable Plates)
+🌲 Half-Tree Strategy: exploring range [1, 10000000000] with budget of 10000 candidates

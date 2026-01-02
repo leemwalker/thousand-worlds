@@ -20,7 +20,7 @@ func TestBillionYearStability(t *testing.T) {
 	// This is significantly smaller than the max 512x256
 	circumference := 1_000_000.0
 	geo := NewWorldGeology(worldID, seed, circumference)
-	geo.InitializeGeology()
+	geo.InitializeGeology(0)
 
 	// Initial stats
 	initialStats := geo.GetStats()

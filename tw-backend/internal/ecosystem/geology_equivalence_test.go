@@ -24,7 +24,7 @@ func TestVariableTimeStepEquivalence(t *testing.T) {
 
 	// Case A: 100,000 years, step = 1 year
 	geoA := NewWorldGeology(worldID, seed, circumference)
-	geoA.InitializeGeology()
+	geoA.InitializeGeology(0)
 	initialElev := getTotalElevation(geoA)
 
 	// Run 1000 steps of 1 year
@@ -35,7 +35,7 @@ func TestVariableTimeStepEquivalence(t *testing.T) {
 
 	// Case B: 1000 years, step = 1000 years (single step)
 	geoB := NewWorldGeology(worldID, seed, circumference)
-	geoB.InitializeGeology()
+	geoB.InitializeGeology(0)
 	// Run 1 step of 1000 years
 	geoB.SimulateGeology(1000, 0.0)
 	elevB := getTotalElevation(geoB)

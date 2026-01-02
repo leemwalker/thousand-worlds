@@ -100,11 +100,11 @@ func TestGetPlanetaryHeat_ExponentialRegime(t *testing.T) {
 func TestTectonicScaling_EarlyVsLate(t *testing.T) {
 	// Create two test geologies at different ages
 	earlyGeo := NewWorldGeology(testWorldID(), 12345, 40_000_000)
-	earlyGeo.InitializeGeology()
+	earlyGeo.InitializeGeology(0)
 	earlyGeo.TotalYearsSimulated = 100_000_000 // 100M years (Hadean)
 
 	lateGeo := NewWorldGeology(testWorldID(), 12345, 40_000_000)
-	lateGeo.InitializeGeology()
+	lateGeo.InitializeGeology(0)
 	lateGeo.TotalYearsSimulated = 4_000_000_000 // 4B years (Modern)
 
 	// Reset accumulators

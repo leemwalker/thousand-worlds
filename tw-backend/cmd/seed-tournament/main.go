@@ -328,7 +328,7 @@ func simulateSeedForEra(seed int64, era Era, yearsToSim int64, resolution int) S
 	circumference := 40_000_000.0
 
 	geo := ecosystem.NewWorldGeology(worldID, seed, circumference)
-	geo.InitializeGeology()
+	geo.InitializeGeology(0)
 
 	// Simulate to the start of this era first (if not Hadean)
 	if era.StartYear > 0 {

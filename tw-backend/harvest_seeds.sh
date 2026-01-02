@@ -2,68 +2,95 @@
 set -euo pipefail
 
 # Configuration
-TOTAL_SEEDS=${1:-10000000000} # Default to 10 Billion seeds if not specified
-PROFILE=${2:-modern}         # Default to 'modern' (71% ocean), use 'hadean' for 92% ocean
+# Configuration
+if [ "${1:-}" == "forever" ] || [ "${1:-}" == "infinite" ]; then
+    INFINITE_MODE=true
+    TOTAL_SEEDS=0 # Unused in infinite mode
+    START_SEED=${2:-1}
+    PROFILE=${3:-modern}
+else
+    INFINITE_MODE=false
+    TOTAL_SEEDS=${1:-1000000} # Default to 1M
+    START_SEED=${2:-1}
+    PROFILE=${3:-modern}
+fi
+
 SEARCH_BATCH_SIZE=10000      # Number of seeds to search per batch
 WORKERS=16                   # Increased workers for server environment (adjust if needed)
-YEARS=10000000               # 10M years
+YEARS=0 # Zero-year simulation (Initial State Only)
+RESOLUTION=32 # Lowest resolution for speed
+STRATEGY="halftree" # Use optimized Half-Tree strategy
 OUTPUT_FILE="golden_seeds.json"
 TEMP_LOG="search_progress.log"
 
-echo "🌍 Starting Long-Running Golden Seed Harvest..."
-echo "Target: Scan $TOTAL_SEEDS seeds for top 1% Earth-like matches"
-echo "Profile: $PROFILE"
+echo "🚀 Starting Golden Seed Harvest"
+if [ "$INFINITE_MODE" = true ]; then
+    echo "Mode: INFINITE RUN (Ctrl+C to stop)"
+else
+    echo "Target: $TOTAL_SEEDS seeds starting from $START_SEED"
+fi
+echo "Strategy: $STRATEGY | Years: $YEARS | Resolution: $RESOLUTION"
 echo "Workers: $WORKERS"
 echo "Output: $OUTPUT_FILE"
 echo "Logging to: $TEMP_LOG"
 echo "==================================================="
 
+mkdir -p seeds_found
+
 # Clear previous logs
 rm -f "$TEMP_LOG"
 echo "[]" > "$OUTPUT_FILE"
 
-# Build the search tool first
+# Build the tool
 echo "🔨 Building seed-search tool..."
 go build -o bin/seed-search ./cmd/seed-search
+echo "✅ Build complete"
 
 start_time=$(date +%s)
-current_seed=1
 
-for (( i=0; i<$TOTAL_SEEDS; i+=$SEARCH_BATCH_SIZE )); do
-    batch_end=$((current_seed + SEARCH_BATCH_SIZE - 1))
-    echo "Processing Batch: Seeds $current_seed to $batch_end..."
+# Calculate number of batches if not in infinite mode
+NUM_BATCHES=0
+if [ "$INFINITE_MODE" = false ]; then
+    NUM_BATCHES=$(( (TOTAL_SEEDS + SEARCH_BATCH_SIZE - 1) / SEARCH_BATCH_SIZE ))
+    echo "📦 Processing in $NUM_BATCHES batches of $SEARCH_BATCH_SIZE seeds..."
+else
+    echo "📦 Processing in infinite batches of $SEARCH_BATCH_SIZE seeds..."
+fi
+
+BATCH_IDX=0
+CURRENT_START=$START_SEED
+
+while true; do
+    if [ "$INFINITE_MODE" = false ] && [ $BATCH_IDX -ge $NUM_BATCHES ]; then
+        break
+    fi
+
+    echo "  [Batch $((BATCH_IDX+1))] Scanning seeds $CURRENT_START to $((CURRENT_START + SEARCH_BATCH_SIZE - 1))..."
     
-    # Run user requested batch in JSON mode
+    # Run batch with min-score logging to stderr
+    # Stdout goes to JSON file, Stderr goes to console (visible to user)
     ./bin/seed-search \
-        -start "$current_seed" \
+        -start "$CURRENT_START" \
         -count "$SEARCH_BATCH_SIZE" \
         -workers "$WORKERS" \
         -years "$YEARS" \
-        -resolution 128 \
-        -top 10 \
-        -profile "$PROFILE" \
-        -json > "batch_${i}.json"
+        -resolution "$RESOLUTION" \
+        -strategy "$STRATEGY" \
+        -min-score 80.0 \
+        -json > "batch_${BATCH_IDX}.json"
+    
+    # Append high scoring seeds to master list
+    if [ -s "batch_${BATCH_IDX}.json" ]; then
+        # Check if we found any golden seeds (>80 score) to save permanently
+        if grep -q '"score":' "batch_${BATCH_IDX}.json"; then
+             cat "batch_${BATCH_IDX}.json" >> "all_golden_candidates.jsonl"
+        fi
+        rm "batch_${BATCH_IDX}.json"
+    fi
 
-    # Merge results into main file using jq (if installed) or simple appending
-    # Here we assume a simple append for safety if jq isn't present, 
-    # but strictly we'd want to merge the JSON arrays.
-    # For robust JSON handling, we'll actually use a small Go helper or 
-    # just rely on the user checking the individual batch files if they want raw data.
-    # But for the "Top 1%", we'll filter right now.
-    
-    # Extract entries with Score > 80 (approx top 1% based on previous runs)
-    # We use grep/awk to avoid jq dependency if possible, but JSON parsing is safer.
-    # Let's trust the tool's JSON output.
-    
-    echo "  > Batch complete. Merging top candidates..."
-    
-    # Check if we found any golden seeds (>80 score) including 100
-    grep -o '{"seed":[^}]*"score":\s*\(100\|[8-9][0-9]\)\.[0-9]*[^}]*}' "batch_${i}.json" >> "all_golden_candidates.jsonl" || true
-    
-    # Clean up batch file
-    rm "batch_${i}.json"
-    
-    current_seed=$((current_seed + SEARCH_BATCH_SIZE))
+    # Prepare next batch
+    CURRENT_START=$((CURRENT_START + SEARCH_BATCH_SIZE))
+    BATCH_IDX=$((BATCH_IDX + 1))
 done
 
 end_time=$(date +%s)
@@ -72,18 +99,12 @@ duration=$((end_time - start_time))
 echo "==================================================="
 echo "✅ Harvest Complete in ${duration}s"
 echo "Candidates saved to: all_golden_candidates.jsonl"
-echo "Sorting top 100 seeds..."
 
-# Sort candidates by score (requires jq for reliable JSON sorting)
-if command -v jq &> /dev/null; then
-    jq -s 'sort_by(-.score) | .[0:100]' all_golden_candidates.jsonl > top_100_golden_seeds.json
-    echo "🏆 Top 100 Seeds saved to: top_100_golden_seeds.json"
-    
-    # Display top 5
-    echo "Top 5 Seeds:"
-    jq -r '.[0:5] | .[] | "Seed: \(.seed) | Score: \(.score) | Ocean: \(.ocean_coverage)%"' top_100_golden_seeds.json
-else
-    echo "⚠️ jq not found. Manual sorting required on: all_golden_candidates.jsonl"
-    echo "Sample candidate:"
-    head -n 1 all_golden_candidates.jsonl
+# Display top 5 from the collected file if it exists
+if [ -f "all_golden_candidates.jsonl" ] && command -v jq &> /dev/null; then
+    echo "Top Found Seeds:"
+    # We might have concatenated multiple JSON arrays, so we need to process them.
+    # Actually, main.go outputs a JSON array `[...]`. Concatenating them results in `[...][...]`.
+    # jq can handle stream of arrays: jq -s 'add | sort_by(-.score) | .[0:5]'
+    jq -s 'add | sort_by(-.score) | .[0:5] | .[] | "Seed: \(.seed) | Score: \(.score)"' all_golden_candidates.jsonl
 fi

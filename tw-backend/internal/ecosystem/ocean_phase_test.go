@@ -11,7 +11,7 @@ import (
 // TestOceanPhaseTransition_HotPlanet verifies full vaporization above 110°C
 func TestOceanPhaseTransition_HotPlanet(t *testing.T) {
 	geo := NewWorldGeology(uuid.New(), 12345, 40_000_000)
-	geo.InitializeGeology()
+	geo.InitializeGeology(0)
 
 	// Set very hot temperature (Hadean)
 	geo.TotalYearsSimulated = 0 // Early Earth (heat=10.0)
@@ -38,7 +38,7 @@ func TestOceanPhaseTransition_HotPlanet(t *testing.T) {
 // TestOceanPhaseTransition_CoolPlanet verifies liquid state below 90°C
 func TestOceanPhaseTransition_CoolPlanet(t *testing.T) {
 	geo := NewWorldGeology(uuid.New(), 12345, 40_000_000)
-	geo.InitializeGeology()
+	geo.InitializeGeology(0)
 
 	// Set cool temperature (Modern Earth)
 	geo.TotalYearsSimulated = 4_500_000_000 // Modern (heat=1.0, geothermal≈0)
@@ -61,7 +61,7 @@ func TestOceanPhaseTransition_CoolPlanet(t *testing.T) {
 // TestOceanPhaseTransition_TransitionZone verifies smooth transition 90-110°C
 func TestOceanPhaseTransition_TransitionZone(t *testing.T) {
 	geo := NewWorldGeology(uuid.New(), 12345, 40_000_000)
-	geo.InitializeGeology()
+	geo.InitializeGeology(0)
 
 	// Set intermediate age (early Archean)
 	geo.TotalYearsSimulated = 1_000_000_000 // heat ≈ 2.35
@@ -81,7 +81,7 @@ func TestOceanPhaseTransition_TransitionZone(t *testing.T) {
 // TestOceanPhaseTransition_GreatDeluge verifies event detection
 func TestOceanPhaseTransition_GreatDeluge(t *testing.T) {
 	geo := NewWorldGeology(uuid.New(), 12345, 40_000_000)
-	geo.InitializeGeology()
+	geo.InitializeGeology(0)
 
 	// Start in early Archean with some vaporization
 	geo.TotalYearsSimulated = 800_000_000
@@ -117,7 +117,7 @@ func TestOceanPhaseTransition_GreatDeluge(t *testing.T) {
 // TestOceanPhaseTransition_SeaLevelSmoothing verifies gradual transition
 func TestOceanPhaseTransition_SeaLevelSmoothing(t *testing.T) {
 	geo := NewWorldGeology(uuid.New(), 12345, 40_000_000)
-	geo.InitializeGeology()
+	geo.InitializeGeology(0)
 
 	initialSeaLevel := geo.SeaLevel
 
@@ -135,7 +135,7 @@ func TestOceanPhaseTransition_SeaLevelSmoothing(t *testing.T) {
 // TestOceanPhaseTransition_VaporFractionBounds verifies bounds checking
 func TestOceanPhaseTransition_VaporFractionBounds(t *testing.T) {
 	geo := NewWorldGeology(uuid.New(), 12345, 40_000_000)
-	geo.InitializeGeology()
+	geo.InitializeGeology(0)
 
 	// Extreme hot
 	geo.TotalYearsSimulated = 0

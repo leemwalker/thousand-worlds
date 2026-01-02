@@ -55,7 +55,7 @@ func main() {
 	circumference := 40_000_000.0 // 40,000 km in meters
 
 	geo := ecosystem.NewWorldGeology(worldID, *seed, circumference)
-	geo.InitializeGeology()
+	geo.InitializeGeology(0)
 
 	initTime := time.Since(startTime)
 	fmt.Printf("   World initialized in %v\n", initTime)

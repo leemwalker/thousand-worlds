@@ -192,31 +192,41 @@ func GetPlanetaryHeat(year int64) float64 {
 
 // InitializeGeology creates the baseline terrain from scratch
 // This should be called when a world is first simulated
-func (g *WorldGeology) InitializeGeology() {
+// resolutionOverride: if > 0, sets the exact width (height = width/2). If 0, uses circumference-based calculation.
+func (g *WorldGeology) InitializeGeology(resolutionOverride int) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	// Calculate map dimensions based on circumference
+	// Calculate map dimensions
+	var width, height int
 	// Circumference in meters -> convert to km for our scale
 	circumKm := g.Circumference / 1000.0
 
-	// Target: ~10 km per pixel for reasonable detail
-	// For Earth-like (40,000 km), this gives 4000x2000
-	// Updated: Cap at 2048x1024 per user request for high fidelity
-	maxWidth := 2048
-	maxHeight := 1024
+	if resolutionOverride > 0 {
+		width = resolutionOverride
+		height = resolutionOverride / 2
+	} else {
+		// Calculate columns based on circumference
 
-	// Calculate pixels per km based on circumference
-	// width = circumference, height = circumference/2 (latitude)
-	width := int(circumKm / 10)  // 10km per pixel
-	height := int(circumKm / 20) // latitude is half
+		// Target: ~10 km per pixel for reasonable detail
+		// For Earth-like (40,000 km), this gives 4000x2000
+		// Updated: Cap at 2048x1024 per user request for high fidelity
+		maxWidth := 2048
+		maxHeight := 1024
 
-	if width > maxWidth {
-		width = maxWidth
+		// width = circumference, height = circumference/2 (latitude)
+		width = int(circumKm / 10)  // 10km per pixel
+		height = int(circumKm / 20) // latitude is half
+
+		if width > maxWidth {
+			width = maxWidth
+		}
+		if height > maxHeight {
+			height = maxHeight
+		}
 	}
-	if height > maxHeight {
-		height = maxHeight
-	}
+
+	// Minimum safety bounds
 	if width < 64 {
 		width = 64
 	}
@@ -241,8 +251,10 @@ func (g *WorldGeology) InitializeGeology() {
 
 	// Phase 5: Generate geological provinces within continental plates
 	// This creates Cratons (hard, flat), Orogens (folded, medium), and Basins (soft, low)
-	g.Provinces = geography.GenerateProvinces(g.Plates, g.Topology, g.Seed)
-	geography.InitializeProvinceHardness(g.SphereHeightmap, g.Plates, g.Provinces, g.Topology, g.Seed)
+	if g.Topology.Resolution() > 32 {
+		g.Provinces = geography.GenerateProvinces(g.Plates, g.Topology, g.Seed)
+		geography.InitializeProvinceHardness(g.SphereHeightmap, g.Plates, g.Provinces, g.Topology, g.Seed)
+	}
 
 	// Initialize hotspots (2-5 fixed mantle plume locations)
 	numHotspots := 2 + g.rng.Intn(4)
@@ -258,55 +270,58 @@ func (g *WorldGeology) InitializeGeology() {
 	g.SeaLevel = geography.AssignOceanLand(g.Heightmap, 0.3)
 
 	// Generate initial rivers and hydrology
-	if g.SphereHeightmap != nil {
-		// Phase 7: Generate rainfall map from atmosphere simulation
-		rainfallConfig := weather.DefaultRainfallConfig(g.SeaLevel)
-		rawRainfall := weather.GenerateRainfallMap(g.SphereHeightmap, g.Topology, rainfallConfig)
+	// Generate initial rivers and hydrology
+	if g.Topology.Resolution() > 32 {
+		if g.SphereHeightmap != nil {
+			// Phase 7: Generate rainfall map from atmosphere simulation
+			rainfallConfig := weather.DefaultRainfallConfig(g.SeaLevel)
+			rawRainfall := weather.GenerateRainfallMap(g.SphereHeightmap, g.Topology, rainfallConfig)
 
-		// Normalize rainfall to prevent sudden massive erosion
-		// ScalingFactor = TotalCells / TotalRainfall (target mean of 1.0)
-		totalCells := 6 * g.Topology.Resolution() * g.Topology.Resolution()
-		totalRainfall := 0.0
-		for _, r := range rawRainfall {
-			totalRainfall += r
+			// Normalize rainfall to prevent sudden massive erosion
+			// ScalingFactor = TotalCells / TotalRainfall (target mean of 1.0)
+			totalCells := 6 * g.Topology.Resolution() * g.Topology.Resolution()
+			totalRainfall := 0.0
+			for _, r := range rawRainfall {
+				totalRainfall += r
+			}
+
+			scalingFactor := float64(totalCells) / totalRainfall
+			if totalRainfall == 0 || scalingFactor > 100 {
+				scalingFactor = 1.0 // Fallback to uniform
+			}
+
+			g.Rainfall = make([]float64, len(rawRainfall))
+			for i, r := range rawRainfall {
+				g.Rainfall[i] = r * scalingFactor
+			}
+
+			// Pass normalized rainfall to flux calculation
+			geography.CalculateGlobalFluxWithRainfall(g.SphereHeightmap, g.Rainfall)
+
+			// River Erosion (Phase 6b)
+			// Carve valleys along high-flux paths before lake filling
+			geography.ApplyRiverErosion(g.SphereHeightmap, 50.0, 5.0, g.SeaLevel)
+
+			geography.FillDepressions(g.SphereHeightmap, g.SeaLevel)
+
+			sphereRivers := geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed)
+			g.Rivers = geography.ConvertSphericalRiversToFlat(sphereRivers, g.Topology.Resolution())
+			// Sync sphere heightmap changes from river erosion
+			g.markSphereNeedsSync()
+		} else {
+			g.Rivers = geography.GenerateRivers(g.Heightmap, g.SeaLevel, g.Seed)
 		}
 
-		scalingFactor := float64(totalCells) / totalRainfall
-		if totalRainfall == 0 || scalingFactor > 100 {
-			scalingFactor = 1.0 // Fallback to uniform
+		// Initialize biomes using Weather→Biome pipeline (no latitude coupling)
+		g.Biomes = g.UpdateBiomes(0.0) // No global temp modifier initially
+
+		// Initialize underground column grid (Phase 3)
+		g.initializeColumns(width, height)
+
+		// Phase 10: Initialize Ice Sheet (if not exists)
+		if g.IceSheet == nil {
+			g.IceSheet = geography.NewIceSheet(g.Topology.Resolution())
 		}
-
-		g.Rainfall = make([]float64, len(rawRainfall))
-		for i, r := range rawRainfall {
-			g.Rainfall[i] = r * scalingFactor
-		}
-
-		// Pass normalized rainfall to flux calculation
-		geography.CalculateGlobalFluxWithRainfall(g.SphereHeightmap, g.Rainfall)
-
-		// River Erosion (Phase 6b)
-		// Carve valleys along high-flux paths before lake filling
-		geography.ApplyRiverErosion(g.SphereHeightmap, 50.0, 5.0, g.SeaLevel)
-
-		geography.FillDepressions(g.SphereHeightmap, g.SeaLevel)
-
-		sphereRivers := geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed)
-		g.Rivers = geography.ConvertSphericalRiversToFlat(sphereRivers, g.Topology.Resolution())
-		// Sync sphere heightmap changes from river erosion
-		g.markSphereNeedsSync()
-	} else {
-		g.Rivers = geography.GenerateRivers(g.Heightmap, g.SeaLevel, g.Seed)
-	}
-
-	// Initialize biomes using Weather→Biome pipeline (no latitude coupling)
-	g.Biomes = g.UpdateBiomes(0.0) // No global temp modifier initially
-
-	// Initialize underground column grid (Phase 3)
-	g.initializeColumns(width, height)
-
-	// Phase 10: Initialize Ice Sheet (if not exists)
-	if g.IceSheet == nil {
-		g.IceSheet = geography.NewIceSheet(g.Topology.Resolution())
 	}
 }
 

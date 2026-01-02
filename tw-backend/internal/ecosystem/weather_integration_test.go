@@ -10,7 +10,7 @@ import (
 func TestRainfallUpdating(t *testing.T) {
 	// Initialize geology
 	geo := NewWorldGeology(uuid.New(), 12345, 40000000) // Earth circumference
-	geo.InitializeGeology()
+	geo.InitializeGeology(0)
 
 	// Capture initial rainfall (copy it)
 	initialRainfall := make([]float64, len(geo.Rainfall))
