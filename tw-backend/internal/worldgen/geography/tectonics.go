@@ -31,9 +31,9 @@ const (
 // Isostatic base elevations (in meters)
 // These represent the "natural floating height" of each crust type on the mantle.
 const (
-	// ContinentalBaseElevation is the natural elevation of continental crust (+20m lowlands)
-	// Lowered from 150m to allow for more varied terrain and less "blocky" continents
-	ContinentalBaseElevation = 20.0
+	// ContinentalBaseElevation is the natural elevation of continental crust (+300m lowlands)
+	// Raised from 20m/150m to ensure continents emerge clearly above sea level
+	ContinentalBaseElevation = 300.0
 	// OceanicBaseElevation is the natural elevation of oceanic crust (-4000m abyssal plain)
 	OceanicBaseElevation = -4000.0
 	// IsostaticRelaxationRate is how quickly crust drifts toward base (5% per step)
@@ -157,11 +157,18 @@ func CalculateCollisionResult(cellPlate, neighborPlate TectonicPlate, boundaryTy
 			}
 		}
 		// Neighbor subducts -> island arc (volcanic thickening)
-		// Volcanism adds ~5km of material to overriding plate
-		newThickness := cellPlate.Thickness + 5.0
-		elevation := CalculateIsostaticHeight(newThickness, DensityBasalt)
+		// Neighbor subducts -> island arc (volcanic thickening)
+		// Volcanism adds significant material to overriding plate
+		newThickness := cellPlate.Thickness + 25.0 // Increase thickness to support island
+		elevation := CalculateIsostaticHeight(newThickness, DensityGranite)
+
+		// Ensure it breaks sea level (ContinentalBaseElevation is around +300)
+		if elevation < ContinentalBaseElevation {
+			elevation = ContinentalBaseElevation + 200.0 // Force emergence
+		}
+
 		return CollisionResult{
-			TargetElevation: elevation, // Still below sea level but elevated (~-4300m)
+			TargetElevation: elevation,
 			NewThickness:    newThickness,
 			Feature:         FeatureIslandArc,
 			RigidityRings:   OceanicRigidity,
@@ -504,9 +511,14 @@ func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightm
 				if rand.Float64() < (0.15 * scaleFactor) {
 					// 1. Convert center cell
 					cellData.IsContinental = true
-					if currentElev < -100 {
-						heightmap.Set(bc.Coord, -100) // Shallow shelf, ready to emerge
-						currentElev = -100
+
+					// Fix: Create rugged initial terrain instead of flat shelf
+					// Accretion forms mountains and hills, not flat plains
+					// Range: 50m to 500m based on random chance
+					elevation := 50.0 + rand.Float64()*450.0
+					if currentElev < elevation {
+						heightmap.Set(bc.Coord, elevation)
+						currentElev = elevation
 					}
 					heightmap.SetCellData(bc.Coord, cellData)
 					plates[bc.PlateIdx].ContinentalArea += 1
@@ -523,9 +535,11 @@ func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightm
 								heightmap.SetCellData(nb, nbData)
 
 								// Also bump elevation if deep
+								// Make neighbors slightly lower but still emerged or shallow
 								nbElev := heightmap.Get(nb)
-								if nbElev < -500 {
-									heightmap.Set(nb, -500)
+								targetNbElev := 10.0 + rand.Float64()*100.0 // Shallow shelf / coastal
+								if nbElev < targetNbElev {
+									heightmap.Set(nb, targetNbElev)
 								}
 								plates[bc.PlateIdx].ContinentalArea += 1
 							}
@@ -623,7 +637,7 @@ func ApplyBoundaryDecay(plates []TectonicPlate, heightmap *SphereHeightmap, cach
 				// regardless of whether the underlying plate is officially "Continental" yet.
 				baseElev := -4000.0 // Ocean floor
 				if plate.Type == PlateContinental || cellData.IsContinental {
-					baseElev = 100.0 // Continental shelf
+					baseElev = ContinentalBaseElevation // Continental shelf
 				}
 
 				// Add base noise to prevent flat "mosaic" look
@@ -956,11 +970,9 @@ func applyBoundaryEffectSpherical(hm *SphereHeightmap, center spatial.Coordinate
 // - Continental (3 rings): 100% -> 60% -> 20% (gradual highlands/foothills)
 // - Oceanic (1 ring): 100% -> 50% (narrow ridges)
 func applyBoundaryEffectWithRigidity(hm *SphereHeightmap, center spatial.Coordinate, elevationChange float64, rigidityRings int, topology spatial.Topology) {
-	// Ring 0: Center (100% effect)
-	currentElev := hm.Get(center)
-	newElev := currentElev + elevationChange
-	newElev = clampElevation(newElev)
-	hm.Set(center, newElev)
+	// Ring 0: Center (100% effect) - REDUNDANT, removed
+	// The Center effect is applied in the Jittered block below (60% + 40% jittered)
+	// Keeping it here caused double application of elevation change.
 
 	if rigidityRings <= 0 {
 		return
@@ -997,8 +1009,8 @@ func applyBoundaryEffectWithRigidity(hm *SphereHeightmap, center spatial.Coordin
 
 	// 1. Apply to Center (60%)
 	amountCenter := elevationChange * 0.6
-	currentElev = hm.Get(center)
-	newElev = currentElev + amountCenter
+	currentElev := hm.Get(center)
+	newElev := currentElev + amountCenter
 	newElev = clampElevation(newElev)
 	hm.Set(center, newElev)
 

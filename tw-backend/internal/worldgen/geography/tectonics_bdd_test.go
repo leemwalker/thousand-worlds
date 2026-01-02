@@ -527,16 +527,14 @@ func TestBDD_Collision_OceanOcean(t *testing.T) {
 	youngCellResult := geography.CalculateCollisionResult(youngPlate, oldPlate, geography.BoundaryConvergent)
 	assert.Equal(t, geography.FeatureIslandArc, youngCellResult.Feature,
 		"Younger oceanic plate should form island arc")
-	// Verify crustal thickening: original 6km + 5km volcanic addition = 11km
-	assert.GreaterOrEqual(t, youngCellResult.NewThickness, 10.0,
-		"Island arc should thicken from volcanism (~11km)")
-	assert.LessOrEqual(t, youngCellResult.NewThickness, 12.0,
-		"Island arc should not over-thicken")
-	// Isostatic height of 11km basalt: still below sea level but elevated from abyssal
-	assert.Greater(t, youngCellResult.TargetElevation, -4800.0,
-		"Island arc should be elevated above standard oceanic crust")
-	assert.Less(t, youngCellResult.TargetElevation, -4000.0,
-		"Island arc (basalt) should still be below sea level")
+	// Verify crustal thickening: original 6km + 25km volcanic addition = 31km
+	assert.GreaterOrEqual(t, youngCellResult.NewThickness, 30.0,
+		"Island arc should thicken from volcanism (~31km)")
+	// Isostatic height: should be elevated above sea level (ContinentalBaseElevation is 300)
+	assert.Greater(t, youngCellResult.TargetElevation, 300.0,
+		"Island arc should be elevated above sea level")
+	assert.Less(t, youngCellResult.TargetElevation, 2000.0,
+		"Island arc should be lower than major mountain ranges")
 }
 
 // -----------------------------------------------------------------------------
