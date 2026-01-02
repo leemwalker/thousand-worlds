@@ -3,6 +3,7 @@ package geography
 import (
 	"container/heap"
 	"log"
+	"math"
 	"math/rand"
 	"time"
 
@@ -467,23 +468,6 @@ func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightm
 		defer debug.Time(debug.Perf, "SimulateTectonicsWithCache")()
 	}
 
-	// DEBUG: Log cache stats and first few deltas
-	if debug.Is(debug.Geology) && len(cache.Cells) > 0 {
-		log.Printf("[TECTONICS] BoundaryCache cells: %d, scaleFactor: %.2f", len(cache.Cells), scaleFactor)
-
-		// Sample first convergent boundary
-		for i := 0; i < len(cache.Cells) && i < 5; i++ {
-			bc := cache.Cells[i]
-			currentPlate := plates[bc.PlateIdx]
-			neighborPlate := plates[bc.NeighborIdx]
-			currentElev := heightmap.Get(bc.Coord)
-			delta, result := calculateEquilibriumElevationChangeV2(currentPlate, neighborPlate, bc.BoundaryType, currentElev)
-			log.Printf("[TECTONICS SAMPLE %d] Type=%s Cell=%s->%s Elev=%.0f Target=%.0f Delta=%.0f Scaled=%.0f",
-				i, bc.BoundaryType, currentPlate.Type, neighborPlate.Type,
-				currentElev, result.TargetElevation, delta, delta*scaleFactor)
-		}
-	}
-
 	// Process only cached boundary cells
 	for _, bc := range cache.Cells {
 		currentPlate := plates[bc.PlateIdx]
@@ -519,6 +503,8 @@ func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightm
 					// Raise elevation immediately to sea level to simulate rapid volcano growth
 					if currentElev < -500 {
 						heightmap.Set(bc.Coord, -500) // Just below surface
+						// Update currentElev for the smoothing calculation below
+						currentElev = -500
 					}
 					heightmap.SetCellData(bc.Coord, cellData)
 
@@ -528,8 +514,18 @@ func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightm
 			}
 		}
 
-		// Apply scale factor for variable time steps
-		elevationDelta *= scaleFactor
+		// FIX: Use exponential decay for time scaling instead of linear multiplication
+		// Linear: delta = diff * 0.1 * 100 = diff * 10 (Overshoot!)
+		// Expo:   factor = 1 - (1 - 0.1)^100 ~= 1.0 (Full convergence)
+		target := collisionResult.TargetElevation
+		diff := target - currentElev
+
+		// Calculate effective convergence rate for this time step
+		// Rate = fraction of distance closed per standard tick (0.1)
+		effectiveRate := 1.0 - math.Pow(1.0-TectonicConvergenceRate, scaleFactor)
+
+		// Recalculate delta using the effective rate
+		elevationDelta = diff * effectiveRate
 
 		// Use rigidity-aware boundary effect
 		applyBoundaryEffectWithRigidity(heightmap, bc.Coord, elevationDelta, collisionResult.RigidityRings, topology)
