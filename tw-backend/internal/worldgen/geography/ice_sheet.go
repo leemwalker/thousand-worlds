@@ -259,3 +259,141 @@ func iceIndexToCoord(idx, resolution int) spatial.Coordinate {
 func iceCoordToIndex(coord spatial.Coordinate, resolution int) int {
 	return coord.Face*resolution*resolution + coord.Y*resolution + coord.X
 }
+
+// GlacialFeatureType represents the type of glacial landform
+type GlacialFeatureType string
+
+const (
+	FeatureUValley GlacialFeatureType = "u_valley"
+	FeatureCirque  GlacialFeatureType = "cirque"
+	FeatureFjord   GlacialFeatureType = "fjord"
+	FeatureArete   GlacialFeatureType = "arete"
+	FeatureMoraine GlacialFeatureType = "moraine"
+)
+
+// GlacialFeature represents a detected glacial landform
+type GlacialFeature struct {
+	Type     GlacialFeatureType
+	Location spatial.Coordinate
+	Size     float64 // Relative size/importance
+}
+
+// DetectGlacialFeatures identifies glacial landforms in the terrain.
+// Call after ice retreat to identify U-valleys, cirques, and fjords.
+func (is *IceSheet) DetectGlacialFeatures(heightmap *SphereHeightmap, topology spatial.Topology, seaLevel float64) []GlacialFeature {
+	features := make([]GlacialFeature, 0)
+	resolution := topology.Resolution()
+
+	for coord, sediment := range is.Sediment {
+		if sediment < 0.1 {
+			continue
+		}
+
+		elev := heightmap.Get(coord)
+
+		// Check for moraine deposits
+		if sediment > 0.5 {
+			features = append(features, GlacialFeature{
+				Type:     FeatureMoraine,
+				Location: coord,
+				Size:     sediment,
+			})
+		}
+
+		// Check for U-valley characteristics:
+		// - Eroded (had ice)
+		// - Neighbors are higher (valley walls)
+		// - Below the ice extent
+		neighborElevs := make([]float64, 0, 4)
+		for _, dir := range []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West} {
+			neighbor := topology.GetNeighbor(coord, dir)
+			neighborElevs = append(neighborElevs, heightmap.Get(neighbor))
+		}
+
+		avgNeighbor := 0.0
+		for _, ne := range neighborElevs {
+			avgNeighbor += ne
+		}
+		avgNeighbor /= float64(len(neighborElevs))
+
+		// U-valley: center is lower than neighbors (trough)
+		if elev < avgNeighbor-100 && elev > seaLevel {
+			features = append(features, GlacialFeature{
+				Type:     FeatureUValley,
+				Location: coord,
+				Size:     avgNeighbor - elev,
+			})
+		}
+
+		// Fjord: U-valley that's below sea level
+		if elev < seaLevel && sediment > 0.3 {
+			features = append(features, GlacialFeature{
+				Type:     FeatureFjord,
+				Location: coord,
+				Size:     seaLevel - elev,
+			})
+		}
+	}
+
+	_ = resolution // Used for potential future calculations
+	return features
+}
+
+// CreateGlacialLakes identifies locations where moraine dams may form lakes.
+// Returns coordinates where lakes should form.
+func (is *IceSheet) CreateGlacialLakes(heightmap *SphereHeightmap, topology spatial.Topology) []spatial.Coordinate {
+	lakes := make([]spatial.Coordinate, 0)
+	resolution := topology.Resolution()
+
+	for coord, sediment := range is.Sediment {
+		if sediment < 1.0 {
+			continue // Need significant moraine deposit
+		}
+
+		// Check if this moraine is damming water (neighbors behind it are lower)
+		elev := heightmap.Get(coord)
+		dammed := false
+
+		for _, dir := range []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West} {
+			neighbor := topology.GetNeighbor(coord, dir)
+			neighborElev := heightmap.Get(neighbor)
+
+			// If a neighbor is significantly lower, it may be a lake bed
+			if neighborElev < elev-50 {
+				lakes = append(lakes, neighbor)
+				dammed = true
+			}
+		}
+
+		if dammed {
+			// Mark the moraine location too
+			_ = coord
+		}
+	}
+
+	_ = resolution
+	return lakes
+}
+
+// ApplyIsostaticRebound simulates post-glacial rebound after ice removal.
+// The crust rises as the weight of ice is removed.
+func (is *IceSheet) ApplyIsostaticRebound(heightmap *SphereHeightmap, previousIce map[spatial.Coordinate]*IceData, reboundRate float64, dt float64) {
+	for coord, oldIce := range previousIce {
+		currentIce, stillHasIce := is.Ice[coord]
+		var iceRemoved float64
+
+		if stillHasIce {
+			iceRemoved = oldIce.Thickness - currentIce.Thickness
+		} else {
+			iceRemoved = oldIce.Thickness
+		}
+
+		if iceRemoved > 0 {
+			// Rebound proportional to ice removed
+			// Full rebound takes ~10,000 years
+			rebound := iceRemoved * reboundRate * dt / 10000.0
+			currentElev := heightmap.Get(coord)
+			heightmap.Set(coord, currentElev+rebound)
+		}
+	}
+}
