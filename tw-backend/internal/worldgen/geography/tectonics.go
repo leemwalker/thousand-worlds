@@ -527,6 +527,12 @@ func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightm
 		// Recalculate delta using the effective rate
 		elevationDelta = diff * effectiveRate
 
+		// Apply noise to break up uniform ridges
+		// Vary factor between 0.8 and 1.2 using pseudo-random hash
+		h := (int(bc.Coord.X)*374761393 + int(bc.Coord.Y)*668265263 + int(bc.Coord.Face)*9266311)
+		noiseFactor := 0.8 + float64(h&0xFF)/255.0*0.4
+		elevationDelta *= noiseFactor
+
 		// Use rigidity-aware boundary effect
 		applyBoundaryEffectWithRigidity(heightmap, bc.Coord, elevationDelta, collisionResult.RigidityRings, topology)
 	}
@@ -948,47 +954,34 @@ func applyBoundaryEffectWithRigidity(hm *SphereHeightmap, center spatial.Coordin
 	// Build rings dynamically based on rigidity
 	currentRing := []spatial.Coordinate{center}
 
-	// Jittered Uplift Logic (Refinement Task 2):
-	// Instead of perfectly centered uplift, we distribute force to scatter peaks.
-	// 70% to Center/Target, 30% to a Random Neighbor.
+	// Jittered Uplift Logic:
+	// Distribute force to scatter peaks and avoid straight lines.
+	// 60% to Center, 40% distributed to neighbors with noise.
 
-	// Apply to Center (70%)
-	amountCenter := elevationChange * 0.7
+	// 1. Apply to Center (60%)
+	amountCenter := elevationChange * 0.6
 	currentElev = hm.Get(center)
 	newElev = currentElev + amountCenter
 	newElev = clampElevation(newElev)
 	hm.Set(center, newElev)
 
-	// Pick Random Neighbor for Jitter (30%)
-	// Use a simple hash or rand based on coordinate to keep it deterministic but "random"
-	// Or just use the first neighbor from a shuffled list?
-	// To ensure determinism, we use a hash of the coordinate.
-	dirIdx := (center.X + center.Y + center.Face) % 4
+	// 2. Distribute remaining 40% to a semi-random neighbor to break linearity
+	// Use a better pseudo-random hash to avoid lattice artifacts
+	// Hash: (x*PROT + y*PROT + face*PROT)
+	h := (int(center.X)*374761393 + int(center.Y)*668265263 + int(center.Face)*9266311)
+	dirIdx := (h & 0x7FFFFFFF) % 4
 	jitterDir := directions[dirIdx]
 	jitterNeighbor := topology.GetNeighbor(center, jitterDir)
 
-	amountJitter := elevationChange * 0.3
+	amountJitter := elevationChange * 0.4
 	jitterElev := hm.Get(jitterNeighbor)
 	newJitterElev := jitterElev + amountJitter
 	newJitterElev = clampElevation(newJitterElev)
 	hm.Set(jitterNeighbor, newJitterElev)
 
-	// Continue with standard rigidity propagation for the rest?
-	// The prompt implies this "applyBoundaryEffect" is the main mechanism.
-	// If we smudge the CENTER, the rings will propagate from the center.
-	// But `applyBoundaryEffectWithRigidity` applies to rings AROUND the center.
-	// If we split the center force, should we propagate from BOTH?
-	// That might be expensive.
-	// Let's stick to the prompt: "Refactor applyBoundaryEffect... Apply 70% to Target, 30% to Random Neighbor"
-
-	// For RIGIDITY rings, we will propagate from the MAIN center as before,
-	// but using the remaining "impulse"?
-	// The original code applied `elevationChange` to center, then `0.6 * elevationChange` to ring 1.
-	// If we reduce center to 0.7, does ring 1 still get 0.6 of TOTAL?
-	// Assume yes, the ring falloff is separate scaling.
-
-	// Iterate Rings for falloff (using original center for simplicity of propagation)
-	visited[jitterNeighbor] = struct{}{} // Mark jitter neighbor as visited so it doesn't get double applied in rings
+	// Iterate Rings for falloff
+	// Mark jitter neighbor as visited so it doesn't get double applied in rings
+	visited[jitterNeighbor] = struct{}{}
 
 	for ring := 1; ring <= rigidityRings; ring++ {
 		// Use lookup table for falloff
