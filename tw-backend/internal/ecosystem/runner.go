@@ -110,6 +110,7 @@ type SimulationRunner struct {
 	sapienceDetector *sapience.SapienceDetector
 	geology          *WorldGeology  // Uses existing WorldGeology from this package
 	climateDriver    *ClimateDriver // Orbital mechanics for ice ages (Phase 3)
+	carbonCycle      *CarbonCycle   // Long-term CO2/Climate cycle (Phase 9a)
 	snapshotRepo     *SimulationSnapshotRepository
 	stateRepo        *RunnerStateRepository
 
@@ -201,6 +202,9 @@ func (sr *SimulationRunner) initializeSubsystems(seed int64) {
 	// Initialize Climate Driver (orbital mechanics for ice ages)
 	// Uses standalone event manager for climate-driven events
 	sr.climateDriver = NewClimateDriver(NewGeologicalEventManager())
+
+	// Initialize Carbon Cycle (Phase 9a)
+	sr.carbonCycle = NewCarbonCycle()
 
 	// Geology uses existing WorldGeology from this package
 	// (typically initialized separately or via worldgen)
@@ -497,6 +501,40 @@ func (sr *SimulationRunner) tickLocked(yearsToAdvance int64) error {
 			// Climate Driver Update (orbital mechanics for ice ages)
 			// This checks insolation and triggers/ends ice ages deterministically
 			if sr.climateDriver != nil {
+				// Phase 9a: Carbon Cycle Integration
+				if sr.carbonCycle != nil && sr.geology != nil {
+					// 1. Calculate Continental Fraction
+					totalCells := 0
+					landCells := 0.0
+					for _, p := range sr.geology.Plates {
+						regionSize := len(p.Region)
+						totalCells += regionSize
+						if p.Type == "continental" { // geography.PlateContinental string value
+							landCells += float64(regionSize)
+						} else {
+							landCells += p.ContinentalArea // Accreted land on oceanic plates
+						}
+					}
+
+					landFraction := 0.0
+					if totalCells > 0 {
+						landFraction = landCells / float64(totalCells)
+					}
+
+					// 2. Calculate Volcanic Activity (Heat-driven)
+					// Hadean (Heat=10) -> Activity=10. Modern (Heat=1) -> Activity=1.
+					heat := GetPlanetaryHeat(sr.popSim.CurrentYear)
+
+					// 3. Update Carbon Cycle
+					// dt is 100,000 years = 0.1 Million Years
+					// Rainfall is simplified to 1.0 (Modern) for now, or we could fetch from Geology if available
+					sr.carbonCycle.Update(0.1, heat, landFraction, 1.0)
+
+					// 4. Update Climate Driver
+					warming := sr.carbonCycle.GetGreenhouseWarming()
+					sr.climateDriver.SetGreenhouseOffset(warming)
+				}
+
 				sr.climateDriver.Update(sr.popSim.CurrentYear)
 
 				// Broadcast ice age events
