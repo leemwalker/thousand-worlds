@@ -48,6 +48,7 @@ type WorldGeology struct {
 	Biomes     []geography.Biome
 	Satellites []astronomy.Satellite // Natural satellites
 	Rainfall   []float64             // Per-cell rainfall (Phase 7: Dynamic Weather)
+	IceSheet   *geography.IceSheet   // Glacial ice dynamics (Phase 10)
 
 	// Simulation state
 	TotalYearsSimulated int64
@@ -302,6 +303,9 @@ func (g *WorldGeology) InitializeGeology() {
 
 	// Initialize underground column grid (Phase 3)
 	g.initializeColumns(width, height)
+
+	// Initialize ice sheet system (Phase 10: Glacial Geomorphology)
+	g.IceSheet = geography.NewIceSheet()
 }
 
 // markSphereNeedsSync marks that the sphere heightmap has been modified

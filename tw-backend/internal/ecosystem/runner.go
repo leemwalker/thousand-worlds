@@ -546,6 +546,60 @@ func (sr *SimulationRunner) tickLocked(yearsToAdvance int64) error {
 						Importance:  8,
 					})
 				}
+
+				// Phase 10: Ice Sheet Dynamics (Glacial Geomorphology)
+				// Update ice sheets during ice ages or Snowball Earth
+				if sr.geology != nil && sr.geology.IceSheet != nil && sr.geology.SphereHeightmap != nil {
+					isGlacialPeriod := sr.climateDriver.IsIceAge() || sr.climateDriver.IsSnowball
+
+					if isGlacialPeriod {
+						resolution := sr.geology.Topology.Resolution()
+						totalCells := 6 * resolution * resolution
+
+						// Generate simple temperature grid based on climate state
+						tempGrid := make([]float64, totalCells)
+						precipGrid := make([]float64, totalCells)
+
+						// Base temperature from greenhouse + geothermal
+						baseTemp := 14.0 + sr.climateDriver.GreenhouseOffset + sr.climateDriver.GeothermalOffset
+						if sr.climateDriver.IsSnowball {
+							baseTemp = -30.0 // Snowball Earth is very cold
+						}
+
+						for i := 0; i < totalCells; i++ {
+							// Simple latitude-based temperature variation
+							// Face 0 and 5 are "polar" (coldest)
+							face := i / (resolution * resolution)
+							if face == 0 || face == 5 {
+								tempGrid[i] = baseTemp - 20.0 // Poles are colder
+							} else {
+								tempGrid[i] = baseTemp
+							}
+
+							// Precipitation from rainfall grid if available
+							if len(sr.geology.Rainfall) > i {
+								precipGrid[i] = sr.geology.Rainfall[i] * 500.0 // Scale to mm/year
+							} else {
+								precipGrid[i] = 500.0 // Default precipitation
+							}
+						}
+
+						// Update ice sheet (100,000 years per tick)
+						sr.geology.IceSheet.Update(100000, tempGrid, precipGrid, sr.geology.SphereHeightmap, sr.geology.Topology)
+
+						// Apply glacial erosion
+						erosion := sr.geology.IceSheet.ApplyErosion(sr.geology.SphereHeightmap, 100000, resolution)
+
+						if erosion > 0 {
+							sr.broadcastEvent(RunnerEvent{
+								Year:        sr.popSim.CurrentYear,
+								Type:        "glacial_erosion",
+								Description: fmt.Sprintf("Glacial erosion: %.0f m (Ice volume: %.0f km³)", erosion, sr.geology.IceSheet.TotalVolume),
+								Importance:  3,
+							})
+						}
+					}
+				}
 			}
 		}
 
