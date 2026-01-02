@@ -330,6 +330,9 @@ type SimulationStats struct {
 	// Geology
 	PlateCount     int
 	ProvinceCount  int // Sub-regions within plates
+	CratonCount    int // Ancient stable cores (Diamond potential)
+	OrogenCount    int // Mineral-rich fold belts (Gold/Copper potential)
+	BasinCount     int // Sedimentary basins (Iron/Coal potential)
 	ContinentCount int
 	HotspotCount   int
 	CaveCount      int

@@ -90,7 +90,13 @@ while true; do
     if [ -s "batch_${BATCH_IDX}.json" ]; then
         # Check if we found any golden seeds (>80 score) to save permanently
         if grep -q '"score":' "batch_${BATCH_IDX}.json"; then
-             cat "batch_${BATCH_IDX}.json" >> "all_golden_candidates.jsonl"
+             if command -v jq &> /dev/null; then
+                 # Flatten JSON array to JSON Lines (one object per line)
+                 jq -c '.[]' "batch_${BATCH_IDX}.json" >> "all_golden_candidates.jsonl"
+             else
+                 # Fallback: Just append the raw array (messy but preserves data)
+                 cat "batch_${BATCH_IDX}.json" >> "all_golden_candidates.jsonl"
+             fi
         fi
         rm "batch_${BATCH_IDX}.json"
     fi
@@ -110,8 +116,7 @@ echo "Candidates saved to: all_golden_candidates.jsonl"
 # Display top 5 from the collected file if it exists
 if [ -f "all_golden_candidates.jsonl" ] && command -v jq &> /dev/null; then
     echo "Top Found Seeds:"
-    # We might have concatenated multiple JSON arrays, so we need to process them.
-    # Actually, main.go outputs a JSON array `[...]`. Concatenating them results in `[...][...]`.
-    # jq can handle stream of arrays: jq -s 'add | sort_by(-.score) | .[0:5]'
-    jq -s 'add | sort_by(-.score) | .[0:5] | .[] | "Seed: \(.seed) | Score: \(.score)"' all_golden_candidates.jsonl
+    # Process JSONL stream (one object per line)
+    # Sort by score descending and take top 10
+    jq -s 'sort_by(-.score) | .[0:10] | .[] | "Seed: \(.seed) | Score: \(.score | floor)"' all_golden_candidates.jsonl
 fi

@@ -300,6 +300,18 @@ func collectGeology(geo *ecosystem.WorldGeology, stats *SimulationStats) {
 	stats.ProvinceCount = len(geo.Provinces)
 	stats.HotspotCount = len(geo.Hotspots)
 
+	// Count province types
+	for _, p := range geo.Provinces {
+		switch p.Type {
+		case geography.ProvinceCraton:
+			stats.CratonCount++
+		case geography.ProvinceFoldBelt:
+			stats.OrogenCount++
+		case geography.ProvinceBasin:
+			stats.BasinCount++
+		}
+	}
+
 	if geo.Caves != nil {
 		stats.CaveCount = len(geo.Caves)
 	}

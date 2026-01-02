@@ -44,6 +44,9 @@ type SeedResult struct {
 	GlobalTemp      float64                        `json:"global_temp"`
 	PlateCount      int                            `json:"plate_count"`
 	ContinentCount  int                            `json:"continent_count"`
+	CratonCount     int                            `json:"craton_count"` // Ancient stable cores
+	OrogenCount     int                            `json:"orogen_count"` // Mineral-rich fold belts
+	BasinCount      int                            `json:"basin_count"`  // Sedimentary basins
 	BimodalDetected bool                           `json:"bimodal_detected"`
 	SimulationTime  time.Duration                  `json:"simulation_time"`
 	Report          *calibration.CalibrationReport `json:"-"` // Full report (not serialized)
@@ -231,8 +234,8 @@ func main() {
 			// Format similar to final output but succinct
 			msg := fmt.Sprintf("\n🔥 FOUND CANDIDATE: Seed %d | Score: %.1f\n", result.Seed, result.Score)
 			if result.SimulationTime < 100*time.Millisecond {
-				msg += fmt.Sprintf("   [FAST] Plates: %d | Continents: %d | Temp: %.1f°C\n",
-					result.PlateCount, result.ContinentCount, result.GlobalTemp)
+				msg += fmt.Sprintf("   [FAST] Plates: %d | Cratons: %d | Orogens: %d | Temp: %.1f°C\n",
+					result.PlateCount, result.CratonCount, result.OrogenCount, result.GlobalTemp)
 			} else {
 				msg += fmt.Sprintf("   Ocean: %.1f%% | Depth: %.0fm | Land: %.0fm | Temp: %.1f°C\n",
 					result.OceanCoverage, result.MeanOceanDepth, result.MeanLandHeight, result.GlobalTemp)
@@ -362,6 +365,9 @@ func testSeed(seed, years int64, resolution int, bench calibration.EarthBenchmar
 		GlobalTemp:      stats.GlobalMeanTempC,
 		PlateCount:      stats.PlateCount,
 		ContinentCount:  stats.ContinentCount,
+		CratonCount:     stats.CratonCount,
+		OrogenCount:     stats.OrogenCount,
+		BasinCount:      stats.BasinCount,
 		BimodalDetected: bimodal,
 		SimulationTime:  time.Since(start),
 		Report:          &report,

@@ -251,10 +251,11 @@ func (g *WorldGeology) InitializeGeology(resolutionOverride int) {
 
 	// Phase 5: Generate geological provinces within continental plates
 	// This creates Cratons (hard, flat), Orogens (folded, medium), and Basins (soft, low)
-	if g.Topology.Resolution() > 32 {
-		g.Provinces = geography.GenerateProvinces(g.Plates, g.Topology, g.Seed)
-		geography.InitializeProvinceHardness(g.SphereHeightmap, g.Plates, g.Provinces, g.Topology, g.Seed)
-	}
+	// Phase 5: Generate geological provinces within continental plates
+	// This creates Cratons (hard, flat), Orogens (folded, medium), and Basins (soft, low)
+	// We run this at all resolutions to detect Craton/Mineral potential
+	g.Provinces = geography.GenerateProvinces(g.Plates, g.Topology, g.Seed)
+	geography.InitializeProvinceHardness(g.SphereHeightmap, g.Plates, g.Provinces, g.Topology, g.Seed)
 
 	// Initialize hotspots (2-5 fixed mantle plume locations)
 	numHotspots := 2 + g.rng.Intn(4)
@@ -266,8 +267,14 @@ func (g *WorldGeology) InitializeGeology(resolutionOverride int) {
 		}
 	}
 
-	// Calculate initial sea level (target ~30% land coverage)
-	g.SeaLevel = geography.AssignOceanLand(g.Heightmap, 0.3)
+	// Calculate initial sea level
+	// For fast pass (res <= 32), we skip normalization to see natural land/ocean ratio
+	// For full sim, we target ~30% land coverage
+	if g.Topology.Resolution() > 32 {
+		g.SeaLevel = geography.AssignOceanLand(g.Heightmap, 0.3)
+	} else {
+		g.SeaLevel = 0.0
+	}
 
 	// Generate initial rivers and hydrology
 	// Generate initial rivers and hydrology
