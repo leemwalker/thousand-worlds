@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 )
 
 // LinearStrategy implements the standard sequential search
@@ -16,7 +17,7 @@ func (s *LinearStrategy) Explanation() string {
 }
 
 func (s *LinearStrategy) Run(seeds chan<- int64, results <-chan SeedResult, config SearchConfig) <-chan SeedResult {
-	fmt.Printf("➡️ Linear Strategy: scanning %d seeds starting from %d\n", config.Count, config.StartSeed)
+	fmt.Fprintf(os.Stderr, "➡️ Linear Strategy: scanning %d seeds starting from %d\n", config.Count, config.StartSeed)
 
 	output := make(chan SeedResult)
 

@@ -3,6 +3,7 @@ package main
 import (
 	"container/heap"
 	"fmt"
+	"os"
 )
 
 // HalfTreeStrategy implements an interval-based priority search
@@ -24,7 +25,7 @@ func (s *HalfTreeStrategy) Run(seeds chan<- int64, results <-chan SeedResult, co
 	rangeEnd := int64(MaxWorldSeed)
 	searchBudget := config.Count
 
-	fmt.Printf("🌲 Half-Tree Strategy: exploring range [%d, %d] with budget of %d candidates\n", rangeStart, rangeEnd, searchBudget)
+	fmt.Fprintf(os.Stderr, "🌲 Half-Tree Strategy: exploring range [%d, %d] with budget of %d candidates\n", rangeStart, rangeEnd, searchBudget)
 
 	output := make(chan SeedResult)
 
