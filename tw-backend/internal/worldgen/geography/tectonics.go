@@ -467,6 +467,23 @@ func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightm
 		defer debug.Time(debug.Perf, "SimulateTectonicsWithCache")()
 	}
 
+	// DEBUG: Log cache stats and first few deltas
+	if debug.Is(debug.Geology) && len(cache.Cells) > 0 {
+		log.Printf("[TECTONICS] BoundaryCache cells: %d, scaleFactor: %.2f", len(cache.Cells), scaleFactor)
+
+		// Sample first convergent boundary
+		for i := 0; i < len(cache.Cells) && i < 5; i++ {
+			bc := cache.Cells[i]
+			currentPlate := plates[bc.PlateIdx]
+			neighborPlate := plates[bc.NeighborIdx]
+			currentElev := heightmap.Get(bc.Coord)
+			delta, result := calculateEquilibriumElevationChangeV2(currentPlate, neighborPlate, bc.BoundaryType, currentElev)
+			log.Printf("[TECTONICS SAMPLE %d] Type=%s Cell=%s->%s Elev=%.0f Target=%.0f Delta=%.0f Scaled=%.0f",
+				i, bc.BoundaryType, currentPlate.Type, neighborPlate.Type,
+				currentElev, result.TargetElevation, delta, delta*scaleFactor)
+		}
+	}
+
 	// Process only cached boundary cells
 	for _, bc := range cache.Cells {
 		currentPlate := plates[bc.PlateIdx]
