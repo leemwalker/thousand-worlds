@@ -19,6 +19,16 @@
     import { DisplacementShader } from "./DisplacementShader";
     import { TileGlobeManager } from "./TileGlobeManager";
 
+    // FPS Mode Imports
+    import { FPSTransitionController } from "./FPSTransitionController";
+    import { AltitudeChunkManager } from "./AltitudeChunkManager";
+    import { FPSMovementController } from "./FPSMovementController";
+    import { FPSPerformanceManager } from "./FPSPerformanceManager";
+    import { PerformanceOverlay } from "./PerformanceOverlay";
+    import { FPSAccessibilityOptions } from "./FPSAccessibilityOptions";
+    import { HorizonRenderer } from "./HorizonRenderer";
+    import { WaterEffects } from "./WaterEffects";
+
     // Types for satellite/moon data
     interface Satellite {
         name: string;
@@ -73,6 +83,16 @@
     let tileGlobeManager: TileGlobeManager | null = null;
     let sendTileCommand: ((action: string, message?: string) => void) | null =
         null;
+
+    // FPS Mode state
+    let fpsMode: boolean = false;
+    let fpsTransitionController: FPSTransitionController | null = null;
+    let fpsMovementController: FPSMovementController | null = null;
+    let fpsPerformanceManager: FPSPerformanceManager | null = null;
+    let performanceOverlay: PerformanceOverlay | null = null;
+    let fpsAccessibility: FPSAccessibilityOptions | null = null;
+    let horizonRenderer: HorizonRenderer | null = null;
+    let waterEffects: WaterEffects | null = null;
 
     // Animation state
     let lastTime = 0;
@@ -225,6 +245,78 @@
             );
             console.log("[BabylonGlobe] Tile system initialized");
         }
+
+        // ===========================================
+        // Initialize FPS Mode Components
+        // ===========================================
+        if (scene && camera && engine) {
+            // Transition controller for orbit-to-ground
+            fpsTransitionController = new FPSTransitionController(
+                scene,
+                camera,
+                {
+                    onStateChange: (state) => {
+                        console.log(`[BabylonGlobe] FPS state: ${state}`);
+                        fpsMode = state === "flying" || state === "ground";
+                    },
+                },
+            );
+
+            // Performance manager
+            fpsPerformanceManager = new FPSPerformanceManager(scene, engine, {
+                targetFps: 60,
+                minFps: 45,
+                enableAutoResolution: true,
+            });
+
+            // Accessibility options
+            fpsAccessibility = new FPSAccessibilityOptions();
+
+            // Horizon renderer (sky dome)
+            horizonRenderer = new HorizonRenderer(scene);
+
+            // Water effects
+            waterEffects = new WaterEffects(scene);
+
+            // Performance overlay (starts hidden)
+            performanceOverlay = new PerformanceOverlay(
+                canvas.parentElement || document.body,
+                {
+                    position: "top-right",
+                    opacity: 0.85,
+                },
+            );
+
+            console.log("[BabylonGlobe] FPS mode components initialized");
+        }
+
+        // Set up double-click handler for FPS entry
+        const handleDoubleClick = (evt: MouseEvent) => {
+            if (fpsTransitionController && !fpsMode) {
+                const result = fpsTransitionController.handlePlanetClick(
+                    evt.clientX,
+                    evt.clientY,
+                );
+                if (result) {
+                    console.log("[BabylonGlobe] Starting FPS transition");
+                }
+            }
+        };
+        canvas.addEventListener("dblclick", handleDoubleClick);
+
+        // Escape key to exit FPS mode
+        const handleKeyDown = (evt: KeyboardEvent) => {
+            if (evt.key === "Escape" && fpsMode && fpsTransitionController) {
+                fpsTransitionController.returnToOrbit();
+                fpsMode = false;
+                console.log("[BabylonGlobe] Exiting FPS mode");
+            }
+            // Toggle performance overlay with F3
+            if (evt.key === "F3" && performanceOverlay) {
+                performanceOverlay.toggle();
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
 
         console.log("[BabylonGlobe] Solar system initialized");
 
@@ -755,6 +847,36 @@
         if (sunMesh) {
             sunMesh.dispose();
         }
+
+        // Cleanup FPS mode components
+        if (fpsTransitionController) {
+            fpsTransitionController = null;
+        }
+        if (fpsMovementController) {
+            fpsMovementController.dispose();
+            fpsMovementController = null;
+        }
+        if (fpsPerformanceManager) {
+            fpsPerformanceManager.dispose();
+            fpsPerformanceManager = null;
+        }
+        if (performanceOverlay) {
+            performanceOverlay.dispose();
+            performanceOverlay = null;
+        }
+        if (fpsAccessibility) {
+            fpsAccessibility.dispose();
+            fpsAccessibility = null;
+        }
+        if (horizonRenderer) {
+            horizonRenderer.dispose();
+            horizonRenderer = null;
+        }
+        if (waterEffects) {
+            waterEffects.dispose();
+            waterEffects = null;
+        }
+
         if (scene) {
             scene.dispose();
         }
