@@ -4,6 +4,19 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Mock MeshBuilder at module level to avoid Babylon.js internals
+vi.mock('@babylonjs/core/Meshes/meshBuilder', () => ({
+    MeshBuilder: {
+        CreateGround: vi.fn(() => ({
+            position: { x: 0, y: 0, z: 0 },
+            dispose: vi.fn(),
+            setEnabled: vi.fn(),
+            material: null
+        }))
+    }
+}));
+
 import { TerrainChunk } from './TerrainChunk';
 import { ViewModeManager, getModeForDistance } from './ViewModeManager';
 import { ViewMode, type ViewModeString } from './interfaces';

@@ -44,9 +44,10 @@ describe("LODManager", () => {
 
     describe("getSegmentsForLevel", () => {
         it("should return correct segment count for each LOD level", () => {
-            expect(lodManager.getSegmentsForLevel(0)).toBe(128);
+            // Config sorted by distance: [{dist:2, seg:32}, {dist:5, seg:64}, {dist:10, seg:128}]
+            expect(lodManager.getSegmentsForLevel(0)).toBe(32);  // Closest = least detail (after sort)
             expect(lodManager.getSegmentsForLevel(1)).toBe(64);
-            expect(lodManager.getSegmentsForLevel(2)).toBe(32);
+            expect(lodManager.getSegmentsForLevel(2)).toBe(128); // Farthest = most detail
         });
 
         it("should clamp to valid level range", () => {
