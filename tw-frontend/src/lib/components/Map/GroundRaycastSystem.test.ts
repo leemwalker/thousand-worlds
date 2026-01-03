@@ -7,17 +7,25 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GroundRaycastSystem } from './GroundRaycastSystem';
 
 // Mock Vector3
-vi.mock("@babylonjs/core/Maths/math.vector", () => ({
-    Vector3: vi.fn().mockImplementation((x = 0, y = 0, z = 0) => ({
+vi.mock("@babylonjs/core/Maths/math.vector", () => {
+    const createMockVec = (x = 0, y = 0, z = 0): any => ({
         x, y, z,
-        length: () => Math.sqrt(x * x + y * y + z * z),
-        normalize: function () { const l = this.length(); if (l > 0) { this.x /= l; this.y /= l; this.z /= l; } return this; },
-        scale: function (s: number) { return { x: this.x * s, y: this.y * s, z: this.z * s, length: () => Math.sqrt((this.x * s) ** 2 + (this.y * s) ** 2 + (this.z * s) ** 2) }; },
-        clone: function () { return { ...this, length: this.length, normalize: this.normalize, scale: this.scale, clone: this.clone, add: this.add, subtract: this.subtract }; },
-        add: function (v: any) { return { x: this.x + v.x, y: this.y + v.y, z: this.z + v.z }; },
-        subtract: function (v: any) { return { x: this.x - v.x, y: this.y - v.y, z: this.z - v.z, normalize: () => ({ x: 0, y: 0, z: 0 }) }; },
-    }))
-}));
+        length: function () { return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z); },
+        normalize: function () { const l = this.length(); if (l > 0) { return createMockVec(this.x / l, this.y / l, this.z / l); } return this; },
+        scale: function (s: number) { return createMockVec(this.x * s, this.y * s, this.z * s); },
+        clone: function () { return createMockVec(this.x, this.y, this.z); },
+        add: function (v: any) { return createMockVec(this.x + v.x, this.y + v.y, this.z + v.z); },
+        subtract: function (v: any) { return createMockVec(this.x - v.x, this.y - v.y, this.z - v.z); },
+    });
+    const Vector3Mock = vi.fn().mockImplementation((x = 0, y = 0, z = 0) => createMockVec(x, y, z));
+    (Vector3Mock as any).Zero = () => createMockVec(0, 0, 0);
+    (Vector3Mock as any).Cross = (a: any, b: any) => createMockVec(
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x
+    );
+    return { Vector3: Vector3Mock };
+});
 
 // Re-import after mock
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";

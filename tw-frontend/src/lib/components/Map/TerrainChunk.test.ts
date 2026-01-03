@@ -17,6 +17,14 @@ vi.mock('@babylonjs/core/Meshes/meshBuilder', () => ({
     }
 }));
 
+// Mock StandardMaterial to avoid engine internals
+vi.mock('@babylonjs/core/Materials/standardMaterial', () => ({
+    StandardMaterial: vi.fn(() => ({
+        diffuseColor: { r: 0.5, g: 0.5, b: 0.5 },
+        dispose: vi.fn()
+    }))
+}));
+
 import { TerrainChunk } from './TerrainChunk';
 import { ViewModeManager, getModeForDistance } from './ViewModeManager';
 import { ViewMode, type ViewModeString } from './interfaces';
