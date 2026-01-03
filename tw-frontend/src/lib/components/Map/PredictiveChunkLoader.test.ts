@@ -6,14 +6,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock Vector3
-vi.mock("@babylonjs/core/Maths/math.vector", () => ({
-    Vector3: vi.fn().mockImplementation((x = 0, y = 0, z = 0) => ({
+vi.mock("@babylonjs/core/Maths/math.vector", () => {
+    const Vector3Mock = vi.fn().mockImplementation((x = 0, y = 0, z = 0) => ({
         x, y, z,
-        length: () => Math.sqrt(x * x + y * y + z * z),
-        scale: function (s: number) { return { x: this.x * s, y: this.y * s, z: this.z * s }; },
-        add: function (v: any) { return { x: this.x + v.x, y: this.y + v.y, z: this.z + v.z }; }
-    }))
-}));
+        length: function () { return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z); },
+        scale: function (s: number) { return { x: this.x * s, y: this.y * s, z: this.z * s, length: function () { return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z); } }; },
+        add: function (v: any) { return { x: this.x + v.x, y: this.y + v.y, z: this.z + v.z, length: function () { return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z); } }; }
+    }));
+    (Vector3Mock as any).Zero = () => ({ x: 0, y: 0, z: 0, length: function () { return 0; } });
+    return { Vector3: Vector3Mock };
+});
 
 import { PredictiveChunkLoader } from './PredictiveChunkLoader';
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
