@@ -56,14 +56,18 @@ describe("LODManager", () => {
     });
 
     describe("shouldUpdate", () => {
-        it("should return true when LOD level changes", () => {
+        it("should return true when LOD level changes past hysteresis margin", () => {
+            // Config sorted: [{dist:2}, {dist:5}, {dist:10}]
+            // Level 0 if dist <2, level 1 if <5, level 2 if <10
+            // Start at level 0, distance 12 -> level 2 (beyond max)
+            // Hysteresis for level 2 threshold (10) = 1.0, so need >11 to trigger update
             lodManager.setCurrentLevel(0);
-            expect(lodManager.shouldUpdate(8)).toBe(true); // Distance 8 -> level 2
+            expect(lodManager.shouldUpdate(12)).toBe(true); // Distance 12 > 11 (threshold + margin)
         });
 
         it("should return false when LOD level stays the same", () => {
             lodManager.setCurrentLevel(0);
-            expect(lodManager.shouldUpdate(1.2)).toBe(false); // Still level 0
+            expect(lodManager.shouldUpdate(1.2)).toBe(false); // Distance 1.2 < 2 still level 0
         });
     });
 

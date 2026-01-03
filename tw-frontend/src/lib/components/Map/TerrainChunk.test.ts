@@ -10,7 +10,7 @@ import { ViewMode, type ViewModeString } from './interfaces';
 
 // Mock BabylonJS objects
 let uniqueIdCounter = 0;
-const mockScene = {
+const mockScene: any = {
     addMesh: vi.fn(),
     removeMesh: vi.fn(),
     getUniqueId: vi.fn(() => ++uniqueIdCounter),
@@ -26,8 +26,11 @@ const mockScene = {
     onNewTransformNodeAddedObservable: { add: vi.fn(), notifyObservers: vi.fn() },
     onTransformNodeRemovedObservable: { add: vi.fn(), notifyObservers: vi.fn() },
     meshes: [],
+    lights: [],
     _isAlternateRenderingEnabled: false
 };
+// Self-reference for getScene()
+mockScene.getScene = () => mockScene;
 
 const mockPosition = { x: 0, y: 0, z: 0 };
 
