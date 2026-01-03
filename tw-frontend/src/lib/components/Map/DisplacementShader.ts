@@ -3,6 +3,7 @@ import { Effect } from "@babylonjs/core/Materials/effect";
 import { ShaderMaterial } from "@babylonjs/core/Materials/shaderMaterial";
 import type { Scene } from "@babylonjs/core/scene";
 import type { Texture } from "@babylonjs/core/Materials/Textures/texture";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 
 // Define shaders in-line for Phase 1 simplicity
 Effect.ShadersStore["displacementVertexShader"] = `
@@ -53,9 +54,7 @@ Effect.ShadersStore["displacementFragmentShader"] = `
 
     // Uniforms
     uniform vec3 color; // Base color
-
-    // Simple directional light (approximate sun)
-    const vec3 lightDir = normalize(vec3(1.0, 0.0, 0.0));
+    uniform vec3 lightDirection; // Dynamic sun direction (normalized)
 
     void main(void) {
         // Simple Lambertian lighting
@@ -64,7 +63,7 @@ Effect.ShadersStore["displacementFragmentShader"] = `
         // For Phase 1, we'll use original sphere normals which is "okay" for smooth planets
         // but not great for mountains. Phase 2 improvement: normal map or derivative normals.
         
-        float ndotl = max(0.0, dot(vNormal, lightDir));
+        float ndotl = max(0.0, dot(vNormal, lightDirection));
         
         // Coloring based on height (simple ramp)
         vec3 surfaceColor = vec3(0.1, 0.1, 0.3); // Deep ocean
@@ -106,13 +105,15 @@ export class DisplacementShader implements IShaderProvider {
             },
             {
                 attributes: ["position", "normal", "uv"],
-                uniforms: ["world", "viewProjection", "scale", "color"],
+                uniforms: ["world", "viewProjection", "scale", "color", "lightDirection"],
                 samplers: ["heightmap"],
             }
         );
 
         this.material.setTexture("heightmap", heightmap);
         this.material.setFloat("scale", scale);
+        // Default light direction (normalized) - will be updated each frame
+        this.material.setVector3("lightDirection", new Vector3(1, 0, 0));
 
         // Render back faces too just in case, though sphere usually doesn't need it
         this.material.backFaceCulling = true;
@@ -130,6 +131,16 @@ export class DisplacementShader implements IShaderProvider {
     public setDisplacementScale(scale: number): void {
         if (this.material) {
             this.material.setFloat("scale", scale);
+        }
+    }
+
+    /**
+     * Update the light direction for sun-based shading.
+     * @param direction Normalized direction FROM surface TO light source
+     */
+    public setLightDirection(direction: Vector3): void {
+        if (this.material) {
+            this.material.setVector3("lightDirection", direction);
         }
     }
 

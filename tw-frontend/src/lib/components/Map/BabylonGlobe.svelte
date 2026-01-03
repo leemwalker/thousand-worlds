@@ -296,12 +296,32 @@
                     waterBumpTexture.vOffset = Math.cos(waterTime * 0.7) * 0.01;
                 }
 
-                // TODO: LOD update disabled until shader displacement is implemented
-                // if (lodManager && camera) {
-                //     lodManager.update(camera);
-                //     const currentLevel = lodManager.getCurrentLevel();
-                //     globe = lodManager.getMesh(currentLevel);
-                // }
+                // Update sun direction for displacement shader lighting
+                // Calculate direction FROM planet TO sun in world space
+                if (displacementShader && orbitNode) {
+                    // Sun is at origin, planet is at orbitNode.position
+                    // Light direction = normalize(sunPos - planetPos) = normalize(-planetPos)
+                    const planetPos = orbitNode.position;
+                    const toSun = new Vector3(
+                        -planetPos.x,
+                        -planetPos.y,
+                        -planetPos.z,
+                    );
+                    toSun.normalize();
+
+                    // Transform to planet-local space (accounting for axial tilt)
+                    // The shader uses object-space normals, so we need object-space light dir
+                    if (planetNode) {
+                        const worldMatrix = planetNode.getWorldMatrix();
+                        const invWorld = worldMatrix.clone().invert();
+                        const localSunDir = Vector3.TransformNormal(
+                            toSun,
+                            invWorld,
+                        );
+                        localSunDir.normalize();
+                        displacementShader.setLightDirection(localSunDir);
+                    }
+                }
 
                 scene.render();
             }
