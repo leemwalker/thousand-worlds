@@ -6,14 +6,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock Babylon.js dependencies
-vi.mock("@babylonjs/core/Maths/math.vector", () => ({
-    Vector3: vi.fn().mockImplementation((x = 0, y = 0, z = 0) => ({
+vi.mock("@babylonjs/core/Maths/math.vector", () => {
+    const Vector3Mock = vi.fn().mockImplementation((x = 0, y = 0, z = 0) => ({
         x, y, z,
         length: () => Math.sqrt(x * x + y * y + z * z),
         normalize: function () { return this; },
         subtract: function (v: any) { return { x: this.x - v.x, y: this.y - v.y, z: this.z - v.z, normalize: () => ({ x: 0, y: 0, z: 1 }) }; }
-    }))
-}));
+    }));
+    (Vector3Mock as any).Zero = () => ({ x: 0, y: 0, z: 0 });
+    (Vector3Mock as any).Forward = () => ({ x: 0, y: 0, z: 1 });
+    (Vector3Mock as any).Dot = () => 0.5;
+    return { Vector3: Vector3Mock };
+});
 
 vi.mock("./FPSTransitionController", () => ({
     FPS_ALTITUDES: {

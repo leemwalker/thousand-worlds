@@ -6,13 +6,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock Babylon.js dependencies
-vi.mock("@babylonjs/core/Maths/math.vector", () => ({
-    Vector3: vi.fn().mockImplementation((x = 0, y = 0, z = 0) => ({
+vi.mock("@babylonjs/core/Maths/math.vector", () => {
+    const Vector3Mock = vi.fn().mockImplementation((x = 0, y = 0, z = 0) => ({
         x, y, z,
         clone: function () { return { x: this.x, y: this.y, z: this.z }; },
         normalize: function () { return this; }
-    }))
-}));
+    }));
+    (Vector3Mock as any).Zero = () => ({ x: 0, y: 0, z: 0 });
+    return { Vector3: Vector3Mock };
+});
 
 vi.mock("@babylonjs/core/Maths/math.color", () => ({
     Color3: vi.fn().mockImplementation((r = 0, g = 0, b = 0) => ({
