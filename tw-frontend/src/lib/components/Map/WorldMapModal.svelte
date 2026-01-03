@@ -337,6 +337,15 @@
                 globeMinElevation = payload.min_elevation;
             }
 
+            // Set heightmap blob for BOTH globe and flat map view (needed for terrain displacement/hillshading)
+            if (payload.heightmapBlob) {
+                console.log("[WorldMapModal] Received Heightmap PNG Blob");
+                globeHeightmapBlob = payload.heightmapBlob;
+            } else if (!isHighRes) {
+                // Reset heightmap blob on initial/low-res load
+                globeHeightmapBlob = null;
+            }
+
             if (
                 useGraphicsMode &&
                 webglRenderer &&
@@ -347,14 +356,6 @@
                 if (payload.imageBlob) {
                     console.log("[WorldMapModal] Received Map Image Blob");
                     globeTextureBlob = payload.imageBlob;
-                }
-
-                if (payload.heightmapBlob) {
-                    console.log("[WorldMapModal] Received Heightmap PNG Blob");
-                    globeHeightmapBlob = payload.heightmapBlob;
-                } else if (!isHighRes) {
-                    // Reset heightmap blob on initial/low-res load
-                    globeHeightmapBlob = null;
                 }
 
                 // Parse binary grid data for tooltips (Sprint 2)
