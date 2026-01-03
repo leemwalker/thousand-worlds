@@ -44,13 +44,21 @@ describe('PredictiveChunkLoader', () => {
     });
 
     describe('calculatePriorityQueue', () => {
+        // Helper to create complete Vector3 mock
+        const mockVec3 = (x: number, y: number, z: number) => ({
+            x, y, z,
+            length: function () { return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z); },
+            scale: function (s: number) { return mockVec3(this.x * s, this.y * s, this.z * s); },
+            add: function (v: any) { return mockVec3(this.x + v.x, this.y + v.y, this.z + v.z); }
+        });
+
         it('should return priority queue with chunks', () => {
-            const cameraPos = new Vector3(1.05, 0, 0) as any;
-            const cameraVel = new Vector3(0, -0.01, 0) as any;
+            const cameraPos = mockVec3(1.05, 0, 0);
+            const cameraVel = mockVec3(0, -0.01, 0);
 
             const queue = loader.calculatePriorityQueue(
-                cameraPos,
-                cameraVel,
+                cameraPos as any,
+                cameraVel as any,
                 0, // targetLat
                 0, // targetLon
                 2  // LOD level
@@ -61,10 +69,10 @@ describe('PredictiveChunkLoader', () => {
         });
 
         it('should include chunk directly below camera as highest priority', () => {
-            const cameraPos = new Vector3(1.05, 0, 0) as any;
-            const cameraVel = new Vector3(0, 0, 0) as any;
+            const cameraPos = mockVec3(1.05, 0, 0);
+            const cameraVel = mockVec3(0, 0, 0);
 
-            const queue = loader.calculatePriorityQueue(cameraPos, cameraVel, 0, 0, 2);
+            const queue = loader.calculatePriorityQueue(cameraPos as any, cameraVel as any, 0, 0, 2);
 
             expect(queue[0].reason).toBe('below');
             expect(queue[0].priority).toBe(0);
