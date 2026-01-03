@@ -46,9 +46,14 @@ type WorldGeology struct {
 	Hotspots   []geography.Point // Fixed mantle plume locations
 	Rivers     [][]geography.Point
 	Biomes     []geography.Biome
-	Satellites []astronomy.Satellite // Natural satellites
-	Rainfall   []float64             // Per-cell rainfall (Phase 7: Dynamic Weather)
-	IceSheet   *geography.IceSheet   // Glacial ice dynamics (Phase 10)
+	Satellites []astronomy.Satellite     // Natural satellites
+	Rainfall   []float64                 // Per-cell rainfall (Phase 7: Dynamic Weather)
+	Hydrology  *geography.HydrologyLayer // Flow field for stream power erosion
+	IceSheet   *geography.IceSheet       // Glacial ice dynamics (Phase 10)
+
+	// River path cache (avoid regenerating every cycle)
+	sphericalRivers      []geography.SphericalRiverPath // Cached river paths
+	riverCacheValidUntil int64                          // Year when cache expires (invalidated by major erosion)
 
 	// Simulation state
 	TotalYearsSimulated int64
@@ -73,6 +78,18 @@ type WorldGeology struct {
 
 	// Ocean phase state (Hadean vapor → Modern liquid transition)
 	OceanVaporFraction float64 // 0.0 = all liquid (cool planet), 1.0 = all vapor (hot planet)
+
+	// Atmospheric composition tracking (for life evolution)
+	Atmosphere AtmosphericComposition
+}
+
+// AtmosphericComposition tracks gas ratios for climate and life simulation.
+// Values are percentages (0-100).
+type AtmosphericComposition struct {
+	O2  float64 // Oxygen: 0% (Hadean) → 21% (Modern), peaked at 35% (Carboniferous)
+	CO2 float64 // Carbon dioxide: ~20% (Hadean) → 0.04% (Modern)
+	N2  float64 // Nitrogen: ~78% (relatively stable)
+	CH4 float64 // Methane: trace, but significant in early atmosphere
 }
 
 // PhaseTransitionEvent represents a major planetary phase change
@@ -107,6 +124,13 @@ func NewWorldGeology(worldID uuid.UUID, seed int64, circumferenceMeters float64)
 		SeaLevel:      0,             // Baseline sea level
 		Composition:   "continental", // Default composition
 		rng:           rand.New(rand.NewSource(seed)),
+		// Initialize with Hadean-era atmosphere (reducing, no free oxygen)
+		Atmosphere: AtmosphericComposition{
+			O2:  0.0,  // No free oxygen before Great Oxidation Event
+			CO2: 20.0, // High CO2 greenhouse
+			N2:  78.0, // Nitrogen outgassed early
+			CH4: 2.0,  // Methane from volcanism
+		},
 	}
 }
 
@@ -190,8 +214,83 @@ func GetPlanetaryHeat(year int64) float64 {
 	return heat
 }
 
-// InitializeGeology creates the baseline terrain from scratch
-// This should be called when a world is first simulated
+// UpdateAtmosphere evolves atmospheric composition based on geological era.
+// Models key events in Earth's atmospheric history:
+//   - Hadean (0-500M): Reducing atmosphere, no free O2, high CO2/CH4
+//   - Archean (500M-2.5B): Slight methane buildup from early life
+//   - Great Oxidation Event (2.4B): O2 spikes, CH4 crashes
+//   - Proterozoic (2.5B-541M from end): Gradual O2 rise
+//   - Carboniferous (359-299 Ma from end): O2 peaks at 35%
+//   - Modern: O2 stabilizes at 21%
+func (g *WorldGeology) UpdateAtmosphere() {
+	year := g.TotalYearsSimulated
+
+	const (
+		hadeanEnd  = 500_000_000
+		archeanEnd = 2_500_000_000
+		goeYear    = 2_400_000_000 // Great Oxidation Event
+		carbStart  = 4_141_000_000 // 4.5B - 359M (Carboniferous start)
+		carbEnd    = 4_201_000_000 // 4.5B - 299M (Carboniferous end)
+		modernAge  = 4_500_000_000
+	)
+
+	switch {
+	case year < hadeanEnd:
+		// Hadean: Reducing atmosphere
+		g.Atmosphere.O2 = 0.0
+		g.Atmosphere.CO2 = 20.0 - float64(year)/float64(hadeanEnd)*10.0 // 20% → 10%
+		g.Atmosphere.CH4 = 2.0
+		g.Atmosphere.N2 = 78.0
+
+	case year < goeYear:
+		// Pre-GOE Archean: Methane builds up from early life
+		progress := float64(year-hadeanEnd) / float64(goeYear-hadeanEnd)
+		g.Atmosphere.O2 = 0.001 * progress     // Trace oxygen from cyanobacteria
+		g.Atmosphere.CO2 = 10.0 - progress*5.0 // 10% → 5%
+		g.Atmosphere.CH4 = 2.0 + progress*1.0  // Methane increases
+		g.Atmosphere.N2 = 78.0
+
+	case year < archeanEnd:
+		// Great Oxidation Event (2.4B): O2 surges, CH4 crashes
+		progress := float64(year-goeYear) / float64(archeanEnd-goeYear)
+		g.Atmosphere.O2 = 0.001 + progress*2.0    // 0% → 2%
+		g.Atmosphere.CO2 = 5.0 - progress*3.0     // 5% → 2%
+		g.Atmosphere.CH4 = 3.0 * (1.0 - progress) // CH4 oxidized
+		g.Atmosphere.N2 = 78.0
+
+	case year < carbStart:
+		// Proterozoic: Gradual O2 rise
+		progress := float64(year-archeanEnd) / float64(carbStart-archeanEnd)
+		g.Atmosphere.O2 = 2.0 + progress*18.0 // 2% → 20%
+		g.Atmosphere.CO2 = 2.0 - progress*1.5 // 2% → 0.5%
+		g.Atmosphere.CH4 = 0.1
+		g.Atmosphere.N2 = 78.0
+
+	case year < carbEnd:
+		// Carboniferous: O2 peaks at 35% (giant insects era)
+		progress := float64(year-carbStart) / float64(carbEnd-carbStart)
+		g.Atmosphere.O2 = 20.0 + progress*15.0 // 20% → 35%
+		g.Atmosphere.CO2 = 0.5 - progress*0.3  // 0.5% → 0.2%
+		g.Atmosphere.CH4 = 0.05
+		g.Atmosphere.N2 = 78.0
+
+	default:
+		// Post-Carboniferous to Modern: O2 declines to 21%
+		if year >= modernAge {
+			g.Atmosphere.O2 = 21.0
+			g.Atmosphere.CO2 = 0.04
+		} else {
+			progress := float64(year-carbEnd) / float64(modernAge-carbEnd)
+			g.Atmosphere.O2 = 35.0 - progress*14.0 // 35% → 21%
+			g.Atmosphere.CO2 = 0.2 - progress*0.16 // 0.2% → 0.04%
+		}
+		g.Atmosphere.CH4 = 0.0002
+		g.Atmosphere.N2 = 78.0
+	}
+}
+
+// InitializeGeology creates the baseline terrain from scratch.
+// This should be called when a world is first simulated.
 // resolutionOverride: if > 0, sets the exact width (height = width/2). If 0, uses circumference-based calculation.
 func (g *WorldGeology) InitializeGeology(resolutionOverride int) {
 	g.mu.Lock()
@@ -305,14 +404,16 @@ func (g *WorldGeology) InitializeGeology(resolutionOverride int) {
 			// Pass normalized rainfall to flux calculation
 			geography.CalculateGlobalFluxWithRainfall(g.SphereHeightmap, g.Rainfall)
 
-			// River Erosion (Phase 6b)
-			// Carve valleys along high-flux paths before lake filling
-			geography.ApplyRiverErosion(g.SphereHeightmap, 50.0, 5.0, g.SeaLevel)
+			// Stream Power Erosion (Physics-based river carving)
+			// Uses Stream Power Law: E = K × Flux^m × Slope^n with isostasy integration
+			g.Hydrology = geography.CalculateFlowField(g.SphereHeightmap, g.Rainfall)
+			geography.ApplyStreamPowerErosion(g.SphereHeightmap, g.Hydrology, g.Plates, 100000.0, g.SeaLevel)
 
 			geography.FillDepressions(g.SphereHeightmap, g.SeaLevel)
 
-			sphereRivers := geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed)
-			g.Rivers = geography.ConvertSphericalRiversToFlat(sphereRivers, g.Topology.Resolution())
+			g.sphericalRivers = geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed)
+			g.riverCacheValidUntil = 1_000_000 // Cache valid for first 1M years
+			g.Rivers = geography.ConvertSphericalRiversToFlat(g.sphericalRivers, g.Topology.Resolution())
 			// Sync sphere heightmap changes from river erosion
 			g.markSphereNeedsSync()
 		} else {
@@ -783,6 +884,9 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 
 	g.TotalYearsSimulated += dt
 
+	// Update atmospheric composition based on current era
+	g.UpdateAtmosphere()
+
 	// Calculate planetary heat multiplier for this time period
 	// This drives tectonic and volcanic activity rates
 	heat := GetPlanetaryHeat(g.TotalYearsSimulated)
@@ -968,13 +1072,22 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 				// Re-run Hydrology to update persistence features
 				// Phase 7: Use rainfall-driven flux instead of uniform
 				geography.CalculateGlobalFluxWithRainfall(g.SphereHeightmap, g.Rainfall)
-				geography.ApplyRiverErosion(g.SphereHeightmap, 50.0, 5.0, g.SeaLevel) // Carve valleys
+				// Update hydrology layer for stream power erosion
+				if g.Hydrology == nil {
+					g.Hydrology = geography.CalculateFlowField(g.SphereHeightmap, g.Rainfall)
+				}
+				// Stream Power Erosion: E = K × Flux^m × Slope^n (physics-based)
+				geography.ApplyStreamPowerErosion(g.SphereHeightmap, g.Hydrology, g.Plates, erosionInterval, g.SeaLevel)
 				lakes := geography.FillDepressions(g.SphereHeightmap, g.SeaLevel)
 				geography.RouteFluxThroughLakes(g.SphereHeightmap, lakes)
 
-				// Update rivers to match new terrain
-				sphereRivers := geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
-				g.Rivers = geography.ConvertSphericalRiversToFlat(sphereRivers, g.Topology.Resolution())
+				// Update rivers to match new terrain (with caching)
+				// Only regenerate every 1M years or when cache is invalid
+				if g.TotalYearsSimulated >= g.riverCacheValidUntil || g.sphericalRivers == nil {
+					g.sphericalRivers = geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
+					g.riverCacheValidUntil = g.TotalYearsSimulated + 1_000_000 // Cache valid for 1M years
+				}
+				g.Rivers = geography.ConvertSphericalRiversToFlat(g.sphericalRivers, g.Topology.Resolution())
 
 				// Form deltas at high-flux river mouths
 				deltaConfig := geography.DefaultDeltaConfig()
@@ -1070,8 +1183,12 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 		if g.RiverAccumulator >= riverInterval {
 			riverStart := time.Now()
 			if g.SphereHeightmap != nil {
-				sphereRivers := geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
-				g.Rivers = geography.ConvertSphericalRiversToFlat(sphereRivers, g.Topology.Resolution())
+				// Use cache if valid, otherwise regenerate
+				if g.TotalYearsSimulated >= g.riverCacheValidUntil || g.sphericalRivers == nil {
+					g.sphericalRivers = geography.GenerateRiversSpherical(g.SphereHeightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
+					g.riverCacheValidUntil = g.TotalYearsSimulated + 1_000_000
+				}
+				g.Rivers = geography.ConvertSphericalRiversToFlat(g.sphericalRivers, g.Topology.Resolution())
 				g.markSphereNeedsSync() // Sync river erosion to flat heightmap
 			} else {
 				g.Rivers = geography.GenerateRivers(g.Heightmap, g.SeaLevel, g.Seed+g.TotalYearsSimulated)

@@ -388,9 +388,11 @@ func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology, see
 	assigned := make(map[spatial.Coordinate]int, totalCells)
 
 	// Initialize noise generator for organic borders
+	// Higher frequency + more octaves = finer-grained boundary irregularity
 	noiseConfig := DefaultTerrainFBMConfig()
-	noiseConfig.Frequency = 2.0 // Higher frequency for border detail
-	noiseConfig.Octaves = 2
+	noiseConfig.Frequency = 6.0    // High frequency for cell-level variation on unit sphere
+	noiseConfig.Octaves = 4        // Multiple scales for natural fractal coastlines
+	noiseConfig.WarpStrength = 0.3 // Moderate warping to break diamond patterns
 	gen := NewFBMGenerator(seed, noiseConfig)
 
 	// Priority Queue for Dijkstra
@@ -428,15 +430,15 @@ func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology, see
 			neighbor := topology.GetNeighbor(current.coord, dir)
 
 			if _, exists := assigned[neighbor]; !exists {
-				// Calculate dynamic cost
+				// Calculate dynamic cost for organic plate boundaries
 				// Base cost = 1.0 (Distance)
-				// Noise cost = adds "resistance" or "roughness" to travel
+				// Noise cost = adds "resistance" that distorts Voronoi cells into organic shapes
 				sx, sy, sz := topology.ToSphere(neighbor)
 				noiseVal := gen.FBM3D(sx, sy, sz) // -1 to 1
 
-				// Cost variation: 1.0 to 9.0
-				// This distorts the Voronoi cells significantly
-				costModifier := 1.0 + (noiseVal+1.0)*4.0
+				// Cost variation: 1.0 to 17.0 (increased from 1-9 for more organic shapes)
+				// Higher range creates more irregular boundaries resembling natural coastlines
+				costModifier := 1.0 + (noiseVal+1.0)*8.0
 				newCost := current.cost + costModifier
 
 				heap.Push(pq, &borderItem{

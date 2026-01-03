@@ -25,6 +25,11 @@ type CellData struct {
 
 	// Crustal Properties (Phase 8b)
 	IsContinental bool // True if this cell is Continental Crust (Granite/Island Arc), False if Oceanic (Basalt)
+
+	// Sediment Mineral Content (Phase 9: Mineral Tracking)
+	// Maps mineral name to amount in the sediment layer (e.g., {"Gold": 0.001, "Iron": 0.5})
+	// Used for placer deposit formation at river deltas and coastal shelves.
+	SedimentMinerals map[string]float64
 }
 
 // SphereHeightmap wraps 6 flat Heightmaps into a spherical surface
@@ -170,6 +175,112 @@ func (s *SphereHeightmap) Erode(coord spatial.Coordinate, amount float64) float6
 	s.Set(coord, currentElev-totalRemoved)
 
 	return totalRemoved
+}
+
+// AddSedimentWithMinerals adds sediment material with associated mineral content.
+// This increases both the sediment depth and elevation, while accumulating minerals.
+// Used for delta deposition and coastal shelf building.
+func (s *SphereHeightmap) AddSedimentWithMinerals(coord spatial.Coordinate, amount float64, minerals map[string]float64) {
+	if coord.Face < 0 || coord.Face >= 6 || amount <= 0 {
+		return
+	}
+	res := s.topology.Resolution()
+	idx := coord.Y*res + coord.X
+	if idx < 0 || idx >= len(s.cellData[coord.Face]) {
+		return
+	}
+
+	// Increase sediment depth
+	s.cellData[coord.Face][idx].Sediment += amount
+
+	// Initialize mineral map if needed
+	if s.cellData[coord.Face][idx].SedimentMinerals == nil {
+		s.cellData[coord.Face][idx].SedimentMinerals = make(map[string]float64)
+	}
+
+	// Accumulate minerals
+	for mineral, mineralAmount := range minerals {
+		s.cellData[coord.Face][idx].SedimentMinerals[mineral] += mineralAmount
+	}
+
+	// Increase total surface height
+	currentElev := s.Get(coord)
+	s.Set(coord, currentElev+amount)
+}
+
+// ErodeWithMinerals removes material from a cell and returns extracted minerals.
+// Minerals are extracted proportionally to the amount of sediment eroded.
+// Returns (totalEroded, extractedMinerals).
+func (s *SphereHeightmap) ErodeWithMinerals(coord spatial.Coordinate, amount float64) (float64, map[string]float64) {
+	if coord.Face < 0 || coord.Face >= 6 || amount <= 0 {
+		return 0, nil
+	}
+	res := s.topology.Resolution()
+	idx := coord.Y*res + coord.X
+	if idx < 0 || idx >= len(s.cellData[coord.Face]) {
+		return 0, nil
+	}
+
+	currentElev := s.Get(coord)
+	sediment := s.cellData[coord.Face][idx].Sediment
+	totalRemoved := 0.0
+	extractedMinerals := make(map[string]float64)
+
+	// Phase 1: Remove sediment first (with proportional mineral extraction)
+	if sediment > 0 {
+		sedimentToRemove := amount
+		if sedimentToRemove > sediment {
+			sedimentToRemove = sediment
+		}
+
+		// Calculate extraction ratio
+		extractionRatio := sedimentToRemove / sediment
+
+		// Extract proportional minerals from sediment
+		cellMinerals := s.cellData[coord.Face][idx].SedimentMinerals
+		if cellMinerals != nil {
+			for mineral, mineralAmount := range cellMinerals {
+				extracted := mineralAmount * extractionRatio
+				extractedMinerals[mineral] = extracted
+				s.cellData[coord.Face][idx].SedimentMinerals[mineral] -= extracted
+			}
+		}
+
+		s.cellData[coord.Face][idx].Sediment -= sedimentToRemove
+		totalRemoved += sedimentToRemove
+		amount -= sedimentToRemove
+	}
+
+	// Phase 2: Remove bedrock if sediment exhausted (no minerals from bedrock erosion here)
+	if amount > 0 {
+		totalRemoved += amount
+	}
+
+	// Update total surface elevation
+	s.Set(coord, currentElev-totalRemoved)
+
+	return totalRemoved, extractedMinerals
+}
+
+// GetMineralDensities returns a map of mineral names to their densities (g/cm³).
+// Used for density sorting in placer deposit formation - heavier minerals deposit first.
+func GetMineralDensities() map[string]float64 {
+	return map[string]float64{
+		// Heavy minerals (deposit first at river mouths)
+		"Platinum": 21.5,
+		"Gold":     19.3,
+		"Silver":   10.5,
+
+		// Medium density (deposit in mid-delta)
+		"Copper": 8.9,
+		"Iron":   7.9,
+		"Tin":    7.3,
+
+		// Light minerals (transport further downstream)
+		"Quartz":    2.65,
+		"Limestone": 2.7,
+		"Coal":      1.3,
+	}
 }
 
 // GetNeighborElevation returns the elevation of the neighboring cell in the given direction.
