@@ -9,9 +9,24 @@ import { ViewModeManager, getModeForDistance } from './ViewModeManager';
 import { ViewMode, type ViewModeString } from './interfaces';
 
 // Mock BabylonJS objects
+let uniqueIdCounter = 0;
 const mockScene = {
     addMesh: vi.fn(),
-    removeMesh: vi.fn()
+    removeMesh: vi.fn(),
+    getUniqueId: vi.fn(() => ++uniqueIdCounter),
+    _blockEntityCollection: false,
+    useRightHandedSystem: false,
+    _registeredForLateAnimationBindings: { pushNoDuplicate: vi.fn() },
+    addTransformNode: vi.fn(),
+    removeTransformNode: vi.fn(),
+    _addPendingData: vi.fn(),
+    _removePendingData: vi.fn(),
+    onNewMeshAddedObservable: { add: vi.fn(), notifyObservers: vi.fn() },
+    onMeshRemovedObservable: { add: vi.fn(), notifyObservers: vi.fn() },
+    onNewTransformNodeAddedObservable: { add: vi.fn(), notifyObservers: vi.fn() },
+    onTransformNodeRemovedObservable: { add: vi.fn(), notifyObservers: vi.fn() },
+    meshes: [],
+    _isAlternateRenderingEnabled: false
 };
 
 const mockPosition = { x: 0, y: 0, z: 0 };

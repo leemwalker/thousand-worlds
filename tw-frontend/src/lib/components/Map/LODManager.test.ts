@@ -69,15 +69,16 @@ describe("LODManager", () => {
 
     describe("hysteresis", () => {
         it("should apply hysteresis to prevent rapid switching", () => {
-            // Start at level 1 (medium distance)
+            // With distances sorted [2, 5, 10], level 0 is distance <2, level 1 is <5, level 2 is <10
+            // Start at level 1 (distance 2-5 range)
             lodManager.setCurrentLevel(1);
 
-            // Distance just barely crosses threshold - should NOT switch due to hysteresis
-            // Threshold between 1->0 is distance 5, with 10% hysteresis = 4.5-5.5 range
-            expect(lodManager.shouldUpdate(4.8)).toBe(false);
+            // Distance at 1.9 is in level 0 range - hysteresis should prevent switching
+            // if distance is very close to boundary (threshold is 2, 10% hysteresis = 1.8)
+            expect(lodManager.shouldUpdate(1.9)).toBe(false);
 
-            // Distance clearly past threshold - should switch
-            expect(lodManager.shouldUpdate(4.0)).toBe(true);
+            // Distance clearly below threshold (with hysteresis margin)
+            expect(lodManager.shouldUpdate(1.5)).toBe(true);
         });
     });
 });
