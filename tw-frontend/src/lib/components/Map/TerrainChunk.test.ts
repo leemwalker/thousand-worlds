@@ -10,10 +10,17 @@ import { ViewMode, type ViewModeString } from './interfaces';
 
 // Mock BabylonJS objects
 let uniqueIdCounter = 0;
+const mockEngine = {
+    getCaps: () => ({ maxTexturesImageUnits: 16 }),
+    getHardwareScalingLevel: () => 1,
+    getRenderingCanvas: () => null,
+    runRenderLoop: vi.fn()
+};
 const mockScene: any = {
     addMesh: vi.fn(),
     removeMesh: vi.fn(),
     getUniqueId: vi.fn(() => ++uniqueIdCounter),
+    getEngine: () => mockEngine,
     _blockEntityCollection: false,
     useRightHandedSystem: false,
     _registeredForLateAnimationBindings: { pushNoDuplicate: vi.fn() },

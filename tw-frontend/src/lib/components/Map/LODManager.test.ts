@@ -50,8 +50,10 @@ describe("LODManager", () => {
         });
 
         it("should clamp to valid level range", () => {
-            expect(lodManager.getSegmentsForLevel(-1)).toBe(128); // Clamp to 0
-            expect(lodManager.getSegmentsForLevel(10)).toBe(32);  // Clamp to max
+            // After sorting by distance: [{dist:2, seg:32}, {dist:5, seg:64}, {dist:10, seg:128}]
+            // So level 0 = 32 segments, level 2 = 128 segments
+            expect(lodManager.getSegmentsForLevel(-1)).toBe(32); // Clamp to 0
+            expect(lodManager.getSegmentsForLevel(10)).toBe(128);  // Clamp to max
         });
     });
 
