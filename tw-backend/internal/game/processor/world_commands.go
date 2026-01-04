@@ -1180,6 +1180,42 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		sb.WriteString("Bimodal Hypsometry: ✗ (crustal differentiation incomplete)\n")
 	}
 
+	// Land Formation Analysis
+	sb.WriteString("--- Land Formations ---\n")
+	sb.WriteString(fmt.Sprintf("Continents: %d\n", calStats.ContinentCount))
+
+	// Describe continent formation stage
+	switch {
+	case calStats.ContinentCount == 0:
+		sb.WriteString("  🌊 Water World - No stable continental crust\n")
+	case calStats.ContinentCount == 1:
+		sb.WriteString("  🏝️ Supercontinent - All land unified\n")
+	case calStats.ContinentCount <= 3:
+		sb.WriteString("  🌍 Proto-continents - Early continental assembly\n")
+	case calStats.ContinentCount <= 7:
+		sb.WriteString("  🌎 Modern-style - Multiple distinct landmasses\n")
+	default:
+		sb.WriteString("  🗾 Fragmented - Many small continents/islands\n")
+	}
+
+	// Geological provinces (mineral potential)
+	sb.WriteString(fmt.Sprintf("Geological Provinces: %d\n", calStats.ProvinceCount))
+	if calStats.CratonCount > 0 || calStats.OrogenCount > 0 || calStats.BasinCount > 0 {
+		sb.WriteString(fmt.Sprintf("  ⛏️ Cratons: %d (ancient stable cores - diamond potential)\n", calStats.CratonCount))
+		sb.WriteString(fmt.Sprintf("  ⛰️ Orogens: %d (fold belts - gold/copper potential)\n", calStats.OrogenCount))
+		sb.WriteString(fmt.Sprintf("  🪨 Basins: %d (sedimentary - iron/coal potential)\n", calStats.BasinCount))
+	}
+
+	// Hydrology features
+	if calStats.RiverCount > 0 || calStats.LakeCount > 0 {
+		sb.WriteString(fmt.Sprintf("Rivers: %d | Lakes: %d\n", calStats.RiverCount, calStats.LakeCount))
+	}
+
+	// Cave systems
+	if calStats.CaveCount > 0 {
+		sb.WriteString(fmt.Sprintf("Cave Systems: %d\n", calStats.CaveCount))
+	}
+
 	// Natural Satellites section
 	sb.WriteString("--- Natural Satellites ---\n")
 	if len(satellites) == 0 {
