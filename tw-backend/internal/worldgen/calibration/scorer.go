@@ -272,3 +272,83 @@ func (r CalibrationReport) FormatScorecard() string {
 func (r CalibrationReport) IsCalibrated() bool {
 	return r.FailCount == 0
 }
+
+// =============================================================================
+// Habitability Scoring
+// =============================================================================
+
+// CalculateHabitabilityScore computes a 0-100 Earth-like score.
+// Higher scores indicate more Earth-like habitability conditions.
+// Scoring factors and weights match the seed-search tool for consistency.
+func CalculateHabitabilityScore(stats SimulationStats, bench EarthBenchmarks) HabitabilityScore {
+	result := HabitabilityScore{
+		ContinentCount: stats.ContinentCount,
+		PlateCount:     stats.PlateCount,
+	}
+
+	// --- Ocean Score (max 25) ---
+	// Ocean coverage (weight: 15) - Target: 71%, tolerance ~15 percentage points
+	oceanDiff := math.Abs(stats.OceanCoveragePercent - bench.OceanCoveragePercent)
+	oceanCoverageScore := math.Max(0, 15-oceanDiff)
+
+	// Ocean depth (weight: 10) - Target: -3700m, tolerance ~1000m
+	depthDiff := math.Abs(stats.MeanOceanDepthM-bench.MeanOceanDepthM) / 100 // Normalize
+	oceanDepthScore := math.Max(0, 10-depthDiff)
+
+	result.OceanScore = oceanCoverageScore + oceanDepthScore
+
+	// --- Land Score (max 20) ---
+	// Land height (weight: 10) - Target: 840m, tolerance ~300m
+	landDiff := math.Abs(stats.MeanLandHeightM-bench.MeanLandHeightM) / 50
+	landHeightScore := math.Max(0, 10-landDiff)
+
+	// Continent count (weight: 10) - Target: 2-8 continents
+	var continentScore float64
+	if stats.ContinentCount >= 2 && stats.ContinentCount <= 8 {
+		continentScore = 10
+	} else if stats.ContinentCount >= 1 && stats.ContinentCount <= 10 {
+		continentScore = 5
+	}
+
+	result.LandScore = landHeightScore + continentScore
+
+	// --- Climate Score (max 25) ---
+	// Temperature (weight: 15) - Modern Earth target: 0-30°C optimal
+	var tempScore float64 = 15.0
+	if stats.GlobalMeanTempC < -50 || stats.GlobalMeanTempC > 150 {
+		tempScore = 0 // Way out of range
+	} else if stats.GlobalMeanTempC < 0 || stats.GlobalMeanTempC > 50 {
+		tempScore = 7.5 // Partially in range
+	}
+
+	// Equator-pole gradient (weight: 10) - Target: ~45°C
+	gradient := stats.CalculateEquatorPoleGradient()
+	gradDiff := math.Abs(gradient-bench.EquatorToPoleGradC) / 5
+	gradScore := math.Max(0, 10-gradDiff)
+
+	result.ClimateScore = tempScore + gradScore
+
+	// --- Tectonic Score (max 30) ---
+	// Plate count (weight: 10) - Target: 6-10 plates
+	var plateScore float64
+	if stats.PlateCount >= 5 && stats.PlateCount <= 12 {
+		plateScore = 10
+	} else if stats.PlateCount >= 3 && stats.PlateCount <= 15 {
+		plateScore = 5
+	}
+
+	// Bimodal distribution (weight: 20) - Critical for Earth-like hypsometry
+	_, _, bimodal := stats.DetectBimodalPeaks()
+	result.BimodalOK = bimodal
+	var bimodalScore float64
+	if bimodal {
+		bimodalScore = 20
+	}
+
+	result.TectonicScore = plateScore + bimodalScore
+
+	// Total score (max 100)
+	result.Score = result.OceanScore + result.LandScore + result.ClimateScore + result.TectonicScore
+
+	return result
+}

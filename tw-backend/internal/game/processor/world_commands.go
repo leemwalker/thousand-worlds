@@ -21,6 +21,7 @@ import (
 	"tw-backend/internal/ecosystem/sapience"
 	gamemap "tw-backend/internal/game/services/map"
 	"tw-backend/internal/worldgen/astronomy"
+	"tw-backend/internal/worldgen/calibration"
 	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/weather"
 
@@ -1163,6 +1164,19 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	sb.WriteString(fmt.Sprintf("Max Elevation: %.0fm\n", geoStats.MaxElevation))
 	sb.WriteString(fmt.Sprintf("Sea Level: %.0fm\n", geoStats.SeaLevel))
 	sb.WriteString(fmt.Sprintf("Land Coverage: %.1f%%\n", geoStats.LandPercent))
+
+	// Earth-Like Habitability Score
+	calStats := calibration.CollectStats(geology)
+	habitability := calibration.CalculateHabitabilityScore(calStats, calibration.DefaultEarthBenchmarks())
+	sb.WriteString("--- Habitability Score ---\n")
+	sb.WriteString(fmt.Sprintf("Earth-Like Score: %.0f/100 %s\n", habitability.Score, habitability.Emoji()))
+	sb.WriteString(fmt.Sprintf("Ocean: %s | Land: %s | Climate: %s\n",
+		habitability.OceanGrade(), habitability.LandGrade(), habitability.ClimateGrade()))
+	if habitability.BimodalOK {
+		sb.WriteString("Bimodal Hypsometry: ✓\n")
+	} else {
+		sb.WriteString("Bimodal Hypsometry: ✗ (crustal differentiation incomplete)\n")
+	}
 
 	// Natural Satellites section
 	sb.WriteString("--- Natural Satellites ---\n")

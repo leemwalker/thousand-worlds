@@ -394,3 +394,69 @@ func (s SimulationStats) DetectBimodalPeaks() (float64, float64, bool) {
 
 	return oceanPeak, landPeak, isBimodal
 }
+
+// =============================================================================
+// Habitability Score
+// =============================================================================
+
+// HabitabilityScore represents an Earth-like habitability assessment.
+// Higher scores indicate more Earth-like conditions.
+type HabitabilityScore struct {
+	Score          float64 // 0-100 composite score
+	OceanScore     float64 // 0-25 (ocean coverage + depth)
+	LandScore      float64 // 0-20 (land height + continents)
+	ClimateScore   float64 // 0-25 (temperature)
+	TectonicScore  float64 // 0-15 (plate count + bimodal)
+	BimodalOK      bool    // True if bimodal elevation distribution detected
+	ContinentCount int
+	PlateCount     int
+}
+
+// Emoji returns an Earth emoji based on score tier.
+func (h HabitabilityScore) Emoji() string {
+	switch {
+	case h.Score >= 80:
+		return "🌍" // Excellent
+	case h.Score >= 60:
+		return "🌎" // Good
+	case h.Score >= 40:
+		return "🌏" // Fair
+	default:
+		return "🪨" // Poor (rocky planet)
+	}
+}
+
+// Grade returns a letter grade A-F for a component score.
+func Grade(score, maxScore float64) string {
+	if maxScore == 0 {
+		return "?"
+	}
+	pct := score / maxScore * 100
+	switch {
+	case pct >= 90:
+		return "A"
+	case pct >= 75:
+		return "B"
+	case pct >= 60:
+		return "C"
+	case pct >= 40:
+		return "D"
+	default:
+		return "F"
+	}
+}
+
+// OceanGrade returns letter grade for ocean score.
+func (h HabitabilityScore) OceanGrade() string {
+	return Grade(h.OceanScore, 25)
+}
+
+// LandGrade returns letter grade for land score.
+func (h HabitabilityScore) LandGrade() string {
+	return Grade(h.LandScore, 20)
+}
+
+// ClimateGrade returns letter grade for climate score.
+func (h HabitabilityScore) ClimateGrade() string {
+	return Grade(h.ClimateScore, 25)
+}
