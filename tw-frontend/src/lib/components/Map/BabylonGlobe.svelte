@@ -802,6 +802,13 @@
                     0.05,
                 );
 
+                // Set elevation range for proper sea level coloring
+                displacementShader?.setElevationRange(
+                    minElevation,
+                    maxElevation,
+                    seaLevel,
+                );
+
                 // Apply shader material to all LOD meshes
                 if (material && lodManager) {
                     // Apply to known LOD levels (0, 1, 2)
