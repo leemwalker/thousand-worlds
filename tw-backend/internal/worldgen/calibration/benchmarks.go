@@ -163,6 +163,31 @@ func ProterozoicEarthBenchmarks() EarthBenchmarks {
 	}
 }
 
+// BenchmarksForEra returns the appropriate Earth benchmarks based on simulation years.
+// Years represents time since planet formation (0 = formation, 4.6 billion = modern Earth).
+// The function maps simulation age to geological eras.
+func BenchmarksForEra(yearsSimulated int64) (EarthBenchmarks, string) {
+	// Earth is ~4.6 billion years old
+	// Map simulation years to appropriate era
+	//
+	// Era boundaries (years after formation):
+	//   Hadean:      0 - 500 million years
+	//   Archean:     500 million - 2 billion years
+	//   Proterozoic: 2 billion - 4 billion years
+	//   Modern:      4+ billion years
+
+	switch {
+	case yearsSimulated < 500_000_000: // 0-500 million years
+		return HadeanEarthBenchmarks(), "Hadean"
+	case yearsSimulated < 2_000_000_000: // 500M-2B years
+		return ArcheanEarthBenchmarks(), "Archean"
+	case yearsSimulated < 4_000_000_000: // 2B-4B years
+		return ProterozoicEarthBenchmarks(), "Proterozoic"
+	default: // 4B+ years
+		return DefaultEarthBenchmarks(), "Modern"
+	}
+}
+
 // =============================================================================
 // Tolerance Configuration
 // =============================================================================

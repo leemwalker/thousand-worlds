@@ -1165,10 +1165,12 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	sb.WriteString(fmt.Sprintf("Sea Level: %.0fm\n", geoStats.SeaLevel))
 	sb.WriteString(fmt.Sprintf("Land Coverage: %.1f%%\n", geoStats.LandPercent))
 
-	// Earth-Like Habitability Score
+	// Earth-Like Habitability Score (era-aware)
 	calStats := calibration.CollectStats(geology)
-	habitability := calibration.CalculateHabitabilityScore(calStats, calibration.DefaultEarthBenchmarks())
+	eraBenchmarks, eraName := calibration.BenchmarksForEra(years)
+	habitability := calibration.CalculateHabitabilityScore(calStats, eraBenchmarks)
 	sb.WriteString("--- Habitability Score ---\n")
+	sb.WriteString(fmt.Sprintf("Era: %s Earth (%.1f Ga)\n", eraName, float64(years)/1e9))
 	sb.WriteString(fmt.Sprintf("Earth-Like Score: %.0f/100 %s\n", habitability.Score, habitability.Emoji()))
 	sb.WriteString(fmt.Sprintf("Ocean: %s | Land: %s | Climate: %s\n",
 		habitability.OceanGrade(), habitability.LandGrade(), habitability.ClimateGrade()))
