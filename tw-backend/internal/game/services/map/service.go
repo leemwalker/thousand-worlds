@@ -149,6 +149,22 @@ func (s *Service) RenderHeightmapPNG(ctx context.Context, worldID uuid.UUID, geo
 	return s.renderer.RenderHeightmapPNG(ctx, worldID.String(), geo, width, height)
 }
 
+// RenderMaterialPNG renders a material data PNG (rock hardness, continental, sediment)
+func (s *Service) RenderMaterialPNG(ctx context.Context, worldID uuid.UUID, geo *ecosystem.WorldGeology, width, height int) ([]byte, error) {
+	if s.renderer == nil {
+		return nil, fmt.Errorf("renderer not initialized")
+	}
+	return s.renderer.RenderMaterialPNG(ctx, worldID.String(), geo, width, height)
+}
+
+// RenderIcePNG renders an ice sheet coverage PNG
+func (s *Service) RenderIcePNG(ctx context.Context, worldID uuid.UUID, geo *ecosystem.WorldGeology, width, height int) ([]byte, error) {
+	if s.renderer == nil {
+		return nil, fmt.Errorf("renderer not initialized")
+	}
+	return s.renderer.RenderIcePNG(ctx, worldID.String(), geo, width, height)
+}
+
 // worldToGrid converts world coordinates to heightmap grid indices
 // World coordinates can be very large (e.g., spherical world with circumference 17M)
 // but heightmap is typically 512x512 or similar

@@ -356,6 +356,34 @@ export class GameWebSocket {
                 }
             }
 
+            // Read Material Length and Data (if present - rock hardness, continental, sediment)
+            let materialBlob: Blob | null = null;
+            if (offset + 4 <= buffer.byteLength) {
+                const materialLen = view.getUint32(offset, false);
+                offset += 4;
+
+                if (materialLen > 0 && offset + materialLen <= buffer.byteLength) {
+                    const materialBytes = new Uint8Array(buffer, offset, materialLen);
+                    materialBlob = new Blob([materialBytes], { type: 'image/png' });
+                    offset += materialLen;
+                    console.log(`[WebSocket] Parsed material data: ${materialLen} bytes`);
+                }
+            }
+
+            // Read Ice Length and Data (if present - ice sheet coverage)
+            let iceBlob: Blob | null = null;
+            if (offset + 4 <= buffer.byteLength) {
+                const iceLen = view.getUint32(offset, false);
+                offset += 4;
+
+                if (iceLen > 0 && offset + iceLen <= buffer.byteLength) {
+                    const iceBytes = new Uint8Array(buffer, offset, iceLen);
+                    iceBlob = new Blob([iceBytes], { type: 'image/png' });
+                    offset += iceLen;
+                    console.log(`[WebSocket] Parsed ice data: ${iceLen} bytes`);
+                }
+            }
+
             // Construct a ServerMessage to dispatch
             const message: ServerMessage = {
                 type: 'world_map_image_response',
@@ -363,7 +391,9 @@ export class GameWebSocket {
                     ...jsonData,
                     imageBlob: imageBlob,    // WebP image blob
                     gridData: gridData,      // Binary grid data (or null)
-                    heightmapBlob: heightmapBlob // PNG heightmap blob (or null)
+                    heightmapBlob: heightmapBlob, // PNG heightmap blob (or null)
+                    materialBlob: materialBlob,   // PNG material data (or null)
+                    iceBlob: iceBlob              // PNG ice sheet data (or null)
                 },
                 timestamp: Date.now()
             };

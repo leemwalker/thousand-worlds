@@ -53,56 +53,106 @@ Effect.ShadersStore["displacementFragmentShader"] = `
     varying vec3 vNormal;
 
     // Uniforms
-    uniform vec3 color; // Base color
+    uniform vec3 color; // Base color (fallback)
     uniform vec3 lightDirection; // Dynamic sun direction (normalized)
     uniform float seaLevel; // Normalized sea level (0-1 in heightmap space)
     uniform float minElevation; // Minimum elevation in meters
     uniform float maxElevation; // Maximum elevation in meters
+    
+    // Data textures for data-driven coloring
+    uniform sampler2D materialTex; // R=hardness, G=continental, B=sediment
+    uniform sampler2D iceTex;      // R=ice thickness
+    uniform bool hasMaterialTex;
+    uniform bool hasIceTex;
 
-    // Bathymetric gradient (underwater)
-    vec3 getBathymetricColor(float depthFactor) {
-        // depthFactor: 0.0 = at sea level, 1.0 = deepest ocean
-        vec3 shallow = vec3(0.0, 0.5, 0.7);   // Turquoise
-        vec3 mid = vec3(0.0, 0.25, 0.45);     // Ocean blue  
-        vec3 deep = vec3(0.02, 0.08, 0.15);   // Deep navy
-        
-        if (depthFactor < 0.3) {
-            return mix(shallow, mid, depthFactor / 0.3);
+    // Color palette for rock types based on hardness
+    vec3 getRockColor(float hardness, bool isContinental) {
+        if (!isContinental) {
+            // Oceanic crust: basalt (dark grey)
+            return vec3(0.235, 0.235, 0.255);
         }
-        return mix(mid, deep, (depthFactor - 0.3) / 0.7);
+        
+        // Continental crust: sedimentary -> granite based on hardness
+        vec3 sandstone = vec3(0.706, 0.549, 0.392);  // Soft sedimentary
+        vec3 granite = vec3(0.627, 0.588, 0.569);    // Medium metamorphic
+        vec3 hardRock = vec3(0.4, 0.4, 0.42);        // Hard crystalline
+        
+        if (hardness < 0.5) {
+            return mix(sandstone, granite, hardness * 2.0);
+        }
+        return mix(granite, hardRock, (hardness - 0.5) * 2.0);
     }
 
-    // Hypsometric gradient (land)
-    vec3 getHypsometricColor(float heightFactor) {
-        // heightFactor: 0.0 = sea level, 1.0 = max elevation
-        vec3 coast = vec3(0.35, 0.30, 0.25);     // Low land - basalt
-        vec3 lowland = vec3(0.40, 0.35, 0.28);   // Plains
-        vec3 highland = vec3(0.48, 0.43, 0.38);  // Highland
-        vec3 mountain = vec3(0.55, 0.52, 0.48);  // Mountain rock
-        vec3 peak = vec3(0.75, 0.73, 0.70);      // High peaks
-        vec3 snow = vec3(0.95, 0.95, 0.95);      // Snow cap
+    // Sediment overlay color
+    vec3 getSedimentColor(float sediment) {
+        vec3 sedimentTan = vec3(0.706, 0.627, 0.471);
+        return sedimentTan;
+    }
+
+    // Ice/snow color based on thickness
+    vec3 getIceColor(float thickness) {
+        vec3 frost = vec3(0.9, 0.91, 0.93);       // Light frost
+        vec3 snow = vec3(0.95, 0.95, 0.97);       // Snow white
+        vec3 glacier = vec3(0.75, 0.85, 0.92);    // Blue-white glacier
         
-        if (heightFactor < 0.1) return mix(coast, lowland, heightFactor / 0.1);
-        if (heightFactor < 0.3) return mix(lowland, highland, (heightFactor - 0.1) / 0.2);
-        if (heightFactor < 0.5) return mix(highland, mountain, (heightFactor - 0.3) / 0.2);
-        if (heightFactor < 0.75) return mix(mountain, peak, (heightFactor - 0.5) / 0.25);
-        return mix(peak, snow, (heightFactor - 0.75) / 0.25);
+        if (thickness < 0.3) {
+            return mix(frost, snow, thickness / 0.3);
+        }
+        return mix(snow, glacier, (thickness - 0.3) / 0.7);
+    }
+
+    // Satellite-style bathymetric (underwater terrain visible through water)
+    vec3 getBathymetricColor(vec3 terrainColor, float depthFactor) {
+        vec3 shallowWater = vec3(0.314, 0.706, 0.863);  // Turquoise
+        vec3 deepWater = vec3(0.02, 0.08, 0.2);         // Deep navy
+        
+        // Water tint based on depth
+        vec3 waterTint = mix(shallowWater, deepWater, depthFactor);
+        
+        // Blend terrain with water - shallow shows terrain, deep obscures
+        float visibility = 1.0 - min(depthFactor * 1.5, 0.85);
+        return mix(waterTint, terrainColor * 0.7, visibility);
     }
 
     void main(void) {
         // Lighting
         float ndotl = max(0.0, dot(vNormal, lightDirection));
         
-        vec3 surfaceColor;
+        // Sample material data if available
+        float hardness = 0.5;
+        bool isContinental = true;
+        float sediment = 0.0;
         
+        if (hasMaterialTex) {
+            vec4 matData = texture2D(materialTex, vUV);
+            hardness = matData.r;
+            isContinental = matData.g > 0.5;
+            sediment = matData.b;
+        }
+        
+        // Get base rock color from material data
+        vec3 surfaceColor = getRockColor(hardness, isContinental);
+        
+        // Apply sediment overlay
+        if (sediment > 0.1) {
+            vec3 sedimentCol = getSedimentColor(sediment);
+            surfaceColor = mix(surfaceColor, sedimentCol, min(sediment * 1.5, 0.7));
+        }
+        
+        // Check if underwater
         if (vHeight < seaLevel) {
-            // Underwater - calculate depth factor (0 = sea level, 1 = deepest)
+            // Underwater - satellite-style bathymetry showing underwater terrain
             float depthFactor = (seaLevel - vHeight) / max(seaLevel, 0.001);
-            surfaceColor = getBathymetricColor(depthFactor);
-        } else {
-            // Land - calculate height factor (0 = sea level, 1 = max elevation)
-            float heightFactor = (vHeight - seaLevel) / max(1.0 - seaLevel, 0.001);
-            surfaceColor = getHypsometricColor(heightFactor);
+            surfaceColor = getBathymetricColor(surfaceColor, depthFactor);
+        }
+        
+        // Apply ice overlay
+        if (hasIceTex) {
+            float ice = texture2D(iceTex, vUV).r;
+            if (ice > 0.05) {
+                vec3 iceCol = getIceColor(ice);
+                surfaceColor = mix(surfaceColor, iceCol, min(ice * 2.0, 0.95));
+            }
         }
         
         vec3 finalColor = surfaceColor * (0.25 + 0.75 * ndotl); // Ambient + Diffuse
@@ -132,8 +182,8 @@ export class DisplacementShader implements IShaderProvider {
             },
             {
                 attributes: ["position", "normal", "uv"],
-                uniforms: ["world", "viewProjection", "scale", "color", "lightDirection", "seaLevel", "minElevation", "maxElevation"],
-                samplers: ["heightmap"],
+                uniforms: ["world", "viewProjection", "scale", "color", "lightDirection", "seaLevel", "minElevation", "maxElevation", "hasMaterialTex", "hasIceTex"],
+                samplers: ["heightmap", "materialTex", "iceTex"],
             }
         );
 
@@ -147,6 +197,10 @@ export class DisplacementShader implements IShaderProvider {
         this.material.setFloat("seaLevel", 0.3);
         this.material.setFloat("minElevation", -6000);
         this.material.setFloat("maxElevation", 8848);
+
+        // Data texture flags - default to false until textures are provided
+        this.material.setInt("hasMaterialTex", 0);
+        this.material.setInt("hasIceTex", 0);
 
         // Render back faces too just in case, though sphere usually doesn't need it
         this.material.backFaceCulling = true;
@@ -174,6 +228,32 @@ export class DisplacementShader implements IShaderProvider {
     public setLightDirection(direction: Vector3): void {
         if (this.material) {
             this.material.setVector3("lightDirection", direction);
+        }
+    }
+
+    /**
+     * Set the material data texture for data-driven terrain coloring.
+     * R=rock hardness (0-1), G=continental (0=oceanic, 1=continental), B=sediment depth
+     * @param texture Material data texture (RGB PNG)
+     */
+    public setMaterialTexture(texture: Texture): void {
+        if (this.material) {
+            this.material.setTexture("materialTex", texture);
+            this.material.setInt("hasMaterialTex", 1);
+            console.log("[DisplacementShader] Material texture set");
+        }
+    }
+
+    /**
+     * Set the ice sheet data texture for glacier/polar ice visualization.
+     * R=ice thickness (normalized 0-1)
+     * @param texture Ice data texture (grayscale PNG)
+     */
+    public setIceTexture(texture: Texture): void {
+        if (this.material) {
+            this.material.setTexture("iceTex", texture);
+            this.material.setInt("hasIceTex", 1);
+            console.log("[DisplacementShader] Ice texture set");
         }
     }
 

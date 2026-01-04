@@ -39,6 +39,8 @@
     // Props
     export let globeTextureBlob: Blob | null = null;
     export let globeHeightmapBlob: Blob | null = null;
+    export let materialBlob: Blob | null = null;
+    export let iceBlob: Blob | null = null;
     export let seaLevel: number = 0;
     export let maxElevation: number = 8848;
     export let minElevation: number = -11000;
@@ -452,6 +454,16 @@
         applyHeightDisplacement(globeHeightmapBlob);
     }
 
+    // Watch for material blob changes (data-driven terrain coloring)
+    $: if (materialBlob && scene && displacementShader) {
+        applyMaterialTexture(materialBlob);
+    }
+
+    // Watch for ice blob changes (glacier/polar visualization)
+    $: if (iceBlob && scene && displacementShader) {
+        applyIceTexture(iceBlob);
+    }
+
     function createMoons(s: Scene) {
         if (!planetNode || satellites.length === 0) {
             console.log("[BabylonGlobe] No moons to create");
@@ -828,6 +840,51 @@
             });
         } catch (err) {
             console.error("[BabylonGlobe] Failed to apply heightmap:", err);
+        }
+    }
+
+    async function applyMaterialTexture(blob: Blob) {
+        if (!scene || !displacementShader) return;
+
+        console.log(
+            `[BabylonGlobe] Applying material texture from blob (${blob.size} bytes)`,
+        );
+
+        try {
+            const url = URL.createObjectURL(blob);
+            const texture = new Texture(url, scene);
+
+            texture.onLoadObservable.addOnce(() => {
+                console.log("[BabylonGlobe] Material texture loaded");
+                displacementShader?.setMaterialTexture(texture);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            });
+        } catch (err) {
+            console.error(
+                "[BabylonGlobe] Failed to apply material texture:",
+                err,
+            );
+        }
+    }
+
+    async function applyIceTexture(blob: Blob) {
+        if (!scene || !displacementShader) return;
+
+        console.log(
+            `[BabylonGlobe] Applying ice texture from blob (${blob.size} bytes)`,
+        );
+
+        try {
+            const url = URL.createObjectURL(blob);
+            const texture = new Texture(url, scene);
+
+            texture.onLoadObservable.addOnce(() => {
+                console.log("[BabylonGlobe] Ice texture loaded");
+                displacementShader?.setIceTexture(texture);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            });
+        } catch (err) {
+            console.error("[BabylonGlobe] Failed to apply ice texture:", err);
         }
     }
 

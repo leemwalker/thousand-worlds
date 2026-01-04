@@ -52,6 +52,8 @@
     let useGlobeView = true;
     let globeTextureBlob: Blob | null = null;
     let globeHeightmapBlob: Blob | null = null;
+    let globeMaterialBlob: Blob | null = null;
+    let globeIceBlob: Blob | null = null;
     let globeHeightData: Float32Array | null = null; // Deprecated
     let globeSeaLevel = 0;
     let globeMaxElevation = 8848;
@@ -344,6 +346,22 @@
             } else if (!isHighRes) {
                 // Reset heightmap blob on initial/low-res load
                 globeHeightmapBlob = null;
+            }
+
+            // Set material blob for data-driven terrain coloring
+            if (payload.materialBlob) {
+                console.log("[WorldMapModal] Received Material PNG Blob");
+                globeMaterialBlob = payload.materialBlob;
+            } else if (!isHighRes) {
+                globeMaterialBlob = null;
+            }
+
+            // Set ice blob for glacier/polar ice visualization
+            if (payload.iceBlob) {
+                console.log("[WorldMapModal] Received Ice PNG Blob");
+                globeIceBlob = payload.iceBlob;
+            } else if (!isHighRes) {
+                globeIceBlob = null;
             }
 
             if (
@@ -753,6 +771,8 @@
                         <BabylonGlobe
                             {globeTextureBlob}
                             {globeHeightmapBlob}
+                            materialBlob={globeMaterialBlob}
+                            iceBlob={globeIceBlob}
                             seaLevel={globeSeaLevel}
                             maxElevation={globeMaxElevation}
                             minElevation={globeMinElevation}

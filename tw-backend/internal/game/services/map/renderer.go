@@ -219,6 +219,165 @@ func (r *Renderer) RenderHeightmapPNG(ctx context.Context, worldID string, geo *
 	return buf.Bytes(), nil
 }
 
+// RenderMaterialPNG generates a PNG with terrain material data in RGB channels.
+// This enables data-driven terrain coloring in the 3D globe renderer.
+// R: RockHardness (0-255, from Province data: 0=soft sediment, 255=hard granite)
+// G: IsContinental (0=oceanic/basalt, 255=continental/granite)
+// B: Sediment depth (normalized 0-255, 255=max sediment)
+func (r *Renderer) RenderMaterialPNG(ctx context.Context, worldID string, geo *ecosystem.WorldGeology, width, height int) ([]byte, error) {
+	// Validation
+	if width <= 0 {
+		width = r.config.DefaultWidth
+	}
+	if height <= 0 {
+		height = r.config.DefaultHeight
+	}
+	if width > r.config.MaxWidth {
+		width = r.config.MaxWidth
+	}
+	if height > r.config.MaxHeight {
+		height = r.config.MaxHeight
+	}
+
+	if geo.SphereHeightmap == nil {
+		return nil, ErrWorldNotInitialized
+	}
+
+	topo := geo.SphereHeightmap.Topology()
+
+	// Create RGBA image for material data
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+
+	// Max sediment for normalization (200m is typical max from GetSedimentMap)
+	const maxSediment = 200.0
+
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			// Convert pixel to lat/lon to sphere coord
+			tY := float64(y) / float64(height)
+			lat := (0.5 - tY) * math.Pi
+			tX := float64(x) / float64(width)
+			lon := (tX - 0.5) * 2 * math.Pi
+
+			cosLat := math.Cos(lat)
+			sinLat := math.Sin(lat)
+			cosLon := math.Cos(lon)
+			sinLon := math.Sin(lon)
+
+			vx := cosLat * cosLon
+			vy := sinLat
+			vz := cosLat * sinLon
+
+			coord := topo.FromVector(vx, vy, vz)
+			cellData := geo.SphereHeightmap.GetCellData(coord)
+
+			// R: Rock hardness (0-1 scaled to 0-255)
+			hardness := uint8(cellData.RockHardness * 255)
+
+			// G: IsContinental
+			var isContinental uint8
+			if cellData.IsContinental {
+				isContinental = 255
+			}
+
+			// B: Sediment depth (normalized)
+			sediment := cellData.Sediment / maxSediment
+			if sediment > 1.0 {
+				sediment = 1.0
+			}
+			sedimentVal := uint8(sediment * 255)
+
+			img.SetRGBA(x, y, color.RGBA{R: hardness, G: isContinental, B: sedimentVal, A: 255})
+		}
+	}
+
+	// Encode to PNG
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
+// RenderIcePNG generates a grayscale PNG of ice sheet coverage.
+// 0 = no ice, 255 = maximum glacier thickness
+func (r *Renderer) RenderIcePNG(ctx context.Context, worldID string, geo *ecosystem.WorldGeology, width, height int) ([]byte, error) {
+	// Validation
+	if width <= 0 {
+		width = r.config.DefaultWidth
+	}
+	if height <= 0 {
+		height = r.config.DefaultHeight
+	}
+	if width > r.config.MaxWidth {
+		width = r.config.MaxWidth
+	}
+	if height > r.config.MaxHeight {
+		height = r.config.MaxHeight
+	}
+
+	if geo.SphereHeightmap == nil {
+		return nil, ErrWorldNotInitialized
+	}
+
+	topo := geo.SphereHeightmap.Topology()
+
+	// Create grayscale image
+	img := image.NewGray(image.Rect(0, 0, width, height))
+
+	// Max ice thickness for normalization (3000m is ~Antarctic max)
+	const maxIce = 3000.0
+
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			// Convert pixel to sphere coord
+			tY := float64(y) / float64(height)
+			lat := (0.5 - tY) * math.Pi
+			tX := float64(x) / float64(width)
+			lon := (tX - 0.5) * 2 * math.Pi
+
+			cosLat := math.Cos(lat)
+			sinLat := math.Sin(lat)
+			cosLon := math.Cos(lon)
+			sinLon := math.Sin(lon)
+
+			vx := cosLat * cosLon
+			vy := sinLat
+			vz := cosLat * sinLon
+
+			coord := topo.FromVector(vx, vy, vz)
+
+			var iceThickness float64
+			if geo.IceSheet != nil && len(geo.IceSheet.Ice) > 0 {
+				// Use IceSheet slice indexing
+				res := geo.IceSheet.Resolution
+				idx := coord.Face*res*res + coord.Y*res + coord.X
+				if idx >= 0 && idx < len(geo.IceSheet.Ice) {
+					iceThickness = geo.IceSheet.Ice[idx].Thickness
+				}
+			}
+
+			// Normalize ice thickness
+			normalized := iceThickness / maxIce
+			if normalized > 1.0 {
+				normalized = 1.0
+			}
+			val := uint8(normalized * 255)
+
+			img.SetGray(x, y, color.Gray{Y: val})
+		}
+	}
+
+	// Encode to PNG
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
 // renderInternal performs the actual pixel generation and encoding
 func (r *Renderer) renderInternal(ctx context.Context, geo *ecosystem.WorldGeology, width, height int) ([]byte, error) {
 	// Use SphereHeightmap if available (Phase 2+ / "Satellite" view)

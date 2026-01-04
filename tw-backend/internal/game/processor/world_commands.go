@@ -1774,8 +1774,22 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 		// Non-critical, continue without it
 	}
 
-	// 4. Construct Binary Message
-	// Protocol: [Type:1][JSONLen:4][JSON][BinLen:4][Image][GridLen:4][Grid][HeightMapLen:4][HeightMap]
+	// 4. Render Material PNG (Rock hardness, continental, sediment for data-driven coloring)
+	materialBytes, err := p.mapService.RenderMaterialPNG(renderCtx, char.WorldID, geo, width, height)
+	if err != nil {
+		log.Printf("[MAP] Material render failed: %v", err)
+		// Non-critical, continue without it
+	}
+
+	// 5. Render Ice PNG (Ice sheet coverage for polar/glacier visualization)
+	iceBytes, err := p.mapService.RenderIcePNG(renderCtx, char.WorldID, geo, width, height)
+	if err != nil {
+		log.Printf("[MAP] Ice render failed: %v", err)
+		// Non-critical, continue without it
+	}
+
+	// 6. Construct Binary Message
+	// Protocol: [Type:1][JSONLen:4][JSON][BinLen:4][Image][GridLen:4][Grid][HeightMapLen:4][HeightMap][MaterialLen:4][Material][IceLen:4][Ice]
 
 	// Construct JSON Metadata
 	type MapImageMetadata struct {
@@ -1797,6 +1811,8 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 		IsSimulated      bool    `json:"is_simulated"`
 		HasGridData      bool    `json:"has_grid_data"`
 		HasHeightmapData bool    `json:"has_heightmap_data"`
+		HasMaterialData  bool    `json:"has_material_data"`
+		HasIceData       bool    `json:"has_ice_data"`
 	}
 
 	stats := geo.GetStats()
@@ -1820,6 +1836,8 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 		IsSimulated:      true,
 		HasGridData:      len(gridBytes) > 0,
 		HasHeightmapData: len(heightmapBytes) > 0,
+		HasMaterialData:  len(materialBytes) > 0,
+		HasIceData:       len(iceBytes) > 0,
 	}
 
 	jsonBytes, err := json.Marshal(meta)
@@ -1828,8 +1846,8 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 		return nil
 	}
 
-	// Binary section: [ImageLen:4][Image][GridLen:4][Grid][HeightMapLen:4][HeightMap]
-	binSectionSize := 4 + len(imageBytes) + 4 + len(gridBytes) + 4 + len(heightmapBytes)
+	// Binary section: [ImageLen:4][Image][GridLen:4][Grid][HeightMapLen:4][HeightMap][MaterialLen:4][Material][IceLen:4][Ice]
+	binSectionSize := 4 + len(imageBytes) + 4 + len(gridBytes) + 4 + len(heightmapBytes) + 4 + len(materialBytes) + 4 + len(iceBytes)
 	binSection := bytes.NewBuffer(make([]byte, 0, binSectionSize))
 
 	// Write Image Length and Data (Big Endian)
@@ -1846,6 +1864,18 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 	binary.Write(binSection, binary.BigEndian, uint32(len(heightmapBytes)))
 	if len(heightmapBytes) > 0 {
 		binSection.Write(heightmapBytes)
+	}
+
+	// Write Material Length and Data (Big Endian)
+	binary.Write(binSection, binary.BigEndian, uint32(len(materialBytes)))
+	if len(materialBytes) > 0 {
+		binSection.Write(materialBytes)
+	}
+
+	// Write Ice Length and Data (Big Endian)
+	binary.Write(binSection, binary.BigEndian, uint32(len(iceBytes)))
+	if len(iceBytes) > 0 {
+		binSection.Write(iceBytes)
 	}
 
 	binBytes := binSection.Bytes()
@@ -1867,8 +1897,8 @@ func (p *GameProcessor) handleWorldMapImage(ctx context.Context, client websocke
 	// Write Binary Section Data
 	buf.Write(binBytes)
 
-	log.Printf("[MAP] Sending world map image: %dx%d, grid %dx%d, image=%d bytes, grid=%d bytes, heightmap=%d bytes",
-		width, height, GridSize, GridSize/2, len(imageBytes), len(gridBytes), len(heightmapBytes))
+	log.Printf("[MAP] Sending world map image: %dx%d, grid %dx%d, image=%d bytes, grid=%d bytes, heightmap=%d bytes, material=%d bytes, ice=%d bytes",
+		width, height, GridSize, GridSize/2, len(imageBytes), len(gridBytes), len(heightmapBytes), len(materialBytes), len(iceBytes))
 
 	// Send Raw Binary Message
 	client.SendRawBytes(buf.Bytes())
