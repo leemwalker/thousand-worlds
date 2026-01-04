@@ -12,7 +12,10 @@ vi.mock('@babylonjs/core/Meshes/meshBuilder', () => ({
             position: { x: 0, y: 0, z: 0 },
             dispose: vi.fn(),
             setEnabled: vi.fn(),
-            material: null
+            material: null,
+            getVerticesData: vi.fn(() => new Float32Array(100)),
+            updateVerticesData: vi.fn(),
+            isReady: () => true
         }))
     }
 }));

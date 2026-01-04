@@ -7,17 +7,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock Babylon.js dependencies
 vi.mock("@babylonjs/core/Maths/math.vector", () => {
-    const Vector3Mock = vi.fn().mockImplementation((x = 0, y = 0, z = 0) => ({
+    const createMockVec = (x = 0, y = 0, z = 0): any => ({
         x, y, z,
-        length: () => Math.sqrt(x * x + y * y + z * z),
-        normalize: function () { return this; },
-        scale: function (s: number) { return { x: this.x * s, y: this.y * s, z: this.z * s }; },
-        clone: function () { return { ...this }; },
-        add: function (v: any) { return { x: this.x + v.x, y: this.y + v.y, z: this.z + v.z }; },
-    }));
-    (Vector3Mock as any).Zero = () => ({ x: 0, y: 0, z: 0 });
-    (Vector3Mock as any).Forward = () => ({ x: 0, y: 0, z: 1 });
-    (Vector3Mock as any).Up = () => ({ x: 0, y: 1, z: 0 });
+        length: function () { return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z); },
+        normalize: function () { return createMockVec(this.x, this.y, this.z); },
+        scale: function (s: number) { return createMockVec(this.x * s, this.y * s, this.z * s); },
+        clone: function () { return createMockVec(this.x, this.y, this.z); },
+        add: function (v: any) { return createMockVec(this.x + v.x, this.y + v.y, this.z + v.z); },
+    });
+    const Vector3Mock = vi.fn().mockImplementation((x = 0, y = 0, z = 0) => createMockVec(x, y, z));
+    (Vector3Mock as any).Zero = () => createMockVec(0, 0, 0);
+    (Vector3Mock as any).Forward = () => createMockVec(0, 0, 1);
+    (Vector3Mock as any).Up = () => createMockVec(0, 1, 0);
     return { Vector3: Vector3Mock };
 });
 

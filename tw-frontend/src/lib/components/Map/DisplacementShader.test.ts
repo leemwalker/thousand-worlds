@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockShaderMaterial = {
     setTexture: vi.fn(),
     setFloat: vi.fn(),
+    setVector3: vi.fn(),
     backFaceCulling: false,
 };
 
