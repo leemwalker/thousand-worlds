@@ -66,16 +66,28 @@ Effect.ShadersStore["displacementFragmentShader"] = `
         float ndotl = max(0.0, dot(vNormal, lightDirection));
         
         // Coloring based on height (simple ramp)
-        vec3 surfaceColor = vec3(0.1, 0.1, 0.3); // Deep ocean
+        // Sea level at 0.5 (midpoint of normalized heightmap)
+        vec3 surfaceColor = vec3(0.05, 0.08, 0.15); // Deep ocean (dark blue)
         
-        if (vHeight > 0.01) {
-            surfaceColor = vec3(0.2, 0.5, 0.2); // Land
+        if (vHeight > 0.4) {
+            // Shallow water / coastal
+            surfaceColor = vec3(0.1, 0.15, 0.25);
+        }
+        if (vHeight > 0.5) {
+            // Low land - basalt/volcanic rock (grey-brown, not green)
+            surfaceColor = vec3(0.35, 0.3, 0.25);
         }
         if (vHeight > 0.6) {
-            surfaceColor = vec3(0.5, 0.5, 0.5); // Mountain
+            // Highland - lighter rock
+            surfaceColor = vec3(0.45, 0.4, 0.35);
         }
-        if (vHeight > 0.8) {
-            surfaceColor = vec3(1.0, 1.0, 1.0); // Snow
+        if (vHeight > 0.75) {
+            // Mountain - grey rock
+            surfaceColor = vec3(0.55, 0.55, 0.5);
+        }
+        if (vHeight > 0.9) {
+            // Peak / snow
+            surfaceColor = vec3(0.95, 0.95, 0.95);
         }
         
         vec3 finalColor = surfaceColor * (0.2 + 0.8 * ndotl); // Ambient + Diffuse
