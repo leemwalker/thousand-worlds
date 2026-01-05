@@ -75,7 +75,8 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	// Default values
 	years := int64(1_000_000)
 	var seedFlag int64 = 0
-	var moonsFlag int = -1 // -1 means random, >= 0 means override
+	var moonsFlag int = -1       // -1 means random, >= 0 means override
+	var resolutionFlag int = 128 // Default resolution (64, 128, 256, 512)
 	var epochFlag, goalFlag, waterLevelFlag string
 
 	// Subsystem flags - all false by default, enabled explicitly or via "no flags = all"
@@ -170,6 +171,13 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 				}
 				i++
 			}
+		case "--resolution":
+			if i+1 < len(args) {
+				if parsed, err := strconv.Atoi(args[i+1]); err == nil && parsed >= 32 {
+					resolutionFlag = parsed
+				}
+				i++
+			}
 		}
 	}
 
@@ -235,6 +243,11 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		client.SendGameMessage("system", fmt.Sprintf("🌙 Natural Satellites: %d moons configured", moonsFlag), nil)
 	}
 
+	// Display resolution if non-default
+	if resolutionFlag != 128 {
+		client.SendGameMessage("system", fmt.Sprintf("📐 Resolution: %d (detail level)", resolutionFlag), nil)
+	}
+
 	// Get current world for context
 	char, _ := p.authRepo.GetCharacter(ctx, client.GetCharacterID())
 	if char == nil {
@@ -265,8 +278,8 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 
 	// Initialize terrain if first simulation
 	if !geology.IsInitialized() {
-		client.SendGameMessage("system", "Initializing world geology...", nil)
-		geology.InitializeGeology(0)
+		client.SendGameMessage("system", fmt.Sprintf("Initializing world geology (resolution: %d)...", resolutionFlag), nil)
+		geology.InitializeGeology(resolutionFlag)
 		client.SendGameMessage("system", "Geology initialized with tectonic plates and terrain.", nil)
 
 		// Spawn initial creatures based on generated biomes
