@@ -1,13 +1,16 @@
 package ecosystem
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math"
 	"math/rand"
 	"sync"
 	"time"
+	pb "tw-backend/api/proto"
 	"tw-backend/internal/debug"
+	"tw-backend/internal/events"
 	"tw-backend/internal/spatial"
 	"tw-backend/internal/worldgen/astronomy"
 	"tw-backend/internal/worldgen/geography"
@@ -81,6 +84,10 @@ type WorldGeology struct {
 
 	// Atmospheric composition tracking (for life evolution)
 	Atmosphere AtmosphericComposition
+
+	// Event infrastructure (Phase 1)
+	EventPublisher events.Publisher
+	lastEventSeq   int64
 }
 
 // AtmosphericComposition tracks gas ratios for climate and life simulation.
@@ -131,6 +138,7 @@ func NewWorldGeology(worldID uuid.UUID, seed int64, circumferenceMeters float64)
 			N2:  78.0, // Nitrogen outgassed early
 			CH4: 2.0,  // Methane from volcanism
 		},
+		EventPublisher: events.NewNoOpPublisher(),
 	}
 }
 
@@ -275,8 +283,8 @@ func (g *WorldGeology) UpdateAtmosphere() {
 		g.Atmosphere.N2 = 78.0
 
 	default:
-		// Post-Carboniferous to Modern: O2 declines to 21%
-		if year >= modernAge {
+		// This sets the baseline; biological processes will modify this further
+		if g.TotalYearsSimulated >= 2_500_000_000 {
 			g.Atmosphere.O2 = 21.0
 			g.Atmosphere.CO2 = 0.04
 		} else {
@@ -287,6 +295,9 @@ func (g *WorldGeology) UpdateAtmosphere() {
 		g.Atmosphere.CH4 = 0.0002
 		g.Atmosphere.N2 = 78.0
 	}
+
+	// Phase 1: Emit atmosphere update
+	g.emitAtmosphereEvent()
 }
 
 // InitializeGeology creates the baseline terrain from scratch.
@@ -992,6 +1003,9 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 
 				g.markSphereNeedsSync()
 
+				// Emit tectonic event (Adaptive: 100K-10M years)
+				g.emitTectonicEvent(scaleFactor, int64(tectonicInterval), heat)
+
 				if debug.Is(debug.Tectonics | debug.Perf) {
 					log.Printf("[Perf] TectonicsUpdate took %v", time.Since(tectonicUpdateStart))
 				}
@@ -1015,6 +1029,11 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 		// Surface processes only matter on cooled planets with solid crust
 		erosionInterval := 10_000_000.0 // 10M years (was 10K)
 		if g.ErosionAccumulator >= erosionInterval {
+			// Enable tracking for this erosion cycle
+			if g.SphereHeightmap != nil {
+				g.SphereHeightmap.EnableDeltaTracking()
+			}
+
 			// Thermal erosion: Limited iterations to prevent lag
 			if g.SphereHeightmap != nil && g.Topology != nil {
 				geography.ApplyThermalErosionSpherical(g.SphereHeightmap, g.Topology, 3, g.Seed+g.TotalYearsSimulated)
@@ -1048,6 +1067,9 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 			// Soft provinces (basins) erode faster, hard provinces (cratons) resist erosion
 			// Sediment deposits at coastlines building continental shelves
 			if g.SphereHeightmap != nil && g.Topology != nil {
+				// Enable tracking for this cycle
+				g.SphereHeightmap.EnableDeltaTracking()
+
 				resolution := g.Topology.Resolution()
 				totalCells := 6 * resolution * resolution
 				numDrops := totalCells / 20 // ~5% of cells per erosion cycle
@@ -1110,6 +1132,10 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 				geography.FormSpitsAndBars(g.SphereHeightmap, g.Topology, g.SeaLevel, g.Seed+g.TotalYearsSimulated)
 
 				g.markSphereNeedsSync()
+
+				// Emit erosion update with accumulated deltas
+				g.emitErosionEvent()
+				g.SphereHeightmap.DisableDeltaTracking() // Reset tracking
 			} else {
 				// Fallback for flat heightmap (legacy)
 				geography.ApplyHydraulicErosion(g.Heightmap, 500, g.Seed+g.TotalYearsSimulated)
@@ -1360,6 +1386,11 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 	// we mark dirty and flush once at the end
 	g.flushSync()
 
+	// Emit phase transition event if one occurred
+	if phaseEvent != nil {
+		g.emitPhaseEvent(phaseEvent.Type, phaseEvent.Description)
+	}
+
 	return phaseEvent
 }
 
@@ -1394,6 +1425,9 @@ func (g *WorldGeology) applyHotspotActivity(years float64) {
 			radius := 1.5 // Small distinct cones
 
 			geography.ApplyVolcanoFlat(g.Heightmap, jx, jy, radius, height)
+
+			// Emit event
+			g.emitVolcanicEvent(jx, jy, height)
 		}
 	}
 }
@@ -2718,4 +2752,202 @@ func (g *WorldGeology) GetTerrainFeaturesMap(width, height int) []ResourceNode {
 	}
 
 	return features
+}
+
+// =============================================================================
+// Event Emission Helpers (Phase 1: Event Infrastructure)
+// =============================================================================
+
+// emitTectonicEvent publishes plate movement updates.
+// intervalYears is the time accumulated since the last event.
+func (g *WorldGeology) emitTectonicEvent(scaleFactor float64, intervalYears int64, heat float64) {
+	if g.EventPublisher == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Convert plates to PlateDelta
+	var plateDeltas []*pb.PlateDelta
+	for _, p := range g.Plates {
+		// Use Position as centroid (already normalized sphere coordinate)
+		plateDeltas = append(plateDeltas, &pb.PlateDelta{
+			PlateId:   p.ID.String(),
+			PlateType: string(p.Type),
+			PositionX: p.Position.X,
+			PositionY: p.Position.Y,
+			PositionZ: p.Position.Z,
+			VelocityX: p.Velocity.X,
+			VelocityY: p.Velocity.Y,
+			VelocityZ: p.Velocity.Z,
+			AgeMyr:    p.Age,
+		})
+	}
+
+	boundaryCount := int32(0)
+	if g.BoundaryCache != nil {
+		boundaryCount = int32(len(g.BoundaryCache.Cells))
+	}
+
+	event := &pb.TectonicUpdate{
+		Year:          g.TotalYearsSimulated,
+		WorldId:       g.WorldID.String(),
+		Plates:        plateDeltas,
+		BoundaryCount: boundaryCount,
+		PlanetaryHeat: heat,
+		IntervalYears: intervalYears,
+	}
+
+	if err := g.EventPublisher.PublishTectonic(ctx, event); err != nil {
+		// Just log error for now, don't stop simulation
+		log.Printf("[EVENT ERROR] Tectonic: %v", err)
+	}
+}
+
+// emitErosionEvent publishes heightmap changes from erosion.
+func (g *WorldGeology) emitErosionEvent() {
+	if g.EventPublisher == nil || g.SphereHeightmap == nil {
+		return
+	}
+
+	// Only emit if there are deltas
+	count := g.SphereHeightmap.DeltaCount()
+	if count == 0 {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	deltas := g.SphereHeightmap.FlushDeltas()
+	var cells []*pb.CellDelta
+	totalElevChange := 0.0
+
+	for _, d := range deltas {
+		cells = append(cells, &pb.CellDelta{
+			Face:           int32(d.Face),
+			X:              int32(d.X),
+			Y:              int32(d.Y),
+			ElevationDelta: d.ElevationDelta,
+			SedimentDelta:  d.SedimentDelta,
+		})
+		totalElevChange += math.Abs(d.ElevationDelta)
+	}
+
+	event := &pb.ErosionUpdate{
+		Year:    g.TotalYearsSimulated,
+		WorldId: g.WorldID.String(),
+		Delta: &pb.HeightmapDelta{
+			Year:                 g.TotalYearsSimulated,
+			Resolution:           int32(g.Topology.Resolution()),
+			Cells:                cells,
+			TotalElevationChange: totalElevChange,
+		},
+		AvgElevationChange: totalElevChange / float64(count),
+		RiversUpdated:      int32(len(g.Rivers)),
+		// Lakes count not tracked efficiently yet
+	}
+
+	if err := g.EventPublisher.PublishErosion(ctx, event); err != nil {
+		log.Printf("[EVENT ERROR] Erosion: %v", err)
+	}
+}
+
+// emitPhaseEvent publishes major planetary transitions.
+func (g *WorldGeology) emitPhaseEvent(phaseType, description string) {
+	if g.EventPublisher == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	event := &pb.PhaseTransition{
+		Year:           g.TotalYearsSimulated,
+		WorldId:        g.WorldID.String(),
+		EventType:      phaseType,
+		Description:    description,
+		SeaLevelBefore: g.SeaLevel,
+		SeaLevelAfter:  g.SeaLevel,
+	}
+
+	if err := g.EventPublisher.PublishPhase(ctx, event); err != nil {
+		log.Printf("[EVENT ERROR] Phase: %v", err)
+	}
+}
+
+// EmitSnapshot publishes a full heightmap snapshot.
+// Can be called externally or periodically.
+func (g *WorldGeology) EmitSnapshot() error {
+	if g.EventPublisher == nil || g.SphereHeightmap == nil {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second) // Longer timeout for snapshots
+	defer cancel()
+
+	data, err := events.SerializeHeightmap(g.SphereHeightmap)
+	if err != nil {
+		return fmt.Errorf("serialize heightmap: %w", err)
+	}
+
+	event := &pb.HeightmapSnapshot{
+		Year:       g.TotalYearsSimulated,
+		WorldId:    g.WorldID.String(),
+		Resolution: int32(g.SphereHeightmap.Resolution()),
+		Data:       data,
+		SeaLevel:   g.SeaLevel,
+	}
+
+	if err := g.EventPublisher.PublishSnapshot(ctx, event); err != nil {
+		return fmt.Errorf("publish snapshot: %w", err)
+	}
+	return nil
+}
+
+// emitVolcanicEvent publishes volcanic eruptions.
+func (g *WorldGeology) emitVolcanicEvent(x, y float64, heightAdded float64) {
+	if g.EventPublisher == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	event := &pb.VolcanicEvent{
+		Year:        g.TotalYearsSimulated,
+		WorldId:     g.WorldID.String(),
+		LocationX:   x,
+		LocationY:   y,
+		HeightAdded: heightAdded,
+	}
+
+	if err := g.EventPublisher.PublishVolcanic(ctx, event); err != nil {
+		log.Printf("[EVENT ERROR] Volcano: %v", err)
+	}
+}
+
+// emitAtmosphereEvent publishes atmospheric changes.
+func (g *WorldGeology) emitAtmosphereEvent() {
+	if g.EventPublisher == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	event := &pb.AtmosphereUpdate{
+		Year:       g.TotalYearsSimulated,
+		WorldId:    g.WorldID.String(),
+		O2Percent:  g.Atmosphere.O2,
+		Co2Percent: g.Atmosphere.CO2,
+		N2Percent:  g.Atmosphere.N2,
+		Ch4Percent: g.Atmosphere.CH4,
+		Era:        "Modern", // Placeholder, ideally get from somewhere
+	}
+
+	if err := g.EventPublisher.PublishAtmosphere(ctx, event); err != nil {
+		log.Printf("[EVENT ERROR] Atmosphere: %v", err)
+	}
 }

@@ -1,0 +1,156 @@
+syntax = "proto3";
+
+package simulation.v1;
+
+option go_package = "tw-backend/internal/events/pb";
+
+// =============================================================================
+// Core Data Types
+// =============================================================================
+
+// HeightmapDelta tracks incremental changes to terrain
+// Used for efficient delta streaming instead of full snapshots
+message HeightmapDelta {
+  int64 year = 1;                    // Simulation year when delta was recorded
+  int32 resolution = 2;              // Grid resolution (per face)
+  repeated CellDelta cells = 3;      // Changed cells only
+  double total_elevation_change = 4; // Sum of all elevation changes
+}
+
+// CellDelta represents a single cell's change
+message CellDelta {
+  int32 face = 1;                    // Cube face (0-5)
+  int32 x = 2;                       // X coordinate on face
+  int32 y = 3;                       // Y coordinate on face
+  double elevation_delta = 4;        // Change in meters
+  double sediment_delta = 5;         // Change in sediment depth
+}
+
+// PlateDelta captures plate state for tectonic events
+message PlateDelta {
+  string plate_id = 1;
+  string plate_type = 2;             // "continental" or "oceanic"
+  double position_x = 3;             // Unit sphere position
+  double position_y = 4;
+  double position_z = 5;
+  double velocity_x = 6;             // Movement direction
+  double velocity_y = 7;
+  double velocity_z = 8;
+  double age_myr = 9;                // Age in million years
+}
+
+// =============================================================================
+// Simulation Events
+// =============================================================================
+
+// TectonicUpdate emitted after plate movements
+// TIMING: Adaptive based on planetary heat (100K-10M years)
+message TectonicUpdate {
+  int64 year = 1;
+  string world_id = 2;
+  repeated PlateDelta plates = 3;
+  int32 boundary_count = 4;
+  double planetary_heat = 5;         // Current heat multiplier (1.0-10.0)
+  int64 interval_years = 6;          // Years since last event (for replay)
+}
+
+// ErosionUpdate emitted after erosion cycles
+// TIMING: Static 10M year intervals (only runs when heat <= 4.0)
+message ErosionUpdate {
+  int64 year = 1;
+  string world_id = 2;
+  HeightmapDelta delta = 3;
+  double avg_elevation_change = 4;
+  int32 rivers_updated = 5;
+  int32 lakes_count = 6;
+}
+
+// PhaseTransition for major planetary events
+// TIMING: Event-driven (occurs when conditions are met)
+message PhaseTransition {
+  int64 year = 1;
+  string world_id = 2;
+  string event_type = 3;             // "GreatDeluge", "IceAge", "VolcanicWinter", etc.
+  string description = 4;
+  double sea_level_before = 5;
+  double sea_level_after = 6;
+}
+
+// VolcanicEvent for hotspot and magma chamber eruptions
+// TIMING: Adaptive based on planetary heat
+message VolcanicEvent {
+  int64 year = 1;
+  string world_id = 2;
+  string eruption_type = 3;          // "hotspot", "boundary", "flood_basalt"
+  double location_x = 4;
+  double location_y = 5;
+  double location_z = 6;
+  double height_added = 7;           // Meters of volcanic material
+  double radius = 8;
+}
+
+// AtmosphereUpdate for atmospheric composition changes
+// TIMING: Static (every simulation step, but only changes at era boundaries)
+message AtmosphereUpdate {
+  int64 year = 1;
+  string world_id = 2;
+  double o2_percent = 3;
+  double co2_percent = 4;
+  double n2_percent = 5;
+  double ch4_percent = 6;
+  string era = 7;                    // "hadean", "archean", "proterozoic", etc.
+}
+
+// HeightmapSnapshot for periodic full state persistence
+// TIMING: Static 100M year intervals OR on-demand
+message HeightmapSnapshot {
+  int64 year = 1;
+  string world_id = 2;
+  int32 resolution = 3;
+  bytes data = 4;                    // Gzip-compressed elevation array (float64[])
+  int64 event_sequence = 5;          // NATS sequence for replay alignment
+  string snapshot_url = 6;           // MinIO URL for large snapshots (if offloaded)
+  
+  // Metadata for crash recovery
+  double sea_level = 7;
+  int64 total_events_since_snapshot = 8;
+}
+
+// =============================================================================
+// Event Wrapper
+// =============================================================================
+
+// SimulationEvent wraps all event types for unified streaming
+message SimulationEvent {
+  int64 timestamp_unix = 1;          // Unix timestamp of emission
+  int64 sequence = 2;                // Monotonic sequence number per world
+  
+  oneof event {
+    TectonicUpdate tectonic = 10;
+    ErosionUpdate erosion = 11;
+    PhaseTransition phase = 12;
+    VolcanicEvent volcanic = 13;
+    AtmosphereUpdate atmosphere = 14;
+    HeightmapSnapshot snapshot = 15;
+  }
+}
+
+// =============================================================================
+// Replay Support
+// =============================================================================
+
+// ReplayRequest for time manipulation
+message ReplayRequest {
+  string world_id = 1;
+  int64 target_year = 2;             // Year to replay to
+  int64 from_sequence = 3;           // Start from this event sequence
+}
+
+// ReplayState for resuming simulation
+message ReplayState {
+  string world_id = 1;
+  int64 current_year = 2;
+  int64 last_sequence = 3;
+  string snapshot_url = 4;           // Last full snapshot
+  int32 events_to_replay = 5;        // Number of events after snapshot
+}

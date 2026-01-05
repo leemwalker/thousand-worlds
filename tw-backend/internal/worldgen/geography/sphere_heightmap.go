@@ -42,6 +42,19 @@ type SphereHeightmap struct {
 	cellData [6][]CellData // Parallel array for geological cell properties
 	MinElev  float64
 	MaxElev  float64
+
+	// Delta tracking for event streaming (Phase 1: Event Infrastructure)
+	deltaEnabled bool
+	deltas       []CellChange
+}
+
+// CellChange represents a single cell's elevation/sediment change.
+// Used for delta streaming in simulation events.
+type CellChange struct {
+	Face           int
+	X, Y           int
+	ElevationDelta float64
+	SedimentDelta  float64
 }
 
 // NewSphereHeightmap creates a new spherical heightmap using the given topology.
@@ -78,6 +91,11 @@ func (s *SphereHeightmap) Get(coord spatial.Coordinate) float64 {
 func (s *SphereHeightmap) Set(coord spatial.Coordinate, val float64) {
 	if coord.Face < 0 || coord.Face >= 6 {
 		return
+	}
+	// Record delta if tracking is enabled
+	if s.deltaEnabled {
+		oldVal := s.faces[coord.Face].Get(coord.X, coord.Y)
+		s.recordDelta(coord.Face, coord.X, coord.Y, val-oldVal, 0)
 	}
 	s.faces[coord.Face].Set(coord.X, coord.Y, val)
 }
@@ -130,11 +148,13 @@ func (s *SphereHeightmap) AddSediment(coord spatial.Coordinate, amount float64) 
 	if idx < 0 || idx >= len(s.cellData[coord.Face]) {
 		return
 	}
+	// Record delta if tracking is enabled
+	s.recordDelta(coord.Face, coord.X, coord.Y, amount, amount)
 	// Increase sediment depth
 	s.cellData[coord.Face][idx].Sediment += amount
 	// Increase total surface height
 	currentElev := s.Get(coord)
-	s.Set(coord, currentElev+amount)
+	s.faces[coord.Face].Set(coord.X, coord.Y, currentElev+amount) // Direct set to avoid double recording
 }
 
 // Erode removes material from a cell, sediment first, then bedrock.
@@ -154,6 +174,7 @@ func (s *SphereHeightmap) Erode(coord spatial.Coordinate, amount float64) float6
 	currentElev := s.Get(coord)
 	sediment := s.cellData[coord.Face][idx].Sediment
 	totalRemoved := 0.0
+	sedimentRemoved := 0.0
 
 	// Phase 1: Remove sediment first
 	if sediment > 0 {
@@ -162,6 +183,7 @@ func (s *SphereHeightmap) Erode(coord spatial.Coordinate, amount float64) float6
 			sedimentToRemove = sediment
 		}
 		s.cellData[coord.Face][idx].Sediment -= sedimentToRemove
+		sedimentRemoved = sedimentToRemove
 		totalRemoved += sedimentToRemove
 		amount -= sedimentToRemove
 	}
@@ -171,8 +193,11 @@ func (s *SphereHeightmap) Erode(coord spatial.Coordinate, amount float64) float6
 		totalRemoved += amount
 	}
 
-	// Update total surface elevation
-	s.Set(coord, currentElev-totalRemoved)
+	// Record delta if tracking is enabled (negative values for erosion)
+	s.recordDelta(coord.Face, coord.X, coord.Y, -totalRemoved, -sedimentRemoved)
+
+	// Update total surface elevation (direct set to avoid double recording)
+	s.faces[coord.Face].Set(coord.X, coord.Y, currentElev-totalRemoved)
 
 	return totalRemoved
 }
@@ -478,4 +503,61 @@ func (s *SphereHeightmap) ClampElevations(minElev, maxElev float64) {
 	}
 	// Update min/max after clamping
 	s.UpdateMinMax()
+}
+
+// =============================================================================
+// Delta Tracking (Phase 1: Event Infrastructure)
+// =============================================================================
+
+// EnableDeltaTracking starts recording elevation/sediment changes.
+// Changes are accumulated until FlushDeltas is called.
+// This is designed for event streaming - enable before a simulation cycle,
+// then flush and emit the delta as an event.
+func (s *SphereHeightmap) EnableDeltaTracking() {
+	s.deltaEnabled = true
+	s.deltas = nil // Reset any previous deltas
+}
+
+// DisableDeltaTracking stops recording changes without flushing.
+func (s *SphereHeightmap) DisableDeltaTracking() {
+	s.deltaEnabled = false
+	s.deltas = nil
+}
+
+// FlushDeltas returns accumulated changes and resets the delta buffer.
+// Returns nil if no changes were recorded.
+func (s *SphereHeightmap) FlushDeltas() []CellChange {
+	result := s.deltas
+	s.deltas = nil
+	return result
+}
+
+// DeltaCount returns the number of accumulated deltas.
+// Useful for deciding whether to emit an event.
+func (s *SphereHeightmap) DeltaCount() int {
+	return len(s.deltas)
+}
+
+// IsDeltaTrackingEnabled returns whether delta tracking is active.
+func (s *SphereHeightmap) IsDeltaTrackingEnabled() bool {
+	return s.deltaEnabled
+}
+
+// recordDelta records a cell change if delta tracking is enabled.
+// Called internally by Set, AddSediment, Erode, etc.
+func (s *SphereHeightmap) recordDelta(face, x, y int, elevDelta, sedDelta float64) {
+	if !s.deltaEnabled {
+		return
+	}
+	// Only record if there's a meaningful change
+	if elevDelta == 0 && sedDelta == 0 {
+		return
+	}
+	s.deltas = append(s.deltas, CellChange{
+		Face:           face,
+		X:              x,
+		Y:              y,
+		ElevationDelta: elevDelta,
+		SedimentDelta:  sedDelta,
+	})
 }

@@ -1,4 +1,4 @@
-.PHONY: up down test test-coverage build deploy clean lint run migrate help
+.PHONY: up down test test-coverage build deploy clean lint run migrate help proto proto-deps
 
 # Default target
 help:
@@ -32,6 +32,18 @@ build:
 	@mkdir -p bin
 	go build -o bin/game-server cmd/game-server/main.go
 	@echo "Built: bin/game-server"
+
+# Protocol Buffers
+proto-deps:
+	@echo "Installing protobuf Go plugin..."
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	@echo "Ensure protoc is installed: brew install protobuf"
+
+proto:
+	@echo "Generating protobuf Go bindings..."
+	PATH="$$PATH:$$(go env GOPATH)/bin" protoc --go_out=. --go_opt=paths=source_relative \
+		api/proto/simulation_events.proto
+	@echo "Generated: api/proto/"
 
 build-all:
 	@mkdir -p bin
