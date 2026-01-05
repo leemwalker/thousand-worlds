@@ -80,7 +80,7 @@ services:
       retries: 3
 
   dragonfly:
-    image: dragonflydb/dragonfly:latest
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
     container_name: mud_dragonfly
     ports:
       - "6379:6379"
