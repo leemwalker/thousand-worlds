@@ -204,12 +204,17 @@ services:
       - DATABASE_URL=postgres://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@postgis:5432/${POSTGRES_DB:-mud_core}?sslmode=disable
       - NATS_URL=nats://nats:4222
       - WORLD_ID=d8666327-0474-4b47-a461-9f9351052210
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-admin}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-password123}
     depends_on:
       nats:
         condition: service_healthy
       postgis:
         condition: service_healthy
       dragonfly:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     networks:
       - mud_net

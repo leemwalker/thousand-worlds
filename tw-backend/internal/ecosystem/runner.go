@@ -12,6 +12,8 @@ import (
 	"tw-backend/internal/ecosystem/pathogen"
 	"tw-backend/internal/ecosystem/population"
 	"tw-backend/internal/ecosystem/sapience"
+	"tw-backend/internal/events"
+	"tw-backend/internal/storage"
 	"tw-backend/internal/worldgen/astronomy"
 
 	"github.com/google/uuid"
@@ -113,6 +115,7 @@ type SimulationRunner struct {
 	carbonCycle      *CarbonCycle   // Long-term CO2/Climate cycle (Phase 9a)
 	snapshotRepo     *SimulationSnapshotRepository
 	stateRepo        *RunnerStateRepository
+	snapshotStore    storage.SnapshotStoreInterface // L3: MinIO snapshot storage
 
 	// Handlers
 	tickHandler           TickHandler
@@ -236,6 +239,13 @@ func (sr *SimulationRunner) SetEventBroadcastHandler(handler EventBroadcastHandl
 	sr.mu.Lock()
 	defer sr.mu.Unlock()
 	sr.eventBroadcastHandler = handler
+}
+
+// SetSnapshotStore sets the MinIO snapshot store for L3 persistence
+func (sr *SimulationRunner) SetSnapshotStore(store storage.SnapshotStoreInterface) {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+	sr.snapshotStore = store
 }
 
 // Start begins the simulation
@@ -738,6 +748,33 @@ func (sr *SimulationRunner) createSnapshot() {
 	sr.snapshots = append(sr.snapshots, snapshot)
 	sr.lastSnapshotYear = sr.currentYear
 
+	// L3: Upload heightmap snapshot to MinIO (async to not block simulation)
+	if sr.snapshotStore != nil && sr.geology != nil && sr.geology.SphereHeightmap != nil {
+		// Capture values for goroutine
+		worldID := sr.config.WorldID.String()
+		year := sr.currentYear
+		geo := sr.geology
+
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			// Use the events package to serialize the heightmap
+			data, err := serializeHeightmapToMinIO(geo)
+			if err != nil {
+				fmt.Printf("[MinIO] Failed to serialize heightmap: %v\n", err)
+				return
+			}
+
+			key, err := sr.snapshotStore.Upload(ctx, worldID, year, data)
+			if err != nil {
+				fmt.Printf("[MinIO] Failed to upload snapshot: %v\n", err)
+				return
+			}
+			fmt.Printf("[MinIO] Uploaded snapshot: %s (%.2f MB)\n", key, float64(len(data))/(1024*1024))
+		}()
+	}
+
 	// Call snapshot handler (without lock)
 	if sr.snapshotHandler != nil {
 		sr.mu.Unlock()
@@ -1011,4 +1048,15 @@ func (sr *SimulationRunner) GetClimateDriver() *ClimateDriver {
 	sr.mu.RLock()
 	defer sr.mu.RUnlock()
 	return sr.climateDriver
+}
+
+// serializeHeightmapToMinIO creates a gzip-compressed binary snapshot of a WorldGeology's heightmap.
+// Uses the events package serialization for consistency with NATS snapshots.
+func serializeHeightmapToMinIO(geo *WorldGeology) ([]byte, error) {
+	if geo == nil || geo.SphereHeightmap == nil {
+		return nil, fmt.Errorf("no heightmap data available")
+	}
+
+	// Use the events package's serialization function
+	return events.SerializeHeightmap(geo.SphereHeightmap)
 }

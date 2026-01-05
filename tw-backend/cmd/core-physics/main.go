@@ -19,6 +19,7 @@ import (
 	"tw-backend/internal/ecosystem"
 	"tw-backend/internal/events"
 	"tw-backend/internal/repository"
+	"tw-backend/internal/storage"
 	"tw-backend/internal/worldgen/astronomy"
 )
 
@@ -186,6 +187,39 @@ func main() {
 
 	// Inject Geology
 	runner.SetGeology(geology)
+
+	// 5.5. MinIO Connection (L3: Snapshot Storage)
+	minioEndpoint := os.Getenv("MINIO_ENDPOINT")
+	if minioEndpoint == "" {
+		minioEndpoint = "localhost:9000"
+	}
+	minioAccessKey := os.Getenv("MINIO_ACCESS_KEY")
+	if minioAccessKey == "" {
+		minioAccessKey = "admin"
+	}
+	minioSecretKey := os.Getenv("MINIO_SECRET_KEY")
+	if minioSecretKey == "" {
+		minioSecretKey = "password123"
+	}
+
+	snapshotStore, err := storage.NewSnapshotStore(
+		minioEndpoint,
+		minioAccessKey,
+		minioSecretKey,
+		"world-snapshots",
+		false, // useSSL
+	)
+	if err != nil {
+		log.Warn().Err(err).Msg("MinIO unavailable - heightmap snapshots disabled")
+	} else {
+		// Ensure bucket exists
+		if err := snapshotStore.EnsureBucket(ctx); err != nil {
+			log.Warn().Err(err).Msg("Failed to create MinIO bucket")
+		} else {
+			runner.SetSnapshotStore(snapshotStore)
+			log.Info().Str("endpoint", minioEndpoint).Msg("Connected to MinIO snapshot storage")
+		}
+	}
 
 	// Initialize subsystems and load/init state
 	log.Info().Msg("Initializing simulation state...")

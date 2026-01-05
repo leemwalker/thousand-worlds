@@ -2,30 +2,37 @@ package gamemap
 
 import (
 	"fmt"
-	"sync"
 	"time"
+
+	"tw-backend/internal/cache"
 )
 
-// MapCacheEntry represents a cached map render.
-type MapCacheEntry struct {
-	ImageBytes []byte
-	Timestamp  time.Time
-}
+// DefaultMapCacheMaxCost is the default maximum cache size (1GB)
+const DefaultMapCacheMaxCost = 1 << 30 // 1GB
 
-// MapCache handles caching of rendered map images with TTL.
+// MapCache handles caching of rendered map images with cost-based eviction.
+// Uses Ristretto for high-performance concurrent caching with LFU eviction.
 type MapCache struct {
-	entries sync.Map // key string -> MapCacheEntry
-	ttl     time.Duration
+	cache *cache.RistrettoCache
 }
 
-// NewMapCache creates a cache with the specified Time-To-Live.
+// NewMapCache creates a cache with the specified Time-To-Live and default max size (1GB).
 func NewMapCache(ttl time.Duration) *MapCache {
-	c := &MapCache{
-		ttl: ttl,
+	return NewMapCacheWithMaxCost(DefaultMapCacheMaxCost, ttl)
+}
+
+// NewMapCacheWithMaxCost creates a cache with specified max cost and TTL.
+// maxCostBytes is the maximum total size of cached data in bytes.
+func NewMapCacheWithMaxCost(maxCostBytes int64, ttl time.Duration) *MapCache {
+	rc, err := cache.NewRistrettoCache(maxCostBytes, ttl)
+	if err != nil {
+		// Fall back to smaller cache if creation fails
+		rc, _ = cache.NewRistrettoCache(100*1024*1024, ttl) // 100MB fallback
 	}
-	// Start background eviction
-	go c.evictionLoop()
-	return c
+
+	return &MapCache{
+		cache: rc,
+	}
 }
 
 // GetCacheKey generates a unique key for the cache.
@@ -35,52 +42,45 @@ func GetCacheKey(worldID string, width, height int, version int64) string {
 
 // Get retrieves an entry from the cache.
 func (c *MapCache) Get(key string) ([]byte, bool) {
-	val, ok := c.entries.Load(key)
-	if !ok {
+	data, hit := c.cache.Get(key)
+	if hit {
+		metricCacheHits.Inc()
+	} else {
 		metricCacheMisses.Inc()
-		return nil, false
 	}
-	entry := val.(MapCacheEntry)
-
-	// Double check TTL (though eviction loop generally handles this)
-	if time.Since(entry.Timestamp) > c.ttl {
-		c.entries.Delete(key)
-		metricCacheMisses.Inc()
-		return nil, false
-	}
-
-	metricCacheHits.Inc()
-	return entry.ImageBytes, true
+	return data, hit
 }
 
 // Set adds or updates an entry in the cache.
+// The data is copied internally, so the caller can safely reuse the buffer.
 func (c *MapCache) Set(key string, data []byte) {
-	// Store a copy? For read-only bytes like images, we might just store the slice
-	// assuming the source buffer isn't reused immediately in a way that races.
-	// However, since we use buffer pools, we MUST make a copy here for the cache
-	// because the original buffer will be returned to the pool and overwritten.
-
-	cacheCopy := make([]byte, len(data))
-	copy(cacheCopy, data)
-
-	c.entries.Store(key, MapCacheEntry{
-		ImageBytes: cacheCopy,
-		Timestamp:  time.Now(),
-	})
+	c.cache.Set(key, data)
 }
 
-func (c *MapCache) evictionLoop() {
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
+// Delete removes an entry from the cache.
+func (c *MapCache) Delete(key string) {
+	c.cache.Delete(key)
+}
 
-	for range ticker.C {
-		now := time.Now()
-		c.entries.Range(func(key, value interface{}) bool {
-			entry := value.(MapCacheEntry)
-			if now.Sub(entry.Timestamp) > c.ttl {
-				c.entries.Delete(key)
-			}
-			return true
-		})
+// Clear removes all entries from the cache.
+func (c *MapCache) Clear() {
+	c.cache.Clear()
+}
+
+// Metrics returns cache performance statistics.
+func (c *MapCache) Metrics() *cache.CacheMetrics {
+	return c.cache.Metrics()
+}
+
+// Close releases cache resources.
+func (c *MapCache) Close() {
+	if c.cache != nil {
+		c.cache.Close()
 	}
+}
+
+// Wait blocks until all pending sets are processed.
+// Useful in tests to ensure consistency.
+func (c *MapCache) Wait() {
+	c.cache.Wait()
 }

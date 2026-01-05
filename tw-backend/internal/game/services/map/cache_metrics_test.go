@@ -33,6 +33,7 @@ func TestCacheMetrics_HitMiss(t *testing.T) {
 	// Test 2: Set a value
 	testData := []byte("test image data")
 	cache.Set("test_key", testData)
+	cache.Wait() // Wait for async set to complete
 
 	// Test 3: Cache hit
 	data, found := cache.Get("test_key")
@@ -59,6 +60,7 @@ func TestCacheMetrics_TTLExpiration(t *testing.T) {
 
 	// Set a value
 	cache.Set("expiring_key", []byte("temp data"))
+	cache.Wait() // Wait for async set
 
 	// Wait for TTL to expire
 	time.Sleep(100 * time.Millisecond)
