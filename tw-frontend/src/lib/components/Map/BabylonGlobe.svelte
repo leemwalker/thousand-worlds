@@ -323,10 +323,12 @@
         console.log("[BabylonGlobe] Solar system initialized");
 
         // Check if globeTextureBlob was already set before scene was ready
+        // Set lastAppliedBlobSize to prevent reactive block from also firing
         if (globeTextureBlob && globeMaterial) {
             console.log(
                 "[BabylonGlobe] Found existing globeTextureBlob, applying now...",
             );
+            lastAppliedBlobSize = globeTextureBlob.size;
             updateTexture(globeTextureBlob);
         }
 
