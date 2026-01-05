@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: world-simulation
+  namespace: mud-world
+spec:
+  serviceName: "world"
+  replicas: 2 # Start with 2 worlds for testing
+  selector:
+    matchLabels:
+      app: world
+  template:
+    metadata:
+      labels:
+        app: world
+    spec:
+      containers:
+      - name: core-physics
+        image: tw-backend/core-physics:latest
+        imagePullPolicy: IfNotPresent # Use local build if available (e.g. minikube)
+        envFrom:
+        - configMapRef:
+            name: core-physics-config
+        - secretRef:
+            name: core-physics-secrets
+        # IMPORTANT: WORLD_ID needs to be dynamic per replica.
+        # In a real Agones setup, Agones manages this. 
+        # For pure K8s StatefulSet, we can use the pod name/hostname to determine ID or mount a script.
+        # Here we use a startup script to generate a deterministic UUID based on hostname index
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          # Extract ordinal from hostname (world-simulation-0 -> 0)
+          ORDINAL=${HOSTNAME##*-}
+          # Create a deterministic UUID based on ordinal (simple approach for demo)
+          # UUID = 00000000-0000-0000-0000-00000000000$ORDINAL
+          export WORLD_ID="d8666327-0474-4b47-a461-9f935105221$ORDINAL"
+          echo "Starting World Simulation for WORLD_ID: $WORLD_ID (Ordinal: $ORDINAL)"
+          ./core-physics
+        ports:
+        - containerPort: 8080
+          name: http
+        resources:
+          limits:
+            memory: "4Gi"
+            cpu: "4"
+          requests:
+            memory: "1Gi"
+            cpu: "1"
+        volumeMounts:
+        - name: checkpoints
+          mountPath: /data/checkpoints
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+  volumeClaimTemplates:
+  - metadata:
+      name: checkpoints
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi

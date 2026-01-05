@@ -1,0 +1,170 @@
+# DATABASE (PostGIS)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mud-postgis
+  namespace: mud-world
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mud-postgis
+  template:
+    metadata:
+      labels:
+        app: mud-postgis
+    spec:
+      containers:
+      - name: postgis
+        image: postgis/postgis:16-3.4
+        env:
+        - name: POSTGRES_USER
+          value: "admin"
+        - name: POSTGRES_PASSWORD
+          value: "password123"
+        - name: POSTGRES_DB
+          value: "mud_core"
+        ports:
+        - containerPort: 5432
+        resources:
+          limits:
+            memory: 2Gi
+          requests:
+            memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mud-postgis
+  namespace: mud-world
+spec:
+  ports:
+  - port: 5432
+  selector:
+    app: mud-postgis
+---
+# NATS JETSTREAM
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mud-nats
+  namespace: mud-world
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mud-nats
+  template:
+    metadata:
+      labels:
+        app: mud-nats
+    spec:
+      containers:
+      - name: nats
+        image: nats:2.10-alpine
+        args: ["-js", "-sd", "/data", "-m", "8222"]
+        ports:
+        - containerPort: 4222
+        - containerPort: 9222 # Monitoring
+        resources:
+          limits:
+            memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mud-nats
+  namespace: mud-world
+spec:
+  ports:
+  - port: 4222
+    name: client
+  - port: 8222
+    name: cluster
+  - port: 9222
+    name: monitor
+  selector:
+    app: mud-nats
+---
+# DRAGONFLYDB (Redis)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mud-dragonfly
+  namespace: mud-world
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mud-dragonfly
+  template:
+    metadata:
+      labels:
+        app: mud-dragonfly
+    spec:
+      containers:
+      - name: dragonfly
+        image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
+        args: ["--default_lua_flags=allow-undeclared-keys"]
+        ports:
+        - containerPort: 6379
+        resources:
+          limits:
+            memory: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mud-dragonfly
+  namespace: mud-world
+spec:
+  ports:
+  - port: 6379
+  selector:
+    app: mud-dragonfly
+---
+# MINIO (S3)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mud-minio
+  namespace: mud-world
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mud-minio
+  template:
+    metadata:
+      labels:
+        app: mud-minio
+    spec:
+      containers:
+      - name: minio
+        image: minio/minio:latest
+        args: ["server", "/data", "--console-address", ":9001"]
+        env:
+        - name: MINIO_ROOT_USER
+          value: "admin"
+        - name: MINIO_ROOT_PASSWORD
+          value: "password123"
+        ports:
+        - containerPort: 9000
+        - containerPort: 9001
+        resources:
+          limits:
+            memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mud-minio
+  namespace: mud-world
+spec:
+  ports:
+  - port: 9000
+    name: api
+  - port: 9001
+    name: console
+  selector:
+    app: mud-minio
