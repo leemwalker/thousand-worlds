@@ -42,16 +42,21 @@ type Publisher interface {
 	// TIMING: Static 100M year intervals or on-demand
 	PublishSnapshot(ctx context.Context, event *pb.HeightmapSnapshot) error
 
+	// GetLastSequence returns the last JetStream sequence number assigned.
+	// Used for crash recovery to track position in event log.
+	GetLastSequence() uint64
+
 	// Close releases resources. Safe to call multiple times.
 	Close() error
 }
 
 // NATSPublisher implements Publisher using NATS JetStream for durable event storage.
 type NATSPublisher struct {
-	nc     *nats.Conn
-	js     jetstream.JetStream
-	stream jetstream.Stream
-	seq    atomic.Int64
+	nc       *nats.Conn
+	js       jetstream.JetStream
+	stream   jetstream.Stream
+	localSeq atomic.Int64  // Local sequence for event ordering
+	lastSeq  atomic.Uint64 // Last JetStream-assigned sequence
 }
 
 // StreamConfig defines the JetStream stream configuration for simulation events.
@@ -107,8 +112,8 @@ func NewNATSPublisher(natsURL string) (*NATSPublisher, error) {
 
 // publish sends a wrapped SimulationEvent to the specified subject.
 func (p *NATSPublisher) publish(ctx context.Context, subject string, event *pb.SimulationEvent) error {
-	// Set sequence and timestamp
-	event.Sequence = p.seq.Add(1)
+	// Set local sequence and timestamp
+	event.Sequence = p.localSeq.Add(1)
 	event.TimestampUnix = time.Now().Unix()
 
 	data, err := proto.Marshal(event)
@@ -116,12 +121,20 @@ func (p *NATSPublisher) publish(ctx context.Context, subject string, event *pb.S
 		return fmt.Errorf("marshal event: %w", err)
 	}
 
-	_, err = p.js.Publish(ctx, subject, data)
+	ack, err := p.js.Publish(ctx, subject, data)
 	if err != nil {
 		return fmt.Errorf("publish to %s: %w", subject, err)
 	}
 
+	// Store the JetStream-assigned sequence for crash recovery
+	p.lastSeq.Store(ack.Sequence)
+
 	return nil
+}
+
+// GetLastSequence returns the last JetStream sequence number assigned.
+func (p *NATSPublisher) GetLastSequence() uint64 {
+	return p.lastSeq.Load()
 }
 
 func (p *NATSPublisher) PublishTectonic(ctx context.Context, ev *pb.TectonicUpdate) error {

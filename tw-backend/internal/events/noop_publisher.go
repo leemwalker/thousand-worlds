@@ -18,6 +18,7 @@ func (NoOpPublisher) PublishPhase(context.Context, *pb.PhaseTransition) error   
 func (NoOpPublisher) PublishVolcanic(context.Context, *pb.VolcanicEvent) error      { return nil }
 func (NoOpPublisher) PublishAtmosphere(context.Context, *pb.AtmosphereUpdate) error { return nil }
 func (NoOpPublisher) PublishSnapshot(context.Context, *pb.HeightmapSnapshot) error  { return nil }
+func (NoOpPublisher) GetLastSequence() uint64                                       { return 0 }
 func (NoOpPublisher) Close() error                                                  { return nil }
 
 // NewNoOpPublisher creates a publisher that discards all events.

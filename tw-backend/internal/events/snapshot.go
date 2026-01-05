@@ -122,3 +122,54 @@ func EstimateSnapshotSize(resolution int) int {
 func EstimateCompressedSize(resolution int) int {
 	return int(float64(EstimateSnapshotSize(resolution)) * 0.35)
 }
+
+// DeserializeHeightmapAuto reconstructs a SphereHeightmap from gzip-compressed binary data
+// without needing a pre-existing Topology. Creates the topology from the resolution stored
+// in the snapshot header.
+func DeserializeHeightmapAuto(data []byte) (*geography.SphereHeightmap, error) {
+	if len(data) == 0 {
+		return nil, fmt.Errorf("empty data")
+	}
+
+	gr, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("gzip reader: %w", err)
+	}
+	defer gr.Close()
+
+	// Read header
+	var res, faceCount int32
+	if err := binary.Read(gr, binary.LittleEndian, &res); err != nil {
+		return nil, fmt.Errorf("read resolution: %w", err)
+	}
+	if err := binary.Read(gr, binary.LittleEndian, &faceCount); err != nil {
+		return nil, fmt.Errorf("read face count: %w", err)
+	}
+
+	if faceCount != 6 {
+		return nil, fmt.Errorf("expected 6 faces, got %d", faceCount)
+	}
+
+	// Create topology from resolution
+	topo := spatial.NewCubeSphereTopology(int(res))
+
+	// Create new heightmap and populate
+	hm := geography.NewSphereHeightmap(topo)
+
+	for face := 0; face < 6; face++ {
+		faceHM := hm.GetFace(face)
+		for i := range faceHM.Elevations {
+			if err := binary.Read(gr, binary.LittleEndian, &faceHM.Elevations[i]); err != nil {
+				if err == io.EOF {
+					return nil, fmt.Errorf("unexpected EOF at face %d, index %d", face, i)
+				}
+				return nil, fmt.Errorf("read elevation: %w", err)
+			}
+		}
+	}
+
+	// Update min/max
+	hm.UpdateMinMax()
+
+	return hm, nil
+}

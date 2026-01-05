@@ -116,6 +116,7 @@ type SimulationRunner struct {
 	snapshotRepo     *SimulationSnapshotRepository
 	stateRepo        *RunnerStateRepository
 	snapshotStore    storage.SnapshotStoreInterface // L3: MinIO snapshot storage
+	recoveryService  *RecoveryService               // Crash recovery service
 
 	// Handlers
 	tickHandler           TickHandler
@@ -246,6 +247,13 @@ func (sr *SimulationRunner) SetSnapshotStore(store storage.SnapshotStoreInterfac
 	sr.mu.Lock()
 	defer sr.mu.Unlock()
 	sr.snapshotStore = store
+}
+
+// SetRecoveryService sets the crash recovery service for automatic save points
+func (sr *SimulationRunner) SetRecoveryService(service *RecoveryService) {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+	sr.recoveryService = service
 }
 
 // Start begins the simulation
@@ -751,9 +759,14 @@ func (sr *SimulationRunner) createSnapshot() {
 	// L3: Upload heightmap snapshot to MinIO (async to not block simulation)
 	if sr.snapshotStore != nil && sr.geology != nil && sr.geology.SphereHeightmap != nil {
 		// Capture values for goroutine
-		worldID := sr.config.WorldID.String()
+		worldID := sr.config.WorldID
 		year := sr.currentYear
 		geo := sr.geology
+		recoveryService := sr.recoveryService
+		var eventSequence uint64
+		if geo.EventPublisher != nil {
+			eventSequence = geo.EventPublisher.GetLastSequence()
+		}
 
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -766,12 +779,21 @@ func (sr *SimulationRunner) createSnapshot() {
 				return
 			}
 
-			key, err := sr.snapshotStore.Upload(ctx, worldID, year, data)
+			key, err := sr.snapshotStore.Upload(ctx, worldID.String(), year, data)
 			if err != nil {
 				fmt.Printf("[MinIO] Failed to upload snapshot: %v\n", err)
 				return
 			}
 			fmt.Printf("[MinIO] Uploaded snapshot: %s (%.2f MB)\n", key, float64(len(data))/(1024*1024))
+
+			// Create recovery save point in database
+			if recoveryService != nil {
+				if err := recoveryService.CreateRecoverySave(ctx, worldID, year, key, eventSequence); err != nil {
+					fmt.Printf("[Recovery] Failed to create save point: %v\n", err)
+				} else {
+					fmt.Printf("[Recovery] Created save point at year %d (seq: %d)\n", year, eventSequence)
+				}
+			}
 		}()
 	}
 

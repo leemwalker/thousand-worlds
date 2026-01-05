@@ -221,25 +221,75 @@ func main() {
 		}
 	}
 
-	// Initialize subsystems and load/init state
+	// 5.6. Crash Recovery Intergration (L4)
+	saveRepo := repository.NewPostgresSaveRepository(db)
+
+	eventConsumer, err := events.NewEventConsumer(natsURL)
+	var recoveryService *ecosystem.RecoveryService
+
+	if err != nil {
+		log.Warn().Err(err).Msg("Event consumer unavailable - crash recovery disabled")
+	} else {
+		defer eventConsumer.Close()
+		if snapshotStore != nil {
+			recoveryService = ecosystem.NewRecoveryService(snapshotStore, eventConsumer, saveRepo)
+			runner.SetRecoveryService(recoveryService)
+			log.Info().Msg("Crash recovery service initialized")
+		}
+	}
+
+	// 6. Initialize State & Recovery
 	log.Info().Msg("Initializing simulation state...")
 	runner.InitializePopulationSimulator(seed)
 
-	if runner.GetCurrentYear() == 0 {
+	// Determine start year (prefer recovery > DB > 0)
+	startYear := runner.GetCurrentYear()
+
+	// Attempt Recovery
+	if recoveryService != nil {
+		log.Info().Msg("Checking for recovery save...")
+		if res, err := recoveryService.RecoverWorld(ctx, world.ID); err == nil {
+			if res.CurrentYear > startYear {
+				startYear = res.CurrentYear
+				geology.SphereHeightmap = res.Heightmap
+				log.Info().
+					Int64("year", startYear).
+					Int("events", res.EventsReplayed).
+					Dur("duration", res.RecoveryDuration).
+					Msg("State recovered from snapshot + event replay")
+			} else {
+				log.Info().Int64("recovery_year", res.CurrentYear).Int64("db_year", startYear).Msg("Recovery state is older than DB, ignoring")
+			}
+		} else if err != repository.ErrSaveNotFound {
+			log.Warn().Err(err).Msg("Failed to recover world")
+		} else {
+			log.Info().Msg("No recovery save found")
+		}
+	}
+
+	if startYear == 0 {
 		log.Info().Msg("Initializing fresh geology...")
 		geology.InitializeGeology(0) // Default resolution calculation
-	} else {
-		log.Info().Int64("year", runner.GetCurrentYear()).Msg("Simulation resumed. (Geology state re-generation TODO)")
-		// For now, re-generate to ensure non-nil maps
+	} else if geology.SphereHeightmap == nil {
+		// We have a year but no heightmap (DB only, no snapshot/recovery)
+		// We must regenerate or load from somewhere else.
+		// For now, regenerating is the fallback (though it loses terrain changes not in DB)
+		log.Info().Int64("year", startYear).Msg("Resuming from DB state (Geology re-generation)")
 		geology.InitializeGeology(0)
 	}
 
-	// 6. Start Simulation
-	startYear := runner.GetCurrentYear()
-	if err := runner.Start(startYear); err != nil {
-		log.Fatal().Err(err).Msg("Failed to start simulation")
-	}
+	// 7. Start Simulation
+	log.Info().Int64("start_year", startYear).Msg("Starting simulation loop")
 
+	// Handle shutdown gracefully
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		if err := runner.Start(startYear); err != nil {
+			log.Fatal().Err(err).Msg("Simulation runner failed")
+		}
+	}()
 	log.Info().Msg("Simulation running. Press Ctrl+C to stop.")
 
 	// 7. Wait for shutdown
