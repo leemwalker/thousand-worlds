@@ -1404,8 +1404,11 @@ func (g *WorldGeology) advancePlates(years float64) {
 	// Planet radius in km (circumference / 2π)
 	planetRadius := g.Circumference / (2 * math.Pi * 1000) // Convert m to km
 
-	// Movement rate: ~2cm/year = 0.00002 km/year (average plate speed)
-	plateSpeed := 0.00002 // km/year
+	// Movement rate: ~2cm/year = 0.00002 km/year (average modern plate speed)
+	// Scale by planetary heat: Hadean (heat=10) has 10× faster movement than modern (heat=1)
+	baseSpeed := 0.00002 // km/year (modern baseline)
+	heatMultiplier := GetPlanetaryHeat(g.TotalYearsSimulated)
+	plateSpeed := baseSpeed * heatMultiplier
 
 	for i := range g.Plates {
 		// Age the plate
