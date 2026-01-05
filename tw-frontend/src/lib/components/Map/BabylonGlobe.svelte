@@ -435,11 +435,12 @@
     });
 
     // React to texture blob changes (with guard to avoid re-applying same blob)
+    // Also reapply if objectUrl is null (component remounted but blob cached)
     $: if (
         globeTextureBlob &&
         scene &&
         globeMaterial &&
-        globeTextureBlob.size !== lastAppliedBlobSize
+        (globeTextureBlob.size !== lastAppliedBlobSize || !objectUrl)
     ) {
         console.log(
             "[BabylonGlobe] Reactive: globeTextureBlob received, size:",
