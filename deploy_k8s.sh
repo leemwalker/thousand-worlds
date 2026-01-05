@@ -45,7 +45,13 @@ kubectl apply -f tw-backend/deploy/k8s/04-statefulset.yaml
 # Frontend
 kubectl apply -f tw-backend/deploy/k8s/05-frontend.yaml
 
-# 3. Status
+# 3. Force Rollout (Required because we use 'latest' tag and local images)
+echo "Restarting deployments to pick up new images..."
+kubectl -n mud-world rollout restart deployment/game-server
+kubectl -n mud-world rollout restart deployment/frontend
+kubectl -n mud-world rollout restart statefulset/world-simulation
+
+# 4. Status
 echo "Deployment applied. Waiting for rollouts..."
 kubectl -n mud-world rollout status deployment/mud-postgis --timeout=60s || echo "Postgres rollout pending..."
 kubectl -n mud-world rollout status statefulset/world-simulation --timeout=60s || echo "Physics rollout pending..."
