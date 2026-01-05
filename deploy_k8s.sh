@@ -16,6 +16,9 @@ docker build -t tw-frontend/frontend:latest -f tw-frontend/Dockerfile tw-fronten
 # 2. Apply Kubernetes Manifests in Order
 echo "Applying Kubernetes Manifests..."
 
+# Create Namespace if it doesn't exist
+kubectl create namespace mud-world --dry-run=client -o yaml | kubectl apply -f -
+
 # Infrastructure (NATS, Postgres, Redis, MinIO, Ollama)
 kubectl apply -f tw-backend/deploy/k8s/00-infrastructure.yaml
 
