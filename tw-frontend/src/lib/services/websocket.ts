@@ -44,7 +44,7 @@ export class GameWebSocket {
 
         // Use environment variable if available, otherwise fallback to logic
         const wsHost = import.meta.env.VITE_WS_URL ||
-            (port === '5173' ? `${hostname}:${port}` : `${hostname}:8080`);
+            (port === '5173' ? `${hostname}:${port}` : `${hostname}:30001`);
 
         let wsUrl = `${protocol}//${wsHost}/api/game/ws`;
 
