@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS world_saves (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     world_id UUID NOT NULL REFERENCES worlds(id) ON DELETE CASCADE,
-    player_id UUID REFERENCES players(id) ON DELETE SET NULL,
+    player_id UUID REFERENCES users(user_id) ON DELETE SET NULL,
     snapshot_key TEXT NOT NULL,           -- MinIO object key
     event_sequence BIGINT NOT NULL,       -- NATS JetStream sequence for replay alignment
     year BIGINT NOT NULL,                 -- Simulation year at save
