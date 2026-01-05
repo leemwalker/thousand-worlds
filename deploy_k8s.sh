@@ -13,6 +13,14 @@ docker build -t tw-backend/game-server:latest -f tw-backend/Dockerfile.game-serv
 echo "Building Frontend Docker Image..."
 docker build -t tw-frontend/frontend:latest -f tw-frontend/Dockerfile tw-frontend
 
+# 1b. Import Images to K3s (REQUIRED for K3s)
+echo "Importing images to K3s (containerd)..."
+# We need to save from docker and import to k3s ctr
+# Using 'sudo' might be needed depending on user permissions, but assuming script runs as user who can sudo or access k3s
+docker save tw-backend/core-physics:latest | sudo k3s ctr images import -
+docker save tw-backend/game-server:latest | sudo k3s ctr images import -
+docker save tw-frontend/frontend:latest | sudo k3s ctr images import -
+
 # 2. Apply Kubernetes Manifests in Order
 echo "Applying Kubernetes Manifests..."
 

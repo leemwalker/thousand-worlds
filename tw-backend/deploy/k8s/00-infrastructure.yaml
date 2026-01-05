@@ -105,7 +105,7 @@ spec:
       containers:
       - name: dragonfly
         image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
-        args: ["--default_lua_flags=allow-undeclared-keys"]
+        args: ["--default_lua_flags=allow-undeclared-keys", "--proactor_threads=4"]
         ports:
         - containerPort: 6379
         resources:
