@@ -168,3 +168,75 @@ spec:
     name: console
   selector:
     app: mud-minio
+---
+# OLLAMA (LLM)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mud-ollama
+  namespace: mud-world
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mud-ollama
+  template:
+    metadata:
+      labels:
+        app: mud-ollama
+    spec:
+      containers:
+      - name: ollama
+        image: ollama/ollama:latest
+        env:
+        - name: OLLAMA_HOST
+          value: "0.0.0.0"
+        - name: OLLAMA_ORIGINS
+          value: "*"
+        - name: OLLAMA_KEEP_ALIVE
+          value: "10m"
+        - name: OLLAMA_NUM_PARALLEL
+          value: "1"
+        - name: OLLAMA_MAX_LOADED_MODELS
+          value: "1"
+        ports:
+        - containerPort: 11434
+        resources:
+          limits:
+            memory: 8Gi
+            cpu: "3.5"
+          requests:
+            memory: 4Gi
+            cpu: "1.0"
+        volumeMounts:
+        - name: ollama-models
+          mountPath: /root/.ollama
+      volumes:
+      - name: ollama-models
+        persistentVolumeClaim:
+          claimName: ollama-models-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mud-ollama
+  namespace: mud-world
+spec:
+  ports:
+  - port: 11434
+    name: http
+  selector:
+    app: mud-ollama
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-models-pvc
+  namespace: mud-world
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+
