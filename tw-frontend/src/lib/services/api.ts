@@ -58,10 +58,7 @@ if (!calculatedApiUrl) {
         calculatedApiUrl = '/api';
     }
 }
-    } else {
-    calculatedApiUrl = '/api';
-}
-}
+
 const API_URL = calculatedApiUrl;
 console.log('[API] Using API URL:', API_URL, 'Window Port:', typeof window !== 'undefined' ? window.location.port : 'N/A');
 
