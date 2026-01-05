@@ -9,6 +9,12 @@ BEGIN
         ALTER TABLE users ADD COLUMN username VARCHAR(255);
         CREATE UNIQUE INDEX idx_users_username ON users(username);
     END IF; 
+
+    -- Fix: Add owner_id column to worlds if missing (since it was missing in 000001)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='worlds' AND column_name='owner_id') THEN 
+        ALTER TABLE worlds ADD COLUMN owner_id UUID REFERENCES users(user_id);
+        CREATE INDEX idx_worlds_owner_id ON worlds(owner_id);
+    END IF; 
 END $$;
 
 INSERT INTO users (user_id, email, password_hash, username)
