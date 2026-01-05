@@ -27,7 +27,7 @@ spec:
           value: "mud-dragonfly.mud-world.svc.cluster.local:6379"
         - name: NATS_URL
           valueFrom:
-            configMapRef:
+            configMapKeyRef:
               name: core-physics-config
               key: NATS_URL
         - name: OLLAMA_HOST
