@@ -23,6 +23,7 @@
     let worldMapData: any = null;
     let loading = false;
     let hasRequestedMap = false; // Guard to prevent repeated requests
+    let hasHighResLoaded = false; // Track if 4K texture is already loaded
     let mapDataLayer: MapDataLayer | null = null; // Binary grid data for tooltips
 
     // Hover state for tile inspection
@@ -105,7 +106,14 @@
     $: if (isOpen && !hasRequestedMap) {
         hasRequestedMap = true;
         console.log("[WorldMapModal] Modal opened, requesting world map...");
-        requestWorldMap();
+        // Skip low-res request if high-res is already loaded (avoids visual downgrade)
+        if (hasHighResLoaded && globeTextureBlob) {
+            console.log(
+                "[WorldMapModal] High-res already loaded, skipping initial request",
+            );
+        } else {
+            requestWorldMap();
+        }
     }
 
     // Initialize flat map renderer when canvas is available (not for globe view)
@@ -401,6 +409,9 @@
                     "[WorldMapModal] Initial map loaded. Requesting 4K background load...",
                 );
                 requestWorldMap(true);
+            } else {
+                // Mark high-res as loaded so reopening modal won't downgrade
+                hasHighResLoaded = true;
             }
             return;
         }
