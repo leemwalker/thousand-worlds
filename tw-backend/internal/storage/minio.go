@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"time"
 
+	"tw-backend/internal/circuitbreaker"
+
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
@@ -23,6 +25,7 @@ var ErrSnapshotNotFound = errors.New("snapshot not found")
 type SnapshotStore struct {
 	client     *minio.Client
 	bucketName string
+	cb         *circuitbreaker.CircuitBreaker
 }
 
 // NewSnapshotStore creates a new MinIO-backed snapshot store.
@@ -37,10 +40,35 @@ func NewSnapshotStore(endpoint, accessKey, secretKey, bucket string, useSSL bool
 		return nil, fmt.Errorf("create minio client: %w", err)
 	}
 
+	// Configure circuit breaker for MinIO calls
+	// ErrSnapshotNotFound is NOT a service failure, so we exclude it
+	cbConfig := circuitbreaker.Config{
+		Name:             "minio",
+		FailureThreshold: 5,
+		SuccessThreshold: 2,
+		Timeout:          30 * time.Second,
+		IsFailure: func(err error) bool {
+			// "Not found" is expected - don't trip the circuit for it
+			return err != nil && !errors.Is(err, ErrSnapshotNotFound)
+		},
+	}
+	cb := circuitbreaker.New(cbConfig)
+
+	// Log state transitions
+	cb.OnStateChange(func(name string, from, to circuitbreaker.State) {
+		fmt.Printf("[CircuitBreaker] %s: %s -> %s\n", name, from, to)
+	})
+
 	return &SnapshotStore{
 		client:     client,
 		bucketName: bucket,
+		cb:         cb,
 	}, nil
+}
+
+// CircuitBreakerStats returns the current circuit breaker statistics.
+func (s *SnapshotStore) CircuitBreakerStats() circuitbreaker.Stats {
+	return s.cb.Stats()
 }
 
 // EnsureBucket creates the bucket if it doesn't exist.
@@ -62,50 +90,76 @@ func (s *SnapshotStore) EnsureBucket(ctx context.Context) error {
 
 // Upload stores a snapshot and returns the object key.
 // The data is expected to be already gzip-compressed.
+// Uses circuit breaker to prevent cascading failures when MinIO is unavailable.
 func (s *SnapshotStore) Upload(ctx context.Context, worldID string, year int64, data []byte) (string, error) {
 	key := ObjectKey(worldID, year)
 
-	_, err := s.client.PutObject(ctx, s.bucketName, key, bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{
-		ContentType:     "application/gzip",
-		ContentEncoding: "gzip",
+	err := s.cb.Execute(ctx, func(ctx context.Context) error {
+		_, err := s.client.PutObject(ctx, s.bucketName, key, bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{
+			ContentType:     "application/gzip",
+			ContentEncoding: "gzip",
+		})
+		if err != nil {
+			return fmt.Errorf("upload snapshot: %w", err)
+		}
+		return nil
 	})
-	if err != nil {
-		return "", fmt.Errorf("upload snapshot: %w", err)
-	}
 
+	if err != nil {
+		return "", err
+	}
 	return key, nil
 }
 
 // Download retrieves a snapshot by its object key.
+// Uses circuit breaker to prevent cascading failures when MinIO is unavailable.
+// Note: ErrSnapshotNotFound is NOT treated as a circuit breaker failure.
 func (s *SnapshotStore) Download(ctx context.Context, objectKey string) ([]byte, error) {
-	obj, err := s.client.GetObject(ctx, s.bucketName, objectKey, minio.GetObjectOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("get object: %w", err)
-	}
-	defer obj.Close()
+	var result []byte
 
-	data, err := io.ReadAll(obj)
-	if err != nil {
-		// Check if it's a not found error
-		var minioErr minio.ErrorResponse
-		if errors.As(err, &minioErr) {
-			if minioErr.Code == "NoSuchKey" {
-				return nil, ErrSnapshotNotFound
+	err := s.cb.Execute(ctx, func(ctx context.Context) error {
+		obj, err := s.client.GetObject(ctx, s.bucketName, objectKey, minio.GetObjectOptions{})
+		if err != nil {
+			return fmt.Errorf("get object: %w", err)
+		}
+		defer obj.Close()
+
+		data, err := io.ReadAll(obj)
+		if err != nil {
+			// Check if it's a not found error - this is NOT a service failure
+			var minioErr minio.ErrorResponse
+			if errors.As(err, &minioErr) {
+				if minioErr.Code == "NoSuchKey" {
+					result = nil
+					return ErrSnapshotNotFound // This won't trip the circuit
+				}
+			}
+			return fmt.Errorf("read snapshot: %w", err)
+		}
+
+		// Empty data means not found in some cases
+		if len(data) == 0 {
+			// Try to stat to confirm existence
+			_, statErr := obj.Stat()
+			if statErr != nil {
+				result = nil
+				return ErrSnapshotNotFound
 			}
 		}
-		return nil, fmt.Errorf("read snapshot: %w", err)
+
+		result = data
+		return nil
+	})
+
+	// Handle "not found" specially - it's not a service error
+	if errors.Is(err, ErrSnapshotNotFound) {
+		return nil, ErrSnapshotNotFound
 	}
 
-	// Empty data means not found in some cases
-	if len(data) == 0 {
-		// Try to stat to confirm existence
-		_, statErr := obj.Stat()
-		if statErr != nil {
-			return nil, ErrSnapshotNotFound
-		}
+	if err != nil {
+		return nil, err
 	}
-
-	return data, nil
+	return result, nil
 }
 
 // List returns all snapshots for a given world, ordered by year.

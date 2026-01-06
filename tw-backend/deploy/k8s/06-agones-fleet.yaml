@@ -56,7 +56,10 @@ spec:
         spec:
           containers:
           - name: core-physics
-            image: tw-backend/core-physics:latest
+            # Image should be registry-qualified for Kubernetes
+            # Override via kustomize or helm: ${REGISTRY}/tw-backend/core-physics:${TAG}
+            # Example: ghcr.io/leemwalker/thousand-worlds/core-physics:v1.0.0
+            image: ghcr.io/leemwalker/thousand-worlds/core-physics:latest
             imagePullPolicy: IfNotPresent
             
             # Environment from ConfigMap and Secrets
@@ -73,7 +76,23 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.annotations['agones.dev/world-id']
+            - name: HEALTH_PORT
+              value: "8081"
             # Agones SDK ports are auto-injected by the sidecar
+            
+            # Health check using our new HTTP health endpoint
+            livenessProbe:
+              httpGet:
+                path: /health
+                port: 8081
+              initialDelaySeconds: 15
+              periodSeconds: 10
+            readinessProbe:
+              httpGet:
+                path: /readyz
+                port: 8081
+              initialDelaySeconds: 10
+              periodSeconds: 5
             
             resources:
               limits:

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"tw-backend/internal/circuitbreaker"
 	"tw-backend/internal/ecosystem"
 
 	_ "github.com/jackc/pgx/v5/stdlib" // Use pgx stdlib for database/sql compatibility
@@ -14,6 +15,7 @@ import (
 // Service handles analytics and metric storage using TimescaleDB
 type Service struct {
 	db *sql.DB
+	cb *circuitbreaker.CircuitBreaker
 }
 
 // Ensure Service implements ecosystem.MetricsCollector
@@ -31,7 +33,21 @@ func NewService(dbURL string) (*Service, error) {
 		return nil, fmt.Errorf("ping analytics db: %w", err)
 	}
 
-	s := &Service{db: db}
+	// Configure circuit breaker for TimescaleDB calls
+	cbConfig := circuitbreaker.Config{
+		Name:             "timescaledb",
+		FailureThreshold: 5,
+		SuccessThreshold: 2,
+		Timeout:          30 * time.Second,
+	}
+	cb := circuitbreaker.New(cbConfig)
+
+	// Log state transitions
+	cb.OnStateChange(func(name string, from, to circuitbreaker.State) {
+		fmt.Printf("[CircuitBreaker] %s: %s -> %s\n", name, from, to)
+	})
+
+	s := &Service{db: db, cb: cb}
 
 	if err := s.initializeSchema(); err != nil {
 		return nil, fmt.Errorf("init schema: %w", err)
@@ -43,6 +59,11 @@ func NewService(dbURL string) (*Service, error) {
 // Close closes the database connection
 func (s *Service) Close() error {
 	return s.db.Close()
+}
+
+// CircuitBreakerStats returns the current circuit breaker statistics.
+func (s *Service) CircuitBreakerStats() circuitbreaker.Stats {
+	return s.cb.Stats()
 }
 
 // initializeSchema sets up the TimescaleDB extension and hypertables
@@ -90,8 +111,16 @@ func (s *Service) initializeSchema() error {
 	return nil
 }
 
-// RecordStats persists a snapshot of world statistics
+// RecordStats persists a snapshot of world statistics.
+// Uses circuit breaker to prevent cascading failures when TimescaleDB is unavailable.
 func (s *Service) RecordStats(ctx context.Context, stats ecosystem.GlobalStats) error {
+	return s.cb.Execute(ctx, func(ctx context.Context) error {
+		return s.recordStatsInternal(ctx, stats)
+	})
+}
+
+// recordStatsInternal performs the actual database insert.
+func (s *Service) recordStatsInternal(ctx context.Context, stats ecosystem.GlobalStats) error {
 	query := `
 	INSERT INTO world_metrics (
 		time, world_id, year, population, 
