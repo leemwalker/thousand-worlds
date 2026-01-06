@@ -273,6 +273,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 
 		// Use seedFlag (always set - either user-provided or random)
 		geology = ecosystem.NewWorldGeology(char.WorldID, seedFlag, circumference)
+		geology.EventPublisher = p.eventPublisher // Inject event publisher
 		p.worldGeology[char.WorldID] = geology
 	}
 

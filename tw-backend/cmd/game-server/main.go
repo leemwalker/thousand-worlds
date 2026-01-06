@@ -25,6 +25,7 @@ import (
 	"tw-backend/internal/character"
 	"tw-backend/internal/economy/crafting"
 	"tw-backend/internal/ecosystem"
+	"tw-backend/internal/events"
 	"tw-backend/internal/eventstore"
 	"tw-backend/internal/game/entry"
 	"tw-backend/internal/game/processor"
@@ -210,6 +211,23 @@ func main() {
 	simSnapshotRepo := ecosystem.NewSimulationSnapshotRepository(db)
 	runnerStateRepo := ecosystem.NewRunnerStateRepository(db)
 
+	// Initialize event publisher for simulation events
+	// Connect to NATS if available, otherwise use NoOp (silent)
+	var eventPublisher events.Publisher
+	natsURL := os.Getenv("NATS_URL")
+	if natsURL == "" {
+		natsURL = "nats://localhost:4222"
+	}
+	natsPub, err := events.NewNATSPublisher(natsURL)
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to connect to NATS, simulation events will not be published")
+		eventPublisher = events.NewNoOpPublisher()
+	} else {
+		log.Info().Str("url", natsURL).Msg("Connected to NATS JetStream for simulation events")
+		eventPublisher = natsPub
+		defer natsPub.Close()
+	}
+
 	// Initialize game processor
 	gameProcessor := processor.NewGameProcessor(
 		authRepo,
@@ -229,6 +247,7 @@ func main() {
 		craftingService,
 		simSnapshotRepo,
 		runnerStateRepo,
+		eventPublisher,
 	)
 
 	// Create and start the Hub

@@ -19,6 +19,7 @@ import (
 	"tw-backend/internal/economy/crafting"
 	"tw-backend/internal/ecosystem"
 	apperrors "tw-backend/internal/errors"
+	"tw-backend/internal/events"
 	"tw-backend/internal/game/constants"
 	"tw-backend/internal/game/formatter"
 	"tw-backend/internal/game/services/combat"
@@ -61,6 +62,7 @@ type GameProcessor struct {
 	interactionService *interaction.Service
 	craftingService    *crafting.Service
 	validator          *validation.Validator
+	eventPublisher     events.Publisher // Event infrastructure for simulation events
 
 	// WorldGeology stores geological state per world (worldID -> geology)
 	worldGeology map[uuid.UUID]*ecosystem.WorldGeology
@@ -92,9 +94,15 @@ func NewGameProcessor(
 	craftingService *crafting.Service,
 	simSnapshotRepo *ecosystem.SimulationSnapshotRepository,
 	runnerStateRepo *ecosystem.RunnerStateRepository,
+	eventPublisher events.Publisher,
 ) *GameProcessor {
 	// Create map service with available dependencies
 	mapSvc := gamemap.NewService(worldRepo, skillsRepo, entityService, lookService, worldEntityService, ecosystemService)
+
+	// Default to NoOp publisher if nil
+	if eventPublisher == nil {
+		eventPublisher = events.NewNoOpPublisher()
+	}
 
 	return &GameProcessor{
 		authRepo:           authRepo,
@@ -117,6 +125,7 @@ func NewGameProcessor(
 		worldGeology:       make(map[uuid.UUID]*ecosystem.WorldGeology),
 		simSnapshotRepo:    simSnapshotRepo,
 		runnerStateRepo:    runnerStateRepo,
+		eventPublisher:     eventPublisher,
 	}
 }
 

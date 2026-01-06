@@ -17,9 +17,14 @@ docker build -t tw-frontend/frontend:latest -f tw-frontend/Dockerfile tw-fronten
 echo "Importing images to K3s (containerd)..."
 # We need to save from docker and import to k3s ctr
 # Using 'sudo' might be needed depending on user permissions, but assuming script runs as user who can sudo or access k3s
-docker save tw-backend/core-physics:latest | sudo k3s ctr images import -
-docker save tw-backend/game-server:latest | sudo k3s ctr images import -
-docker save tw-frontend/frontend:latest | sudo k3s ctr images import -
+docker save tw-backend/core-physics:latest | k3s ctr images import -
+docker save tw-backend/game-server:latest | k3s ctr images import -
+docker save tw-frontend/frontend:latest | k3s ctr images import -
+
+# 1c. Setup Kubernetes Config
+echo "Configuring K3s permissions..."
+# Assumes /etc/rancher/k3s/k3s.yaml is already readable (manual setup required once)
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 
 # 2. Apply Kubernetes Manifests in Order
 echo "Applying Kubernetes Manifests..."
