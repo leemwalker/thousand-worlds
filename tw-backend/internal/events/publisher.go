@@ -80,8 +80,27 @@ var StreamConfig = jetstream.StreamConfig{
 func NewNATSPublisher(natsURL string) (*NATSPublisher, error) {
 	nc, err := nats.Connect(natsURL,
 		nats.RetryOnFailedConnect(true),
-		nats.MaxReconnects(10),
+		nats.MaxReconnects(-1), // Unlimited reconnects for resilience
 		nats.ReconnectWait(time.Second),
+		// Exponential backoff with jitter for reconnection
+		nats.CustomReconnectDelay(func(attempts int) time.Duration {
+			// Base delay: 1s, doubles each attempt, max 30s
+			delay := time.Second * time.Duration(1<<min(attempts, 5)) // 1s, 2s, 4s, 8s, 16s, 32s (capped)
+			if delay > 30*time.Second {
+				delay = 30 * time.Second
+			}
+			// Add jitter: ±25% to prevent thundering herd
+			jitter := time.Duration(float64(delay) * 0.25 * (2*float64(time.Now().UnixNano()%1000)/1000 - 1))
+			return delay + jitter
+		}),
+		nats.DisconnectErrHandler(func(_ *nats.Conn, err error) {
+			if err != nil {
+				fmt.Printf("[NATS] Disconnected: %v\n", err)
+			}
+		}),
+		nats.ReconnectHandler(func(_ *nats.Conn) {
+			fmt.Println("[NATS] Reconnected")
+		}),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("nats connect: %w", err)

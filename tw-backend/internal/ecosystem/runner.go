@@ -41,6 +41,41 @@ const (
 	SpeedTurbo  SimulationSpeed = 1000 // 1000 years per tick
 )
 
+// gridPool provides reusable float64 slices for temporary allocations
+// during simulation (e.g., temperature grids during ice ages).
+// This reduces GC pressure during deep-time simulations.
+var gridPool = sync.Pool{
+	New: func() interface{} {
+		// Default capacity for 256x256 sphere (6 faces)
+		// Actual slice will be resliced to needed size
+		return make([]float64, 0, 6*256*256)
+	},
+}
+
+// getGridFromPool retrieves a float64 slice of the requested size from the pool.
+// The slice is zeroed before return.
+func getGridFromPool(size int) []float64 {
+	grid := gridPool.Get().([]float64)
+	if cap(grid) < size {
+		// Capacity too small, allocate new (rare case)
+		grid = make([]float64, size)
+	} else {
+		grid = grid[:size]
+		// Zero the slice
+		for i := range grid {
+			grid[i] = 0
+		}
+	}
+	return grid
+}
+
+// putGridToPool returns a slice to the pool for reuse.
+func putGridToPool(grid []float64) {
+	if grid != nil {
+		gridPool.Put(grid[:0]) // Reset length but keep capacity
+	}
+}
+
 // SimulationConfig holds configuration for the runner
 type SimulationConfig struct {
 	WorldID          uuid.UUID       `json:"world_id"`
@@ -582,9 +617,11 @@ func (sr *SimulationRunner) tickLocked(yearsToAdvance int64) error {
 						resolution := sr.geology.Topology.Resolution()
 						totalCells := 6 * resolution * resolution
 
-						// Generate simple temperature grid based on climate state
-						tempGrid := make([]float64, totalCells)
-						precipGrid := make([]float64, totalCells)
+						// Use pooled grids to reduce GC pressure
+						tempGrid := getGridFromPool(totalCells)
+						precipGrid := getGridFromPool(totalCells)
+						defer putGridToPool(tempGrid)
+						defer putGridToPool(precipGrid)
 
 						// Base temperature from greenhouse + geothermal
 						baseTemp := 14.0 + sr.climateDriver.GreenhouseOffset + sr.climateDriver.GeothermalOffset

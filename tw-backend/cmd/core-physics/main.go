@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"math"
+	"net/http"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -294,26 +296,64 @@ func main() {
 		geology.InitializeGeology(0)
 	}
 
-	// 7. Start Simulation
-	log.Info().Int64("start_year", startYear).Msg("Starting simulation loop")
+	// 7. Start Health Server for Kubernetes/Docker health checks
+	var ready atomic.Bool
+	healthPort := os.Getenv("HEALTH_PORT")
+	if healthPort == "" {
+		healthPort = "8081"
+	}
 
-	// Handle shutdown gracefully
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	healthMux := http.NewServeMux()
+	healthMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+	healthMux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		if ready.Load() {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("ready"))
+		} else {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte("not ready"))
+		}
+	})
+
+	healthServer := &http.Server{
+		Addr:    ":" + healthPort,
+		Handler: healthMux,
+	}
+	go func() {
+		log.Info().Str("port", healthPort).Msg("Starting health server")
+		if err := healthServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Error().Err(err).Msg("Health server failed")
+		}
+	}()
+
+	// 8. Start Simulation
+	log.Info().Int64("start_year", startYear).Msg("Starting simulation loop")
 
 	go func() {
 		if err := runner.Start(startYear); err != nil {
 			log.Fatal().Err(err).Msg("Simulation runner failed")
 		}
 	}()
+
+	// Mark as ready once simulation is running
+	ready.Store(true)
 	log.Info().Msg("Simulation running. Press Ctrl+C to stop.")
 
-	// 7. Wait for shutdown
+	// 9. Wait for shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
 
 	log.Info().Msg("Shutting down...")
+
+	// Gracefully shutdown health server
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+	healthServer.Shutdown(shutdownCtx)
+
 	runner.Stop()
 	log.Info().Msg("Shutdown complete")
 }
