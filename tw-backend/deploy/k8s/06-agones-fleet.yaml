@@ -1,0 +1,132 @@
+# Agones Fleet Configuration for World Simulation
+# This replaces the StatefulSet approach with Agones GameServer lifecycle management.
+# Agones prevents Kubernetes from killing active simulations during scale-down.
+
+# Prerequisite: Install Agones CRDs on your cluster:
+#   kubectl create namespace agones-system
+#   kubectl apply -f https://raw.githubusercontent.com/googleforgames/agones/release-1.40.0/install/yaml/install.yaml
+#
+# Then apply this file:
+#   kubectl apply -f 06-agones-fleet.yaml
+
+---
+apiVersion: "agones.dev/v1"
+kind: Fleet
+metadata:
+  name: world-simulation-fleet
+  namespace: mud-world
+spec:
+  # Number of warm GameServers to keep ready for instant allocation
+  replicas: 2
+  
+  # Scheduling strategy for pods
+  scheduling: Packed  # Bin-pack onto fewer nodes (cost-efficient)
+  
+  # GameServer template
+  template:
+    metadata:
+      labels:
+        app: world-simulation
+        tier: physics
+    spec:
+      # Container template
+      container: core-physics
+      
+      # Ports exposed by the GameServer (not used for simulation, but required by Agones)
+      ports:
+      - name: default
+        portPolicy: Dynamic
+        containerPort: 7654
+        protocol: UDP
+      
+      # Health check configuration
+      health:
+        disabled: false
+        periodSeconds: 5
+        failureThreshold: 3
+        initialDelaySeconds: 10
+      
+      # Eviction behavior - CRITICAL for preventing simulation loss
+      # Never evicts on scale-down while state is "Allocated"
+      eviction:
+        safe: Always
+      
+      # Pod template
+      template:
+        spec:
+          containers:
+          - name: core-physics
+            image: tw-backend/core-physics:latest
+            imagePullPolicy: IfNotPresent
+            
+            # Environment from ConfigMap and Secrets
+            envFrom:
+            - configMapRef:
+                name: core-physics-config
+            - secretRef:
+                name: core-physics-secrets
+            
+            # WORLD_ID will be set at allocation time via GameServerAllocation
+            # For now, use a placeholder that gets overwritten
+            env:
+            - name: WORLD_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.annotations['agones.dev/world-id']
+            # Agones SDK ports are auto-injected by the sidecar
+            
+            resources:
+              limits:
+                memory: "4Gi"
+                cpu: "4"
+              requests:
+                memory: "1Gi"
+                cpu: "1"
+            
+            volumeMounts:
+            - name: checkpoints
+              mountPath: /data/checkpoints
+          
+          volumes:
+          - name: checkpoints
+            emptyDir:
+              sizeLimit: 10Gi
+
+---
+# GameServerAllocation for requesting a new world simulation
+# Usage: kubectl create -f this-file.yaml with worldId annotation
+apiVersion: "allocation.agones.dev/v1"
+kind: GameServerAllocation
+metadata:
+  name: allocate-world-simulation
+  namespace: mud-world
+spec:
+  # Select from our fleet
+  selectors:
+  - matchLabels:
+      agones.dev/fleet: world-simulation-fleet
+  
+  # Metadata to apply to allocated GameServer
+  metadata:
+    annotations:
+      # This gets populated by the allocator service
+      agones.dev/world-id: "PLACEHOLDER_WORLD_ID"
+    labels:
+      allocated: "true"
+
+---
+# FleetAutoscaler to maintain warm pool
+apiVersion: "autoscaling.agones.dev/v1"
+kind: FleetAutoscaler
+metadata:
+  name: world-simulation-autoscaler
+  namespace: mud-world
+spec:
+  fleetName: world-simulation-fleet
+  policy:
+    type: Buffer
+    buffer:
+      # Keep 1 warm GameServer ready for instant allocation
+      bufferSize: 1
+      minReplicas: 1
+      maxReplicas: 10
