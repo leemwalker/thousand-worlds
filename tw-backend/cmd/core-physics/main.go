@@ -15,6 +15,7 @@ import (
 
 	agones "agones.dev/agones/sdks/go"
 
+	"tw-backend/internal/analytics"
 	"tw-backend/internal/auth"
 	"tw-backend/internal/ecosystem"
 	"tw-backend/internal/events"
@@ -236,6 +237,21 @@ func main() {
 			runner.SetRecoveryService(recoveryService)
 			log.Info().Msg("Crash recovery service initialized")
 		}
+	}
+
+	// 5.7. Analytics/Metrics Integration (Phase 5)
+	analyticsURL := os.Getenv("ANALYTICS_URL")
+	if analyticsURL != "" {
+		analyticsService, err := analytics.NewService(analyticsURL)
+		if err != nil {
+			log.Warn().Err(err).Msg("Analytics service unavailable - metrics collection disabled")
+		} else {
+			runner.SetMetricsCollector(analyticsService)
+			log.Info().Msg("Connected to TimescaleDB analytics service")
+			defer analyticsService.Close()
+		}
+	} else {
+		log.Info().Msg("ANALYTICS_URL not set - metrics collection disabled")
 	}
 
 	// 6. Initialize State & Recovery
