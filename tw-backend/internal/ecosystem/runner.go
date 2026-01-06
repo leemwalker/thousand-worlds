@@ -117,6 +117,7 @@ type SimulationRunner struct {
 	stateRepo        *RunnerStateRepository
 	snapshotStore    storage.SnapshotStoreInterface // L3: MinIO snapshot storage
 	recoveryService  *RecoveryService               // Crash recovery service
+	metricsCollector MetricsCollector               // Phase 5: Analytics
 
 	// Handlers
 	tickHandler           TickHandler
@@ -254,6 +255,13 @@ func (sr *SimulationRunner) SetRecoveryService(service *RecoveryService) {
 	sr.mu.Lock()
 	defer sr.mu.Unlock()
 	sr.recoveryService = service
+}
+
+// SetMetricsCollector sets the analytics metrics collector for Phase 5
+func (sr *SimulationRunner) SetMetricsCollector(collector MetricsCollector) {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+	sr.metricsCollector = collector
 }
 
 // Start begins the simulation
@@ -650,6 +658,31 @@ func (sr *SimulationRunner) tickLocked(yearsToAdvance int64) error {
 	// Check for snapshot
 	if sr.currentYear-sr.lastSnapshotYear >= sr.config.SnapshotInterval {
 		sr.createSnapshot()
+
+		// Phase 5: Record metrics to TimescaleDB (async to not block simulation)
+		if sr.metricsCollector != nil && sr.geology != nil {
+			geoStats := sr.geology.GetStats()
+			stats := GlobalStats{
+				WorldID:          sr.config.WorldID,
+				Year:             sr.currentYear,
+				Population:       0, // TODO: wire population from popSim
+				AvgTemperature:   geoStats.AverageTemperature,
+				MaxTemperature:   geoStats.AverageTemperature + 30, // Approx equator
+				MinTemperature:   geoStats.AverageTemperature - 40, // Approx poles
+				AvgElevation:     geoStats.AverageElevation,
+				SeaLevel:         geoStats.SeaLevel,
+				AtmosphereCarbon: sr.geology.Atmosphere.CO2 * 1000000, // fraction to ppm
+				AtmosphereOxygen: sr.geology.Atmosphere.O2 * 100,      // fraction to percent
+			}
+			collector := sr.metricsCollector
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := collector.RecordStats(ctx, stats); err != nil {
+					fmt.Printf("[Analytics] Failed to record metrics: %v\n", err)
+				}
+			}()
+		}
 	}
 
 	// Accumulate Divine Energy over time (Turning Point system)

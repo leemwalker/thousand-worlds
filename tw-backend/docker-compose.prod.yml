@@ -30,6 +30,31 @@ services:
       retries: 5
     command: postgres -c shared_buffers=4GB
 
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: mud_timescaledb
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: mud_metrics
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+    networks:
+      - mud_net
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U admin -d mud_metrics" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: postgres -c shared_buffers=1GB
+
   mongo:
     image: mongo:7.0
     container_name: mud_mongo
@@ -207,7 +232,10 @@ services:
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-admin}
       - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-password123}
+      - ANALYTICS_URL=postgres://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB:-mud_metrics}?sslmode=disable
     depends_on:
+      timescaledb:
+        condition: service_healthy
       nats:
         condition: service_healthy
       postgis:
@@ -261,4 +289,5 @@ volumes:
   nats_data:
   dragonfly_data:
   minio_data:
+  timescale_data:
   ollama_models:
