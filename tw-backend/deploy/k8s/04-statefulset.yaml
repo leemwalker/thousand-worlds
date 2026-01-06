@@ -37,9 +37,6 @@ spec:
           export WORLD_ID="d8666327-0474-4b47-a461-9f935105221$ORDINAL"
           echo "Starting World Simulation for WORLD_ID: $WORLD_ID (Ordinal: $ORDINAL)"
           ./core-physics
-        ports:
-        - containerPort: 8080
-          name: http
         resources:
           limits:
             memory: "4Gi"
@@ -50,18 +47,8 @@ spec:
         volumeMounts:
         - name: checkpoints
           mountPath: /data/checkpoints
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 15
-          periodSeconds: 20
-        readinessProbe:
-          httpGet:
-            path: /ready
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 10
+        # Removed HTTP ports and probes as this is a background NATS worker
+        # livenessProbe/readinessProbe disabled until HTTP server is added
   volumeClaimTemplates:
   - metadata:
       name: checkpoints
