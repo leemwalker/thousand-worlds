@@ -5,7 +5,7 @@ metadata:
   namespace: mud-world
 spec:
   serviceName: "world"
-  replicas: 2 # Start with 2 worlds for testing
+  replicas: 1 # Start with 1 world for testing
   selector:
     matchLabels:
       app: world
