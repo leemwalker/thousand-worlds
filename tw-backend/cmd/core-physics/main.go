@@ -135,7 +135,7 @@ func main() {
 		newWorld := &repository.World{
 			ID:            worldID,
 			Name:          "Physics Simulation World",
-			OwnerID:       uuid.Nil, // System owned
+			OwnerID:       uuid.MustParse("00000000-0000-0000-0000-000000000001"), // System owned
 			Shape:         repository.WorldShapeSphere,
 			Radius:        &defaultRadius,
 			Circumference: &defaultCircumference,
