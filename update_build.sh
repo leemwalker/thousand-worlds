@@ -21,9 +21,18 @@ echo "Rebuilding game-server and frontend..."
 cd tw-backend
 docker compose -f docker-compose.prod.yml build game-server frontend
 
+# Build core-physics for K8s/Agones
+echo "Building core-physics for Agones..."
+docker build -t tw-backend/core-physics:latest -f Dockerfile.core-physics .
+
 # Restart services
 echo "Restarting services..."
 docker compose -f docker-compose.prod.yml up -d game-server frontend
+
+# Restart Agones Fleet
+echo "Rolling out new physics engine..."
+kubectl -n mud-world scale fleet world-simulation-fleet --replicas=0
+kubectl -n mud-world scale fleet world-simulation-fleet --replicas=2
 
 # Show status
 echo ""
