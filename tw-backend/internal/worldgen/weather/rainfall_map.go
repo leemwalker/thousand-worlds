@@ -2,6 +2,7 @@ package weather
 
 import (
 	"math"
+	"sync"
 
 	"tw-backend/internal/spatial"
 	"tw-backend/internal/worldgen/geography"
@@ -54,131 +55,145 @@ func GenerateRainfallMap(
 	moisture := make([]float64, totalCells)
 	tempMoisture := make([]float64, totalCells)
 
-	// Step 1: Initial moisture from ocean evaporation
-	for idx := 0; idx < totalCells; idx++ {
-		coord := indexToCoord(idx, res)
-		elev := sphereMap.Get(coord)
+	// Step 1: Initial moisture from ocean evaporation (Parallelized by face)
+	resSq := res * res
+	var wg sync.WaitGroup
+	wg.Add(6)
+	for face := 0; face < 6; face++ {
+		go func(f int) {
+			defer wg.Done()
+			faceStart := f * resSq
+			for i := 0; i < resSq; i++ {
+				idx := faceStart + i
+				coord := indexToCoord(idx, res)
+				elev := sphereMap.Get(coord)
 
-		if elev <= config.SeaLevel {
-			// Ocean cell: evaporate moisture
-			// Tropical oceans evaporate more
-			lat := GetLatitudeFromCoord(topology, coord)
-			absLat := math.Abs(lat)
+				if elev <= config.SeaLevel {
+					// Ocean cell: evaporate moisture
+					// Tropical oceans evaporate more
+					lat := GetLatitudeFromCoord(topology, coord)
+					absLat := math.Abs(lat)
 
-			// Evaporation decreases toward poles
-			latFactor := 1.0 - (absLat / 90.0 * 0.5) // 1.0 at equator, 0.5 at poles
-			moisture[idx] = config.OceanEvapRate * latFactor
-		}
-	}
-
-	// Pre-calculate upwind neighbors for all cells
-	// Wind is constant during advection steps, so we don't need to recalculate it inside the loop
-	upwindNeighbors := make([]int, totalCells)
-	for idx := 0; idx < totalCells; idx++ {
-		coord := indexToCoord(idx, res)
-
-		// Get wind vector from pressure gradients (Phase 1.2 verification)
-		// This replaces the simple latitude-based wind model
-		windVec := CalculatePressureGradientWind(coord, topology, pressureMap)
-
-		// Apply Coriolis Effect to deflect wind (create zonal flow)
-		// Northern Hemisphere: Deflect Right (Clockwise)
-		// Southern Hemisphere: Deflect Left (Counter-Clockwise)
-		// Magnitude increases with latitude
-		lat := GetLatitudeFromCoord(topology, coord)
-
-		// Deflection angle: Approaches Geostrophic (90 deg) away from equator.
-		// We use Tanh to ramp up quickly (Trade Winds start near equator).
-		// Max deflection 80 degrees leaves a component of meridional flow (Hadley convergence).
-		// NH (lat>0): +80 deg -> Deflect Right (cw) -> -80 rad rotation.
-		// SH (lat<0): -80 deg -> Deflect Left (ccw) -> +80 rad rotation. (Wait, logic in RotateAround handles sign).
-		// Note from before: NH needs NEGATIVE angle for CW rotation.
-		// If lat > 0, Tanh > 0. deflectionDeg = 80.
-		// We pass -deflectionRad to RotateAround.
-		// So -80 rad. Correct.
-		deflectionDeg := 80.0 * math.Tanh(lat/5.0)
-		deflectionRad := deflectionDeg * math.Pi / 180.0
-
-		// Rotation axis is the surface normal at this point
-		px, py, pz := topology.ToSphere(coord)
-		normal := spatial.Vector3D{X: px, Y: py, Z: pz}
-
-		// Rotate wind vector
-		// NH: Deflect Right (CW). deflectionDeg > 0. Angle = -deflectionRad.
-		// SH: Deflect Left (CCW). deflectionDeg < 0. Angle = -deflectionRad (becomes positive).
-		windVec = windVec.RotateAround(normal, -deflectionRad)
-
-		// Falls back to simplified wind if gradient is too weak
-		if windVec.Length() < 0.1 {
-			windVec = Get3DWindVector(topology, coord, SeasonSpring)
-		}
-
-		// Upwind is opposite of wind direction
-		upwindVec := windVec.Scale(-1)
-
-		// Convert 3D wind to local cardinal direction
-		upwindDir := WindToLocalDirection(topology, coord, upwindVec)
-
-		// Find upwind neighbor using topology (handles face transitions)
-		// We store the index directly for fast lookup in the loop
-		upwindNeighbor := topology.GetNeighbor(coord, upwindDir)
-		upwindNeighbors[idx] = coordToIndex(upwindNeighbor, res)
-	}
-
-	// Step 2: Moisture advection passes
-	for pass := 0; pass < config.AdvectionPasses; pass++ {
-		// Copy current moisture for reading
-		copy(tempMoisture, moisture)
-
-		for idx := 0; idx < totalCells; idx++ {
-			coord := indexToCoord(idx, res)
-			elev := sphereMap.Get(coord)
-
-			// Use pre-calculated upwind neighbor
-			upwindIdx := upwindNeighbors[idx]
-
-			if upwindIdx >= 0 && upwindIdx < totalCells {
-				upwindCoord := indexToCoord(upwindIdx, res)
-				upwindElev := sphereMap.Get(upwindCoord)
-				upwindMoisture := tempMoisture[upwindIdx]
-
-				// Transport moisture from upwind
-				transportRate := 0.8 // 80% of upwind moisture transported
-				transportedMoisture := upwindMoisture * transportRate
-
-				// Step 3: Orographic lift - check elevation change
-				elevDiff := elev - upwindElev
-
-				if elevDiff > 0 {
-					// WINDWARD: Air rises, cools, dumps rain
-					// Precipitation rate proportional to elevation gain and moisture
-					liftFactor := math.Min(elevDiff/1000.0, 1.0) // Max effect at 1000m gain
-					precipAmount := transportedMoisture * liftFactor * 0.5
-
-					rainfall[idx] += precipAmount
-
-					// Reduce moisture (rain shadow effect)
-					moisture[idx] += transportedMoisture * (1.0 - liftFactor*0.8)
-				} else if elevDiff < 0 {
-					// LEEWARD: Air descends, warms, holds moisture (dry)
-					// No precipitation, but moisture continues
-					moisture[idx] += transportedMoisture
-				} else {
-					// Flat terrain: some precipitation, some transport
-					flatPrecip := transportedMoisture * 0.1
-					rainfall[idx] += flatPrecip
-					moisture[idx] += transportedMoisture - flatPrecip
+					// Evaporation decreases toward poles
+					latFactor := 1.0 - (absLat / 90.0 * 0.5) // 1.0 at equator, 0.5 at poles
+					moisture[idx] = config.OceanEvapRate * latFactor
 				}
 			}
+		}(face)
+	}
+	wg.Wait()
 
-			// Ocean cells continuously evaporate
-			if elev <= config.SeaLevel {
+	// Pre-calculate upwind neighbors for all cells (Parallelized by face)
+	// Wind is constant during advection steps, so we don't need to recalculate it inside the loop
+	upwindNeighbors := make([]int, totalCells)
+	wg.Add(6)
+	for face := 0; face < 6; face++ {
+		go func(f int) {
+			defer wg.Done()
+			faceStart := f * resSq
+			for i := 0; i < resSq; i++ {
+				idx := faceStart + i
+				coord := indexToCoord(idx, res)
+
+				// Get wind vector from pressure gradients (Phase 1.2 verification)
+				// This replaces the simple latitude-based wind model
+				windVec := CalculatePressureGradientWind(coord, topology, pressureMap)
+
+				// Apply Coriolis Effect to deflect wind (create zonal flow)
+				// Northern Hemisphere: Deflect Right (Clockwise)
+				// Southern Hemisphere: Deflect Left (Counter-Clockwise)
+				// Magnitude increases with latitude
 				lat := GetLatitudeFromCoord(topology, coord)
-				absLat := math.Abs(lat)
-				latFactor := 1.0 - (absLat / 90.0 * 0.5)
-				moisture[idx] = math.Max(moisture[idx], config.OceanEvapRate*latFactor)
+
+				// Deflection angle: Approaches Geostrophic (90 deg) away from equator.
+				deflectionDeg := 80.0 * math.Tanh(lat/5.0)
+				deflectionRad := deflectionDeg * math.Pi / 180.0
+
+				// Rotation axis is the surface normal at this point
+				px, py, pz := topology.ToSphere(coord)
+				normal := spatial.Vector3D{X: px, Y: py, Z: pz}
+
+				// Rotate wind vector
+				windVec = windVec.RotateAround(normal, -deflectionRad)
+
+				// Falls back to simplified wind if gradient is too weak
+				if windVec.Length() < 0.1 {
+					windVec = Get3DWindVector(topology, coord, SeasonSpring)
+				}
+
+				// Upwind is opposite of wind direction
+				upwindVec := windVec.Scale(-1)
+
+				// Convert 3D wind to local cardinal direction
+				upwindDir := WindToLocalDirection(topology, coord, upwindVec)
+
+				// Find upwind neighbor using topology (handles face transitions)
+				upwindNeighbor := topology.GetNeighbor(coord, upwindDir)
+				upwindNeighbors[idx] = coordToIndex(upwindNeighbor, res)
 			}
+		}(face)
+	}
+	wg.Wait()
+
+	// Step 2: Moisture advection passes (Inner loop parallelized by face)
+	for pass := 0; pass < config.AdvectionPasses; pass++ {
+		// Copy current moisture for reading (double-buffering for thread safety)
+		copy(tempMoisture, moisture)
+
+		wg.Add(6)
+		for face := 0; face < 6; face++ {
+			go func(f int) {
+				defer wg.Done()
+				faceStart := f * resSq
+				for i := 0; i < resSq; i++ {
+					idx := faceStart + i
+					coord := indexToCoord(idx, res)
+					elev := sphereMap.Get(coord)
+
+					// Use pre-calculated upwind neighbor
+					upwindIdx := upwindNeighbors[idx]
+
+					if upwindIdx >= 0 && upwindIdx < totalCells {
+						upwindCoord := indexToCoord(upwindIdx, res)
+						upwindElev := sphereMap.Get(upwindCoord)
+						upwindMoisture := tempMoisture[upwindIdx]
+
+						// Transport moisture from upwind
+						transportRate := 0.8 // 80% of upwind moisture transported
+						transportedMoisture := upwindMoisture * transportRate
+
+						// Step 3: Orographic lift - check elevation change
+						elevDiff := elev - upwindElev
+
+						if elevDiff > 0 {
+							// WINDWARD: Air rises, cools, dumps rain
+							liftFactor := math.Min(elevDiff/1000.0, 1.0)
+							precipAmount := transportedMoisture * liftFactor * 0.5
+
+							rainfall[idx] += precipAmount
+							moisture[idx] += transportedMoisture * (1.0 - liftFactor*0.8)
+						} else if elevDiff < 0 {
+							// LEEWARD: Air descends, warms, holds moisture (dry)
+							moisture[idx] += transportedMoisture
+						} else {
+							// Flat terrain: some precipitation, some transport
+							flatPrecip := transportedMoisture * 0.1
+							rainfall[idx] += flatPrecip
+							moisture[idx] += transportedMoisture - flatPrecip
+						}
+					}
+
+					// Ocean cells continuously evaporate
+					if elev <= config.SeaLevel {
+						lat := GetLatitudeFromCoord(topology, coord)
+						absLat := math.Abs(lat)
+						latFactor := 1.0 - (absLat / 90.0 * 0.5)
+						moisture[idx] = math.Max(moisture[idx], config.OceanEvapRate*latFactor)
+					}
+				}
+			}(face)
 		}
+		wg.Wait()
 	}
 
 	// Determine day of year for the season
@@ -187,42 +202,49 @@ func GenerateRainfallMap(
 	// For rainfall generation, we use the config season.
 	// But generateSimplifiedPressureMap currently duplicates this logic. It's fine for now.
 
-	// Step 4: Apply latitude-based precipitation modifiers
-	for idx := 0; idx < totalCells; idx++ {
-		coord := indexToCoord(idx, res)
-		elev := sphereMap.Get(coord)
-		isLand := elev > config.SeaLevel
+	// Step 4: Apply latitude-based precipitation modifiers (Parallelized by face)
+	wg.Add(6)
+	for face := 0; face < 6; face++ {
+		go func(f int) {
+			defer wg.Done()
+			faceStart := f * resSq
+			for i := 0; i < resSq; i++ {
+				idx := faceStart + i
+				coord := indexToCoord(idx, res)
+				elev := sphereMap.Get(coord)
+				isLand := elev > config.SeaLevel
 
-		if !isLand {
-			rainfall[idx] = 0 // No rain over ocean (tracking on land only)
-			continue
-		}
+				if !isLand {
+					rainfall[idx] = 0 // No rain over ocean (tracking on land only)
+					continue
+				}
 
-		lat := GetLatitudeFromCoord(topology, coord)
-		absLat := math.Abs(lat)
+				lat := GetLatitudeFromCoord(topology, coord)
+				absLat := math.Abs(lat)
 
-		// Calculate Thermal Equator (ITCZ position) for this cell
-		// Land heats/cools fast (30 day lag), Ocean slow (75 day lag)
-		thermalDeclination := CalculateThermalDeclination(dayOfYear, isLand)
+				// Calculate Thermal Equator (ITCZ position) for this cell
+				thermalDeclination := CalculateThermalDeclination(dayOfYear, isLand)
 
-		// ITCZ (tropical) bonus - centers on thermal equator
-		distFromITCZ := math.Abs(lat - thermalDeclination)
-		if distFromITCZ < 15 {
-			// Peak bonus at the ITCZ center
-			bonus := 1.5 * (1.0 - distFromITCZ/30.0) // decay factor
-			rainfall[idx] *= (1.0 + bonus)
-		}
+				// ITCZ (tropical) bonus - centers on thermal equator
+				distFromITCZ := math.Abs(lat - thermalDeclination)
+				if distFromITCZ < 15 {
+					bonus := 1.5 * (1.0 - distFromITCZ/30.0)
+					rainfall[idx] *= (1.0 + bonus)
+				}
 
-		// Subtropical high (desert latitudes) penalty
-		if absLat > 20 && absLat < 35 {
-			rainfall[idx] *= 0.5
-		}
+				// Subtropical high (desert latitudes) penalty
+				if absLat > 20 && absLat < 35 {
+					rainfall[idx] *= 0.5
+				}
 
-		// Cap rainfall at reasonable maximum (mm/year equivalent)
-		if rainfall[idx] > 3000 {
-			rainfall[idx] = 3000
-		}
+				// Cap rainfall at reasonable maximum (mm/year equivalent)
+				if rainfall[idx] > 3000 {
+					rainfall[idx] = 3000
+				}
+			}
+		}(face)
 	}
+	wg.Wait()
 
 	return rainfall
 }
