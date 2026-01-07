@@ -34,7 +34,8 @@ func DefaultRainfallConfig(seaLevel float64) RainfallConfig {
 //  3. Orographic lift causes precipitation on windward slopes
 //  4. Rain shadow forms on leeward sides
 //
-// Returns a flat array of rainfall values indexed by face*res*res + y*res + x
+// GenerateRainfallMap simulates global rainfall based on atmospheric circulation.
+// Uses a spherical 3D advection model with pressure-gradient winds.
 func GenerateRainfallMap(
 	sphereMap *geography.SphereHeightmap,
 	topology spatial.Topology,
@@ -42,7 +43,11 @@ func GenerateRainfallMap(
 ) []float64 {
 	res := sphereMap.Resolution()
 	totalCells := 6 * res * res
-	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+	seaLevel := config.SeaLevel
+
+	// Phase 1.2: Generate pressure map for accurate wind calculations
+	// We use Spring as the representative season for annual rainfall
+	pressureMap := generateSimplifiedPressureMap(sphereMap, topology, seaLevel, SeasonSpring)
 
 	// Initialize rainfall and moisture grids
 	rainfall := make([]float64, totalCells)
@@ -66,6 +71,60 @@ func GenerateRainfallMap(
 		}
 	}
 
+	// Pre-calculate upwind neighbors for all cells
+	// Wind is constant during advection steps, so we don't need to recalculate it inside the loop
+	upwindNeighbors := make([]int, totalCells)
+	for idx := 0; idx < totalCells; idx++ {
+		coord := indexToCoord(idx, res)
+
+		// Get wind vector from pressure gradients (Phase 1.2 verification)
+		// This replaces the simple latitude-based wind model
+		windVec := CalculatePressureGradientWind(coord, topology, pressureMap)
+
+		// Apply Coriolis Effect to deflect wind (create zonal flow)
+		// Northern Hemisphere: Deflect Right (Clockwise)
+		// Southern Hemisphere: Deflect Left (Counter-Clockwise)
+		// Magnitude increases with latitude
+		lat := GetLatitudeFromCoord(topology, coord)
+
+		// Deflection angle: Approaches Geostrophic (90 deg) away from equator.
+		// We use Tanh to ramp up quickly (Trade Winds start near equator).
+		// Max deflection 80 degrees leaves a component of meridional flow (Hadley convergence).
+		// NH (lat>0): +80 deg -> Deflect Right (cw) -> -80 rad rotation.
+		// SH (lat<0): -80 deg -> Deflect Left (ccw) -> +80 rad rotation. (Wait, logic in RotateAround handles sign).
+		// Note from before: NH needs NEGATIVE angle for CW rotation.
+		// If lat > 0, Tanh > 0. deflectionDeg = 80.
+		// We pass -deflectionRad to RotateAround.
+		// So -80 rad. Correct.
+		deflectionDeg := 80.0 * math.Tanh(lat/5.0)
+		deflectionRad := deflectionDeg * math.Pi / 180.0
+
+		// Rotation axis is the surface normal at this point
+		px, py, pz := topology.ToSphere(coord)
+		normal := spatial.Vector3D{X: px, Y: py, Z: pz}
+
+		// Rotate wind vector
+		// NH: Deflect Right (CW). deflectionDeg > 0. Angle = -deflectionRad.
+		// SH: Deflect Left (CCW). deflectionDeg < 0. Angle = -deflectionRad (becomes positive).
+		windVec = windVec.RotateAround(normal, -deflectionRad)
+
+		// Falls back to simplified wind if gradient is too weak
+		if windVec.Length() < 0.1 {
+			windVec = Get3DWindVector(topology, coord, SeasonSpring)
+		}
+
+		// Upwind is opposite of wind direction
+		upwindVec := windVec.Scale(-1)
+
+		// Convert 3D wind to local cardinal direction
+		upwindDir := WindToLocalDirection(topology, coord, upwindVec)
+
+		// Find upwind neighbor using topology (handles face transitions)
+		// We store the index directly for fast lookup in the loop
+		upwindNeighbor := topology.GetNeighbor(coord, upwindDir)
+		upwindNeighbors[idx] = coordToIndex(upwindNeighbor, res)
+	}
+
 	// Step 2: Moisture advection passes
 	for pass := 0; pass < config.AdvectionPasses; pass++ {
 		// Copy current moisture for reading
@@ -75,18 +134,12 @@ func GenerateRainfallMap(
 			coord := indexToCoord(idx, res)
 			elev := sphereMap.Get(coord)
 
-			// Get wind at this location
-			wind := CalculateWindSpherical(topology, coord, SeasonSpring)
-
-			// Calculate upwind direction (opposite of wind)
-			upwindDir := normalizeDirection(wind.Direction + 180)
-
-			// Find upwind neighbor
-			upwindNeighbor := getNeighborInDirection(topology, coord, upwindDir, directions)
-			upwindIdx := coordToIndex(upwindNeighbor, res)
+			// Use pre-calculated upwind neighbor
+			upwindIdx := upwindNeighbors[idx]
 
 			if upwindIdx >= 0 && upwindIdx < totalCells {
-				upwindElev := sphereMap.Get(upwindNeighbor)
+				upwindCoord := indexToCoord(upwindIdx, res)
+				upwindElev := sphereMap.Get(upwindCoord)
 				upwindMoisture := tempMoisture[upwindIdx]
 
 				// Transport moisture from upwind
@@ -128,12 +181,19 @@ func GenerateRainfallMap(
 		}
 	}
 
+	// Determine day of year for the season
+	// We use Spring (Equinox) as the representative season for annual rainfall pattern
+	dayOfYear := 80 // Spring
+	// For rainfall generation, we use the config season.
+	// But generateSimplifiedPressureMap currently duplicates this logic. It's fine for now.
+
 	// Step 4: Apply latitude-based precipitation modifiers
 	for idx := 0; idx < totalCells; idx++ {
 		coord := indexToCoord(idx, res)
 		elev := sphereMap.Get(coord)
+		isLand := elev > config.SeaLevel
 
-		if elev <= config.SeaLevel {
+		if !isLand {
 			rainfall[idx] = 0 // No rain over ocean (tracking on land only)
 			continue
 		}
@@ -141,9 +201,16 @@ func GenerateRainfallMap(
 		lat := GetLatitudeFromCoord(topology, coord)
 		absLat := math.Abs(lat)
 
-		// ITCZ (tropical) bonus
-		if absLat < 15 {
-			rainfall[idx] *= 1.5
+		// Calculate Thermal Equator (ITCZ position) for this cell
+		// Land heats/cools fast (30 day lag), Ocean slow (75 day lag)
+		thermalDeclination := CalculateThermalDeclination(dayOfYear, isLand)
+
+		// ITCZ (tropical) bonus - centers on thermal equator
+		distFromITCZ := math.Abs(lat - thermalDeclination)
+		if distFromITCZ < 15 {
+			// Peak bonus at the ITCZ center
+			bonus := 1.5 * (1.0 - distFromITCZ/30.0) // decay factor
+			rainfall[idx] *= (1.0 + bonus)
 		}
 
 		// Subtropical high (desert latitudes) penalty
@@ -176,25 +243,14 @@ func coordToIndex(coord spatial.Coordinate, res int) int {
 	return coord.Face*resSq + coord.Y*res + coord.X
 }
 
-// getNeighborInDirection finds the neighbor closest to the given wind direction
-func getNeighborInDirection(topology spatial.Topology, coord spatial.Coordinate, windDir float64, directions []spatial.Direction) spatial.Coordinate {
-	// Map wind direction (degrees) to cardinal direction
-	// 0° = North, 90° = East, 180° = South, 270° = West
-
-	// Normalize to 0-360
-	dir := normalizeDirection(windDir)
-
-	// Find closest cardinal direction
-	var bestDir spatial.Direction
-	if dir >= 315 || dir < 45 {
-		bestDir = spatial.North
-	} else if dir >= 45 && dir < 135 {
-		bestDir = spatial.East
-	} else if dir >= 135 && dir < 225 {
-		bestDir = spatial.South
-	} else {
-		bestDir = spatial.West
+// normalizeDirection normalizes an angle to 0-360 degrees.
+// This helper is kept for potential future use in latitude modifiers.
+func normalizeRainfallDirection(direction float64) float64 {
+	for direction < 0 {
+		direction += 360
 	}
-
-	return topology.GetNeighbor(coord, bestDir)
+	for direction >= 360 {
+		direction -= 360
+	}
+	return direction
 }

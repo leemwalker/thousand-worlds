@@ -3,8 +3,8 @@ package geography
 import (
 	"math"
 	"math/rand"
-	"runtime"
-	"sync"
+	"sort"
+	"sync" // Used in parallel functions
 
 	"tw-backend/internal/spatial"
 )
@@ -152,111 +152,113 @@ func ApplyStreamPowerErosion(hm *SphereHeightmap, hydro *HydrologyLayer, plates 
 		}
 	}
 
-	// Parallel processing of cells
-	workers := runtime.NumCPU()
-	chunkSize := totalCells / workers
-	var wg sync.WaitGroup
+	// Stream Power with Sediment Transport
+	// Refactored to sequential downstream processing to allow sediment routing.
 
-	for w := 0; w < workers; w++ {
-		start := w * chunkSize
-		end := start + chunkSize
-		if w == workers-1 {
-			end = totalCells
+	// 1. Sort cells by elevation (High to Low) for downstream routing
+	// This ensures we process upstream cells before their downstream neighbors
+	processingOrder := make([]int, totalCells)
+	for i := 0; i < totalCells; i++ {
+		processingOrder[i] = i
+	}
+
+	// Sort processing order
+	sort.Slice(processingOrder, func(i, j int) bool {
+		// We want Descending order (High -> Low)
+		idxI := processingOrder[i]
+		idxJ := processingOrder[j]
+		// Using hydro IndexToCoord because generic indexToCoord isn't available
+		elevI := hm.Get(hydro.IndexToCoord(idxI))
+		elevJ := hm.Get(hydro.IndexToCoord(idxJ))
+		return elevI > elevJ
+	})
+
+	// Track outgoing sediment load for each cell (to be passed to downstream)
+	sedimentLoad := make([]float64, totalCells)
+
+	// Constants for Transport Capacity
+	// Qt = Kt * Q^m * S^n
+	const Kt = 2.0             // Transport efficiency
+	const depositionRate = 0.5 // Fraction of excess load deposited per step
+
+	for _, idx := range processingOrder {
+		coord := hydro.IndexToCoord(idx)
+
+		// Skip ocean cells (base level)
+		currentElev := hm.Get(coord)
+		if currentElev <= seaLevel {
+			// Deposit at river mouth
+			load := sedimentLoad[idx]
+			if load > 0 {
+				hm.AddSediment(coord, load)
+			}
+			continue
 		}
 
-		wg.Add(1)
-		go func(s, e int) {
-			defer wg.Done()
-			for idx := s; idx < e; idx++ {
-				flux := hydro.Flux[idx]
-				if flux < 2.0 {
-					continue
-				}
+		flux := hydro.Flux[idx]
+		if flux < 1.0 {
+			continue
+		}
 
-				coord := hydro.IndexToCoord(idx)
-				currentElev := hm.Get(coord)
-				if currentElev <= seaLevel {
-					continue
-				}
+		downhillIdx := hydro.FlowDirection[idx]
+		if downhillIdx < 0 {
+			// Local minimum (pit). Deposit everything.
+			hm.AddSediment(coord, sedimentLoad[idx])
+			continue
+		}
 
-				downhillIdx := hydro.FlowDirection[idx]
-				if downhillIdx < 0 {
-					continue
-				}
+		// Calculate Slope
+		downhillCoord := hydro.IndexToCoord(downhillIdx)
+		slope := currentElev - hm.Get(downhillCoord)
+		if slope < 0.001 {
+			slope = 0.001
+		}
 
-				downhillCoord := hydro.IndexToCoord(downhillIdx)
-				slope := currentElev - hm.Get(downhillCoord)
-				if slope <= 0 {
-					continue
-				}
+		// 1. Calculate Transport Capacity
+		slopeNorm := slope / 1000.0 // km drop per cell
+		capacity := Kt * math.Pow(flux, 1.5) * math.Pow(slopeNorm, 1.0) * dt
 
-				slopeNorm := slope / 1000.0
-				erosionRate := StreamPowerK * math.Pow(flux, StreamPowerM) * math.Pow(slopeNorm, StreamPowerN)
-				erodedHeight := erosionRate * dt
+		// 2. Calculate Erosion (Detachment) Potential
+		erosionPotential := StreamPowerK * math.Pow(flux, StreamPowerM) * math.Pow(slopeNorm, StreamPowerN) * dt
 
-				maxErosion := slope * 0.5
-				if erodedHeight > maxErosion {
-					erodedHeight = maxErosion
-				}
+		// Isostatic adjustment / Hardness
+		hardness := hm.GetRockHardness(coord)
+		erosionPotential *= (1.0 - hardness*0.8)
 
-				hardness := hm.GetRockHardness(coord)
-				erodedHeight *= (1.0 - hardness*0.8)
+		// 3. Sediment Balance
+		incomingLoad := sedimentLoad[idx]
+		currentLoad := incomingLoad
 
-				if erodedHeight < 0.01 {
-					continue
-				}
+		if currentLoad > capacity {
+			// Deposition Mode
+			depositAmount := (currentLoad - capacity) * depositionRate
+			hm.AddSediment(coord, depositAmount)
+			currentLoad -= depositAmount
+		} else {
+			// Erosion Mode
+			remainingCapacity := capacity - currentLoad
+			erodeAmount := math.Min(erosionPotential, remainingCapacity)
 
-				// Isostatic-aware erosion
-				if plateGrid != nil {
-					plateIdx := plateGrid[idx]
-					if plateIdx >= 0 {
-						plate := plates[plateIdx]
-						erodedKm := erodedHeight / 1000.0
-						// Note: Modifying plate struct is race condition if multiple cells map to same plate.
-						// However, Plate structs are reference types in slice?
-						// Wait, plates[plateIdx] modifies the copy in loop or original?
-						// In Go `rates := plates[i]`, `plate` is a COPY if TectonicPlate is a struct.
-						// If we modify `plate.Thickness`, it doesn't affect original slice unless we pointer it.
-						// Original code: `newThickness := plate.Thickness - erodedKm`.
-						// It recalculates height but DOES NOT update plate thickness in the global struct.
-						// The original code was: `newThickness := plate.Thickness - erodedKm`. It used this to calc `newElev`, but never saved `newThickness` back to `plates[i]`.
-						// So it was purely local effect on heightmap. That's fine for parallelism.
-
-						newThickness := plate.Thickness - erodedKm
-						if newThickness < 1.0 {
-							newThickness = 1.0
-						}
-
-						density := plate.MeanDensity
-						if density == 0 {
-							density = DensityGranite
-							if plate.Type == PlateOceanic {
-								density = DensityBasalt
-							}
-						}
-
-						newElev := CalculateIsostaticHeight(newThickness, density)
-						if newElev < seaLevel {
-							newElev = seaLevel
-						}
-						// Atomic set? Set is thread-safe for different coords?
-						// Array access `data[idx]` is safe if indices distinct.
-						// `hm.Set` writes to slice index. Safe.
-						hm.Set(coord, newElev)
-						continue
-					}
-				}
-
-				// Simple fallback erosion
-				newElev := currentElev - erodedHeight
-				if newElev < seaLevel {
-					newElev = seaLevel
-				}
-				hm.Set(coord, newElev)
+			// Slope limit
+			if erodeAmount > slope*0.9 {
+				erodeAmount = slope * 0.9
 			}
-		}(start, end)
+
+			if erodeAmount > 0 {
+				actualEroded := hm.Erode(coord, erodeAmount)
+				currentLoad += actualEroded
+
+				// Isostasy check (simplified)
+				if plateGrid != nil {
+					// We don't update plate thickness here to avoid complexity
+					// SimTectonics handles rebalancing
+				}
+			}
+		}
+
+		// Pass load to downstream neighbor
+		sedimentLoad[downhillIdx] += currentLoad
 	}
-	wg.Wait()
 }
 
 // ApplyHydraulicErosion simulates rain and water flow to carve valleys

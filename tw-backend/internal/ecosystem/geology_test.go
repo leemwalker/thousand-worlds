@@ -20,7 +20,8 @@ func TestWorldGeology_Lifecycle(t *testing.T) {
 	assert.False(t, geo.IsInitialized())
 
 	// 2. Initialization
-	geo.InitializeGeology(0)
+	// Use explicit resolution to keep test fast (otherwise defaults to 4000x2000 for Earth size)
+	geo.InitializeGeology(256)
 	assert.True(t, geo.IsInitialized())
 	assert.NotNil(t, geo.Heightmap)
 	assert.NotEmpty(t, geo.Plates)
@@ -59,7 +60,7 @@ func TestApplyHotspotActivity(t *testing.T) {
 	// Setup localized test
 	worldID := uuid.New()
 	geo := NewWorldGeology(worldID, 123, 10_000_000)
-	geo.InitializeGeology(0)
+	geo.InitializeGeology(128)
 
 	// Force a hotspot at center
 	cx, cy := float64(geo.Heightmap.Width/2), float64(geo.Heightmap.Height/2)
@@ -81,7 +82,7 @@ func TestPlateMovement_Realism(t *testing.T) {
 	// Setup world for testing plate movement
 	worldID := uuid.New()
 	geo := NewWorldGeology(worldID, 42, 40_000_000) // Earth-size
-	geo.InitializeGeology(0)
+	geo.InitializeGeology(256)
 
 	// Record initial plate positions (centroids)
 	initialCentroids := make([]struct{ Face, X, Y int }, len(geo.Plates))

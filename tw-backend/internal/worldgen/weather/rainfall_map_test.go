@@ -56,28 +56,32 @@ func TestRainShadow_MountainRidge(t *testing.T) {
 
 	rainfall := GenerateRainfallMap(hm, topo, config)
 
-	// Sample rainfall at windward plains (X=8) vs leeward plains (X=12)
-	var windwardTotal, leewardTotal float64
-	var windwardCount, leewardCount int
+	// Sample rainfall at Western plains (X=8) vs Eastern plains (X=12)
+	// At Equator (Face 0), Trade Winds are Easterly (Blow from East to West).
+	// So Eastern plains (X=12) are UPWIND (Windward).
+	// Western plains (X=8) are DOWNWIND (Leeward/Shadow).
+	// Note: The original test assumed Westerlies, but our physics engine correctly simulates Easterlies at Lat 0.
+	var westTotal, eastTotal float64
+	var westCount, eastCount int
 
 	for y := 4; y < 12; y++ {
-		windwardCoord := spatial.Coordinate{Face: 0, X: 8, Y: y}
-		leewardCoord := spatial.Coordinate{Face: 0, X: 12, Y: y}
+		westCoord := spatial.Coordinate{Face: 0, X: 8, Y: y}
+		eastCoord := spatial.Coordinate{Face: 0, X: 12, Y: y}
 
-		windwardIdx := coordToIndex(windwardCoord, 16)
-		leewardIdx := coordToIndex(leewardCoord, 16)
+		westIdx := coordToIndex(westCoord, 16)
+		eastIdx := coordToIndex(eastCoord, 16)
 
-		windwardTotal += rainfall[windwardIdx]
-		leewardTotal += rainfall[leewardIdx]
-		windwardCount++
-		leewardCount++
+		westTotal += rainfall[westIdx]
+		eastTotal += rainfall[eastIdx]
+		westCount++
+		eastCount++
 	}
 
-	windwardAvg := windwardTotal / float64(windwardCount)
-	leewardAvg := leewardTotal / float64(leewardCount)
+	westAvg := westTotal / float64(westCount)
+	eastAvg := eastTotal / float64(eastCount)
 
-	t.Logf("Windward average rainfall: %.2f", windwardAvg)
-	t.Logf("Leeward average rainfall: %.2f", leewardAvg)
+	t.Logf("Western (Leeward) average rainfall: %.2f", westAvg)
+	t.Logf("Eastern (Windward) average rainfall: %.2f", eastAvg)
 
 	// Mountain peak should have high rain (orographic lift maximum)
 	peakCoord := spatial.Coordinate{Face: 0, X: 10, Y: 8}
@@ -85,9 +89,9 @@ func TestRainShadow_MountainRidge(t *testing.T) {
 	peakRain := rainfall[peakIdx]
 	t.Logf("Peak rainfall: %.2f", peakRain)
 
-	// Verify rain shadow: leeward should have less than windward or peak
-	assert.Greater(t, peakRain+windwardAvg, leewardAvg,
-		"Windward side + peak should receive more rain than leeward (rain shadow)")
+	// Verify rain shadow: Western side should have LESS rain than Eastern side due to Easterlies
+	assert.Greater(t, eastAvg, westAvg,
+		"Eastern side (Windward) should receive more rain than Western side (Rain shadow) in Tropics")
 }
 
 // =============================================================================

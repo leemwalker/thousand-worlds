@@ -16,8 +16,8 @@ import (
 
 // Elevation physical limits (in meters)
 const (
-	// MaxElevation is the upper bound for terrain (above Olympus Mons scale)
-	MaxElevation = 15000.0
+	// MaxElevation is removed in favor of dynamic calculation in PlanetaryCore
+	// MaxElevation = 15000.0
 	// MinElevation is the lower bound for terrain (below Mariana Trench scale)
 	MinElevation = -11000.0
 	// TectonicConvergenceRate controls how quickly boundaries approach target elevation
@@ -541,7 +541,7 @@ func ComputeBoundaryCache(plates []TectonicPlate, topology spatial.Topology) *Bo
 
 // SimulateTectonicsWithCache uses a pre-computed boundary cache for fast processing.
 // Only iterates over boundary cells instead of all cells - typically 90% faster.
-func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightmap, cache *BoundaryCache, topology spatial.Topology, scaleFactor float64, seed int64) *SphereHeightmap {
+func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightmap, cache *BoundaryCache, topology spatial.Topology, scaleFactor float64, seed int64, maxElevation float64) *SphereHeightmap {
 	if debug.Is(debug.Perf) {
 		defer debug.Time(debug.Perf, "SimulateTectonicsWithCache")()
 	}
@@ -656,7 +656,7 @@ func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightm
 		elevationDelta *= noiseFactor
 
 		// Use rigidity-aware boundary effect
-		applyBoundaryEffectWithRigidity(heightmap, bc.Coord, elevationDelta, collisionResult.RigidityRings, topology)
+		applyBoundaryEffectWithRigidity(heightmap, bc.Coord, elevationDelta, collisionResult.RigidityRings, topology, maxElevation)
 	}
 
 	return heightmap
@@ -669,7 +669,7 @@ const PassiveMarginDecayRate = 0.02
 // ApplyBoundaryDecay erodes cells that are NO LONGER at plate boundaries toward base elevation.
 // This prevents "phantom mountains" from persisting after plate boundaries move away.
 // Should be called after SimulateTectonicsWithCache to handle passive margins.
-func ApplyBoundaryDecay(plates []TectonicPlate, heightmap *SphereHeightmap, cache *BoundaryCache, topology spatial.Topology, scaleFactor float64, seed int64) {
+func ApplyBoundaryDecay(plates []TectonicPlate, heightmap *SphereHeightmap, cache *BoundaryCache, topology spatial.Topology, scaleFactor float64, seed int64, maxElevation float64) {
 	if debug.Is(debug.Perf) {
 		defer debug.Time(debug.Perf, "ApplyBoundaryDecay")()
 	}
@@ -750,7 +750,7 @@ func ApplyBoundaryDecay(plates []TectonicPlate, heightmap *SphereHeightmap, cach
 
 				// Apply decay
 				newElev := currentElev + delta
-				newElev = clampElevation(newElev)
+				newElev = clampElevation(newElev, maxElevation)
 				heightmap.Set(coord, newElev)
 			}
 		}
@@ -761,7 +761,7 @@ func ApplyBoundaryDecay(plates []TectonicPlate, heightmap *SphereHeightmap, cach
 // Uses equilibrium-based approach where elevation approaches target asymptotically.
 // Returns a SphereHeightmap with elevation modifiers.
 // scaleFactor allows adjusting the intensity based on time step (1.0 = standard 100k year interval)
-func SimulateTectonics(plates []TectonicPlate, heightmap *SphereHeightmap, topology spatial.Topology, scaleFactor float64) *SphereHeightmap {
+func SimulateTectonics(plates []TectonicPlate, heightmap *SphereHeightmap, topology spatial.Topology, scaleFactor float64, maxElevation float64) *SphereHeightmap {
 	// Debug timing for overall function
 	if debug.Is(debug.Perf) {
 		defer debug.Time(debug.Perf, "SimulateTectonics(Total)")()
@@ -845,7 +845,7 @@ func SimulateTectonics(plates []TectonicPlate, heightmap *SphereHeightmap, topol
 			// Apply scale factor for variable time steps
 			elevationDelta *= scaleFactor
 
-			applyBoundaryEffectSpherical(heightmap, coord, elevationDelta, topology)
+			applyBoundaryEffectSpherical(heightmap, coord, elevationDelta, topology, maxElevation)
 		}
 	}
 
@@ -1003,11 +1003,11 @@ func calculateElevationChange(p1, p2 TectonicPlate, boundaryType BoundaryType) f
 
 // applyBoundaryEffectSpherical applies elevation change at a boundary cell.
 // OPTIMIZED: Uses 2-ring falloff for smoother terrain without full BFS.
-func applyBoundaryEffectSpherical(hm *SphereHeightmap, center spatial.Coordinate, elevationChange float64, topology spatial.Topology) {
+func applyBoundaryEffectSpherical(hm *SphereHeightmap, center spatial.Coordinate, elevationChange float64, topology spatial.Topology, maxElevation float64) {
 	// Ring 0: Center (100% effect)
 	currentElev := hm.Get(center)
 	newElev := currentElev + elevationChange
-	newElev = clampElevation(newElev)
+	newElev = clampElevation(newElev, maxElevation)
 	hm.Set(center, newElev)
 
 	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
@@ -1029,7 +1029,7 @@ func applyBoundaryEffectSpherical(hm *SphereHeightmap, center spatial.Coordinate
 
 			nElev := hm.Get(neighbor)
 			nNewElev := nElev + elevationChange*0.5
-			nNewElev = clampElevation(nNewElev)
+			nNewElev = clampElevation(nNewElev, maxElevation)
 			hm.Set(neighbor, nNewElev)
 		}
 	}
@@ -1043,7 +1043,7 @@ func applyBoundaryEffectSpherical(hm *SphereHeightmap, center spatial.Coordinate
 
 				nElev := hm.Get(neighbor)
 				nNewElev := nElev + elevationChange*0.25
-				nNewElev = clampElevation(nNewElev)
+				nNewElev = clampElevation(nNewElev, maxElevation)
 				hm.Set(neighbor, nNewElev)
 			}
 		}
@@ -1056,7 +1056,7 @@ func applyBoundaryEffectSpherical(hm *SphereHeightmap, center spatial.Coordinate
 // UPDATED: Uses non-geometric falloff for wider, more realistic mountain ranges:
 // - Continental (3 rings): 100% -> 60% -> 20% (gradual highlands/foothills)
 // - Oceanic (1 ring): 100% -> 50% (narrow ridges)
-func applyBoundaryEffectWithRigidity(hm *SphereHeightmap, center spatial.Coordinate, elevationChange float64, rigidityRings int, topology spatial.Topology) {
+func applyBoundaryEffectWithRigidity(hm *SphereHeightmap, center spatial.Coordinate, elevationChange float64, rigidityRings int, topology spatial.Topology, maxElevation float64) {
 	// Ring 0: Center (100% effect) - REDUNDANT, removed
 	// The Center effect is applied in the Jittered block below (60% + 40% jittered)
 	// Keeping it here caused double application of elevation change.
@@ -1098,7 +1098,7 @@ func applyBoundaryEffectWithRigidity(hm *SphereHeightmap, center spatial.Coordin
 	amountCenter := elevationChange * 0.6
 	currentElev := hm.Get(center)
 	newElev := currentElev + amountCenter
-	newElev = clampElevation(newElev)
+	newElev = clampElevation(newElev, maxElevation)
 	hm.Set(center, newElev)
 
 	// 2. Distribute remaining 40% to a semi-random neighbor to break linearity
@@ -1112,7 +1112,7 @@ func applyBoundaryEffectWithRigidity(hm *SphereHeightmap, center spatial.Coordin
 	amountJitter := elevationChange * 0.4
 	jitterElev := hm.Get(jitterNeighbor)
 	newJitterElev := jitterElev + amountJitter
-	newJitterElev = clampElevation(newJitterElev)
+	newJitterElev = clampElevation(newJitterElev, maxElevation)
 	hm.Set(jitterNeighbor, newJitterElev)
 
 	// Iterate Rings for falloff
@@ -1138,7 +1138,7 @@ func applyBoundaryEffectWithRigidity(hm *SphereHeightmap, center spatial.Coordin
 
 					nElev := hm.Get(neighbor)
 					nNewElev := nElev + elevationChange*falloff
-					nNewElev = clampElevation(nNewElev)
+					nNewElev = clampElevation(nNewElev, maxElevation)
 					hm.Set(neighbor, nNewElev)
 				}
 			}
@@ -1148,9 +1148,9 @@ func applyBoundaryEffectWithRigidity(hm *SphereHeightmap, center spatial.Coordin
 	}
 }
 
-func clampElevation(elev float64) float64 {
-	if elev > MaxElevation {
-		return MaxElevation
+func clampElevation(elev, maxElevation float64) float64 {
+	if elev > maxElevation {
+		return maxElevation
 	}
 	if elev < MinElevation {
 		return MinElevation

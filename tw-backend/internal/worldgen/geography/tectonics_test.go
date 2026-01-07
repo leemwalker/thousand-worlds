@@ -49,6 +49,53 @@ func TestGeneratePlates(t *testing.T) {
 	assert.GreaterOrEqual(t, oceanicCount, 4, "Should have at least 4 oceanic plates")
 }
 
+func TestGravityScaling(t *testing.T) {
+	// 1. Setup Topology
+	topology := spatial.NewCubeSphereTopology(4) // Low res for speed
+	seed := int64(12345)
+
+	// 2. Setup Plates
+	plates := GeneratePlates(5, topology, seed, 0.4)
+
+	// 3. Test Low Gravity (Mars-like)
+	// Mass 0.1 -> Gravity ~0.38g. Max Elev should be ~30km?
+	// Earth Max = 12000. 12000 / 0.38 = 31500.
+	coreLow := NewPlanetaryCore(0.1, 4.5)
+	maxElevLow := coreLow.GetMaxElevation()
+
+	hmLow := NewSphereHeightmap(topology)
+	// Force uplift with high scale factor to generate tall mountains
+	hmLow = SimulateTectonics(plates, hmLow, topology, 50.0, maxElevLow)
+
+	hmLow.UpdateMinMax()
+	_, maxValLow := hmLow.MinMax()
+
+	// 4. Test High Gravity (Super-Earth)
+	// Mass 10.0 -> Gravity ~2.9g. Max Elev ~4100m.
+	// 12000 / 2.9 = 4137.
+	coreHigh := NewPlanetaryCore(10.0, 4.5)
+	maxElevHigh := coreHigh.GetMaxElevation()
+
+	hmHigh := NewSphereHeightmap(topology)
+	hmHigh = SimulateTectonics(plates, hmHigh, topology, 50.0, maxElevHigh)
+
+	hmHigh.UpdateMinMax()
+	_, maxValHigh := hmHigh.MinMax()
+
+	t.Logf("Low Gravity (%.2fg) Max Elev: %.2fm (Limit: %.2f)", coreLow.Gravity, maxValLow, maxElevLow)
+	t.Logf("High Gravity (%.2fg) Max Elev: %.2fm (Limit: %.2f)", coreHigh.Gravity, maxValHigh, maxElevHigh)
+
+	// Assertions
+	if maxValLow <= maxValHigh {
+		t.Errorf("Low gravity should allow taller mountains than high gravity. Low: %.2f, High: %.2f", maxValLow, maxValHigh)
+	}
+
+	// Check clamping
+	if maxValHigh > maxElevHigh+1.0 { // Tolerance
+		t.Errorf("High gravity mountains exceeded limit! Val: %.2f, Limit: %.2f", maxValHigh, maxElevHigh)
+	}
+}
+
 func TestSimulateTectonics(t *testing.T) {
 	resolution := 16
 	topology := spatial.NewCubeSphereTopology(resolution)
@@ -67,7 +114,7 @@ func TestSimulateTectonics(t *testing.T) {
 		}
 	}
 
-	result := SimulateTectonics(plates, hm, topology, 1.0)
+	result := SimulateTectonics(plates, hm, topology, 1.0, 15000.0)
 
 	assert.NotNil(t, result)
 

@@ -61,6 +61,8 @@ type Satellite struct {
 	Period float64 `json:"period"`
 	// Radius in meters (Moon: 1,737.4 km)
 	Radius float64 `json:"radius"`
+	// Color is the hex string for visualization (e.g. "#AAAAAA")
+	Color string `json:"color"`
 }
 
 // PlanetarySystem holds the planet and its natural satellites
@@ -134,6 +136,7 @@ func GenerateMoons(seed int64, planetMass float64, config SatelliteConfig) []Sat
 			Distance: distance,
 			Period:   period,
 			Radius:   radius,
+			Color:    "#AAAAAA", // Default gray
 		}
 	}
 

@@ -39,7 +39,7 @@ func (g *DefaultGeographyGenerator) GenerateGeography(params *GenerationParams, 
 	// 2. Create sphere heightmap and apply tectonics (with tidal stress and heat for volcanism)
 	// For world generation, use modern Earth heat baseline (1.0)
 	sphereHeightmap := geography.NewSphereHeightmap(topology)
-	sphereHeightmap = geography.GenerateHeightmapWithTidalStress(plates, sphereHeightmap, topology, params.Seed, params.ErosionRate, params.RainfallFactor, tidalStress, 1.0)
+	sphereHeightmap = geography.GenerateHeightmapWithTidalStress(plates, sphereHeightmap, topology, params.Seed, params.ErosionRate, params.RainfallFactor, tidalStress, 1.0, 15000.0)
 
 	// 3. Convert to flat heightmap for legacy consumers
 	heightmap := sphereHeightmap.ToFlatHeightmap(params.Width, params.Height)

@@ -56,14 +56,16 @@ func ApplyHypsometricCurve(height, seaLevel float64) float64 {
 // DEPRECATED: Use GenerateHeightmapWithTidalStress for satellite-aware generation.
 func GenerateHeightmap(plates []TectonicPlate, heightmap *SphereHeightmap, topology spatial.Topology, seed int64, erosionRate float64, rainfallFactor float64) *SphereHeightmap {
 	// Default to Earth-Moon baseline tidal stress and modern Earth heat for backward compatibility
-	return GenerateHeightmapWithTidalStress(plates, heightmap, topology, seed, erosionRate, rainfallFactor, 1.0, 1.0)
+	return GenerateHeightmapWithTidalStress(plates, heightmap, topology, seed, erosionRate, rainfallFactor, 1.0, 1.0, 10000.0) // Added default maxElevation
 }
 
 // GenerateHeightmapWithTidalStress creates the final heightmap with satellite-aware volcanism.
 // The tidalStress parameter affects volcanic activity (0.0 = no moons, 1.0 = Earth-Moon, >1.0 = multiple/close moons).
 // The heatMultiplier parameter scales volcanic activity based on planetary age (1.0 = modern, 10.0 = early Earth).
-func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereHeightmap, topology spatial.Topology, seed int64, erosionRate float64, rainfallFactor float64, tidalStress float64, heatMultiplier float64) *SphereHeightmap {
-	// Use FBM with domain warping for organic, non-diamond terrain
+func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereHeightmap, topology spatial.Topology, seed int64, erosionRate float64, rainfallFactor float64, tidalStress float64, heatMultiplier float64, maxElevation float64) *SphereHeightmap {
+	// 1. Initial Tectonics Simulation
+	// We simulate basic plate collisions to form mountain ranges
+	heightmap = SimulateTectonics(plates, heightmap, topology, 1.0, maxElevation)
 	fbm := NewFBMGenerator(seed, DefaultTerrainFBMConfig())
 	resolution := topology.Resolution()
 
@@ -82,7 +84,7 @@ func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereH
 	}
 
 	// 2. Apply Tectonic Modifiers
-	SimulateTectonics(plates, heightmap, topology, 1.0)
+	SimulateTectonics(plates, heightmap, topology, 1.0, maxElevation)
 
 	// 2a. Apply Volcanic Hotspots (scaled by tidal stress and planetary heat)
 	ApplyHotspots(heightmap, plates, topology, seed, tidalStress, heatMultiplier)

@@ -264,6 +264,31 @@ func CalculatePressureGradientWind(
 	return spatial.Vector3D{
 		X: gradientX * windScale,
 		Y: gradientY * windScale,
-		Z: gradientZ * windScale,
 	}
+}
+
+// CalculateThermalDeclination returns the "effective" solar declination accounting for thermal inertia.
+// Land heats/cools faster (short lag), Ocean has high thermal inertia (long lag).
+//
+// Parameters:
+//   - dayOfYear: Day of year (0-365)
+//   - isLand: true for land, false for ocean
+//
+// Returns: Latitude where the thermal equator is currently located
+func CalculateThermalDeclination(dayOfYear int, isLand bool) float64 {
+	// Thermal lag in days
+	// Land: ~30 days (1 month)
+	// Ocean: ~75 days (2.5 months)
+	lag := 30
+	if !isLand {
+		lag = 75
+	}
+
+	// Apply lag
+	laggedDay := dayOfYear - lag
+	if laggedDay < 0 {
+		laggedDay += 365
+	}
+
+	return CalculateSolarDeclination(laggedDay)
 }

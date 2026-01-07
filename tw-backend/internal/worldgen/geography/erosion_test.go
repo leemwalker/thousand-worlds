@@ -227,3 +227,77 @@ func TestApplyDifferentialErosion_CoastalShelfFormation(t *testing.T) {
 	// Log result - coastal shelf formation is a bonus, not strictly required
 	t.Logf("Total coastal sediment deposited: %.1fm", coastalSediment)
 }
+
+func TestApplyStreamPowerErosion_SedimentTransport(t *testing.T) {
+	// Setup Sphere Topology (Small res)
+	res := 4
+	topo := spatial.NewCubeSphereTopology(res)
+	hm := NewSphereHeightmap(topo)
+
+	// Chain: Top -> Mid -> Bot on Face 0
+	// Top: (1,1)
+	// Mid: (1,2)
+	// Bot: (1,3)
+	top := spatial.Coordinate{Face: 0, X: 1, Y: 1}
+	mid := spatial.Coordinate{Face: 0, X: 1, Y: 2}
+	bot := spatial.Coordinate{Face: 0, X: 1, Y: 3}
+
+	// Elevations
+	hm.Set(top, 1000.0)
+	hm.Set(mid, 500.0)
+	hm.Set(bot, 10.0) // Just above sea level
+
+	// Initialize Hydrology Mock
+	totalCells := 6 * res * res
+	hydro := &HydrologyLayer{
+		Flux:          make([]float64, totalCells),
+		FlowDirection: make([]int, totalCells), // Default 0 is valid index! Need -1 init.
+		Resolution:    res,
+	}
+	for i := range hydro.FlowDirection {
+		hydro.FlowDirection[i] = -1
+	}
+
+	// Indices
+	resSq := res * res
+	// idx = face*resSq + y*res + x
+	topIdx := 0*resSq + 1*res + 1
+	midIdx := 0*resSq + 2*res + 1
+	botIdx := 0*resSq + 3*res + 1
+
+	// Flux
+	hydro.Flux[topIdx] = 100.0
+	hydro.Flux[midIdx] = 200.0 // Flow accumulates
+	hydro.Flux[botIdx] = 300.0
+
+	// Flow Direction
+	hydro.FlowDirection[topIdx] = midIdx
+	hydro.FlowDirection[midIdx] = botIdx
+	hydro.FlowDirection[botIdx] = -1 // Sink
+
+	// Apply SPM Erosion
+	// dt = 1.0, seaLevel = 0.0
+	// Apply multiple steps to ensure visible transport
+	for i := 0; i < 10; i++ {
+		ApplyStreamPowerErosion(hm, hydro, nil, 1.0, 0.0)
+	}
+
+	// Verify Sediment Transport
+	// Top should erode (High slope, flux)
+	// Bottom should receive sediment
+
+	topElev := hm.Get(top)
+	botData := hm.GetCellData(bot)
+	botSed := botData.Sediment
+
+	t.Logf("Top Elev: %.2f (Start 1000)", topElev)
+	t.Logf("Bot Sediment: %.2f", botSed)
+
+	if topElev >= 1000.0 {
+		t.Error("Upstream should have eroded")
+	}
+
+	if botSed <= 0 {
+		t.Error("Downstream sink should have accumulated sediment")
+	}
+}

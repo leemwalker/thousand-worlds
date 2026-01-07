@@ -14,6 +14,7 @@ import (
 	"tw-backend/internal/spatial"
 	"tw-backend/internal/worldgen/astronomy"
 	"tw-backend/internal/worldgen/geography"
+	"tw-backend/internal/worldgen/ocean"
 	"tw-backend/internal/worldgen/underground"
 	"tw-backend/internal/worldgen/weather"
 
@@ -30,12 +31,16 @@ type WorldGeology struct {
 
 	// Core geographic data
 	Heightmap       *geography.Heightmap       // Flat heightmap for legacy consumers
-	SphereHeightmap *geography.SphereHeightmap // Spherical heightmap for proper 3D operations
-	Plates          []geography.TectonicPlate
-	Provinces       []geography.GeologicalProvince // Sub-regions within continental plates (Phase 5)
-	SeaLevel        float64                        // meters (0 = baseline, positive = higher sea level)
-	Topology        spatial.Topology               // Spherical topology for plate operations
-	BoundaryCache   *geography.BoundaryCache       // Cached plate boundary cells for fast tectonic processing
+	SphereHeightmap *geography.SphereHeightmap // Spherical heightmap reference
+	Core            *geography.PlanetaryCore   // Planetary physics (Mass, Gravity, etc.)
+
+	// Geological components
+	Plates        []geography.TectonicPlate
+	Provinces     []geography.GeologicalProvince // Sub-regions within continental plates (Phase 5)
+	SeaLevel      float64                        // meters (0 = baseline, positive = higher sea level)
+	Topology      spatial.Topology               // Spherical topology for plate operations
+	BoundaryCache *geography.BoundaryCache       // Cached plate boundary cells for fast tectonic processing
+	Ocean         *ocean.System                  // Ocean currents and thermodynamics (Phase 2)
 
 	// Underground data (Phase 3)
 	Columns               *underground.ColumnGrid     // Per-column underground data
@@ -83,7 +88,8 @@ type WorldGeology struct {
 	OceanVaporFraction float64 // 0.0 = all liquid (cool planet), 1.0 = all vapor (hot planet)
 
 	// Atmospheric composition tracking (for life evolution)
-	Atmosphere AtmosphericComposition
+	Atmosphere       AtmosphericComposition
+	VolcanicCO2Level float64 // Accumulated CO2 from volcanism (Phase 3)
 
 	// Event infrastructure (Phase 1)
 	EventPublisher events.Publisher
@@ -139,6 +145,7 @@ func NewWorldGeology(worldID uuid.UUID, seed int64, circumferenceMeters float64)
 			CH4: 2.0,  // Methane from volcanism
 		},
 		EventPublisher: events.NewNoOpPublisher(),
+		Core:           geography.NewPlanetaryCore(1.0, 4.5), // Default to Earth-like for now
 	}
 }
 
@@ -197,11 +204,6 @@ func GetPlanetaryHeat(year int64) float64 {
 	// This doesn't work (can't reach exactly 1.0)
 	//
 	// Better formula: H(t) = H∞ + (H₀ - H∞)e^(-λt)
-	// 1.0 = 1.0 + (4.0 - 1.0)e^(-λ * 4.0B)
-	// 0 = 3.0 * e^(-λ * 4.0B)
-	// Still problematic. Use alternate approach:
-	//
-	// Let's use: H(t) = 1.0 + 3.0 * e^(-λt)
 	// At t=0: H = 1.0 + 3.0 = 4.0 ✓
 	// At t=4.0B: H = 1.0 + 3.0 * e^(-λ * 4.0B) ≈ 1.0
 	// We want: 3.0 * e^(-λ * 4.0B) ≈ 0
@@ -296,6 +298,9 @@ func (g *WorldGeology) UpdateAtmosphere() {
 		g.Atmosphere.N2 = 78.0
 	}
 
+	// Phase 3: Add volcanic CO2 to the historical baseline
+	g.Atmosphere.CO2 += g.VolcanicCO2Level
+
 	// Phase 1: Emit atmosphere update
 	g.emitAtmosphereEvent()
 }
@@ -353,15 +358,26 @@ func (g *WorldGeology) InitializeGeology(resolutionOverride int) {
 	plateCount := 6 + g.rng.Intn(4) // 6-9 plates for variety
 	g.Plates = geography.GeneratePlates(plateCount, g.Topology, g.Seed, 0.30)
 
+	// Initialize Planetary Core (Default to Earth-like for now)
+	// Future: Allow config override for Mass/Age
+	if g.Core == nil {
+		g.Core = geography.NewPlanetaryCore(1.0, 4.5) // 1.0 M_earth, 4.5 Ga
+	}
+
 	// Generate initial heightmap using spherical topology
 	// Create sphere heightmap and convert to flat for legacy consumers
+	// 5. Simulate initial tectonics
+	// ... (Simulate plate collisions to form continents)
 	g.SphereHeightmap = geography.NewSphereHeightmap(g.Topology)
-	g.SphereHeightmap = geography.GenerateHeightmap(g.Plates, g.SphereHeightmap, g.Topology, g.Seed, 1.0, 1.0)
+	g.SphereHeightmap = geography.GenerateHeightmapWithTidalStress(g.Plates, g.SphereHeightmap, g.Topology, g.Seed, 0.5, 1.0, 1.0, GetPlanetaryHeat(0), g.Core.GetMaxElevation())
 	g.Heightmap = g.SphereHeightmap.ToFlatHeightmap(width, height)
 
 	// Phase 5: Generate geological provinces within continental plates
 	// This creates Cratons (hard, flat), Orogens (folded, medium), and Basins (soft, low)
 	// Phase 5: Generate geological provinces within continental plates
+	// This creates Cratons (hard, flat), Orogens (folded, medium), and Basins (soft, low)
+	// We run this at all resolutions to detect Craton/Mineral potential
+	g.Provinces = geography.GenerateProvinces(g.Plates, g.Topology, g.Seed)
 	// This creates Cratons (hard, flat), Orogens (folded, medium), and Basins (soft, low)
 	// We run this at all resolutions to detect Craton/Mineral potential
 	g.Provinces = geography.GenerateProvinces(g.Plates, g.Topology, g.Seed)
@@ -440,6 +456,15 @@ func (g *WorldGeology) InitializeGeology(resolutionOverride int) {
 		// Phase 10: Initialize Ice Sheet (if not exists)
 		if g.IceSheet == nil {
 			g.IceSheet = geography.NewIceSheet(g.Topology.Resolution())
+		}
+
+		// Phase 2: Initialize Ocean System (if not exists)
+		if g.Ocean == nil {
+			g.Ocean = ocean.NewSystem(g.Topology, g.SphereHeightmap, g.SeaLevel)
+			// Initial wind vectors for currents
+			windMap := ocean.CalculateGlobalWindVectors(g.Topology, g.SphereHeightmap, g.SeaLevel)
+			g.Ocean.GenerateSurfaceCurrents(windMap)
+			g.Ocean.InitializeTemperature()
 		}
 	}
 }
@@ -898,6 +923,14 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 	// Update atmospheric composition based on current era
 	g.UpdateAtmosphere()
 
+	// Phase 2: Simulate Ocean Thermodynamics
+	if g.Ocean != nil {
+		// Run thermodynamics (heat transport/cooling)
+		// Number of iterations scales with time step?
+		// For now, fixed iterations for stability per geological tick
+		g.Ocean.SimulateThermodynamics(5)
+	}
+
 	// Calculate planetary heat multiplier for this time period
 	// This drives tectonic and volcanic activity rates
 	heat := GetPlanetaryHeat(g.TotalYearsSimulated)
@@ -995,12 +1028,20 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 					}
 					g.BoundaryCache = geography.ComputeBoundaryCache(g.Plates, g.Topology)
 				}
-				g.SphereHeightmap = geography.SimulateTectonicsWithCache(g.Plates, g.SphereHeightmap, g.BoundaryCache, g.Topology, scaleFactor, g.Seed)
+				// Apply plate movement & collisions
+				// We use SimulateTectonicsWithCache for performance if cache exists
+				if g.BoundaryCache != nil {
+					g.SphereHeightmap = geography.SimulateTectonicsWithCache(g.Plates, g.SphereHeightmap, g.BoundaryCache, g.Topology, scaleFactor, g.Seed+g.TotalYearsSimulated, g.Core.GetMaxElevation())
+				} else {
+					// Fallback (slow)
+					g.SphereHeightmap = geography.SimulateTectonics(g.Plates, g.SphereHeightmap, g.Topology, scaleFactor, g.Core.GetMaxElevation())
+				}
 
-				// Apply passive margin decay - erode cells no longer at boundaries
-				// This prevents phantom mountains from persisting after plate boundaries move
-				geography.ApplyBoundaryDecay(g.Plates, g.SphereHeightmap, g.BoundaryCache, g.Topology, scaleFactor, g.Seed)
-
+				// Apply Boundary Decay to passive margins
+				// This handles the transition from active boundary to passive interior
+				if g.BoundaryCache != nil {
+					geography.ApplyBoundaryDecay(g.Plates, g.SphereHeightmap, g.BoundaryCache, g.Topology, scaleFactor, g.Seed+g.TotalYearsSimulated, g.Core.GetMaxElevation())
+				}
 				g.markSphereNeedsSync()
 
 				// Emit tectonic event (Adaptive: 100K-10M years)
@@ -1017,11 +1058,16 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 	}
 	tectonicTime = time.Since(tectonicStart)
 
+	// === HADEAN BOMBARDMENT ===
+	// During Hadean (heat > 4.0), steady flux of impacts
+	if heat > 4.0 {
+		// Run bombardment simulation
+		// Probability of large impact is low per tick (1M years), but non-zero
+		g.simulateHadeanBombardment(dtFloat)
+	}
+
 	// === HADEAN OPTIMIZATION ===
 	// Skip expensive surface processes on molten early Earth (heat > 4.0)
-	// During Hadean eon (~first 500M years), planet is a lava ocean
-	// No solid crust for erosion, no caves, no rivers - only plate tectonics matter
-	// This provides ~100× speedup for deep time simulations
 	if heat <= 4.0 {
 		erosionStart = time.Now()
 
@@ -1148,7 +1194,15 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 		// Apply hotspot activity
 		// This function already handles partial years probabilistically if needed,
 		// or we can pass dtFloat.
-		g.applyHotspotActivity(dtFloat)
+		emissions := g.applyHotspotActivity(dtFloat) // Phase 3: Capture emissions
+		g.VolcanicCO2Level += emissions.CO2
+
+		// Weathering (Carbon Sink) - Decay volcanic CO2
+		// Rate depends on rainfall/temperature, simplify to exponential decay
+		// Half-life of ~100k years?
+		// Decay factor for dt: 0.99999...
+		decay := math.Exp(-1.0e-5 * dtFloat)
+		g.VolcanicCO2Level *= decay
 
 		// Low frequency events using GeneralAccumulator
 		// We can check multiple intervals
@@ -1255,12 +1309,12 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 
 		// Fix 5: Global elevation clamping on SphereHeightmap
 		if g.SphereHeightmap != nil {
-			g.SphereHeightmap.ClampElevations(geography.MinElevation, geography.MaxElevation)
+			g.SphereHeightmap.ClampElevations(geography.MinElevation, g.Core.GetMaxElevation())
 			g.markSphereNeedsSync()
 		} else {
 			for i, elev := range g.Heightmap.Elevations {
-				if elev > geography.MaxElevation {
-					g.Heightmap.Elevations[i] = geography.MaxElevation
+				if elev > g.Core.GetMaxElevation() {
+					g.Heightmap.Elevations[i] = g.Core.GetMaxElevation()
 				} else if elev < geography.MinElevation {
 					g.Heightmap.Elevations[i] = geography.MinElevation
 				}
@@ -1296,7 +1350,7 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 	// TEMPORARILY DISABLED FOR DEBUGGING SEAM
 	weatherInterval := 5_000_000.0
 	if g.WeatherAccumulator >= weatherInterval {
-		// g.updateRainfall() // DISABLED: Testing if this causes seam
+		g.updateRainfall() // Re-enabled: seam fix via 3D wind vectors
 		g.WeatherAccumulator = math.Mod(g.WeatherAccumulator, weatherInterval)
 	}
 
@@ -1396,7 +1450,8 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 
 // applyHotspotActivity adds volcanic material at hotspot locations
 // Eruption frequency scales with planetary heat (early Earth has 10x more eruptions)
-func (g *WorldGeology) applyHotspotActivity(years float64) {
+// Returns the total gas emissions from activity
+func (g *WorldGeology) applyHotspotActivity(years float64) geography.VolcanicGasComposition {
 	// Get current planetary heat to scale volcanic activity
 	heat := GetPlanetaryHeat(g.TotalYearsSimulated)
 
@@ -1412,6 +1467,8 @@ func (g *WorldGeology) applyHotspotActivity(years float64) {
 		numEruptions = 1
 	}
 
+	totalEmissions := geography.VolcanicGasComposition{}
+
 	for _, hotspot := range g.Hotspots {
 		for i := 0; i < numEruptions; i++ {
 			// Small eruption
@@ -1426,10 +1483,19 @@ func (g *WorldGeology) applyHotspotActivity(years float64) {
 
 			geography.ApplyVolcanoFlat(g.Heightmap, jx, jy, radius, height)
 
+			// Phase 3: Calculate Emissions
+			// Normalize height to magnitude (0.0-1.0)
+			magnitude := height / 50.0
+			emissions := geography.CalculateVolcanicEmissions(magnitude, "basaltic")
+			totalEmissions.CO2 += emissions.CO2
+			totalEmissions.SO2 += emissions.SO2
+			totalEmissions.H2O += emissions.H2O
+
 			// Emit event
 			g.emitVolcanicEvent(jx, jy, height)
 		}
 	}
+	return totalEmissions
 }
 
 // advancePlates moves tectonic plates and recalculates boundaries
@@ -1543,20 +1609,7 @@ func (g *WorldGeology) applyVolcanicMountains(severity float64) {
 
 	// Use spherical operations if available
 	if g.SphereHeightmap != nil && g.Topology != nil {
-		resolution := g.Topology.Resolution()
-		for i := 0; i < numVolcanoes; i++ {
-			// Random location on sphere
-			face := g.rng.Intn(6)
-			x := g.rng.Intn(resolution)
-			y := g.rng.Intn(resolution)
-			center := spatial.Coordinate{Face: face, X: x, Y: y}
-
-			// Volcano height based on severity (200-500m per event)
-			height := 200 + severity*300
-			radius := 2.0 + g.rng.Float64()*2.0
-
-			geography.ApplyVolcanoSpherical(g.SphereHeightmap, center, g.Topology, radius, height)
-		}
+		geography.ApplyVolcanicMountains(g.SphereHeightmap, g.Topology, severity, g.rng)
 		// Sync to flat heightmap
 		g.markSphereNeedsSync()
 	} else {
@@ -1584,55 +1637,7 @@ func (g *WorldGeology) applyImpactCrater(severity float64) {
 
 	// Use spherical operations if available
 	if g.SphereHeightmap != nil && g.Topology != nil {
-		resolution := g.Topology.Resolution()
-		// Random impact location on sphere
-		centerFace := g.rng.Intn(6)
-		centerX := g.rng.Intn(resolution)
-		centerY := g.rng.Intn(resolution)
-		center := spatial.Coordinate{Face: centerFace, X: centerX, Y: centerY}
-
-		// Use BFS to apply crater with proper cross-face handling
-		visited := make(map[spatial.Coordinate]bool)
-		queue := []struct {
-			coord spatial.Coordinate
-			dist  int
-		}{{center, 0}}
-		visited[center] = true
-
-		directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
-
-		for len(queue) > 0 {
-			current := queue[0]
-			queue = queue[1:]
-
-			dist := float64(current.dist)
-			if dist < float64(radius) {
-				// Inside crater - depression
-				factor := 1.0 - (dist / float64(radius))
-				currentElev := g.SphereHeightmap.Get(current.coord)
-				g.SphereHeightmap.Set(current.coord, currentElev-depth*factor*factor)
-			} else if dist < float64(radius)*1.3 {
-				// Crater rim - raised
-				t := (dist - float64(radius)) / (float64(radius) * 0.3)
-				factor := 1.0 - t
-				currentElev := g.SphereHeightmap.Get(current.coord)
-				g.SphereHeightmap.Set(current.coord, currentElev+rimHeight*factor)
-			}
-
-			// Only expand if within extended radius
-			if current.dist < int(float64(radius)*1.5) {
-				for _, dir := range directions {
-					neighbor := g.Topology.GetNeighbor(current.coord, dir)
-					if !visited[neighbor] {
-						visited[neighbor] = true
-						queue = append(queue, struct {
-							coord spatial.Coordinate
-							dist  int
-						}{neighbor, current.dist + 1})
-					}
-				}
-			}
-		}
+		geography.ApplyImpactCrater(g.SphereHeightmap, g.Topology, severity, g.rng)
 		g.markSphereNeedsSync()
 	} else {
 		// Fallback to flat heightmap
@@ -1661,29 +1666,82 @@ func (g *WorldGeology) applyImpactCrater(severity float64) {
 	}
 }
 
-// applyIceAgeEffects lowers sea level and applies glacial erosion
+// simulateHadeanBombardment processes asteroid impacts during the early solar system
+func (g *WorldGeology) simulateHadeanBombardment(years float64) {
+	// 1. Determine flux based on time (Late Heavy Bombardment peak at 4.0-3.8 Ga?)
+	// Actually Hadean is 4.5 -> 4.0. Flux decreases over time.
+	// Simple model: exponential decay of flux
+	// Flux = Base * (Heat - 1.0)
+	// Heat goes 10.0 -> 4.0.
+
+	// Chance of significant impact per 1M years
+	chance := 0.1 // 10% chance per tick
+
+	if g.rng.Float64() < chance {
+		// Generate impactor
+		planetMass := astronomy.EarthMassKg // Assume growing Earth
+		mass, velRatio, angle := astronomy.GenerateImpactor(planetMass, g.rng)
+
+		outcome, moonMass := astronomy.SimulateGiantImpact(mass, planetMass, velRatio, angle, g.rng)
+
+		switch outcome {
+		case astronomy.OutcomeMoonFormation:
+			// Create a moon!
+			if len(g.Satellites) == 0 { // Limit to 1 major moon for now
+				g.Satellites = append(g.Satellites, astronomy.Satellite{
+					ID:       uuid.New(),
+					Name:     "Luna",
+					Mass:     moonMass,
+					Radius:   math.Pow(moonMass/astronomy.EarthMassKg, 0.33) * astronomy.EarthRadiusMeters, // Approximate
+					Distance: 384400000,                                                                    // Start at modern distance (simplified, actually starts closer)
+					Color:    "#AAAAAA",
+				})
+				// Trigger event
+				g.emitPhaseEvent("GiantImpact", "A Mars-sized body impacted Earth, forming the Moon!")
+			}
+
+		case astronomy.OutcomeDirectImpact:
+			// Big crater / Magma ocean mixing
+			// Severity scaled by mass (log scale)
+			severity := math.Log10(mass) / 25.0 // Rough scaling
+			if severity > 1.0 {
+				severity = 1.0
+			}
+			if severity < 0.1 {
+				severity = 0.1
+			}
+
+			g.applyImpactCrater(severity)
+			g.emitPhaseEvent("AsteroidImpact", fmt.Sprintf("Major impact! Magnitude %.2f", severity))
+
+			// Add mass to planet (abstractly, mainly affects gravity eventually)
+			// g.Core.Mass += mass / astronomy.EarthMassKg // Phase 1.5 logic?
+			// Updating core mass dynamically would change gravity mid-simulation.
+			// Ideally we should do this, but it requires recalibrating MaxElevation continuously.
+			// For now, let's keep core static to avoid instability.
+
+		case astronomy.OutcomeCaptured:
+			// Add small moon
+			if len(g.Satellites) < 3 {
+				g.Satellites = append(g.Satellites, astronomy.Satellite{
+					ID:       uuid.New(),
+					Name:     fmt.Sprintf("Moonlet-%d", len(g.Satellites)+1),
+					Mass:     mass,
+					Radius:   math.Pow(mass/astronomy.EarthMassKg, 0.33) * astronomy.EarthRadiusMeters,
+					Distance: 500000000 + g.rng.Float64()*500000000,
+					Color:    "#888888",
+				})
+			}
+		}
+	}
+}
 func (g *WorldGeology) applyIceAgeEffects(severity float64) {
 	// Sea level drop (50-120m based on severity)
 	g.SeaLevel -= 50 + severity*70
 
 	// Glacial erosion - carve U-shaped valleys in high-elevation areas
 	if g.SphereHeightmap != nil && g.Topology != nil {
-		// Apply to sphere heightmap
-		threshold := g.SphereHeightmap.MaxElev * 0.6 // Top 40% of elevation
-		resolution := g.Topology.Resolution()
-
-		for face := 0; face < 6; face++ {
-			for y := 0; y < resolution; y++ {
-				for x := 0; x < resolution; x++ {
-					coord := spatial.Coordinate{Face: face, X: x, Y: y}
-					elev := g.SphereHeightmap.Get(coord)
-					if elev > threshold {
-						erosion := (elev - threshold) * 0.1 * severity
-						g.SphereHeightmap.Set(coord, elev-erosion)
-					}
-				}
-			}
-		}
+		geography.ApplyIceAgeEffects(g.SphereHeightmap, g.Topology, severity)
 		g.markSphereNeedsSync()
 	} else {
 		// Fallback to flat heightmap
@@ -1760,8 +1818,8 @@ func (g *WorldGeology) applyContinentalDrift(severity float64) {
 			if g.Heightmap.Elevations[i] > g.SeaLevel {
 				g.Heightmap.Elevations[i] += uplift
 				// Apply cap
-				if g.Heightmap.Elevations[i] > geography.MaxElevation {
-					g.Heightmap.Elevations[i] = geography.MaxElevation
+				if g.Heightmap.Elevations[i] > g.Core.GetMaxElevation() {
+					g.Heightmap.Elevations[i] = g.Core.GetMaxElevation()
 				}
 			}
 		}
@@ -1826,8 +1884,8 @@ func (g *WorldGeology) applyMinorBoundaryUplift(maxChange float64) {
 
 					// Apply change with clamping
 					newElev := currentElev + delta
-					if newElev > geography.MaxElevation {
-						newElev = geography.MaxElevation
+					if newElev > g.Core.GetMaxElevation() {
+						newElev = g.Core.GetMaxElevation()
 					} else if newElev < geography.MinElevation {
 						newElev = geography.MinElevation
 					}
@@ -1848,48 +1906,7 @@ func (g *WorldGeology) applyFloodBasalt(severity float64) {
 
 	// Use spherical operations if available
 	if g.SphereHeightmap != nil && g.Topology != nil {
-		resolution := g.Topology.Resolution()
-		// Random center on sphere
-		centerFace := g.rng.Intn(6)
-		centerX := g.rng.Intn(resolution)
-		centerY := g.rng.Intn(resolution)
-		center := spatial.Coordinate{Face: centerFace, X: centerX, Y: centerY}
-
-		// Use BFS to apply basalt with proper cross-face handling
-		visited := make(map[spatial.Coordinate]bool)
-		queue := []struct {
-			coord spatial.Coordinate
-			dist  int
-		}{{center, 0}}
-		visited[center] = true
-
-		directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
-
-		for len(queue) > 0 {
-			current := queue[0]
-			queue = queue[1:]
-
-			if current.dist < radius {
-				dist := float64(current.dist)
-				factor := 1.0 - (dist / float64(radius))
-				factor = factor * factor // Smoother falloff
-
-				currentElev := g.SphereHeightmap.Get(current.coord)
-				g.SphereHeightmap.Set(current.coord, currentElev+height*factor)
-
-				// Expand to neighbors
-				for _, dir := range directions {
-					neighbor := g.Topology.GetNeighbor(current.coord, dir)
-					if !visited[neighbor] {
-						visited[neighbor] = true
-						queue = append(queue, struct {
-							coord spatial.Coordinate
-							dist  int
-						}{neighbor, current.dist + 1})
-					}
-				}
-			}
-		}
+		geography.ApplyFloodBasalt(g.SphereHeightmap, g.Topology, severity, g.rng)
 		g.markSphereNeedsSync()
 	} else {
 		// Fallback to flat heightmap
@@ -2125,8 +2142,42 @@ func (g *WorldGeology) ShiftTemperature(shift float64) {
 func (g *WorldGeology) UpdateBiomes(globalTempMod float64) []geography.Biome {
 	seed := g.Seed + g.TotalYearsSimulated
 
-	// 1. Generate climate data from Weather service
-	climateData := weather.GenerateInitialClimate(g.Heightmap, g.SeaLevel, seed, globalTempMod)
+	// 1. Generate climate data
+	var climateDataFlat []weather.ClimateData
+	var climateDataSphere weather.SphereClimateMap
+	useSpherical := g.SphereHeightmap != nil && g.Topology != nil
+
+	if useSpherical {
+		// Use spherical climate model (Phase 2)
+		heat := GetPlanetaryHeat(g.TotalYearsSimulated)
+		geothermalOffset := 0.0
+		if heat > 1.0 {
+			geothermalOffset = (heat - 1.0) * 2.0 // Simple offset
+		}
+
+		climateDataSphere = weather.GenerateInitialClimateSpherical(
+			g.SphereHeightmap,
+			g.Topology,
+			g.SeaLevel,
+			seed,
+			globalTempMod,
+			geothermalOffset,
+		)
+
+		// Apply Ocean Moderation (Phase 2.2)
+		if g.Ocean != nil {
+			weather.ApplyOceanModeration(
+				climateDataSphere,
+				g.Topology,
+				g.Ocean,
+				g.SphereHeightmap,
+				g.SeaLevel,
+			)
+		}
+	} else {
+		// Fallback to flat model
+		climateDataFlat = weather.GenerateInitialClimate(g.Heightmap, g.SeaLevel, seed, globalTempMod)
+	}
 
 	// 2. Classify biomes using climate data
 	biomes := make([]geography.Biome, g.Heightmap.Width*g.Heightmap.Height)
@@ -2134,7 +2185,24 @@ func (g *WorldGeology) UpdateBiomes(globalTempMod float64) []geography.Biome {
 		for x := 0; x < g.Heightmap.Width; x++ {
 			idx := y*g.Heightmap.Width + x
 			elev := g.Heightmap.Get(x, y)
-			climate := weather.GetClimateAt(climateData, g.Heightmap.Width, x, y)
+
+			var climate weather.ClimateData
+
+			if useSpherical {
+				// Map flat coordinates to spherical
+				lon := (float64(x) / float64(g.Heightmap.Width)) * 2 * math.Pi
+				lat := (0.5 - float64(y)/float64(g.Heightmap.Height)) * math.Pi
+
+				sphereX := math.Cos(lat) * math.Cos(lon)
+				sphereY := math.Sin(lat)
+				sphereZ := math.Cos(lat) * math.Sin(lon)
+
+				coord := g.Topology.FromVector(sphereX, sphereY, sphereZ)
+
+				climate = weather.GetClimateAtSpherical(climateDataSphere, g.Topology.Resolution(), coord)
+			} else {
+				climate = weather.GetClimateAt(climateDataFlat, g.Heightmap.Width, x, y)
+			}
 
 			// Hydrology Data Retrieval
 			var flux float64
@@ -2151,6 +2219,9 @@ func (g *WorldGeology) UpdateBiomes(globalTempMod float64) []geography.Biome {
 
 				coord := g.Topology.FromVector(sphereX, sphereY, sphereZ)
 				cellData := g.SphereHeightmap.GetCellData(coord)
+				// If we already calculated coord above, we could reuse it, but this logic block
+				// was conditional on SphereHeightmap existing anyway.
+				// The redundant calculation is negligible.
 				flux = cellData.Flux
 				isLake = cellData.IsLake
 			}
