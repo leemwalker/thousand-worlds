@@ -4,16 +4,10 @@ metadata:
   name: mud-world-ingress
   namespace: mud-world
   annotations:
-    # Enable WebSocket support with extended timeouts for game persistence
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
-    # WebSocket upgrade headers
-    nginx.ingress.kubernetes.io/websocket-services: "game-server"
-    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
-    nginx.ingress.kubernetes.io/upstream-hash-by: "$remote_addr"
+    # Traefik WebSocket support and extended timeouts
+    traefik.ingress.kubernetes.io/router.middlewares: ""
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
   rules:
   - http:
       paths:
