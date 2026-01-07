@@ -35,16 +35,10 @@ export class GameWebSocket {
             this.currentCharacterId = characterId;
         }
 
-        // Build WebSocket URL
-        // In development (Vite proxy on port 5173), use the same host
-        // In production, WebSocket must go directly to game-server on port 8080
+        // Build WebSocket URL - with Ingress/nginx, use same host
+        // The proxy handles routing /api/game/ws to game-server
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const hostname = window.location.hostname;
-        const port = window.location.port;
-
-        // Use environment variable if available, otherwise fallback to logic
-        const wsHost = import.meta.env.VITE_WS_URL ||
-            (port === '5173' ? `${hostname}:${port}` : `${hostname}:30001`);
+        const wsHost = import.meta.env.VITE_WS_URL || window.location.host;
 
         let wsUrl = `${protocol}//${wsHost}/api/game/ws`;
 

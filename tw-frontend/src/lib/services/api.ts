@@ -1,66 +1,9 @@
 import { AuthError, AUTH_ERRORS } from '$lib/types/errors';
 import type { User, Character, CharacterAttributes } from '$lib/types/game';
 
-// Use environment variable for API URL (configured in vite.config.ts / .env)
-// Use environment variable for API URL (configured in vite.config.ts / .env)
-// Or fallback to dynamic logic based on port
-let apiUrl = import.meta.env.VITE_API_URL;
-
-if (!apiUrl) {
-    // Check if running in browser
-    if (typeof window !== 'undefined') {
-        const port = window.location.port;
-        const hostname = window.location.hostname;
-        const protocol = window.location.protocol;
-
-        if (port === '30000') {
-            // Kubernetes NodePort: Frontend on 30000, GameServer on 30001
-            apiUrl = `${protocol}//${hostname}:30001`; // Note: game-server routes are /api/...? No, usually direct
-            // Wait, GameServer serves /api/auth etc.
-            // In 03-game-server.yaml, port 8080 is exposed.
-            // If the Go server handles /api group, then we just hit root.
-            // The existing proxy in vite.config.ts maps /api -> http://localhost:8080
-            // This suggests the backend handles requests AT / (or the proxy rewrites?)
-            // Usually Go servers handle full paths.
-            // Let's assume we target the root of the game server, but requests are /auth/login.
-            // If the backend has routing for /auth/login, then API_URL should be empty string or base.
-            // But strict replacement:
-            // Original: const API_URL = ... || '/api';
-            // Usage: `${API_URL}/auth/register` -> `/api/auth/register`
-            // If we use NodePort 30001 directly: `http://host:30001/auth/register`?
-            // Check main.go routing.
-        }
-    }
-}
-// Retaining original logic for now but accounting for /api prefix
-// If port === 30000, we want http://host:30001.
-// If the backend expects /api prefix, then http://host:30001/api.
-
-// Let's check main.go really quick in a separate step? No, just use safe assumption.
-// Usually /api is just a namespace.
-// User log: GET http://10.0.0.17:30000/api/auth/me
-// If we change to 30001, it will be http://10.0.0.17:30001/api/auth/me
-// So API_URL should be 'http://10.0.0.17:30001/api'
-
-// REVISED CONTENT:
-let calculatedApiUrl = import.meta.env.VITE_API_URL;
-if (!calculatedApiUrl) {
-    if (typeof window !== 'undefined') {
-        const port = window.location.port;
-        if (port === '30000') {
-            // K8s NodePort mode
-            calculatedApiUrl = `${window.location.protocol}//${window.location.hostname}:30001/api`;
-        } else {
-            // Default (Dev proxy or Docker Compose)
-            calculatedApiUrl = '/api';
-        }
-    } else {
-        calculatedApiUrl = '/api';
-    }
-}
-
-const API_URL = calculatedApiUrl;
-console.log('[API] Using API URL:', API_URL, 'Window Port:', typeof window !== 'undefined' ? window.location.port : 'N/A');
+// API URL - with Ingress/nginx reverse proxy, always use relative path
+// The proxy handles routing /api/* to the game-server backend
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export interface LoginResponse {
     token: string;

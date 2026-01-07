@@ -62,6 +62,27 @@ echo "Applying Kubernetes Manifests..."
 # Create Namespace if it doesn't exist
 kubectl create namespace mud-world --dry-run=client -o yaml | kubectl apply -f -
 
+# --- INGRESS CONTROLLER SETUP ---
+# Check if nginx ingress controller is already installed
+if ! kubectl get namespace ingress-nginx &>/dev/null; then
+    echo "Installing Nginx Ingress Controller (bare metal)..."
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/baremetal/deploy.yaml
+    
+    echo "Waiting for Ingress Controller to be ready..."
+    kubectl -n ingress-nginx wait --for=condition=available deployment/ingress-nginx-controller --timeout=120s || echo "Ingress controller taking longer than expected..."
+    
+    # Patch for bare metal: enable hostNetwork so Ingress listens on host's port 80
+    echo "Patching Ingress Controller for host network access (port 80)..."
+    kubectl patch deployment ingress-nginx-controller -n ingress-nginx --type='json' \
+        -p='[{"op": "add", "path": "/spec/template/spec/hostNetwork", "value": true}]'
+    
+    # Restart to apply hostNetwork change
+    kubectl -n ingress-nginx rollout restart deployment/ingress-nginx-controller
+    kubectl -n ingress-nginx rollout status deployment/ingress-nginx-controller --timeout=60s || echo "Ingress restart pending..."
+else
+    echo "Nginx Ingress Controller already installed."
+fi
+
 # Infrastructure (NATS, Postgres, Redis, MinIO, Ollama)
 kubectl apply -f tw-backend/deploy/k8s/00-infrastructure.yaml
 
@@ -80,6 +101,9 @@ kubectl apply -f tw-backend/deploy/k8s/04-statefulset.yaml
 # Frontend
 kubectl apply -f tw-backend/deploy/k8s/05-frontend.yaml
 
+# Ingress (routes traffic to frontend and game-server)
+kubectl apply -f tw-backend/deploy/k8s/09-ingress.yaml
+
 # 3. Force Rollout (Required because we use 'latest' tag and local images)
 echo "Restarting deployments to pick up new images..."
 kubectl -n mud-world rollout restart deployment/game-server
@@ -93,5 +117,7 @@ kubectl -n mud-world rollout status statefulset/world-simulation --timeout=60s |
 kubectl -n mud-world rollout status deployment/game-server --timeout=60s || echo "Game Server rollout pending..."
 
 echo "=== Deployment Complete ==="
-echo "Frontend available at: http://localhost:30000 (if using NodePort)"
+echo "Frontend available at: http://10.0.0.17 (port 80 via Ingress)"
 echo "Check pods: kubectl -n mud-world get pods"
+echo "Check ingress: kubectl -n mud-world get ingress"
+
