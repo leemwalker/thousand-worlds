@@ -78,6 +78,11 @@ spec:
                   fieldPath: metadata.annotations['agones.dev/world-id']
             - name: HEALTH_PORT
               value: "8081"
+            # Go runtime tuning for high-resolution simulation
+            - name: GOMAXPROCS
+              value: "6"
+            - name: GOMEMLIMIT
+              value: "7500MiB"
             # Agones SDK ports are auto-injected by the sidecar
             
             # Health check using our new HTTP health endpoint
@@ -96,11 +101,11 @@ spec:
             
             resources:
               limits:
-                memory: "4Gi"
-                cpu: "4"
+                memory: "8Gi"
+                cpu: "6"
               requests:
-                memory: "1Gi"
-                cpu: "1"
+                memory: "2Gi"
+                cpu: "2"
             
             volumeMounts:
             - name: checkpoints

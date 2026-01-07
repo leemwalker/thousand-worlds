@@ -236,6 +236,9 @@ services:
       - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-password123}
       - ANALYTICS_URL=postgres://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB:-mud_metrics}?sslmode=disable
       - HEALTH_PORT=8081
+      # Go runtime tuning for high-resolution simulation
+      - GOMAXPROCS=6
+      - GOMEMLIMIT=7500MiB
     depends_on:
       timescaledb:
         condition: service_healthy
@@ -252,8 +255,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 4G
-          cpus: '4.0'
+          memory: 8G
+          cpus: '6.0'
+        reservations:
+          memory: 2G
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "wget", "-q", "--spider", "http://localhost:8081/health" ]

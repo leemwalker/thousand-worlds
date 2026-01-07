@@ -390,6 +390,7 @@ func findAlongshoreDirection(
 
 // FormBeaches builds up beaches in sheltered areas where sediment accumulates
 // Called periodically to consolidate drift deposits into beach features
+// Parallelized by face for performance.
 func FormBeaches(
 	hm *SphereHeightmap,
 	topology spatial.Topology,
@@ -397,28 +398,34 @@ func FormBeaches(
 ) {
 	res := topology.Resolution()
 
+	var wg sync.WaitGroup
+	wg.Add(6)
 	for face := 0; face < 6; face++ {
-		for y := 0; y < res; y++ {
-			for x := 0; x < res; x++ {
-				coord := spatial.Coordinate{Face: face, X: x, Y: y}
-				elev := hm.Get(coord)
+		go func(f int) {
+			defer wg.Done()
+			for y := 0; y < res; y++ {
+				for x := 0; x < res; x++ {
+					coord := spatial.Coordinate{Face: f, X: x, Y: y}
+					elev := hm.Get(coord)
 
-				// Look for cells just below sea level with sediment
-				if elev >= seaLevel-5 && elev < seaLevel+2 {
-					cellData := hm.GetCellData(coord)
+					// Look for cells just below sea level with sediment
+					if elev >= seaLevel-5 && elev < seaLevel+2 {
+						cellData := hm.GetCellData(coord)
 
-					// If sediment has accumulated, raise to form beach
-					if cellData.Sediment > 1.0 {
-						// Cap beach height at 3m above sea level
-						targetHeight := seaLevel + math.Min(cellData.Sediment*0.5, 3.0)
-						if elev < targetHeight {
-							hm.Set(coord, targetHeight)
+						// If sediment has accumulated, raise to form beach
+						if cellData.Sediment > 1.0 {
+							// Cap beach height at 3m above sea level
+							targetHeight := seaLevel + math.Min(cellData.Sediment*0.5, 3.0)
+							if elev < targetHeight {
+								hm.Set(coord, targetHeight)
+							}
 						}
 					}
 				}
 			}
-		}
+		}(face)
 	}
+	wg.Wait()
 }
 
 // =============================================================================
@@ -427,6 +434,7 @@ func FormBeaches(
 
 // MarkIntertidalZones identifies cells within the tidal range
 // These are exposed at low tide and submerged at high tide
+// Parallelized by face for performance.
 func MarkIntertidalZones(
 	hm *SphereHeightmap,
 	topology spatial.Topology,
@@ -436,27 +444,33 @@ func MarkIntertidalZones(
 	res := topology.Resolution()
 	halfTide := tidalRange / 2.0
 
+	var wg sync.WaitGroup
+	wg.Add(6)
 	for face := 0; face < 6; face++ {
-		for y := 0; y < res; y++ {
-			for x := 0; x < res; x++ {
-				coord := spatial.Coordinate{Face: face, X: x, Y: y}
-				elev := hm.Get(coord)
-				cellData := hm.GetCellData(coord)
+		go func(f int) {
+			defer wg.Done()
+			for y := 0; y < res; y++ {
+				for x := 0; x < res; x++ {
+					coord := spatial.Coordinate{Face: f, X: x, Y: y}
+					elev := hm.Get(coord)
+					cellData := hm.GetCellData(coord)
 
-				// Intertidal zone: between low tide and high tide marks
-				lowTide := seaLevel - halfTide
-				highTide := seaLevel + halfTide
+					// Intertidal zone: between low tide and high tide marks
+					lowTide := seaLevel - halfTide
+					highTide := seaLevel + halfTide
 
-				if elev >= lowTide && elev <= highTide {
-					// Must be near water (have a deeper neighbor)
-					if hasDeepNeighbor(hm, topology, coord, lowTide) {
-						cellData.IsIntertidal = true
-						hm.SetCellData(coord, cellData)
+					if elev >= lowTide && elev <= highTide {
+						// Must be near water (have a deeper neighbor)
+						if hasDeepNeighbor(hm, topology, coord, lowTide) {
+							cellData.IsIntertidal = true
+							hm.SetCellData(coord, cellData)
+						}
 					}
 				}
 			}
-		}
+		}(face)
 	}
+	wg.Wait()
 }
 
 // hasDeepNeighbor checks if any neighbor is below the threshold
@@ -483,6 +497,7 @@ func hasDeepNeighbor(
 
 // FormEstuaries creates river-ocean mixing zones at river mouths
 // Estuaries are wider, shallower areas where fresh and salt water mix
+// Parallelized by face for performance.
 func FormEstuaries(
 	hm *SphereHeightmap,
 	topology spatial.Topology,
@@ -491,39 +506,45 @@ func FormEstuaries(
 ) {
 	res := topology.Resolution()
 
+	var wg sync.WaitGroup
+	wg.Add(6)
 	for face := 0; face < 6; face++ {
-		for y := 0; y < res; y++ {
-			for x := 0; x < res; x++ {
-				coord := spatial.Coordinate{Face: face, X: x, Y: y}
-				elev := hm.Get(coord)
-				cellData := hm.GetCellData(coord)
+		go func(f int) {
+			defer wg.Done()
+			for y := 0; y < res; y++ {
+				for x := 0; x < res; x++ {
+					coord := spatial.Coordinate{Face: f, X: x, Y: y}
+					elev := hm.Get(coord)
+					cellData := hm.GetCellData(coord)
 
-				// Look for high-flux cells near sea level
-				if cellData.Flux < minFluxForEstuary {
-					continue
+					// Look for high-flux cells near sea level
+					if cellData.Flux < minFluxForEstuary {
+						continue
+					}
+
+					// Must be near sea level (within 20m)
+					if elev < seaLevel-20 || elev > seaLevel+10 {
+						continue
+					}
+
+					// Must have ocean neighbor
+					if !hasOceanNeighborDeep(hm, topology, coord, seaLevel-50) {
+						continue
+					}
+
+					// Mark as estuary
+					cellData.IsEstuary = true
+
+					// Estuaries are wider than regular rivers
+					// NOTE: widenEstuary modifies neighbors, minor race at face boundaries
+					widenEstuary(hm, topology, coord, seaLevel)
+
+					hm.SetCellData(coord, cellData)
 				}
-
-				// Must be near sea level (within 20m)
-				if elev < seaLevel-20 || elev > seaLevel+10 {
-					continue
-				}
-
-				// Must have ocean neighbor
-				if !hasOceanNeighborDeep(hm, topology, coord, seaLevel-50) {
-					continue
-				}
-
-				// Mark as estuary
-				cellData.IsEstuary = true
-
-				// Estuaries are wider than regular rivers
-				// Widen by depositing sediment to flatten the area
-				widenEstuary(hm, topology, coord, seaLevel)
-
-				hm.SetCellData(coord, cellData)
 			}
-		}
+		}(face)
 	}
+	wg.Wait()
 }
 
 // hasOceanNeighborDeep checks for deep ocean nearby (not just any water)
@@ -579,6 +600,7 @@ func widenEstuary(
 
 // FormSpitsAndBars extends sediment deposits across bay openings
 // Spits form when longshore drift deposits sediment in a line
+// Parallelized by face for performance.
 func FormSpitsAndBars(
 	hm *SphereHeightmap,
 	topology spatial.Topology,
@@ -587,33 +609,39 @@ func FormSpitsAndBars(
 ) {
 	res := topology.Resolution()
 
-	// Find candidates: coastal cells with high sediment and a bay to extend into
+	var wg sync.WaitGroup
+	wg.Add(6)
 	for face := 0; face < 6; face++ {
-		for y := 0; y < res; y++ {
-			for x := 0; x < res; x++ {
-				coord := spatial.Coordinate{Face: face, X: x, Y: y}
-				elev := hm.Get(coord)
-				cellData := hm.GetCellData(coord)
+		go func(f int) {
+			defer wg.Done()
+			for y := 0; y < res; y++ {
+				for x := 0; x < res; x++ {
+					coord := spatial.Coordinate{Face: f, X: x, Y: y}
+					elev := hm.Get(coord)
+					cellData := hm.GetCellData(coord)
 
-				// Must be a beach/coastal cell with sediment
-				if elev < seaLevel || elev > seaLevel+3 {
-					continue
-				}
-				if cellData.Sediment < 2.0 {
-					continue
-				}
+					// Must be a beach/coastal cell with sediment
+					if elev < seaLevel || elev > seaLevel+3 {
+						continue
+					}
+					if cellData.Sediment < 2.0 {
+						continue
+					}
 
-				// Check for a bay opening (sheltered water on one side)
-				spitDir := findSpitDirection(hm, topology, coord, seaLevel)
-				if spitDir == "" {
-					continue
-				}
+					// Check for a bay opening (sheltered water on one side)
+					spitDir := findSpitDirection(hm, topology, coord, seaLevel)
+					if spitDir == "" {
+						continue
+					}
 
-				// Extend spit into the bay
-				extendSpit(hm, topology, coord, spitDir, seaLevel, cellData.Sediment)
+					// Extend spit into the bay
+					// NOTE: extendSpit modifies neighbors, minor race at face boundaries
+					extendSpit(hm, topology, coord, spitDir, seaLevel, cellData.Sediment)
+				}
 			}
-		}
+		}(face)
 	}
+	wg.Wait()
 }
 
 // findSpitDirection looks for a direction where we can extend a spit

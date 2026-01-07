@@ -319,22 +319,44 @@ func (s *SphereHeightmap) GetNeighborElevation(coord spatial.Coordinate, dir spa
 }
 
 // UpdateMinMax recalculates the minimum and maximum elevations across all faces
+// Parallelized by face for performance.
 func (s *SphereHeightmap) UpdateMinMax() {
-	first := true
-	for _, face := range s.faces {
-		for _, elev := range face.Elevations {
-			if first {
-				s.MinElev = elev
-				s.MaxElev = elev
-				first = false
-			} else {
-				if elev < s.MinElev {
-					s.MinElev = elev
+	// Calculate per-face min/max in parallel
+	faceMin := make([]float64, 6)
+	faceMax := make([]float64, 6)
+
+	var wg sync.WaitGroup
+	wg.Add(6)
+	for f := 0; f < 6; f++ {
+		go func(face int) {
+			defer wg.Done()
+			elevs := s.faces[face].Elevations
+			if len(elevs) == 0 {
+				return
+			}
+			minE, maxE := elevs[0], elevs[0]
+			for _, elev := range elevs[1:] {
+				if elev < minE {
+					minE = elev
 				}
-				if elev > s.MaxElev {
-					s.MaxElev = elev
+				if elev > maxE {
+					maxE = elev
 				}
 			}
+			faceMin[face] = minE
+			faceMax[face] = maxE
+		}(f)
+	}
+	wg.Wait()
+
+	// Reduce across faces
+	s.MinElev, s.MaxElev = faceMin[0], faceMax[0]
+	for f := 1; f < 6; f++ {
+		if faceMin[f] < s.MinElev {
+			s.MinElev = faceMin[f]
+		}
+		if faceMax[f] > s.MaxElev {
+			s.MaxElev = faceMax[f]
 		}
 	}
 }
@@ -428,38 +450,60 @@ func (s *SphereHeightmap) ToFlatHeightmapInPlace(dest *Heightmap) {
 // MapIntToFlat creates a flat equirectangular projection of integer data associated with spherical coordinates.
 // It uses the same projection logic as ToFlatHeightmap to ensure alignment.
 // inputFunc returns the integer value for a given coordinate (or specific sentinel if not found).
+// Parallelized by row chunks for performance.
 func (s *SphereHeightmap) MapIntToFlat(width, height int, inputFunc func(spatial.Coordinate) int) []int {
 	result := make([]int, width*height)
 
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			// Map pixel coordinates to longitude and latitude
-			// Longitude: 0 to 2π (left to right)
-			// Latitude: π/2 to -π/2 (top to bottom, north pole to south pole)
-			lon := (float64(x) / float64(width)) * 2 * 3.141592653589793  // 0 to 2π
-			lat := (0.5 - float64(y)/float64(height)) * 3.141592653589793 // π/2 to -π/2
-
-			// Convert lat/lon to 3D unit sphere coordinates
-			cosLat := cosineApprox(lat)
-			sinLat := sineApprox(lat)
-			cosLon := cosineApprox(lon)
-			sinLon := sineApprox(lon)
-
-			sphereX := cosLat * cosLon
-			sphereY := sinLat
-			sphereZ := cosLat * sinLon
-
-			// Use topology to find the correct cube-sphere face and coordinate
-			coord := s.topology.FromVector(sphereX, sphereY, sphereZ)
-
-			// Get value from input function
-			val := inputFunc(coord)
-
-			// Set in flat array
-			idx := y*width + x
-			result[idx] = val
-		}
+	// Parallelize by row chunks
+	workers := runtime.NumCPU()
+	rowsPerWorker := height / workers
+	if rowsPerWorker < 1 {
+		rowsPerWorker = 1
+		workers = height
 	}
+
+	var wg sync.WaitGroup
+	for w := 0; w < workers; w++ {
+		startY := w * rowsPerWorker
+		endY := startY + rowsPerWorker
+		if w == workers-1 {
+			endY = height
+		}
+
+		wg.Add(1)
+		go func(sy, ey int) {
+			defer wg.Done()
+			for y := sy; y < ey; y++ {
+				for x := 0; x < width; x++ {
+					// Map pixel coordinates to longitude and latitude
+					lon := (float64(x) / float64(width)) * 2 * 3.141592653589793
+					lat := (0.5 - float64(y)/float64(height)) * 3.141592653589793
+
+					// Convert lat/lon to 3D unit sphere coordinates
+					cosLat := cosineApprox(lat)
+					sinLat := sineApprox(lat)
+					cosLon := cosineApprox(lon)
+					sinLon := sineApprox(lon)
+
+					sphereX := cosLat * cosLon
+					sphereY := sinLat
+					sphereZ := cosLat * sinLon
+
+					// Use topology to find the correct cube-sphere face and coordinate
+					coord := s.topology.FromVector(sphereX, sphereY, sphereZ)
+
+					// Get value from input function
+					val := inputFunc(coord)
+
+					// Set in flat array
+					idx := y*width + x
+					result[idx] = val
+				}
+			}
+		}(startY, endY)
+	}
+	wg.Wait()
+
 	return result
 }
 
