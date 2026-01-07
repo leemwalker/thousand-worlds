@@ -35,6 +35,9 @@ type IceSheet struct {
 
 	// Sediment tracking for moraines
 	Sediment []float64 // Accumulated sediment load
+
+	// Scratch buffer for flow calculations (avoids allocation per Update call)
+	deltaIce []float64
 }
 
 // NewIceSheet creates an empty ice sheet system.
@@ -44,6 +47,7 @@ func NewIceSheet(resolution int) *IceSheet {
 	return &IceSheet{
 		Ice:        make([]IceData, totalCells),
 		Sediment:   make([]float64, totalCells),
+		deltaIce:   make([]float64, totalCells), // Pre-allocate flow buffer
 		Resolution: resolution,
 	}
 }
@@ -147,8 +151,13 @@ func (is *IceSheet) Update(dt float64, tempGrid []float64, precipGrid []float64,
 	// Flow is local, but can't be purely parallel if we write to neighbors directly.
 	// Approach: Calculate Flux OUT of each cell (read-only), store in buffer. Then apply.
 
-	// Allocate delta buffer (could cache this in struct to avoid allocs)
-	deltaIce := make([]float64, totalCells)
+	// Reuse pre-allocated delta buffer and zero it
+	if len(is.deltaIce) != totalCells {
+		is.deltaIce = make([]float64, totalCells)
+	}
+	for i := range is.deltaIce {
+		is.deltaIce[i] = 0
+	}
 
 	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
 
@@ -184,8 +193,8 @@ func (is *IceSheet) Update(dt float64, tempGrid []float64, precipGrid []float64,
 			is.Ice[idx].FlowSpeed = speed
 
 			// Apply to buffer
-			deltaIce[idx] -= loss
-			deltaIce[bestIdx] += loss
+			is.deltaIce[idx] -= loss
+			is.deltaIce[bestIdx] += loss
 		} else {
 			is.Ice[idx].FlowSpeed = 0
 		}
@@ -193,7 +202,7 @@ func (is *IceSheet) Update(dt float64, tempGrid []float64, precipGrid []float64,
 
 	// Apply deltas
 	for i := range is.Ice {
-		is.Ice[i].Thickness += deltaIce[i]
+		is.Ice[i].Thickness += is.deltaIce[i]
 		if is.Ice[i].Thickness < 0 {
 			is.Ice[i].Thickness = 0
 		}

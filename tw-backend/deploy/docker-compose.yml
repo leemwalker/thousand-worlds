@@ -29,6 +29,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # PostgreSQL performance tuning
+    command: postgres -c shared_buffers=4GB -c work_mem=256MB -c effective_cache_size=12GB
 
   # 2. NPC Memory Bank (The Brains)
   mongo:
@@ -75,8 +77,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
-          cpus: '0.5'
+          memory: 1G # Increased for JetStream
+          cpus: '1.0'
     healthcheck:
       test: [ "CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz" ]
       interval: 10s
@@ -84,20 +86,24 @@ services:
       retries: 3
 
   # 4. Hot Data & Sessions (The Short-term Memory)
-  redis:
-    image: redis:7.2-alpine
-    container_name: mud_redis
+  # Using Dragonfly instead of Redis for 10x performance
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
+    container_name: mud_dragonfly
     ports:
       - "6379:6379"
     volumes:
-      - redis_data:/data
+      - dragonfly_data:/data
     networks:
       - mud_net
+    ulimits:
+      memlock: -1
+    command: --default_lua_flags=allow-undeclared-keys
     deploy:
       resources:
         limits:
-          memory: 512M
-          cpus: '0.5'
+          memory: 2G
+          cpus: '1.0'
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
@@ -146,5 +152,5 @@ volumes:
   postgres_data:
   mongo_data:
   nats_data:
-  redis_data:
+  dragonfly_data:
   ollama_models:

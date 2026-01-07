@@ -6,6 +6,8 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"runtime"
+	"sync"
 	"time"
 
 	"tw-backend/internal/debug"
@@ -483,52 +485,90 @@ func ComputeBoundaryCache(plates []TectonicPlate, topology spatial.Topology) *Bo
 		}
 	}
 
-	// Find all boundary cells
+	// Find all boundary cells (Parallelized)
 	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
 	resSq := resolution * resolution
 
-	for idx := 0; idx < totalCells; idx++ {
-		currentPlateIdx := cache.PlateGrid[idx]
-		if currentPlateIdx == -1 {
-			continue
+	// Parallelize by cell chunks using worker pool
+	workers := runtime.NumCPU()
+	chunkSize := totalCells / workers
+	if chunkSize < 1 {
+		chunkSize = 1
+		workers = totalCells
+	}
+
+	// Per-worker result slices to avoid lock contention
+	workerResults := make([][]BoundaryCell, workers)
+	var wg sync.WaitGroup
+
+	for w := 0; w < workers; w++ {
+		start := w * chunkSize
+		end := start + chunkSize
+		if w == workers-1 {
+			end = totalCells
 		}
 
-		// Reconstruct coordinate from index
-		face := idx / resSq
-		rem := idx % resSq
-		y := rem / resolution
-		x := rem % resolution
-		coord := spatial.Coordinate{Face: face, X: x, Y: y}
+		wg.Add(1)
+		go func(workerIdx, s, e int) {
+			defer wg.Done()
+			localCells := make([]BoundaryCell, 0, (e-s)/10) // Estimate ~10% are boundaries
 
-		currentPlate := plates[currentPlateIdx]
+			for idx := s; idx < e; idx++ {
+				currentPlateIdx := cache.PlateGrid[idx]
+				if currentPlateIdx == -1 {
+					continue
+				}
 
-		// Check neighbors for boundary
-		for _, dir := range directions {
-			neighbor := topology.GetNeighbor(coord, dir)
-			nIdx := (neighbor.Face * resSq) + (neighbor.Y * resolution) + neighbor.X
+				// Reconstruct coordinate from index
+				face := idx / resSq
+				rem := idx % resSq
+				y := rem / resolution
+				x := rem % resolution
+				coord := spatial.Coordinate{Face: face, X: x, Y: y}
 
-			var neighborPlateIdx int
-			if nIdx >= 0 && nIdx < totalCells {
-				neighborPlateIdx = cache.PlateGrid[nIdx]
-			} else {
-				neighborPlateIdx = -1
+				currentPlate := plates[currentPlateIdx]
+
+				// Check neighbors for boundary
+				for _, dir := range directions {
+					neighbor := topology.GetNeighbor(coord, dir)
+					nIdx := (neighbor.Face * resSq) + (neighbor.Y * resolution) + neighbor.X
+
+					var neighborPlateIdx int
+					if nIdx >= 0 && nIdx < totalCells {
+						neighborPlateIdx = cache.PlateGrid[nIdx]
+					} else {
+						neighborPlateIdx = -1
+					}
+
+					if neighborPlateIdx == -1 || neighborPlateIdx == currentPlateIdx {
+						continue
+					}
+
+					// Found a boundary - add to local results
+					neighborPlate := plates[neighborPlateIdx]
+					boundaryType := CalculateBoundaryType(currentPlate, neighborPlate)
+
+					localCells = append(localCells, BoundaryCell{
+						Coord:        coord,
+						PlateIdx:     currentPlateIdx,
+						NeighborIdx:  neighborPlateIdx,
+						BoundaryType: boundaryType,
+					})
+				}
 			}
+			workerResults[workerIdx] = localCells
+		}(w, start, end)
+	}
+	wg.Wait()
 
-			if neighborPlateIdx == -1 || neighborPlateIdx == currentPlateIdx {
-				continue
-			}
-
-			// Found a boundary - add to cache
-			neighborPlate := plates[neighborPlateIdx]
-			boundaryType := CalculateBoundaryType(currentPlate, neighborPlate)
-
-			cache.Cells = append(cache.Cells, BoundaryCell{
-				Coord:        coord,
-				PlateIdx:     currentPlateIdx,
-				NeighborIdx:  neighborPlateIdx,
-				BoundaryType: boundaryType,
-			})
-		}
+	// Merge results from all workers
+	totalFound := 0
+	for _, cells := range workerResults {
+		totalFound += len(cells)
+	}
+	cache.Cells = make([]BoundaryCell, 0, totalFound)
+	for _, cells := range workerResults {
+		cache.Cells = append(cache.Cells, cells...)
 	}
 
 	if debug.Is(debug.Perf | debug.Geology) {
