@@ -2,6 +2,7 @@ package geography
 
 import (
 	"math"
+	"sync"
 
 	"tw-backend/internal/spatial"
 )
@@ -92,6 +93,7 @@ type CoastalCell struct {
 }
 
 // findCoastalCells identifies cells at the land-water interface
+// Parallelized by face for performance.
 func findCoastalCells(
 	hm *SphereHeightmap,
 	topology spatial.Topology,
@@ -99,47 +101,69 @@ func findCoastalCells(
 	minWaveDepth float64,
 ) []CoastalCell {
 	res := topology.Resolution()
-	coastal := make([]CoastalCell, 0, res*res/10) // Estimate 10% are coastal
+
+	// Process each face in parallel, collect results per-face
+	faceResults := make([][]CoastalCell, 6)
+	var wg sync.WaitGroup
+	wg.Add(6)
 
 	for face := 0; face < 6; face++ {
-		for y := 0; y < res; y++ {
-			for x := 0; x < res; x++ {
-				coord := spatial.Coordinate{Face: face, X: x, Y: y}
-				elev := hm.Get(coord)
+		go func(f int) {
+			defer wg.Done()
+			// Estimate 10% of face cells are coastal
+			local := make([]CoastalCell, 0, res*res/10)
 
-				// Skip cells that are too deep (below wave influence)
-				if elev < seaLevel+minWaveDepth {
-					continue
+			for y := 0; y < res; y++ {
+				for x := 0; x < res; x++ {
+					coord := spatial.Coordinate{Face: f, X: x, Y: y}
+					elev := hm.Get(coord)
+
+					// Skip cells that are too deep (below wave influence)
+					if elev < seaLevel+minWaveDepth {
+						continue
+					}
+
+					// Check if this is a coastal cell (has water neighbor)
+					seawardDir, hasWaterNeighbor := findSeawardDirection(hm, topology, coord, seaLevel)
+					if !hasWaterNeighbor {
+						continue
+					}
+
+					// Calculate fetch (distance to open ocean)
+					fetch := calculateFetch(hm, topology, coord, seawardDir, seaLevel)
+
+					// Calculate wave energy from fetch (diminishing returns past MaxFetch)
+					waveEnergy := math.Sqrt(fetch / 500000.0) // Normalize to 500km
+					if waveEnergy > 1.0 {
+						waveEnergy = 1.0
+					}
+
+					// Determine if this is a cliff (steep slope)
+					isCliff := isCliffCell(hm, topology, coord, seaLevel)
+
+					local = append(local, CoastalCell{
+						Coord:      coord,
+						Elevation:  elev,
+						Fetch:      fetch,
+						WaveEnergy: waveEnergy,
+						IsCliff:    isCliff,
+						SeawardDir: seawardDir,
+					})
 				}
-
-				// Check if this is a coastal cell (has water neighbor)
-				seawardDir, hasWaterNeighbor := findSeawardDirection(hm, topology, coord, seaLevel)
-				if !hasWaterNeighbor {
-					continue
-				}
-
-				// Calculate fetch (distance to open ocean)
-				fetch := calculateFetch(hm, topology, coord, seawardDir, seaLevel)
-
-				// Calculate wave energy from fetch (diminishing returns past MaxFetch)
-				waveEnergy := math.Sqrt(fetch / 500000.0) // Normalize to 500km
-				if waveEnergy > 1.0 {
-					waveEnergy = 1.0
-				}
-
-				// Determine if this is a cliff (steep slope)
-				isCliff := isCliffCell(hm, topology, coord, seaLevel)
-
-				coastal = append(coastal, CoastalCell{
-					Coord:      coord,
-					Elevation:  elev,
-					Fetch:      fetch,
-					WaveEnergy: waveEnergy,
-					IsCliff:    isCliff,
-					SeawardDir: seawardDir,
-				})
 			}
-		}
+			faceResults[f] = local
+		}(face)
+	}
+	wg.Wait()
+
+	// Merge results from all faces
+	totalCount := 0
+	for _, fr := range faceResults {
+		totalCount += len(fr)
+	}
+	coastal := make([]CoastalCell, 0, totalCount)
+	for _, fr := range faceResults {
+		coastal = append(coastal, fr...)
 	}
 
 	return coastal

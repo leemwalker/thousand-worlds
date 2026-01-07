@@ -1346,9 +1346,8 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 
 	// === DYNAMIC WEATHER ===
 	// Recalculate rainfall map periodically to reflect continental drift
-	// Run every 5 Million years (tectonics moves ~100km in that time)
-	// TEMPORARILY DISABLED FOR DEBUGGING SEAM
-	weatherInterval := 5_000_000.0
+	// Run every 10 Million years (tectonics moves ~200km in that time)
+	weatherInterval := 10_000_000.0
 	if g.WeatherAccumulator >= weatherInterval {
 		g.updateRainfall() // Re-enabled: seam fix via 3D wind vectors
 		g.WeatherAccumulator = math.Mod(g.WeatherAccumulator, weatherInterval)

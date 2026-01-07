@@ -1,6 +1,9 @@
 package geography
 
 import (
+	"runtime"
+	"sync"
+
 	"tw-backend/internal/spatial"
 )
 
@@ -368,38 +371,55 @@ func (s *SphereHeightmap) ToFlatHeightmap(width, height int) *Heightmap {
 // ToFlatHeightmapInPlace converts this spherical heightmap to a flat equirectangular projection,
 // writing directly into the provided heightmap to avoid memory allocation.
 // The destination heightmap must already be the correct size.
+// Parallelized for performance on large heightmaps.
 func (s *SphereHeightmap) ToFlatHeightmapInPlace(dest *Heightmap) {
 	width := dest.Width
 	height := dest.Height
 
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			// Map pixel coordinates to longitude and latitude
-			// Longitude: 0 to 2π (left to right)
-			// Latitude: π/2 to -π/2 (top to bottom, north pole to south pole)
-			lon := (float64(x) / float64(width)) * 2 * 3.141592653589793  // 0 to 2π
-			lat := (0.5 - float64(y)/float64(height)) * 3.141592653589793 // π/2 to -π/2
-
-			// Convert lat/lon to 3D unit sphere coordinates
-			// Standard spherical coordinate conversion:
-			// x = cos(lat) * cos(lon)
-			// y = sin(lat)           (Y is up/down axis)
-			// z = cos(lat) * sin(lon)
-			cosLat := cosineApprox(lat)
-			sinLat := sineApprox(lat)
-			cosLon := cosineApprox(lon)
-			sinLon := sineApprox(lon)
-
-			sphereX := cosLat * cosLon
-			sphereY := sinLat
-			sphereZ := cosLat * sinLon
-
-			// Use topology to find the correct cube-sphere face and coordinate
-			coord := s.topology.FromVector(sphereX, sphereY, sphereZ)
-			elev := s.Get(coord)
-			dest.Set(x, y, elev)
-		}
+	// Parallelize by row chunks using worker pool
+	workers := runtime.NumCPU()
+	rowsPerWorker := height / workers
+	if rowsPerWorker < 1 {
+		rowsPerWorker = 1
+		workers = height
 	}
+
+	var wg sync.WaitGroup
+	for w := 0; w < workers; w++ {
+		startY := w * rowsPerWorker
+		endY := startY + rowsPerWorker
+		if w == workers-1 {
+			endY = height // Last worker takes remaining rows
+		}
+
+		wg.Add(1)
+		go func(sy, ey int) {
+			defer wg.Done()
+			for y := sy; y < ey; y++ {
+				for x := 0; x < width; x++ {
+					// Map pixel coordinates to longitude and latitude
+					lon := (float64(x) / float64(width)) * 2 * 3.141592653589793
+					lat := (0.5 - float64(y)/float64(height)) * 3.141592653589793
+
+					// Convert lat/lon to 3D unit sphere coordinates
+					cosLat := cosineApprox(lat)
+					sinLat := sineApprox(lat)
+					cosLon := cosineApprox(lon)
+					sinLon := sineApprox(lon)
+
+					sphereX := cosLat * cosLon
+					sphereY := sinLat
+					sphereZ := cosLat * sinLon
+
+					// Use topology to find the correct cube-sphere face and coordinate
+					coord := s.topology.FromVector(sphereX, sphereY, sphereZ)
+					elev := s.Get(coord)
+					dest.Set(x, y, elev)
+				}
+			}
+		}(startY, endY)
+	}
+	wg.Wait()
 
 	dest.MinElev = s.MinElev
 	dest.MaxElev = s.MaxElev
