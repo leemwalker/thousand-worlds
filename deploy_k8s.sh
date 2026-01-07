@@ -62,26 +62,8 @@ echo "Applying Kubernetes Manifests..."
 # Create Namespace if it doesn't exist
 kubectl create namespace mud-world --dry-run=client -o yaml | kubectl apply -f -
 
-# --- INGRESS CONTROLLER SETUP ---
-# Check if nginx ingress controller is already installed
-if ! kubectl get namespace ingress-nginx &>/dev/null; then
-    echo "Installing Nginx Ingress Controller (bare metal)..."
-    kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/baremetal/deploy.yaml
-    
-    echo "Waiting for Ingress Controller to be ready..."
-    kubectl -n ingress-nginx wait --for=condition=available deployment/ingress-nginx-controller --timeout=120s || echo "Ingress controller taking longer than expected..."
-    
-    # Patch for bare metal: enable hostNetwork so Ingress listens on host's port 80
-    echo "Patching Ingress Controller for host network access (port 80)..."
-    kubectl patch deployment ingress-nginx-controller -n ingress-nginx --type='json' \
-        -p='[{"op": "add", "path": "/spec/template/spec/hostNetwork", "value": true}]'
-    
-    # Restart to apply hostNetwork change
-    kubectl -n ingress-nginx rollout restart deployment/ingress-nginx-controller
-    kubectl -n ingress-nginx rollout status deployment/ingress-nginx-controller --timeout=60s || echo "Ingress restart pending..."
-else
-    echo "Nginx Ingress Controller already installed."
-fi
+# Note: K3s comes with Traefik Ingress Controller pre-installed on port 80/443
+# No need to install nginx-ingress separately
 
 # Infrastructure (NATS, Postgres, Redis, MinIO, Ollama)
 kubectl apply -f tw-backend/deploy/k8s/00-infrastructure.yaml
