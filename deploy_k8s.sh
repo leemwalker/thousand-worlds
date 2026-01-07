@@ -3,6 +3,29 @@ set -euo pipefail
 
 echo "=== Thousand Worlds Kubernetes Deployment ==="
 
+# --- KUBECONFIG SETUP ---
+# Use user-local kubeconfig if available, otherwise fall back to system location
+USER_KUBECONFIG="$HOME/.kube/config"
+SYSTEM_KUBECONFIG="/etc/rancher/k3s/k3s.yaml"
+
+if [[ -f "$USER_KUBECONFIG" ]]; then
+    export KUBECONFIG="$USER_KUBECONFIG"
+    echo "Using kubeconfig: $USER_KUBECONFIG"
+elif [[ -r "$SYSTEM_KUBECONFIG" ]]; then
+    export KUBECONFIG="$SYSTEM_KUBECONFIG"
+    echo "Using kubeconfig: $SYSTEM_KUBECONFIG"
+else
+    echo "ERROR: No accessible kubeconfig found."
+    echo ""
+    echo "Run the following ONE-TIME SETUP to create a user-accessible kubeconfig:"
+    echo "  sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config"
+    echo "  sudo chown \$(id -u):\$(id -g) ~/.kube/config"
+    echo "  chmod 600 ~/.kube/config"
+    echo "  sed -i 's/127.0.0.1/localhost/g' ~/.kube/config"
+    echo ""
+    exit 1
+fi
+
 # 1. Build Docker Images
 echo "Building Core Physics Docker Image..."
 docker build -t tw-backend/core-physics:latest -f tw-backend/Dockerfile.core-physics tw-backend
@@ -14,17 +37,24 @@ echo "Building Frontend Docker Image..."
 docker build -t tw-frontend/frontend:latest -f tw-frontend/Dockerfile tw-frontend
 
 # 1b. Import Images to K3s (REQUIRED for K3s)
+# The user must be in the 'k3s' group OR run this via k3s subcommand
 echo "Importing images to K3s (containerd)..."
-# We need to save from docker and import to k3s ctr
-# Using 'sudo' might be needed depending on user permissions, but assuming script runs as user who can sudo or access k3s
-docker save tw-backend/core-physics:latest | k3s ctr images import -
-docker save tw-backend/game-server:latest | k3s ctr images import -
-docker save tw-frontend/frontend:latest | k3s ctr images import -
 
-# 1c. Setup Kubernetes Config
+# Check if user can access containerd socket directly
+K3S_SOCKET="/run/k3s/containerd/containerd.sock"
+if [[ -r "$K3S_SOCKET" ]] && [[ -w "$K3S_SOCKET" ]]; then
+    # Direct access available (user is in k3s group or socket is world-accessible)
+    docker save tw-backend/core-physics:latest | k3s ctr images import -
+    docker save tw-backend/game-server:latest | k3s ctr images import -
+    docker save tw-frontend/frontend:latest | k3s ctr images import -
+else
+    echo "Containerd socket requires elevated access. Using sudo for image import..."
+    docker save tw-backend/core-physics:latest | sudo k3s ctr images import -
+    docker save tw-backend/game-server:latest | sudo k3s ctr images import -
+    docker save tw-frontend/frontend:latest | sudo k3s ctr images import -
+fi
+
 echo "Configuring K3s permissions..."
-# Assumes /etc/rancher/k3s/k3s.yaml is already readable (manual setup required once)
-export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 
 # 2. Apply Kubernetes Manifests in Order
 echo "Applying Kubernetes Manifests..."
