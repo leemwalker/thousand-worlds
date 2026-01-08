@@ -16,7 +16,32 @@ interface GameState {
     // Scene management
     gameLocation: GameLocation;
     currentWorldId: string | null;
+    world: WorldState;
 }
+
+export interface WorldState {
+    textureBlob: Blob | null;
+    heightmapBlob: Blob | null;
+    materialBlob: Blob | null;
+    iceBlob: Blob | null;
+    geo: {
+        seaLevel: number;
+        maxElevation: number;
+        minElevation: number;
+    };
+    sim: {
+        satellites: any[];
+    };
+}
+
+const initialWorldState: WorldState = {
+    textureBlob: null,
+    heightmapBlob: null,
+    materialBlob: null,
+    iceBlob: null,
+    geo: { seaLevel: 0, maxElevation: 0, minElevation: 0 },
+    sim: { satellites: [] }
+};
 
 const initialState: GameState = {
     user: null,
@@ -34,7 +59,8 @@ const initialState: GameState = {
     error: null,
     // Scene management
     gameLocation: 'LOBBY',
-    currentWorldId: null
+    currentWorldId: null,
+    world: initialWorldState
 };
 
 function createGameStore() {
@@ -66,6 +92,12 @@ function createGameStore() {
         setCurrentWorldId: (worldId: string | null) => update(s => ({ ...s, currentWorldId: worldId })),
         enterWorld: (worldId: string) => update(s => ({ ...s, gameLocation: 'WORLD', currentWorldId: worldId })),
         returnToLobby: () => update(s => ({ ...s, gameLocation: 'LOBBY', currentWorldId: null })),
+
+        // World State
+        updateWorld: (worldState: Partial<WorldState>) => update(s => ({
+            ...s,
+            world: { ...s.world, ...worldState }
+        })),
 
         reset: () => set(initialState)
     };

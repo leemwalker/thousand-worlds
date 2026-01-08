@@ -24,7 +24,7 @@ func TestHandleWorld_Simulate_OnlyGeology(t *testing.T) {
 	mockWorldRepo := NewMockWorldRepository()
 	ecoSvc := ecosystem.NewService(time.Now().Unix())
 
-	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil, nil, nil)
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil, nil, nil, nil)
 
 	// Create user character and key world data
 	charID := uuid.New()
@@ -91,7 +91,7 @@ func TestHandleWorld_Simulate_Default(t *testing.T) {
 	mockWorldRepo := NewMockWorldRepository()
 	ecoSvc := ecosystem.NewService(time.Now().Unix())
 
-	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil, nil, nil)
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil, nil, nil, nil)
 
 	charID := uuid.New()
 	userID := uuid.New()

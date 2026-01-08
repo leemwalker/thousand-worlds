@@ -666,6 +666,26 @@ func (sr *SimulationRunner) tickLocked(yearsToAdvance int64) error {
 			}
 		}
 
+		// Visualization Update: 10% progress OR 100M years (whichever is smaller)
+		vizInterval := int64(100_000_000) // Default 100M years limit
+		if sr.config.MaxYearTarget > 0 {
+			tenPercent := sr.config.MaxYearTarget / 10
+			if tenPercent < vizInterval {
+				vizInterval = tenPercent
+			}
+		}
+		if vizInterval < 1_000_000 {
+			vizInterval = 1_000_000 // Minimum 1M years
+		}
+		if sr.popSim.CurrentYear > 0 && sr.popSim.CurrentYear%vizInterval == 0 {
+			sr.broadcastEvent(RunnerEvent{
+				Year:        sr.popSim.CurrentYear,
+				Type:        "visualization_update",
+				Description: fmt.Sprintf("Visual update at year %d", sr.popSim.CurrentYear),
+				Importance:  1,
+			})
+		}
+
 		// Check for events logged by the simulator this year
 		if len(sr.popSim.Events) > 0 {
 			for _, evtMsg := range sr.popSim.Events {

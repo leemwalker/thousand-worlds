@@ -249,6 +249,20 @@ export class GameWebSocket {
             if (message.data.inventory) {
                 gameStore.setInventory(message.data.inventory);
             }
+        } else if (message.type === 'world_map_image_response') {
+            const d = message.data;
+            gameStore.updateWorld({
+                textureBlob: d.imageBlob,
+                heightmapBlob: d.heightmapBlob,
+                materialBlob: d.materialBlob,
+                iceBlob: d.iceBlob,
+                geo: {
+                    seaLevel: d.sea_level || 0,
+                    maxElevation: d.max_elevation || 0,
+                    minElevation: d.min_elevation || 0
+                }
+                // Maintain existing satellites if not provided
+            });
         }
 
         // Notify all handlers

@@ -5,7 +5,10 @@
     import { parseBinaryGridData, MapDataLayer } from "./BinaryDataParser";
     import WorldMapLegend from "./WorldMapLegend.svelte";
     import MapOverlayCanvas from "./MapOverlayCanvas.svelte";
-    import BabylonGlobe from "./BabylonGlobe.svelte";
+    import WorldController from "$lib/components/Map/WorldController.svelte";
+    import SceneCanvas from "$lib/components/Scene/SceneCanvas.svelte";
+    import { sceneManager, type GameLocation } from "$lib/components/Scene/SceneManager";
+    import type { Scene } from "@babylonjs/core/scene";
     import { fade, fly } from "svelte/transition";
     import { mapStore } from "$lib/stores/map";
     import { gameWebSocket } from "$lib/services/websocket";
@@ -59,6 +62,10 @@
     let globeSeaLevel = 0;
     let globeMaxElevation = 8848;
     let globeMinElevation = -11000;
+
+    // SceneManager integration
+    let activeScene: Scene | null = null;
+    let canvasReady = false;
 
     // Overlay state
     let activeLayers: Set<OverlayMode> = new Set();
@@ -114,6 +121,27 @@
         } else {
             requestWorldMap();
         }
+            requestWorldMap();
+        }
+        
+        // Ensure SceneManager has PREVIEW factory if using globe view
+        sceneManager.registerSceneFactory('PREVIEW', {
+            create: async (scene: Scene) => {
+                console.log("[WorldMapModal] Created PREVIEW scene");
+            },
+            dispose: () => {
+                console.log("[WorldMapModal] Disposing PREVIEW scene");
+            }
+        });
+    }
+
+    function handleCanvasReady(event: CustomEvent<HTMLCanvasElement>) {
+        const canvas = event.detail;
+        sceneManager.initialize(canvas);
+        canvasReady = true;
+        sceneManager.transitionTo('PREVIEW').then(() => {
+             activeScene = sceneManager.getActiveScene();
+        });
     }
 
     // Initialize flat map renderer when canvas is available (not for globe view)
@@ -778,17 +806,21 @@
                     bind:clientHeight={containerHeight}
                 >
                     {#if useGlobeView}
-                        <!-- 3D Globe View (Babylon.js) -->
-                        <BabylonGlobe
-                            {globeTextureBlob}
-                            {globeHeightmapBlob}
-                            materialBlob={globeMaterialBlob}
-                            iceBlob={globeIceBlob}
-                            seaLevel={globeSeaLevel}
-                            maxElevation={globeMaxElevation}
-                            minElevation={globeMinElevation}
-                            satellites={worldMapData?.satellites ?? []}
-                        />
+                        <!-- 3D Globe View (Babylon.js via SceneManager) -->
+                        <SceneCanvas on:canvasReady={handleCanvasReady} />
+                        {#if activeScene}
+                            <WorldController
+                                scene={activeScene}
+                                {globeTextureBlob}
+                                {globeHeightmapBlob}
+                                materialBlob={globeMaterialBlob}
+                                iceBlob={globeIceBlob}
+                                seaLevel={globeSeaLevel}
+                                maxElevation={globeMaxElevation}
+                                minElevation={globeMinElevation}
+                                satellites={worldMapData?.satellites ?? []}
+                            />
+                        {/if}
                     {:else}
                         <!-- 2D Flat Map View -->
                         <canvas

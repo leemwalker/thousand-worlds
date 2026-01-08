@@ -18,6 +18,7 @@
     import { LODManager } from "./LODManager";
     import { DisplacementShader } from "./DisplacementShader";
     import { TileGlobeManager } from "./TileGlobeManager";
+    import { MoltenPlanetShader } from "./MoltenPlanetShader";
 
     // FPS Mode Imports
     import { FPSTransitionController } from "./FPSTransitionController";
@@ -40,6 +41,7 @@
     }
 
     // Props
+    export let scene: Scene; // Injected by SceneManager
     export let globeTextureBlob: Blob | null = null;
     export let globeHeightmapBlob: Blob | null = null;
     export let materialBlob: Blob | null = null;
@@ -57,9 +59,7 @@
     $: sendTileCommand = onSendCommand;
 
     // Internal state
-    let canvas: HTMLCanvasElement;
-    let engine: Engine | null = null;
-    let scene: Scene | null = null;
+    // canvas and engine owned by SceneManager
     let camera: ArcRotateCamera | null = null;
     let globe: Mesh | null = null;
     let globeTexture: Texture | null = null;
@@ -86,8 +86,7 @@
 
     // Tile system for high-resolution streaming
     let tileGlobeManager: TileGlobeManager | null = null;
-    let sendTileCommand: ((action: string, message?: string) => void) | null =
-        null;
+    // sendTileCommand already declared as reactive statement above
 
     // FPS Mode state
     let fpsMode: boolean = false;
@@ -111,14 +110,17 @@
     // Interface Mode Lifecycle Management
     let isPaused = false;
     let pauseTimeoutId: ReturnType<typeof setTimeout> | null = null;
-    const DISPOSE_GRACE_PERIOD_MS = 30000; // 30 seconds before full disposal
     let unsubscribeTextMode: (() => void) | null = null;
+
+    // Molten State
+    let isMoltenState: boolean = true;
+    let moltenShader: MoltenPlanetShader | null = null;
 
     // Subscribe to text mode changes for pausing/resuming WebGL
     $: if (typeof window !== "undefined") {
         unsubscribeTextMode?.();
         unsubscribeTextMode = isTextMode.subscribe((inTextMode) => {
-            if (inTextMode && engine && !isPaused) {
+            if (inTextMode && !isPaused) {
                 pauseRendering();
             } else if (!inTextMode && isPaused) {
                 resumeRendering();
@@ -127,54 +129,34 @@
     }
 
     function pauseRendering() {
-        if (!engine || isPaused) return;
+        if (isPaused) return;
 
-        console.log("[BabylonGlobe] Pausing render loop (TEXT mode)");
-        engine.stopRenderLoop();
+        console.log("[WorldController] Pausing updates (TEXT mode)");
         isPaused = true;
 
-        // Set a timeout for full disposal to save memory on mobile
-        // If user switches back within grace period, we just resume
-        if (pauseTimeoutId) clearTimeout(pauseTimeoutId);
-        pauseTimeoutId = setTimeout(() => {
-            console.log(
-                "[BabylonGlobe] Grace period elapsed, full disposal skipped for now (preserving state)",
-            );
-            // Note: We could dispose here for mobile battery savings,
-            // but we keep the state to allow quick resume
-        }, DISPOSE_GRACE_PERIOD_MS);
+        // We don't control the engineLoop, but we can stop updating our animations
+        // SceneManager handles the actual engine stop if needed
     }
 
     function resumeRendering() {
-        if (!engine || !isPaused) return;
+        if (!isPaused) return;
 
-        console.log("[BabylonGlobe] Resuming render loop (VISUAL mode)");
-
-        // Cancel any pending disposal
-        if (pauseTimeoutId) {
-            clearTimeout(pauseTimeoutId);
-            pauseTimeoutId = null;
-        }
-
+        console.log("[WorldController] Resuming updates (VISUAL mode)");
         isPaused = false;
         lastTime = performance.now();
-
-        // Restart render loop
-        startRenderLoop();
     }
 
-    function startRenderLoop() {
-        if (!engine || !scene || !orbitNode || !planetNode) return;
+    function registerRenderLoop() {
+        if (!scene) return;
 
-        engine.runRenderLoop(() => {
-            if (!scene || !orbitNode || !planetNode) return;
+        scene.onBeforeRenderObservable.add(() => {
+            if (isPaused || !scene) return;
 
             const now = performance.now();
             const deltaTime = (now - lastTime) / 1000; // seconds
             lastTime = now;
 
             updateAnimation(deltaTime);
-            scene.render();
         });
     }
 
@@ -241,18 +223,22 @@
     }
 
     onMount(() => {
-        if (!canvas) return;
+        if (!scene) {
+            console.error("[WorldController] No scene provided!");
+            return;
+        }
 
-        // Create engine with options for mobile performance
-        engine = new Engine(canvas, true, {
-            stencil: true,
-            preserveDrawingBuffer: true,
-            powerPreference: "high-performance",
-        });
+        console.log("[WorldController] Initializing world scene...");
 
-        // Create scene with dark space background
-        scene = new Scene(engine);
-        scene.clearColor = new Color4(0.02, 0.02, 0.06, 1); // Dark space
+        // Setup molten state if no texture
+        if (!globeTextureBlob && !globeHeightmapBlob) {
+            isMoltenState = true;
+            moltenShader = new MoltenPlanetShader(scene);
+        }
+
+        // ===========================================
+        // Solar System Hierarchy
+        // ===========================================
 
         // ===========================================
         // Solar System Hierarchy
@@ -316,7 +302,7 @@
             new Vector3(SUN_DISTANCE, 0, 0), // Target the planet's position
             scene,
         );
-        camera.attachControl(canvas, true);
+        camera.attachControl(scene.getEngine().getRenderingCanvas(), true);
         camera.lowerRadiusLimit = 1.05; // Allow very close zoom (just above surface)
         camera.upperRadiusLimit = 50; // Allow zooming out to see sun
         camera.wheelPrecision = 30; // Scroll zoom sensitivity
@@ -357,9 +343,17 @@
         globeMaterial.backFaceCulling = true; // Sphere doesn't need double-sided
 
         // Apply initial material to all meshes
-        globe.material = globeMaterial;
-        mediumMesh.material = globeMaterial;
-        lowMesh.material = globeMaterial;
+        if (isMoltenState && moltenShader) {
+            const moltenMat = moltenShader.getMaterial();
+            globe.material = moltenMat;
+            mediumMesh.material = moltenMat;
+            lowMesh.material = moltenMat;
+            console.log("[WorldController] Applied Molten Planet Shader");
+        } else {
+            globe.material = globeMaterial;
+            mediumMesh.material = globeMaterial;
+            lowMesh.material = globeMaterial;
+        }
 
         // ===========================================
         // Create Moons (if any satellites provided)
@@ -386,7 +380,8 @@
         // ===========================================
         // Initialize FPS Mode Components
         // ===========================================
-        if (scene && camera && engine) {
+        if (scene && camera) {
+            const engine = scene.getEngine();
             // Transition controller for orbit-to-ground
             fpsTransitionController = new FPSTransitionController(
                 scene,
@@ -400,11 +395,15 @@
             );
 
             // Performance manager
-            fpsPerformanceManager = new FPSPerformanceManager(scene, engine, {
-                targetFps: 60,
-                minFps: 45,
-                enableAutoResolution: true,
-            });
+            fpsPerformanceManager = new FPSPerformanceManager(
+                scene,
+                engine as any,
+                {
+                    targetFps: 60,
+                    minFps: 45,
+                    enableAutoResolution: true,
+                },
+            );
 
             // Accessibility options
             fpsAccessibility = new FPSAccessibilityOptions();
@@ -416,13 +415,16 @@
             waterEffects = new WaterEffects(scene);
 
             // Performance overlay (starts hidden)
-            performanceOverlay = new PerformanceOverlay(
-                canvas.parentElement || document.body,
-                {
-                    position: "top-right",
-                    opacity: 0.85,
-                },
-            );
+            const canvas = engine.getRenderingCanvas();
+            if (canvas) {
+                performanceOverlay = new PerformanceOverlay(
+                    canvas.parentElement || document.body,
+                    {
+                        position: "top-right",
+                        opacity: 0.85,
+                    },
+                );
+            }
 
             console.log("[BabylonGlobe] FPS mode components initialized");
         }
@@ -439,7 +441,11 @@
                 }
             }
         };
-        canvas.addEventListener("dblclick", handleDoubleClick);
+
+        const canvas = scene.getEngine().getRenderingCanvas();
+        if (canvas) {
+            canvas.addEventListener("dblclick", handleDoubleClick);
+        }
 
         // Escape key to exit FPS mode
         const handleKeyDown = (evt: KeyboardEvent) => {
@@ -468,107 +474,11 @@
         }
 
         // Animation and render loop
+        // Animation and render loop logic registered to scene
         lastTime = performance.now();
-        engine.runRenderLoop(() => {
-            if (scene && orbitNode && planetNode) {
-                const now = performance.now();
-                const deltaTime = (now - lastTime) / 1000; // seconds
-                lastTime = now;
+        registerRenderLoop();
 
-                // Planet axial rotation (day cycle)
-                const dayRotation =
-                    (2 * Math.PI * deltaTime * simulationSpeed) /
-                    PLANET_DAY_SECONDS;
-                planetNode.rotation.y += dayRotation;
-
-                // Orbital rotation around sun (year cycle)
-                const yearRotation =
-                    (2 * Math.PI * deltaTime * simulationSpeed) /
-                    PLANET_YEAR_SECONDS;
-                orbitNode.rotateAround(
-                    Vector3.Zero(),
-                    Vector3.Up(),
-                    yearRotation,
-                );
-
-                // Update camera target to follow planet
-                if (camera) {
-                    camera.target = orbitNode.position;
-                    // Update LOD based on camera distance
-                    lodManager?.update(camera);
-
-                    // Update tile system for high-resolution streaming
-                    if (tileGlobeManager) {
-                        // Enable tiles when zoomed in close (below level 3 threshold)
-                        const cameraDistance = camera.radius || 5;
-                        if (cameraDistance < 2.5) {
-                            tileGlobeManager.enable();
-                            tileGlobeManager.update(camera);
-                        } else {
-                            tileGlobeManager.disable();
-                        }
-                    }
-                }
-
-                // Moon orbital animation
-                moonOrbitNodes.forEach((moonOrbit, i) => {
-                    // Moons orbit faster than planet orbits sun
-                    const moonPeriod = 5 + i * 2; // Each moon has different period
-                    const moonRotation =
-                        (2 * Math.PI * deltaTime * simulationSpeed) /
-                        moonPeriod;
-                    moonOrbit.rotation.y += moonRotation;
-                });
-
-                // Animate water bump texture UV offset for wave motion
-                waterTime += deltaTime * 0.05 * simulationSpeed;
-                if (waterBumpTexture) {
-                    waterBumpTexture.uOffset = Math.sin(waterTime) * 0.02;
-                    waterBumpTexture.vOffset = Math.cos(waterTime * 0.7) * 0.01;
-                }
-
-                // Update sun direction for displacement shader lighting
-                // Calculate direction FROM planet TO sun in world space
-                if (displacementShader && orbitNode) {
-                    // Sun is at origin, planet is at orbitNode.position
-                    // Light direction = normalize(sunPos - planetPos) = normalize(-planetPos)
-                    const planetPos = orbitNode.position;
-                    const toSun = new Vector3(
-                        -planetPos.x,
-                        -planetPos.y,
-                        -planetPos.z,
-                    );
-                    toSun.normalize();
-
-                    // Transform to planet-local space (accounting for axial tilt)
-                    // The shader uses object-space normals, so we need object-space light dir
-                    if (planetNode) {
-                        const worldMatrix = planetNode.getWorldMatrix();
-                        const invWorld = worldMatrix.clone().invert();
-                        const localSunDir = Vector3.TransformNormal(
-                            toSun,
-                            invWorld,
-                        );
-                        localSunDir.normalize();
-                        displacementShader.setLightDirection(localSunDir);
-                    }
-                }
-
-                scene.render();
-            }
-        });
-
-        // Handle window resize
-        const handleResize = () => {
-            if (engine) {
-                engine.resize();
-            }
-        };
-        window.addEventListener("resize", handleResize);
-
-        return () => {
-            window.removeEventListener("resize", handleResize);
-        };
+        // Window resize handled by SceneManager
     });
 
     // React to texture blob changes (with guard to avoid re-applying same blob)
@@ -771,11 +681,12 @@
                 const size = Math.random() * 2 + 0.5;
                 const brightness = Math.random() * 0.7 + 0.3;
 
-                // Star color variation (mostly white, some blue/yellow)
+                // Star color variation
                 const colorVar = Math.random();
-                let r = brightness,
-                    g = brightness,
-                    b = brightness;
+                let r = brightness;
+                let g = brightness;
+                let b = brightness;
+
                 if (colorVar < 0.1) {
                     r *= 0.7;
                     g *= 0.8;
@@ -836,6 +747,30 @@
 
     async function updateTexture(blob: Blob) {
         if (!scene || !globeMaterial) return;
+
+        // Exit molten state if active
+        if (isMoltenState) {
+            console.log(
+                "[WorldController] Transitioning from Molten State to Texture",
+            );
+            isMoltenState = false;
+
+            // Switch meshes back to standard material (will be updated below)
+            // or displacement shader if that applies later
+            if (globe) globe.material = globeMaterial;
+            if (lodManager) {
+                // Reset LODs to globeMaterial
+                for (let i = 0; i <= 2; i++) {
+                    const mesh = lodManager.getMesh(i);
+                    if (mesh) mesh.material = globeMaterial;
+                }
+            }
+
+            if (moltenShader) {
+                moltenShader.dispose();
+                moltenShader = null;
+            }
+        }
 
         // Dispose old texture and object URL
         if (globeTexture) {
@@ -1079,22 +1014,21 @@
             waterEffects = null;
         }
 
-        if (scene) {
-            scene.dispose();
+        if (moltenShader) {
+            moltenShader.dispose();
+            moltenShader = null;
         }
-        if (engine) {
-            engine.dispose();
+
+        // Scene is managed by SceneManager, so we don't dispose it here
+        // We only dispose nodes we created attached to the scene
+        if (solarSystemRoot) {
+            solarSystemRoot.dispose();
         }
     });
 </script>
 
-<canvas bind:this={canvas} class="globe-canvas"></canvas>
+<slot></slot>
 
 <style>
-    .globe-canvas {
-        width: 100%;
-        height: 100%;
-        display: block;
-        touch-action: none; /* Prevent scroll on touch devices */
-    }
+    /* No styles needed (canvas removed) */
 </style>

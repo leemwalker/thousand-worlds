@@ -1710,16 +1710,23 @@ func (p *GameProcessor) getOrCreateRunner(worldID uuid.UUID) *ecosystem.Simulati
 
 	// Set handlers
 	runner.SetEventBroadcastHandler(func(event ecosystem.RunnerEvent) {
-		// Broadcast to all watchers in this world
-		// We can get clients from Hub
+		// New: Trigger Map Update on visualization event
+		if event.Type == "visualization_update" {
+			go func() {
+				// Use specific context for map generation independent of current request
+				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+				defer cancel()
+				if err := p.broadcastMapUpdate(ctx, worldID); err != nil {
+					log.Printf("[MAP] Failed to broadcast update: %v", err)
+				}
+			}()
+		}
+
+		// Broadcast to all clients in this world
 		if p.Hub != nil {
 			clients := p.Hub.GetClientsByWorldID(worldID)
 			for _, c := range clients {
-				// Check if watcher (optional, or just broadcast to everyone for now)
-				// For 'world run', maybe everyone should see it if they are "watching" via UI
-				// But specifically Watcher role players get it.
-
-				// Using "sim_event" message type
+				// Using "sim_event" message type for notifications
 				c.SendGameMessage("sim_event", event.Description, map[string]interface{}{
 					"year":       event.Year,
 					"type":       event.Type,
@@ -2099,5 +2106,160 @@ func (p *GameProcessor) handleWorldTile(ctx context.Context, client websocket.Ga
 		face, level, tileX, tileY, tileData.Width, tileData.Height, len(tileData.Image), len(tileData.Heightmap))
 
 	client.SendRawBytes(buf.Bytes())
+	return nil
+}
+
+// broadcastMapUpdate generates and sends a map update to all clients in the world
+func (p *GameProcessor) broadcastMapUpdate(ctx context.Context, worldID uuid.UUID) error {
+	if p.mapService == nil || p.Hub == nil {
+		return nil
+	}
+
+	// Check if there are any clients in this world to avoid wasting CPU
+	clients := p.Hub.GetClientsByWorldID(worldID)
+	if len(clients) == 0 {
+		return nil
+	}
+
+	geo := p.mapService.GetWorldGeology(worldID)
+	if geo == nil {
+		return fmt.Errorf("geology not found")
+	}
+
+	// Standard update resolution
+	width := 2048
+	height := 1024
+	const GridSize = 256
+
+	// 1. Render Image
+	imageBytes, err := p.mapService.RenderMap(ctx, worldID, geo, width, height)
+	if err != nil {
+		return err
+	}
+
+	// 2. Generate Binary Grid Data
+	gridData := p.mapService.BuildBinaryGrid(geo, GridSize, GridSize/2)
+	var gridBytes []byte
+	if gridData != nil {
+		gridBytes = gridData.Serialize()
+	}
+
+	// 3. Render Heightmap PNG
+	heightmapBytes, err := p.mapService.RenderHeightmapPNG(ctx, worldID, geo, width, height)
+	if err != nil {
+		log.Printf("[MAP] Heightmap render failed in broadcast: %v", err)
+	}
+
+	// 4. Render Material PNG
+	materialBytes, err := p.mapService.RenderMaterialPNG(ctx, worldID, geo, width, height)
+	if err != nil {
+		log.Printf("[MAP] Material render failed in broadcast: %v", err)
+	}
+
+	// 5. Render Ice PNG
+	iceBytes, err := p.mapService.RenderIcePNG(ctx, worldID, geo, width, height)
+	if err != nil {
+		log.Printf("[MAP] Ice render failed in broadcast: %v", err)
+	}
+
+	// 6. Construct Binary Message (Protocol 0x01)
+	stats := geo.GetStats()
+	type MapImageMetadata struct {
+		Width            int     `json:"width"`
+		Height           int     `json:"height"`
+		GridWidth        int     `json:"grid_width"`
+		GridHeight       int     `json:"grid_height"`
+		WorldWidth       float64 `json:"world_width"`
+		WorldHeight      float64 `json:"world_height"`
+		PlayerX          float64 `json:"player_x"`
+		PlayerY          float64 `json:"player_y"`
+		SimulatedYears   int64   `json:"simulated_years"`
+		AvgTemperature   float64 `json:"avg_temperature"`
+		MaxElevation     float64 `json:"max_elevation"`
+		MinElevation     float64 `json:"min_elevation"`
+		SeaLevel         float64 `json:"sea_level"`
+		LandCoverage     float64 `json:"land_coverage"`
+		Seed             int64   `json:"seed"`
+		IsSimulated      bool    `json:"is_simulated"`
+		HasGridData      bool    `json:"has_grid_data"`
+		HasHeightmapData bool    `json:"has_heightmap_data"`
+		HasMaterialData  bool    `json:"has_material_data"`
+		HasIceData       bool    `json:"has_ice_data"`
+	}
+
+	meta := MapImageMetadata{
+		Width:            width,
+		Height:           height,
+		GridWidth:        GridSize,
+		GridHeight:       GridSize / 2,
+		WorldWidth:       geo.Circumference,
+		WorldHeight:      geo.Circumference / 2,
+		PlayerX:          0, // Origin for broadcast
+		PlayerY:          0,
+		SimulatedYears:   stats.YearsSimulated,
+		AvgTemperature:   stats.AverageTemperature,
+		MaxElevation:     stats.MaxElevation,
+		MinElevation:     stats.MinElevation,
+		SeaLevel:         stats.SeaLevel,
+		LandCoverage:     stats.LandPercent * 100,
+		Seed:             geo.Seed,
+		IsSimulated:      true,
+		HasGridData:      len(gridBytes) > 0,
+		HasHeightmapData: len(heightmapBytes) > 0,
+		HasMaterialData:  len(materialBytes) > 0,
+		HasIceData:       len(iceBytes) > 0,
+	}
+
+	jsonBytes, err := json.Marshal(meta)
+	if err != nil {
+		return err
+	}
+
+	// Binary section
+	binSectionSize := 4 + len(imageBytes) + 4 + len(gridBytes) + 4 + len(heightmapBytes) + 4 + len(materialBytes) + 4 + len(iceBytes)
+	binSection := bytes.NewBuffer(make([]byte, 0, binSectionSize))
+
+	binary.Write(binSection, binary.BigEndian, uint32(len(imageBytes)))
+	binSection.Write(imageBytes)
+
+	binary.Write(binSection, binary.BigEndian, uint32(len(gridBytes)))
+	if len(gridBytes) > 0 {
+		binSection.Write(gridBytes)
+	}
+
+	binary.Write(binSection, binary.BigEndian, uint32(len(heightmapBytes)))
+	if len(heightmapBytes) > 0 {
+		binSection.Write(heightmapBytes)
+	}
+
+	binary.Write(binSection, binary.BigEndian, uint32(len(materialBytes)))
+	if len(materialBytes) > 0 {
+		binSection.Write(materialBytes)
+	}
+
+	binary.Write(binSection, binary.BigEndian, uint32(len(iceBytes)))
+	if len(iceBytes) > 0 {
+		binSection.Write(iceBytes)
+	}
+
+	binBytes := binSection.Bytes()
+	totalSize := 1 + 4 + len(jsonBytes) + 4 + len(binBytes)
+	buf := bytes.NewBuffer(make([]byte, 0, totalSize))
+
+	buf.WriteByte(0x01)
+	binary.Write(buf, binary.BigEndian, uint32(len(jsonBytes)))
+	buf.Write(jsonBytes)
+	binary.Write(buf, binary.BigEndian, uint32(len(binBytes)))
+	buf.Write(binBytes)
+
+	payload := buf.Bytes()
+
+	log.Printf("[MAP] Broadcasting world map update to %d clients", len(clients))
+
+	for _, client := range clients {
+		client.SendRawBytes(payload)
+		client.SendGameMessage("system", "🌍 Planetary simulation update received.", nil)
+	}
+
 	return nil
 }

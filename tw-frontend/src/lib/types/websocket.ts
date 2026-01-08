@@ -108,13 +108,23 @@ export interface WorldMapImageMessage extends BaseServerMessage {
     data: {
         width: number;
         height: number;
-        channel: number; // 3=RGB, 4=RGBA
-        imageBlob: Blob; // Client-side enhancement
-        // Gameplay data (from JSON part)
-        centerX: number;
-        centerY: number;
-        gridSize: number;
-        tiles: any[]; // Simplified for now, or VisibleTile[]
+        channel?: number;
+        imageBlob: Blob;
+        gridData?: ArrayBuffer | null;
+        heightmapBlob: Blob | null;
+        materialBlob: Blob | null;
+        iceBlob: Blob | null;
+
+        // Stats
+        sea_level?: number;
+        max_elevation?: number;
+        min_elevation?: number;
+
+        // Metadata
+        centerX?: number;
+        centerY?: number;
+        gridSize?: number;
+        tiles?: any[];
     };
 }
 

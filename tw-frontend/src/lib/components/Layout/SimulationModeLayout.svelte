@@ -4,14 +4,91 @@
      * 3D Babylon.js interface with command input overlay.
      * Default for desktop devices. Full-screen 3D with HUD elements.
      */
+    import { onMount, onDestroy } from "svelte";
     import { isMobile } from "$lib/stores/ui";
+    import gameStore from "$lib/stores/game";
     import MessageOverlay from "$lib/components/HUD/MessageOverlay.svelte";
+
+    // Scene Management
+    import SceneCanvas from "$lib/components/Scene/SceneCanvas.svelte";
+    import {
+        sceneManager,
+        type GameLocation,
+    } from "$lib/components/Scene/SceneManager";
+    import { LobbyScene } from "$lib/components/Scene/LobbyScene";
+    import WorldController from "$lib/components/Map/WorldController.svelte";
+    import type { Scene } from "@babylonjs/core/scene";
 
     /** Whether to show the command overlay */
     let showCommandOverlay = true;
 
     /** Whether the text log is expanded */
     let textLogExpanded = false;
+
+    let activeScene: Scene | null = null;
+    let canvasReady = false;
+
+    // Initialize scenes on mount
+    onMount(() => {
+        // Register LOBBY scene factory
+        const lobbyScene = new LobbyScene();
+        lobbyScene.setCallbacks({
+            onPortalEnter: () => {
+                console.log("Portal entered! Transitioning to WORLD...");
+                gameStore.enterWorld("new-world");
+            },
+        });
+        sceneManager.registerSceneFactory("LOBBY", lobbyScene);
+
+        // Register WORLD scene factory (empty, populated by WorldController)
+        sceneManager.registerSceneFactory("WORLD", {
+            create: async (scene: Scene) => {
+                console.log(
+                    "[SimulationMode] Created empty WORLD scene container",
+                );
+                // Content is injected by WorldController component
+            },
+            dispose: () => {
+                console.log("[SimulationMode] Disposing WORLD scene");
+            },
+        });
+
+        // Listen for internal location changes to update active scene ref
+        sceneManager.setOnLocationChange((loc) => {
+            activeScene = sceneManager.getActiveScene();
+        });
+    });
+
+    // Handle canvas ready event from SceneCanvas
+    function handleCanvasReady(event: CustomEvent<HTMLCanvasElement>) {
+        const canvas = event.detail;
+        sceneManager.initialize(canvas);
+        canvasReady = true;
+
+        // Start in LOBBY if not set, or transition to current
+        if ($gameStore.gameLocation === "LOADING") {
+            gameStore.setGameLocation("LOBBY");
+        } else {
+            sceneManager.transitionTo($gameStore.gameLocation);
+        }
+    }
+
+    // React to store location changes
+    $: if (
+        canvasReady &&
+        $gameStore.gameLocation &&
+        $gameStore.gameLocation !== "LOADING"
+    ) {
+        const currentLoc = sceneManager.getCurrentLocation();
+        if (
+            currentLoc !== $gameStore.gameLocation &&
+            !sceneManager.isInTransition()
+        ) {
+            sceneManager.transitionTo($gameStore.gameLocation).then(() => {
+                activeScene = sceneManager.getActiveScene();
+            });
+        }
+    }
 </script>
 
 <div
@@ -19,13 +96,22 @@
 >
     <!-- 3D Canvas Container (Full Screen) -->
     <div class="absolute inset-0 z-0">
-        <slot name="canvas">
-            <div
-                class="w-full h-full flex items-center justify-center text-gray-500"
-            >
-                3D Canvas Loading...
-            </div>
-        </slot>
+        <SceneCanvas on:canvasReady={handleCanvasReady} />
+
+        <!-- Render WorldController when in WORLD mode -->
+        {#if $gameStore.gameLocation === "WORLD" && activeScene}
+            <WorldController
+                scene={activeScene}
+                globeTextureBlob={$gameStore.world.textureBlob}
+                globeHeightmapBlob={$gameStore.world.heightmapBlob}
+                materialBlob={$gameStore.world.materialBlob}
+                iceBlob={$gameStore.world.iceBlob}
+                seaLevel={$gameStore.world.geo.seaLevel}
+                maxElevation={$gameStore.world.geo.maxElevation}
+                minElevation={$gameStore.world.geo.minElevation}
+                satellites={$gameStore.world.sim.satellites}
+            />
+        {/if}
     </div>
 
     <!-- HUD Overlay Layer -->

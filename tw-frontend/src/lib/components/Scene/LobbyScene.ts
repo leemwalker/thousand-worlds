@@ -46,9 +46,9 @@ export class LobbyScene {
     /**
      * Create the lobby scene.
      */
-    create(scene: Scene, callbacks: LobbySceneCallbacks = {}): void {
+    // SceneFactory implementation
+    async create(scene: Scene): Promise<void> {
         this.scene = scene;
-        this.callbacks = callbacks;
 
         // Clear color for a slightly warm ambient
         scene.clearColor = new Color4(0.02, 0.02, 0.03, 1);
@@ -64,7 +64,20 @@ export class LobbyScene {
         this.createPortal(scene);
         this.createFPSController(scene);
 
+        // Register update loop
+        scene.onBeforeRenderObservable.add(() => {
+            const deltaTime = scene.getEngine().getDeltaTime() / 1000;
+            this.update(deltaTime);
+        });
+
         console.log("[LobbyScene] Created");
+    }
+
+    /**
+     * Set callbacks for interaction.
+     */
+    setCallbacks(callbacks: LobbySceneCallbacks): void {
+        this.callbacks = callbacks;
     }
 
     /**
