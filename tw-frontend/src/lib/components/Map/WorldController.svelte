@@ -309,6 +309,9 @@
         camera.panningSensibility = 0; // Disable panning, only rotate
         camera.minZ = 0.01; // Near clip plane - prevents clipping at close range
 
+        // Set as active camera (overrides default camera from scene factory)
+        scene.activeCamera = camera;
+
         // Initialize LOD manager with distance thresholds
         lodManager = new LODManager({
             levels: [

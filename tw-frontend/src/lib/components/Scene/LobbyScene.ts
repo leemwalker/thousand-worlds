@@ -36,6 +36,7 @@ export class LobbyScene {
     private portal: Mesh | null = null;
     private portalParticles: ParticleSystem | null = null;
     private callbacks: LobbySceneCallbacks = {};
+    private portalEntered: boolean = false;
 
     // Room dimensions
     private readonly ROOM_WIDTH = 30;
@@ -314,13 +315,17 @@ export class LobbyScene {
 
         this.fpsController.handleInput(deltaTime);
 
+        // Don't check portal if already entered
+        if (this.portalEntered) return;
+
         // Check distance to portal
         const pos = this.fpsController.getCamera().position;
         const portalPos = this.portal.position;
         const distance = Vector3.Distance(pos, portalPos);
 
-        // If player is very close to portal, trigger enter
+        // If player is very close to portal, trigger enter (only once)
         if (distance < this.PORTAL_RADIUS + 1) {
+            this.portalEntered = true;
             this.callbacks.onPortalEnter?.();
         }
     }
