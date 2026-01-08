@@ -12,6 +12,11 @@ import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import type { IPlayerController } from './interfaces';
 
+// Side-effect imports required for collision and camera input
+import "@babylonjs/core/Collisions/collisionCoordinator";
+import "@babylonjs/core/Cameras/Inputs/freeCameraKeyboardMoveInput";
+import "@babylonjs/core/Cameras/Inputs/freeCameraMouseInput";
+
 export interface FirstPersonControllerOptions {
     moveSpeed?: number;
     lookSpeed?: number;

@@ -440,28 +440,20 @@
 
     async function enterWorld(worldId: string) {
         try {
-            addMessage(
-                "system",
-                `Checking entry options for world ${worldId}...`,
-            );
-            const res = await fetch(
-                `${API_URL}/game/entry-options?world_id=${worldId}`,
-                {
-                    credentials: "include", // Send cookies
-                },
-            );
+            addMessage("system", `Entering world ${worldId} as watcher...`);
 
-            if (res.ok) {
-                const options = await res.json();
-                entryOptions = options;
-                targetWorldId = worldId;
-                showEntryModal = true;
-            } else {
-                const err = await res.text();
-                addMessage("error", `Cannot enter world: ${err}`);
-            }
+            // Temporarily bypass character type selection modal - default to watcher
+            targetWorldId = worldId;
+            await createCharacter(
+                "Watcher",
+                "Spirit",
+                worldId,
+                "An invisible observer.",
+                "Watcher",
+                "watcher",
+            );
         } catch (e) {
-            addMessage("error", "Failed to get entry options.");
+            addMessage("error", "Failed to enter world.");
         }
     }
 
