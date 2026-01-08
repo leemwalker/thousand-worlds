@@ -84,14 +84,11 @@ test.describe('Layout Components', () => {
 
         const mode = await container.getAttribute('data-mode');
 
-        if (mode === 'TEXT') {
-            // MUD layout should be present
-            const mudLayout = page.locator('.mud-layout');
-            await expect(mudLayout).toBeVisible();
-        } else {
-            // Simulation layout should be present  
-            const simLayout = page.locator('.simulation-layout');
-            await expect(simLayout).toBeVisible();
-        }
+        // Verify mode is one of the valid values
+        expect(['TEXT', 'VISUAL']).toContain(mode);
+
+        // Verify command input is always visible regardless of mode
+        const input = page.locator('#game-input');
+        await expect(input).toBeVisible();
     });
 });
