@@ -65,26 +65,9 @@ kubectl create namespace mud-world --dry-run=client -o yaml | kubectl apply -f -
 # Note: K3s comes with Traefik Ingress Controller pre-installed on port 80/443
 # No need to install nginx-ingress separately
 
-# Infrastructure (NATS, Postgres, Redis, MinIO, Ollama)
-kubectl apply -f tw-backend/deploy/k8s/00-infrastructure.yaml
-
-# Config & Secrets
-kubectl apply -f tw-backend/deploy/k8s/01-config-and-secrets.yaml
-
-# Services (Headless & LoadBalanced)
-kubectl apply -f tw-backend/deploy/k8s/02-service.yaml
-
-# Game Server (Backend API)
-kubectl apply -f tw-backend/deploy/k8s/03-game-server.yaml
-
-# Core Physics StatefulSet
-kubectl apply -f tw-backend/deploy/k8s/04-statefulset.yaml
-
-# Frontend
-kubectl apply -f tw-backend/deploy/k8s/05-frontend.yaml
-
-# IngressRoute (Traefik native routing)
-kubectl apply -f tw-backend/deploy/k8s/09-ingressroute.yaml
+# Apply all manifests in order (00-10)
+echo "Applying manifests from tw-backend/deploy/k8s/..."
+kubectl apply -f tw-backend/deploy/k8s/
 
 # 3. Force Rollout (Required because we use 'latest' tag and local images)
 echo "Restarting deployments to pick up new images..."
