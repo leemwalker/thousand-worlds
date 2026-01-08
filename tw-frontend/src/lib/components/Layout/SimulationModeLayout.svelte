@@ -6,7 +6,7 @@
      */
     import { onMount, onDestroy } from "svelte";
     import { isMobile } from "$lib/stores/ui";
-    import gameStore from "$lib/stores/game";
+    import { gameStore } from "$lib/stores/game";
     import MessageOverlay from "$lib/components/HUD/MessageOverlay.svelte";
 
     // Scene Management
