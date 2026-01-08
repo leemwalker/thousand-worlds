@@ -28,35 +28,31 @@
     let activeScene: Scene | null = null;
     let canvasReady = false;
 
-    // Initialize scenes on mount
-    onMount(() => {
-        // Register LOBBY scene factory
-        const lobbyScene = new LobbyScene();
-        lobbyScene.setCallbacks({
-            onPortalEnter: () => {
-                console.log("Portal entered! Transitioning to WORLD...");
-                gameStore.enterWorld("new-world");
-            },
-        });
-        sceneManager.registerSceneFactory("LOBBY", lobbyScene);
+    // Register scene factories immediately (before child onMount runs)
+    // This is script-level code that runs synchronously during component instantiation
+    const lobbyScene = new LobbyScene();
+    lobbyScene.setCallbacks({
+        onPortalEnter: () => {
+            console.log("Portal entered! Transitioning to WORLD...");
+            gameStore.enterWorld("new-world");
+        },
+    });
+    sceneManager.registerSceneFactory("LOBBY", lobbyScene);
 
-        // Register WORLD scene factory (empty, populated by WorldController)
-        sceneManager.registerSceneFactory("WORLD", {
-            create: async (scene: Scene) => {
-                console.log(
-                    "[SimulationMode] Created empty WORLD scene container",
-                );
-                // Content is injected by WorldController component
-            },
-            dispose: () => {
-                console.log("[SimulationMode] Disposing WORLD scene");
-            },
-        });
+    // Register WORLD scene factory (empty, populated by WorldController)
+    sceneManager.registerSceneFactory("WORLD", {
+        create: async (scene: Scene) => {
+            console.log("[SimulationMode] Created empty WORLD scene container");
+            // Content is injected by WorldController component
+        },
+        dispose: () => {
+            console.log("[SimulationMode] Disposing WORLD scene");
+        },
+    });
 
-        // Listen for internal location changes to update active scene ref
-        sceneManager.setOnLocationChange((loc) => {
-            activeScene = sceneManager.getActiveScene();
-        });
+    // Listen for internal location changes to update active scene ref
+    sceneManager.setOnLocationChange((loc) => {
+        activeScene = sceneManager.getActiveScene();
     });
 
     // Handle canvas ready event from SceneCanvas
