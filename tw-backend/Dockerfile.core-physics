@@ -16,12 +16,9 @@ COPY . .
 RUN CGO_ENABLED=0 go build -ldflags="-w -s" -o core-physics ./cmd/core-physics
 
 # Final stage
-FROM alpine:latest
+FROM gcr.io/distroless/static-debian12:debug
 
 WORKDIR /app
-
-# Install runtime dependencies (if any)
-RUN apk add --no-cache ca-certificates
 
 # Copy binary
 COPY --from=builder /app/core-physics .

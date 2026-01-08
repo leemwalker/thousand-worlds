@@ -15,6 +15,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	_ "go.uber.org/automaxprocs" // Automatically set GOMAXPROCS based on container limits
+
 	agonessdk "agones.dev/agones/pkg/sdk"
 	agones "agones.dev/agones/sdks/go"
 

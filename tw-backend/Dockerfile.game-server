@@ -1,22 +1,22 @@
 # Build Stage
-FROM golang:1.24-alpine AS builder
+FROM golang:1.24-bookworm AS builder
 WORKDIR /app
-RUN apk add --no-cache git build-base
+# Install git (bookworm has it? usually. safety check)
+RUN apt-get update && apt-get install -y git
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-# Build binary (CGO enabled for WebP)
+# Build binary (CGO enabled for WebP, linked against glibc)
 RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s" -o game-server ./cmd/game-server/main.go
 RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s" -o migrate ./cmd/migrate/main.go
 
 # Final Stage
-FROM alpine:3.19
-RUN apk add --no-cache ca-certificates wget
+FROM gcr.io/distroless/base-debian12:debug
 WORKDIR /root/
 COPY --from=builder /app/game-server .
 COPY --from=builder /app/migrate .
 COPY --from=builder /app/migrations ./migrations
-# Ensure data directories exist
-RUN mkdir -p data/tech_trees data/recipes
+# Ensure data directories exist (copy from source)
+COPY --from=builder /app/data ./data
 EXPOSE 8080
 CMD ["./game-server"]

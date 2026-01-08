@@ -16,6 +16,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
+	_ "go.uber.org/automaxprocs" // Automatically set GOMAXPROCS based on container limits
 	"golang.org/x/sync/errgroup"
 
 	"tw-backend/cmd/game-server/api"
