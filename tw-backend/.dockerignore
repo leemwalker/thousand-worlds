@@ -19,6 +19,12 @@ dist/
 *.dll
 *.so
 *.dylib
+game-server
+core-physics
+migrate
+seed-search
+verify-earth
+ai-gateway
 
 # IDE
 .vscode/
