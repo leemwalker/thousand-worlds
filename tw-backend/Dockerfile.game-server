@@ -19,4 +19,4 @@ COPY --from=builder /app/migrations ./migrations
 # Ensure data directories exist (copy from source)
 COPY --from=builder /app/data ./data
 EXPOSE 8080
-CMD ["./game-server"]
+ENTRYPOINT ["./game-server"]

@@ -26,4 +26,4 @@ COPY --from=builder /app/core-physics .
 # Environment variables
 ENV PORT=8080
 
-CMD ["./core-physics"]
+ENTRYPOINT ["./core-physics"]
