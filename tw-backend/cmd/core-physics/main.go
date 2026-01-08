@@ -15,7 +15,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	agonesv1 "agones.dev/agones/pkg/apis/agones/v1"
 	agones "agones.dev/agones/sdks/go"
 
 	"tw-backend/internal/analytics"
@@ -143,7 +142,7 @@ func main() {
 			cancelWatch := make(chan struct{}) // To stop watcher if needed (SDK doesn't support unwatch nicely?)
 
 			// Start Watcher
-			err := agonesSDK.WatchGameServer(func(gs *agonesv1.GameServer) {
+			err := agonesSDK.WatchGameServer(func(gs *agones.GameServer) {
 				if val, ok := gs.ObjectMeta.Annotations["agones.dev/world-id"]; ok && val != "" {
 					// Non-blocking send to avoid getting stuck if channel is already read (since callback connects multiple times)
 					select {
