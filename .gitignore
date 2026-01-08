@@ -40,3 +40,11 @@ coverage/
 mud-platform-client/test-results
 *.png
 *.webm
+# Playwright test artifacts
+tw-frontend/test-results/
+tw-frontend/playwright-report/
+tw-frontend/playwright/.auth/
+tw-frontend/auth.json
+
+# Node modules (should already be ignored but being explicit)
+tw-frontend/node_modules/
