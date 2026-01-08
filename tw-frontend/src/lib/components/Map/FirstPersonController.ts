@@ -75,8 +75,12 @@ export class FirstPersonController implements IPlayerController {
         this.camera.keysLeft = [65]; // A
         this.camera.keysRight = [68]; // D
 
-        // Mouse look
-        this.camera.angularSensibility = 1000 / this.lookSpeed;
+        // Q and E for rotation (using keysRotateLeft/keysRotateRight)
+        this.camera.keysRotateLeft = [81]; // Q
+        this.camera.keysRotateRight = [69]; // E
+
+        // Mouse look - lower value = faster rotation (default is 2000)
+        this.camera.angularSensibility = 500;
 
         // If we have a collision target, enable collision with it
         if (this.collisionTarget) {
