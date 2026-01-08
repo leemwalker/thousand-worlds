@@ -1,5 +1,8 @@
-import { writable, type Writable } from 'svelte/store';
+import { writable, derived, type Writable } from 'svelte/store';
 import type { User, Character, Item, CharacterStats, Entity, GameMessage } from '$lib/types/game';
+
+// Scene location types for visual mode
+export type GameLocation = 'LOBBY' | 'WORLD' | 'LOADING';
 
 interface GameState {
     user: User | null;
@@ -10,6 +13,9 @@ interface GameState {
     nearbyEntities: Entity[];
     isLoading: boolean;
     error: string | null;
+    // Scene management
+    gameLocation: GameLocation;
+    currentWorldId: string | null;
 }
 
 const initialState: GameState = {
@@ -25,7 +31,10 @@ const initialState: GameState = {
     },
     nearbyEntities: [],
     isLoading: false,
-    error: null
+    error: null,
+    // Scene management
+    gameLocation: 'LOBBY',
+    currentWorldId: null
 };
 
 function createGameStore() {
@@ -51,6 +60,12 @@ function createGameStore() {
 
         setLoading: (isLoading: boolean) => update(s => ({ ...s, isLoading })),
         setError: (error: string | null) => update(s => ({ ...s, error })),
+
+        // Scene location management
+        setGameLocation: (location: GameLocation) => update(s => ({ ...s, gameLocation: location })),
+        setCurrentWorldId: (worldId: string | null) => update(s => ({ ...s, currentWorldId: worldId })),
+        enterWorld: (worldId: string) => update(s => ({ ...s, gameLocation: 'WORLD', currentWorldId: worldId })),
+        returnToLobby: () => update(s => ({ ...s, gameLocation: 'LOBBY', currentWorldId: null })),
 
         reset: () => set(initialState)
     };

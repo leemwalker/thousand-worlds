@@ -5,6 +5,7 @@
      * Default for desktop devices. Full-screen 3D with HUD elements.
      */
     import { isMobile } from "$lib/stores/ui";
+    import MessageOverlay from "$lib/components/HUD/MessageOverlay.svelte";
 
     /** Whether to show the command overlay */
     let showCommandOverlay = true;
@@ -29,6 +30,9 @@
 
     <!-- HUD Overlay Layer -->
     <div class="absolute inset-0 z-10 pointer-events-none">
+        <!-- Fading Messages Overlay -->
+        <MessageOverlay />
+
         <!-- Top Bar: Status + Mode Toggle -->
         <header
             class="absolute top-0 left-0 right-0 h-14 flex items-center px-4 pointer-events-auto bg-gradient-to-b from-black/60 to-transparent"

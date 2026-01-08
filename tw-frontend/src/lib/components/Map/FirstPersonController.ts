@@ -1,13 +1,13 @@
 /**
- * FirstPersonController - Stub for first-person camera control.
- * Phase 3.3: Terrain Placeholders for FPS Mode
+ * FirstPersonController - First-person camera control with DI support.
  * 
- * This is a placeholder implementation that will be expanded
- * when full FPS mode is implemented.
+ * Supports both simple floor collision (lobby) and terrain collision (world).
+ * Uses dependency injection for collision target to decouple from scene type.
  */
 
 import type { Scene } from "@babylonjs/core/scene";
 import type { Camera } from "@babylonjs/core/Cameras/camera";
+import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import type { IPlayerController } from './interfaces';
@@ -17,6 +17,13 @@ export interface FirstPersonControllerOptions {
     lookSpeed?: number;
     jumpHeight?: number;
     gravity?: number;
+    /** 
+     * Optional collision target mesh (floor for lobby, terrain for world).
+     * If null, no ground collision is applied.
+     */
+    collisionTarget?: Mesh | null;
+    /** Eye height above ground when grounded */
+    eyeHeight?: number;
 }
 
 interface Position {
@@ -38,6 +45,8 @@ export class FirstPersonController implements IPlayerController {
     private velocity: Vector3 = Vector3.Zero();
     private isGrounded: boolean = true;
     private disposed: boolean = false;
+    private collisionTarget: Mesh | null;
+    private eyeHeight: number;
 
     constructor(scene: Scene, startPosition: Vector3, options: FirstPersonControllerOptions = {}) {
         this.scene = scene;
@@ -45,6 +54,8 @@ export class FirstPersonController implements IPlayerController {
         this.lookSpeed = options.lookSpeed ?? 0.005;
         this.jumpHeight = options.jumpHeight ?? 2.0;
         this.gravity = options.gravity ?? 9.8;
+        this.collisionTarget = options.collisionTarget ?? null;
+        this.eyeHeight = options.eyeHeight ?? 1.7; // ~eye level for humanoid
 
         // Create FPS camera
         this.camera = new UniversalCamera("fpsCamera", startPosition, scene);
@@ -61,6 +72,28 @@ export class FirstPersonController implements IPlayerController {
 
         // Mouse look
         this.camera.angularSensibility = 1000 / this.lookSpeed;
+
+        // If we have a collision target, enable collision with it
+        if (this.collisionTarget) {
+            this.collisionTarget.checkCollisions = true;
+        }
+    }
+
+    /**
+     * Set a new collision target (useful when transitioning between scenes).
+     */
+    setCollisionTarget(target: Mesh | null): void {
+        this.collisionTarget = target;
+        if (target) {
+            target.checkCollisions = true;
+        }
+    }
+
+    /**
+     * Get the current collision target mesh.
+     */
+    getCollisionTarget(): Mesh | null {
+        return this.collisionTarget;
     }
 
     /**
