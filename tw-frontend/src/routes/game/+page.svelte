@@ -10,6 +10,7 @@
     import CommandInput from "$lib/components/Input/CommandInput.svelte";
     import QuickButtons from "$lib/components/Input/QuickButtons.svelte";
     import ModeToggle from "$lib/components/Layout/ModeToggle.svelte";
+    import GameContainer from "$lib/components/Layout/GameContainer.svelte";
     import { gameSystem } from "$lib/services/GameSystem";
     import { interfaceMode } from "$lib/stores/ui";
 
@@ -766,15 +767,9 @@
     }
 </script>
 
-<div
-    class="flex flex-col h-screen bg-gray-900 text-gray-100 font-mono"
-    data-testid="game-container"
-    data-mode={$interfaceMode}
->
-    <!-- Header -->
-    <header
-        class="bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center"
-    >
+<GameContainer>
+    <!-- Status Bar (shared by both modes) -->
+    <div slot="status-bar" class="flex items-center justify-between w-full">
         <h1 class="text-xl font-bold text-blue-400">Thousand Worlds</h1>
         <div class="flex items-center gap-4">
             <!-- Connection Status -->
@@ -822,13 +817,14 @@
             >
                 {$interfaceMode === "TEXT" ? "📜 MUD" : "🌍 3D"}
             </span>
-            <!-- Mode Toggle -->
-            <ModeToggle compact={true} />
         </div>
-    </header>
+    </div>
 
-    <!-- Main Game Area -->
-    <main class="flex-1 overflow-hidden flex flex-col relative">
+    <!-- Mode Toggle Button -->
+    <ModeToggle slot="mode-toggle" compact={true} />
+
+    <!-- Main Display (MUD mode text output) -->
+    <div slot="main-display" class="p-4 space-y-2">
         {#if onboardingStep === "checking"}
             <div class="flex-1 flex items-center justify-center">
                 <div class="text-xl text-gray-400 animate-pulse">
@@ -892,89 +888,86 @@
                 {/each}
             </div>
         {/if}
+    </div>
 
-        <!-- Input Area -->
-        <div class="p-4 bg-gray-800 border-t border-gray-700 space-y-3">
-            {#if onboardingStep !== "interview" && onboardingStep !== "checking"}
-                <QuickButtons on:submit={(e) => handleCommand(e.detail)} />
-            {/if}
-
-            {#if onboardingStep === "interview"}
-                <!-- Interview mode: simple input -->
-                <div class="relative">
-                    <input
-                        type="text"
-                        bind:value={commandInput}
-                        on:keydown={(e) => e.key === "Enter" && handleCommand()}
-                        placeholder="Answer the question..."
-                        class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-gray-100 text-base focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
-                        style="font-size: 16px;"
-                    />
-                </div>
-            {:else if onboardingStep !== "checking"}
-                <!-- Game mode: use thin-client CommandInput -->
-                <CommandInput on:submit={(e) => handleCommand(e.detail)} />
-            {/if}
-        </div>
-
-        <!-- Entry Modal -->
-
-        {#if showEntryModal && entryOptions}
-            <WorldEntry
-                options={entryOptions}
-                on:select={handleEntrySelection}
-            />
+    <!-- Command Input (footer slot for both modes) -->
+    <div slot="command-input">
+        {#if onboardingStep !== "interview" && onboardingStep !== "checking"}
+            <QuickButtons on:submit={(e) => handleCommand(e.detail)} />
         {/if}
 
-        <!-- Character Sheet Modal -->
-        {#if showCharacterSheet}
-            <div
-                class="absolute inset-0 bg-black/80 flex items-center justify-center p-4 z-50 transition-opacity"
-                role="button"
-                tabindex="0"
-                on:click={() => (showCharacterSheet = false)}
-                on:keydown={(e) =>
-                    e.key === "Escape" && (showCharacterSheet = false)}
-            >
-                <div
-                    class="relative max-w-md w-full"
-                    role="document"
-                    on:click|stopPropagation
-                    on:keydown|stopPropagation
-                    tabindex="-1"
-                >
-                    <button
-                        class="absolute -top-2 -right-2 bg-gray-700 rounded-full w-8 h-8 flex items-center justify-center text-white hover:bg-gray-600 z-10"
-                        on:click={() => (showCharacterSheet = false)}
-                        data-testid="close-character-sheet"
-                    >
-                        ✕
-                    </button>
-                    <CharacterSheet
-                        characterName={characterStats.name}
-                        level={characterStats.level}
-                        experience={characterStats.experience}
-                        nextLevelXP={characterStats.nextLevelXP}
-                        strength={characterStats.attributes.strength}
-                        dexterity={characterStats.attributes.dexterity}
-                        constitution={characterStats.attributes.constitution}
-                        intelligence={characterStats.attributes.intelligence}
-                        wisdom={characterStats.attributes.wisdom}
-                        charisma={characterStats.attributes.charisma}
-                        skills={characterSkills}
-                    />
-                </div>
+        {#if onboardingStep === "interview"}
+            <!-- Interview mode: simple input -->
+            <div class="relative">
+                <input
+                    type="text"
+                    bind:value={commandInput}
+                    on:keydown={(e) => e.key === "Enter" && handleCommand()}
+                    placeholder="Answer the question..."
+                    class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-gray-100 text-base focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                    style="font-size: 16px;"
+                />
             </div>
+        {:else if onboardingStep !== "checking"}
+            <!-- Game mode: use thin-client CommandInput -->
+            <CommandInput on:submit={(e) => handleCommand(e.detail)} />
         {/if}
+    </div>
 
-        <!-- World Map Modal -->
-        <WorldMapModal
-            isOpen={showWorldMap}
-            onClose={() => (showWorldMap = false)}
-            {latestSimEvent}
-        />
-    </main>
-</div>
+    <!-- Entry Modal -->
+
+    {#if showEntryModal && entryOptions}
+        <WorldEntry options={entryOptions} on:select={handleEntrySelection} />
+    {/if}
+
+    <!-- Character Sheet Modal -->
+    {#if showCharacterSheet}
+        <div
+            class="absolute inset-0 bg-black/80 flex items-center justify-center p-4 z-50 transition-opacity"
+            role="button"
+            tabindex="0"
+            on:click={() => (showCharacterSheet = false)}
+            on:keydown={(e) =>
+                e.key === "Escape" && (showCharacterSheet = false)}
+        >
+            <div
+                class="relative max-w-md w-full"
+                role="document"
+                on:click|stopPropagation
+                on:keydown|stopPropagation
+                tabindex="-1"
+            >
+                <button
+                    class="absolute -top-2 -right-2 bg-gray-700 rounded-full w-8 h-8 flex items-center justify-center text-white hover:bg-gray-600 z-10"
+                    on:click={() => (showCharacterSheet = false)}
+                    data-testid="close-character-sheet"
+                >
+                    ✕
+                </button>
+                <CharacterSheet
+                    characterName={characterStats.name}
+                    level={characterStats.level}
+                    experience={characterStats.experience}
+                    nextLevelXP={characterStats.nextLevelXP}
+                    strength={characterStats.attributes.strength}
+                    dexterity={characterStats.attributes.dexterity}
+                    constitution={characterStats.attributes.constitution}
+                    intelligence={characterStats.attributes.intelligence}
+                    wisdom={characterStats.attributes.wisdom}
+                    charisma={characterStats.attributes.charisma}
+                    skills={characterSkills}
+                />
+            </div>
+        </div>
+    {/if}
+
+    <!-- World Map Modal -->
+    <WorldMapModal
+        isOpen={showWorldMap}
+        onClose={() => (showWorldMap = false)}
+        {latestSimEvent}
+    />
+</GameContainer>
 
 <style>
     .messages-container::-webkit-scrollbar {
