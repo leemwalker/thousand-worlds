@@ -18,6 +18,8 @@
     import { LobbyScene } from "$lib/components/Scene/LobbyScene";
     import WorldController from "$lib/components/Map/WorldController.svelte";
     import type { Scene } from "@babylonjs/core/scene";
+    import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
+    import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 
     /** Whether to show the command overlay */
     let showCommandOverlay = true;
@@ -39,11 +41,26 @@
     });
     sceneManager.registerSceneFactory("LOBBY", lobbyScene);
 
-    // Register WORLD scene factory (empty, populated by WorldController)
+    // Register WORLD scene factory (creates default camera, WorldController will replace it)
     sceneManager.registerSceneFactory("WORLD", {
         create: async (scene: Scene) => {
-            console.log("[SimulationMode] Created empty WORLD scene container");
-            // Content is injected by WorldController component
+            console.log(
+                "[SimulationMode] Created WORLD scene with default camera",
+            );
+            // Create a default ArcRotateCamera so scene can render while WorldController initializes
+            const canvas = scene.getEngine().getRenderingCanvas();
+            const defaultCamera = new ArcRotateCamera(
+                "defaultCamera",
+                Math.PI / 2,
+                Math.PI / 3,
+                5,
+                new Vector3(0, 0, 0),
+                scene,
+            );
+            if (canvas) {
+                defaultCamera.attachControl(canvas, true);
+            }
+            scene.activeCamera = defaultCamera;
         },
         dispose: () => {
             console.log("[SimulationMode] Disposing WORLD scene");
