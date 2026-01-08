@@ -140,7 +140,10 @@ export class FirstPersonController implements IPlayerController {
     activate(): void {
         if (this.disposed) return;
         this.scene.activeCamera = this.camera;
-        this.camera.attachControl(true);
+        const canvas = this.scene.getEngine().getRenderingCanvas();
+        if (canvas) {
+            this.camera.attachControl(canvas, true);
+        }
     }
 
     /**
