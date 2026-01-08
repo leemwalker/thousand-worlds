@@ -34,6 +34,41 @@ func main() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Info().Msg("Starting Core Physics Service...")
 
+	// 0. Start Health Server EARLY (non-blocking)
+	// This is critical effectively because the Agones World ID check below can BLOCK
+	// waiting for allocation, and we need to respond to Liveness Probes during that wait.
+	var ready atomic.Bool
+	healthPort := os.Getenv("HEALTH_PORT")
+	if healthPort == "" {
+		healthPort = "8081"
+	}
+
+	healthMux := http.NewServeMux()
+	healthMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+	healthMux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		if ready.Load() {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("ready"))
+		} else {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte("not ready"))
+		}
+	})
+
+	healthServer := &http.Server{
+		Addr:    ":" + healthPort,
+		Handler: healthMux,
+	}
+	go func() {
+		log.Info().Str("port", healthPort).Msg("Starting health server")
+		if err := healthServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Error().Err(err).Msg("Health server failed")
+		}
+	}()
+
 	var agonesSDK *agones.SDK
 
 	// 0. Agones SDK Integration
@@ -346,40 +381,7 @@ func main() {
 		geology.InitializeGeology(0)
 	}
 
-	// 7. Start Health Server for Kubernetes/Docker health checks
-	var ready atomic.Bool
-	healthPort := os.Getenv("HEALTH_PORT")
-	if healthPort == "" {
-		healthPort = "8081"
-	}
-
-	healthMux := http.NewServeMux()
-	healthMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
-	})
-	healthMux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
-		if ready.Load() {
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("ready"))
-		} else {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte("not ready"))
-		}
-	})
-
-	healthServer := &http.Server{
-		Addr:    ":" + healthPort,
-		Handler: healthMux,
-	}
-	go func() {
-		log.Info().Str("port", healthPort).Msg("Starting health server")
-		if err := healthServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Error().Err(err).Msg("Health server failed")
-		}
-	}()
-
-	// 8. Start Simulation
+	// 7. Start Simulation
 	log.Info().Int64("start_year", startYear).Msg("Starting simulation loop")
 
 	go func() {
