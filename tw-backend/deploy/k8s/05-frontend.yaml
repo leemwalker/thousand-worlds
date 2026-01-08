@@ -20,7 +20,7 @@ spec:
         env:
         # Initial ORIGIN for server-side checks. Client connects to Node IP.
         - name: ORIGIN
-          value: "http://localhost:3000"
+          value: "http://10.0.0.17"
         ports:
         - containerPort: 3000
         resources:

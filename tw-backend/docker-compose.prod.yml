@@ -274,7 +274,7 @@ services:
     container_name: mud_frontend
     # No external port - accessed via nginx proxy
     environment:
-      - ORIGIN=http://localhost:80
+      - ORIGIN=http://10.0.0.17
       - BACKEND_URL=http://game-server:8080
     depends_on:
       - game-server

@@ -83,8 +83,8 @@ kubectl apply -f tw-backend/deploy/k8s/04-statefulset.yaml
 # Frontend
 kubectl apply -f tw-backend/deploy/k8s/05-frontend.yaml
 
-# Ingress (routes traffic to frontend and game-server)
-kubectl apply -f tw-backend/deploy/k8s/09-ingress.yaml
+# IngressRoute (Traefik native routing)
+kubectl apply -f tw-backend/deploy/k8s/09-ingressroute.yaml
 
 # 3. Force Rollout (Required because we use 'latest' tag and local images)
 echo "Restarting deployments to pick up new images..."
