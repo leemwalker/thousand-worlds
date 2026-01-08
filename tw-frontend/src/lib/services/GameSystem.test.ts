@@ -3,7 +3,7 @@
  * Tests for command parsing and routing logic.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { parseMovementCommand } from '../GameSystem';
+import { parseMovementCommand } from './GameSystem';
 
 describe('parseMovementCommand', () => {
     describe('single letter aliases', () => {
