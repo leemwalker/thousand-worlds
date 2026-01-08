@@ -73,16 +73,16 @@ kubectl apply -f tw-backend/deploy/k8s/
 echo "Restarting deployments to pick up new images..."
 kubectl -n mud-world rollout restart deployment/game-server
 kubectl -n mud-world rollout restart deployment/frontend
-kubectl -n mud-world rollout restart statefulset/world-simulation
+kubectl -n mud-world rollout restart deployment/nginx-gateway
 
 # 4. Status
 echo "Deployment applied. Waiting for rollouts..."
 kubectl -n mud-world rollout status deployment/mud-postgis --timeout=60s || echo "Postgres rollout pending..."
-kubectl -n mud-world rollout status statefulset/world-simulation --timeout=60s || echo "Physics rollout pending..."
+kubectl -n mud-world get fleet world-simulation-fleet
 kubectl -n mud-world rollout status deployment/game-server --timeout=60s || echo "Game Server rollout pending..."
 
 echo "=== Deployment Complete ==="
-echo "Frontend available at: http://10.0.0.17 (port 80 via Ingress)"
+echo "Frontend available at: http://10.0.0.17:8080 (via Nginx Gateway)"
 echo "Check pods: kubectl -n mud-world get pods"
 echo "Check ingress: kubectl -n mud-world get ingress"
 
