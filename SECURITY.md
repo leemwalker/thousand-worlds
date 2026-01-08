@@ -35,7 +35,7 @@ This document explains how to configure credentials and secrets for the Thousand
 
 5. **Launch the application:**
    ```bash
-   ./launch.sh
+   ./deploy_k8s.sh
    ```
 
 ## Environment Variables
@@ -126,7 +126,7 @@ Before deploying to production:
 
 ### Application fails to start with "JWT_SECRET must be set"
 - Ensure you've created a `.env` file with all required secrets
-- Verify the `.env` file is being loaded (check `launch.sh` output)
+- Verify the `.env` file is being loaded (check deployment output)
 - Try running with explicit export: `export JWT_SECRET=...`
 
 ### Docker Compose fails with environment variable errors

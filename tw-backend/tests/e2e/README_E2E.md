@@ -41,6 +41,6 @@ Simulates a new mobile user:
 
 ## Troubleshooting
 
--   **Connection Refused**: Ensure the backend server is running (`./launch.sh`).
+-   **Connection Refused**: Ensure the backend server is running (`./deploy_k8s.sh` or through Docker Compose).
 -   **Database Error**: Check the `TEST_DB_DSN` matches your local postgres setup.
 -   **Timeout**: If the server is slow (e.g., during world generation), you might need to increase timeouts in the test file.

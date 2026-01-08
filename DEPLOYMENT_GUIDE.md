@@ -1,24 +1,18 @@
 # Deployment Workflows
 
 ## Overview
-We have optimized the deployment process to reduce iteration time.
+We have standardized our deployment process on Kubernetes.
 
-### Optimized "Fast Deploy" (Recommended)
-**Script:** `./fast_deploy.sh`
+### Kubernetes Deployment (Standard)
+**Script:** `./deploy_k8s.sh`
 
-This script uses **rsync** to synchronize your local code to the server and then executes `docker compose` remotely via SSH.
+This is the primary script used for building and deploying the application.
 
-**Prerequisites:**
-1.  **SSH Keys**: You must have passwordless SSH access to the server.
-    ```bash
-    ssh-copy-id walker@10.0.0.17
-    ```
-2.  **Rsync**: Standard on macOS/Linux.
-
-**Benefits:**
-- **No Local Docker Required**: Works even if Docker Desktop is broken or not installed.
-- **Fast**: Only transfers changed source files.
-- **Reliable**: Builds internally on the server using the server's environment.
+**What it does:**
+1.  **Builds Docker Images**: Builds `core-physics`, `game-server`, and `frontend` images.
+2.  **Imports to K3s**: Imports the built images into the K3s containerd runtime.
+3.  **Applies Manifests**: Applies all Kubernetes manifests from `tw-backend/deploy/k8s/`.
+4.  **Rollout Restart**: Restarts deployments to ensure new images are picked up.
 
 ### Legacy "Update Build" (On Server)
 **Script:** `./update_build.sh`
@@ -35,11 +29,13 @@ This script runs on the **server**. Use this if you want to deploy exactly what 
 If you find that old database state is causing issues, do **not** verify by clearing build cache. Instead, use the game's reset commands:
 ```bash
 # Reset world state
-docker compose -f tw-backend/docker-compose.prod.yml exec game-server ./game-server reset
+kubectl -n mud-world exec -it deployment/game-server -- ./game-server reset
 # Or via the API/URL
-curl http://10.0.0.17:3000/api/reset
+curl http://10.0.0.17:8080/api/reset
 ```
 Or manually restart specific infrastructure containers with volume clearing if absolutely necessary (destructive):
 ```bash
-docker compose -f tw-backend/docker-compose.prod.yml down -v mongo postgis
+# K8s equivalent would be deleting the PVCs and restarting statefulsets/deployments
+kubectl -n mud-world delete pvc --all
+kubectl -n mud-world delete pods --all
 ```

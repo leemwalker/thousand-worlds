@@ -117,20 +117,19 @@ thousand-worlds/
 
 ### Launch the Platform
 
-The easiest way to start both backend and frontend services:
+The primary way to build and deploy the platform is via the Kubernetes deployment script:
 
 ```bash
-./launch.sh
+./deploy_k8s.sh
 ```
 
 This script:
-1. Starts Docker containers (PostgreSQL, Redis, MongoDB, NATS)
-2. Runs database migrations
-3. Launches the backend game server
-4. Starts the frontend development server
-5. Creates the lobby world seed data
+1. Builds Docker containers for all services
+2. Imports images to the K3s environment
+3. Applies Kubernetes manifests
+4. Performs a rollout restart of deployments
 
-Once running, access the game at: **http://localhost:5173**
+Once deployed, access the game at: **http://10.0.0.17:8080**
 
 ---
 
