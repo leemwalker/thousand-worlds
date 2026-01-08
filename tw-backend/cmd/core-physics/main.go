@@ -15,6 +15,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	agonessdk "agones.dev/agones/pkg/sdk"
 	agones "agones.dev/agones/sdks/go"
 
 	"tw-backend/internal/analytics"
@@ -130,7 +131,7 @@ func main() {
 		// Check current state first
 		gs, err := agonesSDK.GameServer()
 		if err == nil {
-			if val, ok := gs.ObjectMeta.Annotations["agones.dev/world-id"]; ok && val != "" {
+			if val := gs.GetObjectMeta().GetAnnotations()["agones.dev/world-id"]; val != "" {
 				worldIDStr = val
 				log.Info().Str("world_id", worldIDStr).Msg("Found World ID in existing annotations")
 			}
@@ -142,8 +143,8 @@ func main() {
 			cancelWatch := make(chan struct{}) // To stop watcher if needed (SDK doesn't support unwatch nicely?)
 
 			// Start Watcher
-			err := agonesSDK.WatchGameServer(func(gs *agones.GameServer) {
-				if val, ok := gs.ObjectMeta.Annotations["agones.dev/world-id"]; ok && val != "" {
+			err := agonesSDK.WatchGameServer(func(gs *agonessdk.GameServer) {
+				if val := gs.GetObjectMeta().GetAnnotations()["agones.dev/world-id"]; val != "" {
 					// Non-blocking send to avoid getting stuck if channel is already read (since callback connects multiple times)
 					select {
 					case worldIDChan <- val:
