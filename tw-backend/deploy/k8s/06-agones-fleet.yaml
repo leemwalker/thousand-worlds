@@ -59,7 +59,7 @@ spec:
             # Image should be registry-qualified for Kubernetes
             # Override via kustomize or helm: ${REGISTRY}/tw-backend/core-physics:${TAG}
             # Example: ghcr.io/leemwalker/thousand-worlds/core-physics:v1.0.0
-            image: ghcr.io/leemwalker/thousand-worlds/core-physics:latest
+            image: tw-backend/core-physics:latest
             imagePullPolicy: IfNotPresent
             
             # Environment from ConfigMap and Secrets
