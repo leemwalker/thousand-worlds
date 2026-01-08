@@ -11,6 +11,7 @@
     import QuickButtons from "$lib/components/Input/QuickButtons.svelte";
     import ModeToggle from "$lib/components/Layout/ModeToggle.svelte";
     import { gameSystem } from "$lib/services/GameSystem";
+    import { interfaceMode } from "$lib/stores/ui";
 
     // Onboarding state
     let onboardingStep:
@@ -765,7 +766,11 @@
     }
 </script>
 
-<div class="flex flex-col h-screen bg-gray-900 text-gray-100 font-mono">
+<div
+    class="flex flex-col h-screen bg-gray-900 text-gray-100 font-mono"
+    data-testid="game-container"
+    data-mode={$interfaceMode}
+>
     <!-- Header -->
     <header
         class="bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center"

@@ -2,10 +2,10 @@
   "cookies": [
     {
       "name": "auth_token",
-      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiY2I1NDQyYWQtNzM4ZS00ODgwLWJmOTYtYjA0NjY4MTdmOWNlIiwidXNlcm5hbWUiOiIiLCJyb2xlcyI6bnVsbCwiZXhwIjoxNzY3OTcxODQ3LCJpYXQiOjE3Njc4ODU0NDd9.Xg_Xd8dhmbfSYev80tg3pHVhJWsRcrr21n68dCEckTU",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiY2I1NDQyYWQtNzM4ZS00ODgwLWJmOTYtYjA0NjY4MTdmOWNlIiwidXNlcm5hbWUiOiIiLCJyb2xlcyI6bnVsbCwiZXhwIjoxNzY3OTcyMjU0LCJpYXQiOjE3Njc4ODU4NTR9.cmoppZKAPk3tkn62jQnUFDrg8rLPeFq365KP7b3sb8U",
       "domain": "10.0.0.17",
       "path": "/",
-      "expires": 1767971847.459427,
+      "expires": 1767972254.218575,
       "httpOnly": true,
       "secure": false,
       "sameSite": "Lax"
