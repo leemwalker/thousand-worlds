@@ -15,6 +15,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	agonesv1 "agones.dev/agones/pkg/apis/agones/v1"
 	agones "agones.dev/agones/sdks/go"
 
 	"tw-backend/internal/analytics"
@@ -33,6 +34,8 @@ func main() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Info().Msg("Starting Core Physics Service...")
 
+	var agonesSDK *agones.SDK
+
 	// 0. Agones SDK Integration
 	// Only initialize if we detect Agones environment
 	if os.Getenv("AGONES_SDK_HTTP_PORT") != "" || os.Getenv("AGONES_SDK_GRPC_PORT") != "" {
@@ -41,6 +44,7 @@ func main() {
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to initialize Agones SDK")
 		}
+		agonesSDK = s
 
 		// Mark as Ready
 		if err := s.Ready(); err != nil {
@@ -119,6 +123,52 @@ func main() {
 
 	// 3. World Configuration
 	worldIDStr := os.Getenv("WORLD_ID")
+
+	// If missing and running in Agones, wait for Allocation assignment
+	if worldIDStr == "" && agonesSDK != nil {
+		log.Info().Msg("WORLD_ID not in env, waiting for Agones Allocation annotation...")
+
+		// Check current state first
+		gs, err := agonesSDK.GameServer()
+		if err == nil {
+			if val, ok := gs.ObjectMeta.Annotations["agones.dev/world-id"]; ok && val != "" {
+				worldIDStr = val
+				log.Info().Str("world_id", worldIDStr).Msg("Found World ID in existing annotations")
+			}
+		}
+
+		// If still missing, watch for updates
+		if worldIDStr == "" {
+			worldIDChan := make(chan string)
+			cancelWatch := make(chan struct{}) // To stop watcher if needed (SDK doesn't support unwatch nicely?)
+
+			// Start Watcher
+			err := agonesSDK.WatchGameServer(func(gs *agonesv1.GameServer) {
+				if val, ok := gs.ObjectMeta.Annotations["agones.dev/world-id"]; ok && val != "" {
+					// Non-blocking send to avoid getting stuck if channel is already read (since callback connects multiple times)
+					select {
+					case worldIDChan <- val:
+					case <-cancelWatch:
+					default:
+					}
+				}
+			})
+			if err != nil {
+				log.Fatal().Err(err).Msg("Failed to watch GameServer")
+			}
+
+			// Block until ID received
+			select {
+			case id := <-worldIDChan:
+				worldIDStr = id
+				close(cancelWatch) // Signal watcher (tho callback persists, we ignore)
+				log.Info().Str("world_id", worldIDStr).Msg("Received World ID via Allocation")
+			case <-time.After(5 * time.Minute):
+				log.Fatal().Msg("Timed out waiting for World ID allocation")
+			}
+		}
+	}
+
 	if worldIDStr == "" {
 		log.Fatal().Msg("WORLD_ID environment variable is required")
 	}
