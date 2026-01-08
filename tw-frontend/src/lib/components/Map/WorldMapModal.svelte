@@ -7,7 +7,10 @@
     import MapOverlayCanvas from "./MapOverlayCanvas.svelte";
     import WorldController from "$lib/components/Map/WorldController.svelte";
     import SceneCanvas from "$lib/components/Scene/SceneCanvas.svelte";
-    import { sceneManager, type GameLocation } from "$lib/components/Scene/SceneManager";
+    import {
+        sceneManager,
+        type GameLocation,
+    } from "$lib/components/Scene/SceneManager";
     import type { Scene } from "@babylonjs/core/scene";
     import { fade, fly } from "svelte/transition";
     import { mapStore } from "$lib/stores/map";
@@ -121,17 +124,15 @@
         } else {
             requestWorldMap();
         }
-            requestWorldMap();
-        }
-        
+
         // Ensure SceneManager has PREVIEW factory if using globe view
-        sceneManager.registerSceneFactory('PREVIEW', {
+        sceneManager.registerSceneFactory("PREVIEW", {
             create: async (scene: Scene) => {
                 console.log("[WorldMapModal] Created PREVIEW scene");
             },
             dispose: () => {
                 console.log("[WorldMapModal] Disposing PREVIEW scene");
-            }
+            },
         });
     }
 
@@ -139,8 +140,8 @@
         const canvas = event.detail;
         sceneManager.initialize(canvas);
         canvasReady = true;
-        sceneManager.transitionTo('PREVIEW').then(() => {
-             activeScene = sceneManager.getActiveScene();
+        sceneManager.transitionTo("PREVIEW").then(() => {
+            activeScene = sceneManager.getActiveScene();
         });
     }
 
