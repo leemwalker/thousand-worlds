@@ -9,6 +9,8 @@
     import type { Skill } from "$lib/types/game";
     import CommandInput from "$lib/components/Input/CommandInput.svelte";
     import QuickButtons from "$lib/components/Input/QuickButtons.svelte";
+    import ModeToggle from "$lib/components/Layout/ModeToggle.svelte";
+    import { gameSystem } from "$lib/services/GameSystem";
 
     // Onboarding state
     let onboardingStep:
@@ -405,10 +407,11 @@
             return;
         }
 
-        // Send raw text command to backend - backend will parse and process it
-        console.log("[handleCommand] Sending to WebSocket:", input);
-        gameWebSocket.sendCommandWithQueue(input);
-        console.log("[handleCommand] Command sent to WebSocket queue");
+        // Route through GameSystem for unified command handling
+        // GameSystem handles movement parsing, text logging, and WebSocket routing
+        console.log("[handleCommand] Routing through GameSystem:", input);
+        gameSystem.processCommand(input);
+        console.log("[handleCommand] Command processed by GameSystem");
         if (!cmd) commandInput = ""; // Only clear binding if used
     }
 
@@ -805,6 +808,8 @@
             >
                 Logout
             </button>
+            <!-- Mode Toggle -->
+            <ModeToggle compact={true} />
         </div>
     </header>
 
