@@ -4,8 +4,8 @@ metadata:
   name: mud-world-ingress
   namespace: mud-world
   annotations:
-    # Traefik WebSocket support and extended timeouts
-    traefik.ingress.kubernetes.io/router.middlewares: ""
+    # Enable HTTP entrypoint (port 80)
+    traefik.ingress.kubernetes.io/router.entrypoints: web
 spec:
   ingressClassName: traefik
   rules:
