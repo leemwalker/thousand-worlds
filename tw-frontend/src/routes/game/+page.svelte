@@ -813,6 +813,15 @@
             >
                 Logout
             </button>
+            <!-- Mode Indicator Badge -->
+            <span
+                class="px-2 py-1 text-xs font-medium rounded-full
+                {$interfaceMode === 'TEXT'
+                    ? 'bg-green-900/50 text-green-400 border border-green-700'
+                    : 'bg-purple-900/50 text-purple-400 border border-purple-700'}"
+            >
+                {$interfaceMode === "TEXT" ? "📜 MUD" : "🌍 3D"}
+            </span>
             <!-- Mode Toggle -->
             <ModeToggle compact={true} />
         </div>

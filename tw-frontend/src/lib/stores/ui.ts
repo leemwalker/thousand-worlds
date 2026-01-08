@@ -136,7 +136,9 @@ export function setInterfaceMode(mode: InterfaceMode) {
  */
 export function toggleInterfaceMode() {
     const current = get(uiState).interfaceMode;
-    setInterfaceMode(current === 'TEXT' ? 'VISUAL' : 'TEXT');
+    const newMode = current === 'TEXT' ? 'VISUAL' : 'TEXT';
+    console.log('[Mode Toggle] Switching from', current, 'to', newMode);
+    setInterfaceMode(newMode);
 }
 
 /**
