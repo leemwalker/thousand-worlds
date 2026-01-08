@@ -26,10 +26,9 @@ spec:
         - name: REDIS_ADDR
           value: "mud-dragonfly.mud-world.svc.cluster.local:6379"
         - name: NATS_URL
-          valueFrom:
-            configMapKeyRef:
-              name: core-physics-config
-              key: NATS_URL
+          value: "nats://nats:4222"
+        - name: CORS_ALLOWED_ORIGINS
+          value: "http://localhost:5173,http://localhost:3000,http://10.0.0.17"
         - name: OLLAMA_HOST
           value: "http://mud-ollama.mud-world.svc.cluster.local:11434"
         - name: JWT_SECRET

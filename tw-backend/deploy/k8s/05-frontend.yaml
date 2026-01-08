@@ -21,6 +21,8 @@ spec:
         # Initial ORIGIN for server-side checks. Client connects to Node IP.
         - name: ORIGIN
           value: "http://10.0.0.17"
+        - name: BACKEND_URL
+          value: "http://game-server:8080"
         ports:
         - containerPort: 3000
         resources:
