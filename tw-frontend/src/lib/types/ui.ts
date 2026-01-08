@@ -1,8 +1,17 @@
 export type LayoutMode = 'mobile' | 'desktop';
 
+/**
+ * Interface mode controls which view layer is active.
+ * TEXT = MUD-style text-only interface (default for mobile)
+ * VISUAL = 3D Babylon.js interface with text input overlay (default for desktop)
+ */
+export type InterfaceMode = 'TEXT' | 'VISUAL';
+
 export interface UIState {
     layoutMode: LayoutMode;
     screenWidth: number;
+    interfaceMode: InterfaceMode;
+    preferredMode: InterfaceMode | 'auto'; // User preference or auto-detect
     activePanel: 'map' | 'stats' | 'inventory' | 'none'; // For mobile tabs if needed
     isSidebarOpen: boolean;
 }

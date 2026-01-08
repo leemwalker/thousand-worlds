@@ -29,6 +29,9 @@
     import { HorizonRenderer } from "./HorizonRenderer";
     import { WaterEffects } from "./WaterEffects";
 
+    // Interface Mode Management
+    import { isTextMode } from "$lib/stores/ui";
+
     // Types for satellite/moon data
     interface Satellite {
         name: string;
@@ -104,6 +107,138 @@
 
     // Terrain exaggeration factor (makes mountains visible from space)
     const TERRAIN_SCALE = 0.05; // 5% of radius for max height
+
+    // Interface Mode Lifecycle Management
+    let isPaused = false;
+    let pauseTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    const DISPOSE_GRACE_PERIOD_MS = 30000; // 30 seconds before full disposal
+    let unsubscribeTextMode: (() => void) | null = null;
+
+    // Subscribe to text mode changes for pausing/resuming WebGL
+    $: if (typeof window !== "undefined") {
+        unsubscribeTextMode?.();
+        unsubscribeTextMode = isTextMode.subscribe((inTextMode) => {
+            if (inTextMode && engine && !isPaused) {
+                pauseRendering();
+            } else if (!inTextMode && isPaused) {
+                resumeRendering();
+            }
+        });
+    }
+
+    function pauseRendering() {
+        if (!engine || isPaused) return;
+
+        console.log("[BabylonGlobe] Pausing render loop (TEXT mode)");
+        engine.stopRenderLoop();
+        isPaused = true;
+
+        // Set a timeout for full disposal to save memory on mobile
+        // If user switches back within grace period, we just resume
+        if (pauseTimeoutId) clearTimeout(pauseTimeoutId);
+        pauseTimeoutId = setTimeout(() => {
+            console.log(
+                "[BabylonGlobe] Grace period elapsed, full disposal skipped for now (preserving state)",
+            );
+            // Note: We could dispose here for mobile battery savings,
+            // but we keep the state to allow quick resume
+        }, DISPOSE_GRACE_PERIOD_MS);
+    }
+
+    function resumeRendering() {
+        if (!engine || !isPaused) return;
+
+        console.log("[BabylonGlobe] Resuming render loop (VISUAL mode)");
+
+        // Cancel any pending disposal
+        if (pauseTimeoutId) {
+            clearTimeout(pauseTimeoutId);
+            pauseTimeoutId = null;
+        }
+
+        isPaused = false;
+        lastTime = performance.now();
+
+        // Restart render loop
+        startRenderLoop();
+    }
+
+    function startRenderLoop() {
+        if (!engine || !scene || !orbitNode || !planetNode) return;
+
+        engine.runRenderLoop(() => {
+            if (!scene || !orbitNode || !planetNode) return;
+
+            const now = performance.now();
+            const deltaTime = (now - lastTime) / 1000; // seconds
+            lastTime = now;
+
+            updateAnimation(deltaTime);
+            scene.render();
+        });
+    }
+
+    function updateAnimation(deltaTime: number) {
+        if (!orbitNode || !planetNode) return;
+
+        // Planet axial rotation (day cycle)
+        const dayRotation =
+            (2 * Math.PI * deltaTime * simulationSpeed) / PLANET_DAY_SECONDS;
+        planetNode.rotation.y += dayRotation;
+
+        // Orbital rotation around sun (year cycle)
+        const yearRotation =
+            (2 * Math.PI * deltaTime * simulationSpeed) / PLANET_YEAR_SECONDS;
+        orbitNode.rotateAround(Vector3.Zero(), Vector3.Up(), yearRotation);
+
+        // Update camera target to follow planet
+        if (camera) {
+            camera.target = orbitNode.position;
+            // Update LOD based on camera distance
+            lodManager?.update(camera);
+
+            // Update tile system for high-resolution streaming
+            if (tileGlobeManager) {
+                const cameraDistance = camera.radius || 5;
+                if (cameraDistance < 2.5) {
+                    tileGlobeManager.enable();
+                    tileGlobeManager.update(camera);
+                } else {
+                    tileGlobeManager.disable();
+                }
+            }
+        }
+
+        // Moon orbital animation
+        moonOrbitNodes.forEach((moonOrbit, i) => {
+            const moonPeriod = 5 + i * 2;
+            const moonRotation =
+                (2 * Math.PI * deltaTime * simulationSpeed) / moonPeriod;
+            moonOrbit.rotation.y += moonRotation;
+        });
+
+        // Animate water bump texture UV offset
+        waterTime += deltaTime * 0.05 * simulationSpeed;
+        if (waterBumpTexture) {
+            waterBumpTexture.uOffset = Math.sin(waterTime) * 0.02;
+            waterBumpTexture.vOffset = Math.cos(waterTime * 0.7) * 0.01;
+        }
+
+        // Update sun direction for displacement shader lighting
+        if (displacementShader && orbitNode) {
+            const planetPos = orbitNode.position;
+            const toSun = new Vector3(-planetPos.x, -planetPos.y, -planetPos.z);
+            toSun.normalize();
+
+            if (planetNode) {
+                const worldMatrix = planetNode.getWorldMatrix();
+                const invWorld = worldMatrix.clone().invert();
+                const localSunDir = Vector3.TransformNormal(toSun, invWorld);
+                localSunDir.normalize();
+                displacementShader.setLightDirection(localSunDir);
+            }
+        }
+    }
 
     onMount(() => {
         if (!canvas) return;
