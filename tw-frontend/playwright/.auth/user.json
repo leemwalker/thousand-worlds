@@ -1,0 +1,25 @@
+{
+  "cookies": [
+    {
+      "name": "auth_token",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiY2I1NDQyYWQtNzM4ZS00ODgwLWJmOTYtYjA0NjY4MTdmOWNlIiwidXNlcm5hbWUiOiIiLCJyb2xlcyI6bnVsbCwiZXhwIjoxNzY3OTcxODQ3LCJpYXQiOjE3Njc4ODU0NDd9.Xg_Xd8dhmbfSYev80tg3pHVhJWsRcrr21n68dCEckTU",
+      "domain": "10.0.0.17",
+      "path": "/",
+      "expires": 1767971847.459427,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://10.0.0.17:8080",
+      "localStorage": [
+        {
+          "name": "hapticEnabled",
+          "value": "true"
+        }
+      ]
+    }
+  ]
+}

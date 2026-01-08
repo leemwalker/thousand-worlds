@@ -7,6 +7,9 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
     testDir: './tests/e2e',
 
+    /* Global setup to authenticate before tests */
+    globalSetup: './tests/e2e/global-setup.ts',
+
     /* Maximum time one test can run */
     timeout: 60 * 1000,
 
@@ -32,7 +35,10 @@ export default defineConfig({
     /* Shared settings for all projects */
     use: {
         /* Base URL to use in actions like `await page.goto('/')` */
-        baseURL: 'http://localhost:5173',
+        baseURL: process.env.BASE_URL || 'http://localhost:5173',
+
+        /* Use authenticated storage state */
+        storageState: 'playwright/.auth/user.json',
 
         /* Collect trace when retrying the failed test */
         trace: 'retain-on-failure',

@@ -2,60 +2,34 @@
  * Mode Switching E2E Tests
  * Tests for the dual interface mode architecture (TEXT/VISUAL switching).
  * 
- * NOTE: These tests navigate to /game which requires authentication.
- * If not authenticated, the page redirects to /. Tests check for
- * the mode toggle and skip if auth is required.
+ * Authentication is handled by global-setup.ts which saves storage state.
  */
 import { test, expect } from '@playwright/test';
 
 test.describe('Interface Mode Switching', () => {
     test.beforeEach(async ({ page }) => {
-        // Navigate to game page (may redirect to login if not authenticated)
+        // Navigate to game page (authenticated via storage state)
         await page.goto('/game');
         await page.waitForLoadState('networkidle');
     });
 
-    test('should display mode toggle button on game page', async ({ page }) => {
-        // Check if we're on the game page (has mode toggle)
+    test('should display mode toggle button', async ({ page }) => {
         const toggle = page.locator('[data-testid="mode-toggle"]');
-
-        // Wait a bit for potential redirect/render
-        await page.waitForTimeout(1000);
-
-        const toggleExists = await toggle.count() > 0;
-
-        if (toggleExists) {
-            await expect(toggle).toBeVisible();
-        } else {
-            // We're on login page - skip this test (auth required)
-            test.skip(true, 'Requires authentication - mode toggle only available on /game');
-        }
+        await expect(toggle).toBeVisible();
     });
 
     test('should have game container with mode attribute', async ({ page }) => {
-        await page.waitForTimeout(1000);
         const container = page.locator('[data-testid="game-container"]');
-        const containerExists = await container.count() > 0;
+        await expect(container).toBeVisible();
 
-        if (containerExists) {
-            // Check that mode attribute exists (either TEXT or VISUAL)
-            const mode = await container.getAttribute('data-mode');
-            expect(['TEXT', 'VISUAL']).toContain(mode);
-        } else {
-            test.skip(true, 'Requires authentication - game container only available on /game');
-        }
+        // Check that mode attribute exists (either TEXT or VISUAL)
+        const mode = await container.getAttribute('data-mode');
+        expect(['TEXT', 'VISUAL']).toContain(mode);
     });
 
     test('should toggle between modes when clicking toggle button', async ({ page }) => {
-        await page.waitForTimeout(1000);
         const toggle = page.locator('[data-testid="mode-toggle"]');
         const container = page.locator('[data-testid="game-container"]');
-
-        const toggleExists = await toggle.count() > 0;
-        if (!toggleExists) {
-            test.skip(true, 'Requires authentication');
-            return;
-        }
 
         // Get initial mode
         const initialMode = await container.getAttribute('data-mode');
@@ -71,14 +45,7 @@ test.describe('Interface Mode Switching', () => {
     });
 
     test('should persist mode preference in localStorage', async ({ page }) => {
-        await page.waitForTimeout(1000);
         const toggle = page.locator('[data-testid="mode-toggle"]');
-
-        const toggleExists = await toggle.count() > 0;
-        if (!toggleExists) {
-            test.skip(true, 'Requires authentication');
-            return;
-        }
 
         // Toggle to ensure a mode is set
         await toggle.click();
@@ -97,18 +64,11 @@ test.describe('Command Input Visibility', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/game');
         await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(1000);
     });
 
     test('should have command input element', async ({ page }) => {
         const input = page.locator('#game-input');
-        const inputExists = await input.count() > 0;
-
-        if (inputExists) {
-            await expect(input).toBeVisible();
-        } else {
-            test.skip(true, 'Requires authentication - input only available on /game');
-        }
+        await expect(input).toBeVisible();
     });
 });
 
@@ -116,17 +76,11 @@ test.describe('Layout Components', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/game');
         await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(1000);
     });
 
     test('should render appropriate layout based on mode', async ({ page }) => {
         const container = page.locator('[data-testid="game-container"]');
-        const containerExists = await container.count() > 0;
-
-        if (!containerExists) {
-            test.skip(true, 'Requires authentication');
-            return;
-        }
+        await expect(container).toBeVisible();
 
         const mode = await container.getAttribute('data-mode');
 
