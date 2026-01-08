@@ -36,6 +36,5 @@ scripts/dev.sh
 scripts/verify_*.sh
 
 # Data files (if any)
-data/
 *.db
 *.sqlite
