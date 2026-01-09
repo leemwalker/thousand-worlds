@@ -663,16 +663,17 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			}
 			lastProgress = year
 
-			// Broadcast map update at 25%, 50%, 75% milestones for visual feedback
+			// Send map update to client at 25%, 50%, 75% milestones for visual feedback
 			if percent == 25 || percent == 50 || percent == 75 {
 				client.SendGameMessage("system", fmt.Sprintf("🗺️ Updating map at %d%%...", percent), nil)
 				pct := int(percent)
 				processor := p
 				wID := char.WorldID
+				cli := client // Capture client interface for goroutine
 				go func() {
 					updateCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 					defer cancel()
-					if err := processor.broadcastMapUpdate(updateCtx, wID); err != nil {
+					if err := processor.sendMapUpdateToClient(updateCtx, cli, wID); err != nil {
 						log.Printf("[WorldSimCmd] Map update at %d%% failed: %v", pct, err)
 					}
 				}()
@@ -1360,10 +1361,10 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 
 	client.SendGameMessage("system", sb.String(), nil)
 
-	// Broadcast map update to client so they can see the simulated world
+	// Send map update directly to client so they can see the simulated world
 	client.SendGameMessage("system", "🗺️ Rendering world map...", nil)
-	if err := p.broadcastMapUpdate(ctx, char.WorldID); err != nil {
-		log.Printf("[WorldSimCmd] Failed to broadcast map update: %v", err)
+	if err := p.sendMapUpdateToClient(ctx, client, char.WorldID); err != nil {
+		log.Printf("[WorldSimCmd] Failed to send map update to client: %v", err)
 		client.SendGameMessage("warning", "Map update failed - use 'world map' to load manually", nil)
 	} else {
 		client.SendGameMessage("system", "✅ World map updated!", nil)
@@ -1475,11 +1476,9 @@ func (p *GameProcessor) handleWorldReset(ctx context.Context, client websocket.G
 
 	client.SendGameMessage("system", "🔄 World reset complete. Geology, entities, and simulation state cleared.\nUse 'world simulate <years>' or 'world run' to start fresh.", nil)
 
-	// Broadcast map update so frontend knows to reset to molten planet
-	// (empty geology will trigger molten state)
-	if err := p.broadcastMapUpdate(ctx, worldID); err != nil {
-		log.Printf("[WorldReset] Failed to broadcast reset update: %v", err)
-	}
+	// Send world_reset message so frontend knows to switch to molten planet view
+	// (geology is now nil, so we can't render a map)
+	client.SendGameMessage("world_reset", "Geology cleared - returning to molten planet view", nil)
 
 	return nil
 }
@@ -2292,6 +2291,138 @@ func (p *GameProcessor) broadcastMapUpdate(ctx context.Context, worldID uuid.UUI
 		client.SendRawBytes(payload)
 		client.SendGameMessage("system", "🌍 Planetary simulation update received.", nil)
 	}
+
+	return nil
+}
+
+// sendMapUpdateToClient generates and sends a map update directly to a single client
+// This is used when the world ID may be nil/empty and broadcast won't work
+func (p *GameProcessor) sendMapUpdateToClient(ctx context.Context, client websocket.GameClient, worldID uuid.UUID) error {
+	if p.mapService == nil {
+		return fmt.Errorf("map service not available")
+	}
+
+	geo := p.mapService.GetWorldGeology(worldID)
+	if geo == nil {
+		return fmt.Errorf("geology not found for world %s", worldID)
+	}
+
+	// Standard update resolution
+	width := 2048
+	height := 1024
+	const GridSize = 256
+
+	// 1. Render Image
+	imageBytes, err := p.mapService.RenderMap(ctx, worldID, geo, width, height)
+	if err != nil {
+		return err
+	}
+
+	// 2. Generate Binary Grid Data
+	gridData := p.mapService.BuildBinaryGrid(geo, GridSize, GridSize/2)
+	var gridBytes []byte
+	if gridData != nil {
+		gridBytes = gridData.Serialize()
+	}
+
+	// 3. Render Heightmap PNG
+	heightmapBytes, err := p.mapService.RenderHeightmapPNG(ctx, worldID, geo, width, height)
+	if err != nil {
+		log.Printf("[MAP] Heightmap render failed: %v", err)
+		heightmapBytes = nil
+	}
+
+	// 4. Render Material PNG (rock/soil types)
+	materialBytes, err := p.mapService.RenderMaterialPNG(ctx, worldID, geo, width, height)
+	if err != nil {
+		log.Printf("[MAP] Material render failed: %v", err)
+		materialBytes = nil
+	}
+
+	// 5. Render Ice PNG (glaciers/snow)
+	iceBytes, err := p.mapService.RenderIcePNG(ctx, worldID, geo, width, height)
+	if err != nil {
+		log.Printf("[MAP] Ice render failed: %v", err)
+		iceBytes = nil
+	}
+
+	// Construct JSON Metadata
+	type MapImageMetadata struct {
+		Width            int     `json:"width"`
+		Height           int     `json:"height"`
+		GridWidth        int     `json:"grid_width"`
+		GridHeight       int     `json:"grid_height"`
+		SeaLevel         float64 `json:"sea_level"`
+		MaxElevation     float64 `json:"max_elevation"`
+		MinElevation     float64 `json:"min_elevation"`
+		HasGridData      bool    `json:"has_grid_data"`
+		HasHeightmapData bool    `json:"has_heightmap_data"`
+		HasMaterialData  bool    `json:"has_material_data"`
+		HasIceData       bool    `json:"has_ice_data"`
+	}
+
+	stats := geo.GetStats()
+	metadata := MapImageMetadata{
+		Width:            width,
+		Height:           height,
+		GridWidth:        GridSize,
+		GridHeight:       GridSize / 2,
+		SeaLevel:         stats.SeaLevel,
+		MaxElevation:     stats.MaxElevation,
+		MinElevation:     stats.MinElevation,
+		HasGridData:      len(gridBytes) > 0,
+		HasHeightmapData: len(heightmapBytes) > 0,
+		HasMaterialData:  len(materialBytes) > 0,
+		HasIceData:       len(iceBytes) > 0,
+	}
+
+	jsonBytes, err := json.Marshal(metadata)
+	if err != nil {
+		return err
+	}
+
+	// Build binary section
+	binSection := bytes.NewBuffer(nil)
+
+	binary.Write(binSection, binary.BigEndian, uint32(len(imageBytes)))
+	if len(imageBytes) > 0 {
+		binSection.Write(imageBytes)
+	}
+
+	binary.Write(binSection, binary.BigEndian, uint32(len(gridBytes)))
+	if len(gridBytes) > 0 {
+		binSection.Write(gridBytes)
+	}
+
+	binary.Write(binSection, binary.BigEndian, uint32(len(heightmapBytes)))
+	if len(heightmapBytes) > 0 {
+		binSection.Write(heightmapBytes)
+	}
+
+	binary.Write(binSection, binary.BigEndian, uint32(len(materialBytes)))
+	if len(materialBytes) > 0 {
+		binSection.Write(materialBytes)
+	}
+
+	binary.Write(binSection, binary.BigEndian, uint32(len(iceBytes)))
+	if len(iceBytes) > 0 {
+		binSection.Write(iceBytes)
+	}
+
+	binBytes := binSection.Bytes()
+	totalSize := 1 + 4 + len(jsonBytes) + 4 + len(binBytes)
+	buf := bytes.NewBuffer(make([]byte, 0, totalSize))
+
+	buf.WriteByte(0x01)
+	binary.Write(buf, binary.BigEndian, uint32(len(jsonBytes)))
+	buf.Write(jsonBytes)
+	binary.Write(buf, binary.BigEndian, uint32(len(binBytes)))
+	buf.Write(binBytes)
+
+	payload := buf.Bytes()
+
+	log.Printf("[MAP] Sending map update directly to client (world %s)", worldID)
+	client.SendRawBytes(payload)
 
 	return nil
 }
