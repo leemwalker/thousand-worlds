@@ -995,34 +995,29 @@
 
         try {
             const url = URL.createObjectURL(blob);
-            const texture = new Texture(url, scene, false, false);
-            let loaded = false;
-
-            // Error handler
-            texture.onErrorObservable.addOnce((error) => {
-                console.error(
-                    "[BabylonGlobe] Material texture failed to load:",
-                    error,
-                );
-                URL.revokeObjectURL(url);
-            });
-
-            texture.onLoadObservable.addOnce(() => {
-                loaded = true;
-                console.log("[BabylonGlobe] Material texture loaded");
-                displacementShader?.setMaterialTexture(texture);
-                setTimeout(() => URL.revokeObjectURL(url), 1000);
-            });
-
-            // Timeout fallback
-            setTimeout(() => {
-                if (!loaded) {
-                    console.warn(
-                        "[BabylonGlobe] Material texture load timed out",
+            // Use constructor callbacks instead of observables
+            const texture = new Texture(
+                url,
+                scene,
+                false, // noMipmap
+                false, // invertY
+                Texture.TRILINEAR_SAMPLINGMODE,
+                () => {
+                    // onLoad callback
+                    console.log("[BabylonGlobe] Material texture loaded");
+                    displacementShader?.setMaterialTexture(texture);
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                },
+                (message, exception) => {
+                    // onError callback
+                    console.error(
+                        "[BabylonGlobe] Material texture failed to load:",
+                        message,
+                        exception,
                     );
                     URL.revokeObjectURL(url);
-                }
-            }, 5000);
+                },
+            );
         } catch (err) {
             console.error(
                 "[BabylonGlobe] Failed to apply material texture:",
@@ -1046,32 +1041,29 @@
 
         try {
             const url = URL.createObjectURL(blob);
-            const texture = new Texture(url, scene, false, false);
-            let loaded = false;
-
-            // Error handler
-            texture.onErrorObservable.addOnce((error) => {
-                console.error(
-                    "[BabylonGlobe] Normal map failed to load:",
-                    error,
-                );
-                URL.revokeObjectURL(url);
-            });
-
-            texture.onLoadObservable.addOnce(() => {
-                loaded = true;
-                console.log("[BabylonGlobe] Normal map loaded");
-                displacementShader?.setNormalMap(texture);
-                setTimeout(() => URL.revokeObjectURL(url), 1000);
-            });
-
-            // Timeout fallback
-            setTimeout(() => {
-                if (!loaded) {
-                    console.warn("[BabylonGlobe] Normal map load timed out");
+            // Use constructor callbacks instead of observables
+            const texture = new Texture(
+                url,
+                scene,
+                false, // noMipmap
+                false, // invertY
+                Texture.TRILINEAR_SAMPLINGMODE,
+                () => {
+                    // onLoad callback
+                    console.log("[BabylonGlobe] Normal map loaded");
+                    displacementShader?.setNormalMap(texture);
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                },
+                (message, exception) => {
+                    // onError callback
+                    console.error(
+                        "[BabylonGlobe] Normal map failed to load:",
+                        message,
+                        exception,
+                    );
                     URL.revokeObjectURL(url);
-                }
-            }, 5000);
+                },
+            );
         } catch (err) {
             console.error("[BabylonGlobe] Failed to apply normal map:", err);
         }
@@ -1092,32 +1084,29 @@
 
         try {
             const url = URL.createObjectURL(blob);
-            const texture = new Texture(url, scene, false, false);
-            let loaded = false;
-
-            // Error handler
-            texture.onErrorObservable.addOnce((error) => {
-                console.error(
-                    "[BabylonGlobe] Ice texture failed to load:",
-                    error,
-                );
-                URL.revokeObjectURL(url);
-            });
-
-            texture.onLoadObservable.addOnce(() => {
-                loaded = true;
-                console.log("[BabylonGlobe] Ice texture loaded");
-                displacementShader?.setIceTexture(texture);
-                setTimeout(() => URL.revokeObjectURL(url), 1000);
-            });
-
-            // Timeout fallback
-            setTimeout(() => {
-                if (!loaded) {
-                    console.warn("[BabylonGlobe] Ice texture load timed out");
+            // Use constructor callbacks instead of observables
+            const texture = new Texture(
+                url,
+                scene,
+                false, // noMipmap
+                false, // invertY
+                Texture.TRILINEAR_SAMPLINGMODE,
+                () => {
+                    // onLoad callback
+                    console.log("[BabylonGlobe] Ice texture loaded");
+                    displacementShader?.setIceTexture(texture);
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                },
+                (message, exception) => {
+                    // onError callback
+                    console.error(
+                        "[BabylonGlobe] Ice texture failed to load:",
+                        message,
+                        exception,
+                    );
                     URL.revokeObjectURL(url);
-                }
-            }, 5000);
+                },
+            );
         } catch (err) {
             console.error("[BabylonGlobe] Failed to apply ice texture:", err);
         }

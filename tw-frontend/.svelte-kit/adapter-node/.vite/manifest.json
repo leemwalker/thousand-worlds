@@ -17,13 +17,6 @@
     "file": "chunks/exports.js",
     "name": "exports"
   },
-  "_game.js": {
-    "file": "chunks/game.js",
-    "name": "game",
-    "imports": [
-      "_index.js"
-    ]
-  },
   "_index.js": {
     "file": "chunks/index.js",
     "name": "index",
@@ -41,6 +34,13 @@
     ],
     "dynamicImports": [
       "src/hooks.server.ts"
+    ]
+  },
+  "_schemas.js": {
+    "file": "chunks/schemas.js",
+    "name": "schemas",
+    "imports": [
+      "_index.js"
     ]
   },
   "_shared.js": {
@@ -120,7 +120,7 @@
       "_ssr.js"
     ],
     "css": [
-      "_app/immutable/assets/_layout.DL8jTeMw.css"
+      "_app/immutable/assets/_layout.DOHd4G19.css"
     ]
   },
   "src/routes/+page.svelte": {
@@ -133,7 +133,7 @@
       "_exports.js",
       "_utils.js",
       "_state.svelte.js",
-      "_game.js"
+      "_schemas.js"
     ]
   },
   "src/routes/game/+page.svelte": {
@@ -146,11 +146,17 @@
       "_exports.js",
       "_utils.js",
       "_state.svelte.js",
-      "_game.js",
+      "_schemas.js",
       "_index.js"
     ],
     "css": [
-      "_app/immutable/assets/_page.BA7R0KbH.css"
+      "_app/immutable/assets/_page.D0R3Sn9D.css"
     ]
+  },
+  "src/routes/health/+server.ts": {
+    "file": "entries/endpoints/health/_server.ts.js",
+    "name": "entries/endpoints/health/_server.ts",
+    "src": "src/routes/health/+server.ts",
+    "isEntry": true
   }
 }

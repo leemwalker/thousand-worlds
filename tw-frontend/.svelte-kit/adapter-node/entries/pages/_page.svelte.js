@@ -4,7 +4,7 @@ import "../../chunks/exports.js";
 import "../../chunks/utils.js";
 import "@sveltejs/kit/internal/server";
 import "../../chunks/state.svelte.js";
-import "../../chunks/game.js";
+import "../../chunks/schemas.js";
 const Page = create_ssr_component(($$result, $$props, $$bindings, slots) => {
   let email = "";
   let password = "";
