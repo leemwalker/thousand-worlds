@@ -853,7 +853,7 @@
                 img.width,
                 img.height,
                 scene!,
-                false,
+                true, // Mipmaps required for TRILINEAR sampling and textureGrad
                 false,
                 Texture.TRILINEAR_SAMPLINGMODE,
             );
