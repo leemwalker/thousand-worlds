@@ -99,6 +99,12 @@ function createGameStore() {
             world: { ...s.world, ...worldState }
         })),
 
+        // Reset world to molten state (clears all textures, triggers molten planet shader)
+        resetWorld: () => update(s => ({
+            ...s,
+            world: initialWorldState
+        })),
+
         reset: () => set(initialState)
     };
 }

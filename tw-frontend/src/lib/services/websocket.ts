@@ -263,6 +263,10 @@ export class GameWebSocket {
                 }
                 // Maintain existing satellites if not provided
             });
+        } else if (message.type === 'world_reset') {
+            // World was reset - clear texture data to trigger molten planet view
+            console.log('[WS] world_reset received - switching to molten planet view');
+            gameStore.resetWorld();
         }
 
         // Notify all handlers

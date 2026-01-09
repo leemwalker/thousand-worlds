@@ -37,7 +37,8 @@ export type ServerMessageType =
     | 'combat_event'
     | 'error'
     | 'world_map_image_response'
-    | 'world_tile_response';
+    | 'world_tile_response'
+    | 'world_reset';
 
 export interface BaseServerMessage {
     type: ServerMessageType;
@@ -94,6 +95,13 @@ export interface ErrorMessage extends BaseServerMessage {
     };
 }
 
+export interface WorldResetMessage extends BaseServerMessage {
+    type: 'world_reset';
+    data: {
+        message?: string;
+    };
+}
+
 export type ServerMessage =
     | GameOutputMessage
     | StateUpdateMessage
@@ -101,7 +109,8 @@ export type ServerMessage =
     | CombatEventMessage
     | ErrorMessage
     | WorldMapImageMessage
-    | WorldTileMessage;
+    | WorldTileMessage
+    | WorldResetMessage;
 
 export interface WorldMapImageMessage extends BaseServerMessage {
     type: 'world_map_image_response';
