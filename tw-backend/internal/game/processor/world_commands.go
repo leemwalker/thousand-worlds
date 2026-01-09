@@ -1344,6 +1344,16 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	}
 
 	client.SendGameMessage("system", sb.String(), nil)
+
+	// Broadcast map update to client so they can see the simulated world
+	client.SendGameMessage("system", "🗺️ Rendering world map...", nil)
+	if err := p.broadcastMapUpdate(ctx, char.WorldID); err != nil {
+		log.Printf("[WorldSimCmd] Failed to broadcast map update: %v", err)
+		client.SendGameMessage("warning", "Map update failed - use 'world map' to load manually", nil)
+	} else {
+		client.SendGameMessage("system", "✅ World map updated!", nil)
+	}
+
 	return nil
 }
 
