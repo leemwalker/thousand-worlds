@@ -347,11 +347,27 @@
 
         // Apply initial material to all meshes
         if (isMoltenState && moltenShader) {
-            const moltenMat = moltenShader.getMaterial();
-            globe.material = moltenMat;
-            mediumMesh.material = moltenMat;
-            lowMesh.material = moltenMat;
-            console.log("[WorldController] Applied Molten Planet Shader");
+            // DEBUG: Use bright standard material instead of shader to test geometry
+            const debugMat = new StandardMaterial("debugMat", scene);
+            debugMat.diffuseColor = new Color3(1.0, 0.3, 0.0); // Bright orange
+            debugMat.emissiveColor = new Color3(0.5, 0.1, 0.0); // Glowing
+            debugMat.specularColor = new Color3(0.3, 0.3, 0.3);
+
+            globe.material = debugMat;
+            mediumMesh.material = debugMat;
+            lowMesh.material = debugMat;
+            console.log(
+                "[WorldController] Applied DEBUG material (should be bright orange)",
+            );
+            console.log(
+                "[WorldController] Globe position:",
+                globe.getAbsolutePosition(),
+            );
+            console.log("[WorldController] Camera position:", camera?.position);
+            console.log(
+                "[WorldController] Camera target:",
+                camera?.getTarget(),
+            );
         } else {
             globe.material = globeMaterial;
             mediumMesh.material = globeMaterial;
