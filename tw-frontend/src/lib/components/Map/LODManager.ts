@@ -153,6 +153,7 @@ export class LODManager implements ILODManager {
             {
                 radius: 1, // Diameter 2 = Radius 1
                 subdivisions: subdivisions,
+                flat: false,
                 updatable: true
             },
             scene
