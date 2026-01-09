@@ -397,7 +397,8 @@
         createMoons(scene);
 
         // Create starfield background
-        createStarfield(scene);
+        // DEBUG: Disabled to test occlusion
+        // createStarfield(scene);
 
         // Initialize tile streaming system (if command callback is provided)
         if (sendTileCommand && planetNode) {
@@ -445,7 +446,8 @@
             fpsAccessibility = new FPSAccessibilityOptions();
 
             // Horizon renderer (sky dome)
-            horizonRenderer = new HorizonRenderer(scene);
+            // DEBUG: Disabled to test occlusion
+            // horizonRenderer = new HorizonRenderer(scene);
 
             // Water effects
             waterEffects = new WaterEffects(scene);
