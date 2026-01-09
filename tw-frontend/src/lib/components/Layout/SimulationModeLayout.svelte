@@ -98,6 +98,9 @@
             currentLoc !== $gameStore.gameLocation &&
             !sceneManager.isInTransition()
         ) {
+            // CRITICAL: Null out activeScene BEFORE transition starts
+            // This prevents WorldController from rendering with the stale scene
+            activeScene = null;
             sceneManager.transitionTo($gameStore.gameLocation).then(() => {
                 activeScene = sceneManager.getActiveScene();
             });
