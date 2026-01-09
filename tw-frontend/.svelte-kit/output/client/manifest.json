@@ -1,0 +1,45 @@
+{
+    "name": "Thousand Worlds MUD Client",
+    "short_name": "TW MUD",
+    "description": "A modern multi-user dungeon client for Thousand Worlds",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#1a1a2e",
+    "theme_color": "#16213e",
+    "orientation": "any",
+    "icons": [
+        {
+            "src": "/icons/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": [
+        "games",
+        "entertainment"
+    ],
+    "screenshots": [],
+    "shortcuts": [
+        {
+            "name": "Quick Connect",
+            "short_name": "Connect",
+            "description": "Connect to your last world",
+            "url": "/game",
+            "icons": [
+                {
+                    "src": "/icons/icon-192.png",
+                    "sizes": "192x192"
+                }
+            ]
+        }
+    ],
+    "scope": "/",
+    "prefer_related_applications": false
+}

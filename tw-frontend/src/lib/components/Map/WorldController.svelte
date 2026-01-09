@@ -504,17 +504,35 @@
     }
 
     // Watch for material blob changes (data-driven terrain coloring)
-    $: if (materialBlob && scene && displacementShader) {
+    // Also ensure shader material is ready
+    $: if (
+        materialBlob &&
+        scene &&
+        displacementShader &&
+        displacementShader.getMaterial()
+    ) {
         applyMaterialTexture(materialBlob);
     }
 
     // Watch for normal map blob changes
-    $: if (normalMapBlob && scene && globeMaterial) {
+    // Also ensure shader material is ready
+    $: if (
+        normalMapBlob &&
+        scene &&
+        displacementShader &&
+        displacementShader.getMaterial()
+    ) {
         applyNormalMap(normalMapBlob);
     }
 
     // Watch for ice blob changes (glacier/polar visualization)
-    $: if (iceBlob && scene && displacementShader) {
+    // Also ensure shader material is ready
+    $: if (
+        iceBlob &&
+        scene &&
+        displacementShader &&
+        displacementShader.getMaterial()
+    ) {
         applyIceTexture(iceBlob);
     }
 
@@ -965,19 +983,46 @@
     async function applyMaterialTexture(blob: Blob) {
         if (!scene || !displacementShader) return;
 
+        // Validate blob has content
+        if (!blob || blob.size === 0) {
+            console.warn("[BabylonGlobe] Material blob is empty, skipping");
+            return;
+        }
+
         console.log(
             `[BabylonGlobe] Applying material texture from blob (${blob.size} bytes)`,
         );
 
         try {
             const url = URL.createObjectURL(blob);
-            const texture = new Texture(url, scene);
+            const texture = new Texture(url, scene, false, false);
+            let loaded = false;
+
+            // Error handler
+            texture.onErrorObservable.addOnce((error) => {
+                console.error(
+                    "[BabylonGlobe] Material texture failed to load:",
+                    error,
+                );
+                URL.revokeObjectURL(url);
+            });
 
             texture.onLoadObservable.addOnce(() => {
+                loaded = true;
                 console.log("[BabylonGlobe] Material texture loaded");
                 displacementShader?.setMaterialTexture(texture);
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
             });
+
+            // Timeout fallback
+            setTimeout(() => {
+                if (!loaded) {
+                    console.warn(
+                        "[BabylonGlobe] Material texture load timed out",
+                    );
+                    URL.revokeObjectURL(url);
+                }
+            }, 5000);
         } catch (err) {
             console.error(
                 "[BabylonGlobe] Failed to apply material texture:",
@@ -989,19 +1034,44 @@
     async function applyNormalMap(blob: Blob) {
         if (!scene || !displacementShader) return;
 
+        // Validate blob has content
+        if (!blob || blob.size === 0) {
+            console.warn("[BabylonGlobe] Normal map blob is empty, skipping");
+            return;
+        }
+
         console.log(
             `[BabylonGlobe] Applying normal map from blob (${blob.size} bytes)`,
         );
 
         try {
             const url = URL.createObjectURL(blob);
-            const texture = new Texture(url, scene, true, false); // No mipmaps for normals? Actually default is fine
+            const texture = new Texture(url, scene, false, false);
+            let loaded = false;
+
+            // Error handler
+            texture.onErrorObservable.addOnce((error) => {
+                console.error(
+                    "[BabylonGlobe] Normal map failed to load:",
+                    error,
+                );
+                URL.revokeObjectURL(url);
+            });
 
             texture.onLoadObservable.addOnce(() => {
+                loaded = true;
                 console.log("[BabylonGlobe] Normal map loaded");
                 displacementShader?.setNormalMap(texture);
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
             });
+
+            // Timeout fallback
+            setTimeout(() => {
+                if (!loaded) {
+                    console.warn("[BabylonGlobe] Normal map load timed out");
+                    URL.revokeObjectURL(url);
+                }
+            }, 5000);
         } catch (err) {
             console.error("[BabylonGlobe] Failed to apply normal map:", err);
         }
@@ -1010,19 +1080,44 @@
     async function applyIceTexture(blob: Blob) {
         if (!scene || !displacementShader) return;
 
+        // Validate blob has content
+        if (!blob || blob.size === 0) {
+            console.warn("[BabylonGlobe] Ice blob is empty, skipping");
+            return;
+        }
+
         console.log(
             `[BabylonGlobe] Applying ice texture from blob (${blob.size} bytes)`,
         );
 
         try {
             const url = URL.createObjectURL(blob);
-            const texture = new Texture(url, scene);
+            const texture = new Texture(url, scene, false, false);
+            let loaded = false;
+
+            // Error handler
+            texture.onErrorObservable.addOnce((error) => {
+                console.error(
+                    "[BabylonGlobe] Ice texture failed to load:",
+                    error,
+                );
+                URL.revokeObjectURL(url);
+            });
 
             texture.onLoadObservable.addOnce(() => {
+                loaded = true;
                 console.log("[BabylonGlobe] Ice texture loaded");
                 displacementShader?.setIceTexture(texture);
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
             });
+
+            // Timeout fallback
+            setTimeout(() => {
+                if (!loaded) {
+                    console.warn("[BabylonGlobe] Ice texture load timed out");
+                    URL.revokeObjectURL(url);
+                }
+            }, 5000);
         } catch (err) {
             console.error("[BabylonGlobe] Failed to apply ice texture:", err);
         }

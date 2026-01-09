@@ -26,12 +26,10 @@
  * ```
  */
 declare module '$env/static/private' {
-	export const NVM_INC: string;
 	export const ANTIGRAVITY_AGENT: string;
 	export const TERM_PROGRAM: string;
 	export const NODE: string;
 	export const INIT_CWD: string;
-	export const NVM_CD_FLAGS: string;
 	export const TERM: string;
 	export const SHELL: string;
 	export const TMPDIR: string;
@@ -44,12 +42,10 @@ declare module '$env/static/private' {
 	export const COLOR: string;
 	export const npm_config_noproxy: string;
 	export const npm_config_local_prefix: string;
-	export const NVM_DIR: string;
 	export const USER: string;
 	export const VSCODE_LOGIN_INITIALIZED: string;
 	export const COMMAND_MODE: string;
 	export const npm_config_globalconfig: string;
-	export const KUBECONFIG: string;
 	export const SSH_AUTH_SOCK: string;
 	export const VSCODE_PROFILE_INITIALIZED: string;
 	export const __CF_USER_TEXT_ENCODING: string;
@@ -71,11 +67,9 @@ declare module '$env/static/private' {
 	export const npm_config_npm_version: string;
 	export const VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
 	export const XPC_FLAGS: string;
-	export const FORCE_COLOR: string;
 	export const npm_config_node_gyp: string;
 	export const npm_package_version: string;
 	export const XPC_SERVICE_NAME: string;
-	export const DEBUG_COLORS: string;
 	export const VSCODE_INJECTION: string;
 	export const ANTIGRAVITY_CLI_ALIAS: string;
 	export const SHLVL: string;
@@ -85,10 +79,7 @@ declare module '$env/static/private' {
 	export const LOGNAME: string;
 	export const npm_lifecycle_script: string;
 	export const VSCODE_GIT_IPC_HANDLE: string;
-	export const NVM_BIN: string;
-	export const BROWSER: string;
 	export const npm_config_user_agent: string;
-	export const PLAYWRIGHT_TEST: string;
 	export const VSCODE_GIT_ASKPASS_NODE: string;
 	export const GIT_ASKPASS: string;
 	export const npm_node_execpath: string;
@@ -124,12 +115,10 @@ declare module '$env/static/public' {
  */
 declare module '$env/dynamic/private' {
 	export const env: {
-		NVM_INC: string;
 		ANTIGRAVITY_AGENT: string;
 		TERM_PROGRAM: string;
 		NODE: string;
 		INIT_CWD: string;
-		NVM_CD_FLAGS: string;
 		TERM: string;
 		SHELL: string;
 		TMPDIR: string;
@@ -142,12 +131,10 @@ declare module '$env/dynamic/private' {
 		COLOR: string;
 		npm_config_noproxy: string;
 		npm_config_local_prefix: string;
-		NVM_DIR: string;
 		USER: string;
 		VSCODE_LOGIN_INITIALIZED: string;
 		COMMAND_MODE: string;
 		npm_config_globalconfig: string;
-		KUBECONFIG: string;
 		SSH_AUTH_SOCK: string;
 		VSCODE_PROFILE_INITIALIZED: string;
 		__CF_USER_TEXT_ENCODING: string;
@@ -169,11 +156,9 @@ declare module '$env/dynamic/private' {
 		npm_config_npm_version: string;
 		VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
 		XPC_FLAGS: string;
-		FORCE_COLOR: string;
 		npm_config_node_gyp: string;
 		npm_package_version: string;
 		XPC_SERVICE_NAME: string;
-		DEBUG_COLORS: string;
 		VSCODE_INJECTION: string;
 		ANTIGRAVITY_CLI_ALIAS: string;
 		SHLVL: string;
@@ -183,10 +168,7 @@ declare module '$env/dynamic/private' {
 		LOGNAME: string;
 		npm_lifecycle_script: string;
 		VSCODE_GIT_IPC_HANDLE: string;
-		NVM_BIN: string;
-		BROWSER: string;
 		npm_config_user_agent: string;
-		PLAYWRIGHT_TEST: string;
 		VSCODE_GIT_ASKPASS_NODE: string;
 		GIT_ASKPASS: string;
 		npm_node_execpath: string;
