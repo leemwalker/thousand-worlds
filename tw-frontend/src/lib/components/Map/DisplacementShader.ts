@@ -2,7 +2,7 @@ import type { IShaderProvider } from "./interfaces";
 import { Effect } from "@babylonjs/core/Materials/effect";
 import { ShaderMaterial } from "@babylonjs/core/Materials/shaderMaterial";
 import type { Scene } from "@babylonjs/core/scene";
-import type { Texture } from "@babylonjs/core/Materials/Textures/texture";
+import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 
 // Define shaders in-line for Phase 1 simplicity
@@ -21,18 +21,32 @@ Effect.ShadersStore["displacementVertexShader"] = `
     uniform float scale;
 
     // Varyings
-    varying vec2 vUV;
     varying float vHeight;
     varying vec3 vNormal;
     varying vec3 vPosition;
+    varying vec2 vUV; // We still pass UV for material textures that might use it (though we should strictly use calc'd UV)
 
     void main(void) {
-        vUV = uv;
         vNormal = normal;
         
+        // We will calculate UVs in fragment shader for the diffuse, 
+        // BUT we need UVs here for sampling the heightmap if we want displacement.
+        // HOWEVER, standard UVs pinch at poles.
+        // Ideally, heightmap would also be sampled via 3D position, but vertex texture fetch isn't always cheap/easy with gradients.
+        // For now, we will stick to using the Mesh UVs for vertex displacement (geometry is dense there anyway so pinching is less visible in height than in texture),
+        // or we could try to compute spherical UVs here too.
+        // For Icosphere, 'uv' attribute might not be what we want.
+        // Let's compute a basic spherical UV here for the vertex displacement fetch.
+        
+        vec3 p_norm = normalize(position);
+        float long_u = atan(p_norm.z, p_norm.x) / (2.0 * 3.14159265359) + 0.5;
+        float lat_v = asin(p_norm.y) / 3.14159265359 + 0.5;
+        vec2 sphericalUV = vec2(long_u, lat_v);
+        vUV = sphericalUV; // Use this for height fetch
+
         // Sample height
         // Assuming heightmap is normalized 0.0-1.0
-        float h = texture2D(heightmap, uv).r;
+        float h = texture2D(heightmap, sphericalUV).r;
         vHeight = h;
         
         // Displace along normal
@@ -45,12 +59,13 @@ Effect.ShadersStore["displacementVertexShader"] = `
 `;
 
 Effect.ShadersStore["displacementFragmentShader"] = `
+    #extension GL_OES_standard_derivatives : enable
     precision highp float;
 
     // Varyings
-    varying vec2 vUV;
     varying float vHeight;
     varying vec3 vNormal;
+    varying vec3 vPosition;
 
     // Uniforms
     uniform vec3 color; // Base color (fallback)
@@ -59,13 +74,28 @@ Effect.ShadersStore["displacementFragmentShader"] = `
     uniform float minElevation; // Minimum elevation in meters
     uniform float maxElevation; // Maximum elevation in meters
     
-    // Data textures for data-driven coloring
+    // Data textures
+    uniform sampler2D diffuseTex;  // The actual color map (replacing procedural rock)
+    uniform sampler2D specularTex; // Specular map (water shininess)
     uniform sampler2D materialTex; // R=hardness, G=continental, B=sediment
     uniform sampler2D iceTex;      // R=ice thickness
     uniform sampler2D normalTex;   // Normal map for 3D shadows
+    
+    uniform bool hasDiffuseTex;
+    uniform bool hasSpecularTex;
     uniform bool hasMaterialTex;
     uniform bool hasIceTex;
     uniform bool hasNormalTex;
+
+    const float PI = 3.14159265359;
+
+    // Calculate Spherical UV from 3D Position
+    vec2 calculateUV(vec3 p) {
+        vec3 v = normalize(p);
+        float u = (atan(v.z, v.x) / (2.0 * PI)) + 0.5;
+        float v_coord = (asin(v.y) / PI) + 0.5;
+        return vec2(u, v_coord);
+    }
 
     // Color palette for rock types based on hardness
     vec3 getRockColor(float hardness, bool isContinental) {
@@ -117,12 +147,36 @@ Effect.ShadersStore["displacementFragmentShader"] = `
     }
 
     void main(void) {
+        // Calculate UVs from 3D position
+        vec2 uv = calculateUV(vPosition);
+
+        // --- SEAM FIX ---
+        // Calculate analytic derivatives
+        vec2 uv_dx = dFdx(uv);
+        vec2 uv_dy = dFdy(uv);
+        
+        // Check for wrapping in U (longitude)
+        // If the derivative is too large, it means we wrapped across the Date Line
+        if (abs(uv_dx.x) > 0.5) {
+            uv_dx.x = -sign(uv_dx.x) * (1.0 - abs(uv_dx.x));
+        }
+        if (abs(uv_dy.x) > 0.5) {
+            uv_dy.x = -sign(uv_dy.x) * (1.0 - abs(uv_dy.x));
+        }
+        // ----------------
+
         // Calculate perturbed normal
         vec3 normal = normalize(vNormal);
         
         if (hasNormalTex) {
             // Sample normal map (tangent space)
-            vec3 mapN = texture2D(normalTex, vUV).rgb * 2.0 - 1.0;
+            // Use textureGrad for seam-safe sampling
+            vec3 mapN;
+            #ifdef GL_OES_standard_derivatives
+                mapN = texture2DGradEXT(normalTex, uv, uv_dx, uv_dy).rgb * 2.0 - 1.0;
+            #else
+                mapN = texture2D(normalTex, uv).rgb * 2.0 - 1.0;
+            #endif
             
             // Calculate TBN matrix
             // Tangent (East-West)
@@ -138,45 +192,85 @@ Effect.ShadersStore["displacementFragmentShader"] = `
 
         // Lighting
         float ndotl = max(0.0, dot(normal, lightDirection));
+        vec3 viewDir = normalize(vec3(0.0, 0.0, 0.0) - vPosition); // Simplified View Dir approximation or pass camera pos
+        vec3 halfVector = normalize(lightDirection + viewDir);
+        float NdotH = max(0.0, dot(normal, halfVector));
         
-        // Sample material data if available
-        float hardness = 0.5;
-        bool isContinental = true;
-        float sediment = 0.0;
+        // --- BASE SURFACE COLOR ---
+        vec3 surfaceColor = vec3(0.5); // Default grey
         
-        if (hasMaterialTex) {
-            vec4 matData = texture2D(materialTex, vUV);
-            hardness = matData.r;
-            isContinental = matData.g > 0.5;
-            sediment = matData.b;
+        if (hasDiffuseTex) {
+            // If we have a diffuse texture (real map), use it!
+            #ifdef GL_OES_standard_derivatives
+                surfaceColor = texture2DGradEXT(diffuseTex, uv, uv_dx, uv_dy).rgb;
+            #else
+                surfaceColor = texture2D(diffuseTex, uv).rgb;
+            #endif
+        } else {
+            // Procedural Coloring (Fallback or Data View)
+            // Sample material data if available
+            float hardness = 0.5;
+            bool isContinental = true;
+            float sediment = 0.0;
+            
+            if (hasMaterialTex) {
+                vec4 matData;
+                #ifdef GL_OES_standard_derivatives
+                    matData = texture2DGradEXT(materialTex, uv, uv_dx, uv_dy);
+                #else
+                    matData = texture2D(materialTex, uv);
+                #endif
+                hardness = matData.r;
+                isContinental = matData.g > 0.5;
+                sediment = matData.b;
+            }
+            
+            // Get base rock color from material data
+            surfaceColor = getRockColor(hardness, isContinental);
+            
+            // Apply sediment overlay
+            if (sediment > 0.1) {
+                vec3 sedimentCol = getSedimentColor(sediment);
+                surfaceColor = mix(surfaceColor, sedimentCol, min(sediment * 1.5, 0.7));
+            }
+            
+            // Check if underwater
+            if (vHeight < seaLevel) {
+                // Underwater - satellite-style bathymetry showing underwater terrain
+                float depthFactor = (seaLevel - vHeight) / max(seaLevel, 0.001);
+                surfaceColor = getBathymetricColor(surfaceColor, depthFactor);
+            }
         }
         
-        // Get base rock color from material data
-        vec3 surfaceColor = getRockColor(hardness, isContinental);
-        
-        // Apply sediment overlay
-        if (sediment > 0.1) {
-            vec3 sedimentCol = getSedimentColor(sediment);
-            surfaceColor = mix(surfaceColor, sedimentCol, min(sediment * 1.5, 0.7));
-        }
-        
-        // Check if underwater
-        if (vHeight < seaLevel) {
-            // Underwater - satellite-style bathymetry showing underwater terrain
-            float depthFactor = (seaLevel - vHeight) / max(seaLevel, 0.001);
-            surfaceColor = getBathymetricColor(surfaceColor, depthFactor);
-        }
-        
+        // --- OVERLAYS (Ice, etc.) ---
         // Apply ice overlay
         if (hasIceTex) {
-            float ice = texture2D(iceTex, vUV).r;
+            float ice;
+            #ifdef GL_OES_standard_derivatives
+                ice = texture2DGradEXT(iceTex, uv, uv_dx, uv_dy).r;
+            #else
+                ice = texture2D(iceTex, uv).r;
+            #endif
+            
             if (ice > 0.05) {
                 vec3 iceCol = getIceColor(ice);
                 surfaceColor = mix(surfaceColor, iceCol, min(ice * 2.0, 0.95));
             }
         }
         
-        vec3 finalColor = surfaceColor * (0.25 + 0.75 * ndotl); // Ambient + Diffuse
+        // SPECULAR HIGHLIGHT
+        float specularPower = 30.0;
+        float specularIntensity = 0.0;
+        if (hasSpecularTex) {
+             #ifdef GL_OES_standard_derivatives
+                specularIntensity = texture2DGradEXT(specularTex, uv, uv_dx, uv_dy).r;
+            #else
+                specularIntensity = texture2D(specularTex, uv).r;
+            #endif
+        }
+        vec3 specular = vec3(pow(NdotH, specularPower)) * specularIntensity;
+        
+        vec3 finalColor = surfaceColor * (0.25 + 0.75 * ndotl) + specular; // Ambient + Diffuse + Specular
 
         gl_FragColor = vec4(finalColor, 1.0);
     }
@@ -191,7 +285,21 @@ export class DisplacementShader implements IShaderProvider {
         this.scene = scene;
     }
 
-    public createMaterial(heightmap: Texture, scale: number = 0.5): ShaderMaterial {
+    public getMaterial(): ShaderMaterial | null {
+        return this.material;
+    }
+
+    public createMaterial(heightmap: Texture | null = null, scale: number = 0.5): ShaderMaterial {
+        if (!heightmap) {
+            // Create a default flat heightmap (1x1 pixel black)
+            const data = new Uint8Array([0, 0, 0, 255]); // Black, full alpha
+            heightmap = new Texture(
+                "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+                this.scene,
+                true, false, Texture.NEAREST_SAMPLINGMODE
+            );
+        }
+
         this.heightmap = heightmap;
 
         this.material = new ShaderMaterial(
@@ -202,9 +310,10 @@ export class DisplacementShader implements IShaderProvider {
                 fragment: "displacement",
             },
             {
-                attributes: ["position", "normal", "uv"],
-                uniforms: ["world", "viewProjection", "scale", "color", "lightDirection", "seaLevel", "minElevation", "maxElevation", "hasMaterialTex", "hasIceTex", "hasNormalTex"],
-                samplers: ["heightmap", "materialTex", "iceTex", "normalTex"],
+                attributes: ["position", "normal"], // Removed 'uv' as we don't rely on mesh UVs primarily anymore, but Vertex shader calculates its own
+                uniforms: ["world", "viewProjection", "scale", "color", "lightDirection", "seaLevel", "minElevation", "maxElevation",
+                    "hasDiffuseTex", "hasSpecularTex", "hasMaterialTex", "hasIceTex", "hasNormalTex"],
+                samplers: ["heightmap", "diffuseTex", "specularTex", "materialTex", "iceTex", "normalTex"],
             }
         );
 
@@ -220,6 +329,8 @@ export class DisplacementShader implements IShaderProvider {
         this.material.setFloat("maxElevation", 8848);
 
         // Data texture flags - default to false until textures are provided
+        this.material.setInt("hasDiffuseTex", 0);
+        this.material.setInt("hasSpecularTex", 0);
         this.material.setInt("hasMaterialTex", 0);
         this.material.setInt("hasIceTex", 0);
         this.material.setInt("hasNormalTex", 0);
@@ -228,6 +339,25 @@ export class DisplacementShader implements IShaderProvider {
         this.material.backFaceCulling = true;
 
         return this.material;
+    }
+
+    /**
+     * Set the main diffuse texture (e.g. the satellite map).
+     */
+    public setDiffuseTexture(texture: Texture): void {
+        if (this.material) {
+            this.material.setTexture("diffuseTex", texture);
+            this.material.setInt("hasDiffuseTex", 1);
+            console.log("[DisplacementShader] Diffuse texture set");
+        }
+    }
+
+    public setSpecularTexture(texture: Texture): void {
+        if (this.material) {
+            this.material.setTexture("specularTex", texture);
+            this.material.setInt("hasSpecularTex", 1);
+            console.log("[DisplacementShader] Specular texture set");
+        }
     }
 
     public updateHeightmap(texture: Texture): void {

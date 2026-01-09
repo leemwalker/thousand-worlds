@@ -338,13 +338,10 @@
         lowMesh.parent = planetNode;
         lowMesh.setEnabled(false);
 
-        // Create placeholder material initially (until heightmap loads)
-        // We'll replace this with the shader material once we have the texture
-        globeMaterial = new StandardMaterial("globeMaterial", scene);
-        globeMaterial.diffuseColor = new Color3(0.2, 0.2, 0.25);
-        globeMaterial.specularColor = new Color3(0.2, 0.2, 0.25);
-        globeMaterial.specularPower = 32;
-        globeMaterial.backFaceCulling = true; // Sphere doesn't need double-sided
+        // Initialize shader material with default parameters (grey, flat)
+        // This ensures spherical UV mapping is used even before textures load
+        displacementShader.createMaterial(null);
+        const defaultMat = displacementShader.getMaterial();
 
         // Apply initial material to all meshes
         if (isMoltenState && moltenShader) {
@@ -353,10 +350,10 @@
             mediumMesh.material = moltenMat;
             lowMesh.material = moltenMat;
             console.log("[WorldController] Applied Molten Planet Shader");
-        } else {
-            globe.material = globeMaterial;
-            mediumMesh.material = globeMaterial;
-            lowMesh.material = globeMaterial;
+        } else if (defaultMat) {
+            globe.material = defaultMat;
+            mediumMesh.material = defaultMat;
+            lowMesh.material = defaultMat;
         }
 
         // ===========================================
@@ -755,7 +752,7 @@
     }
 
     async function updateTexture(blob: Blob) {
-        if (!scene || !globeMaterial) return;
+        if (!scene || !displacementShader) return;
 
         // Exit molten state if active
         if (isMoltenState) {
@@ -764,14 +761,15 @@
             );
             isMoltenState = false;
 
-            // Switch meshes back to standard material (will be updated below)
-            // or displacement shader if that applies later
-            if (globe) globe.material = globeMaterial;
-            if (lodManager) {
-                // Reset LODs to globeMaterial
-                for (let i = 0; i <= 2; i++) {
-                    const mesh = lodManager.getMesh(i);
-                    if (mesh) mesh.material = globeMaterial;
+            // Switch meshes to displacement shader material
+            if (displacementShader && displacementShader.getMaterial()) {
+                const mat = displacementShader.getMaterial();
+                if (globe && mat) globe.material = mat;
+                if (lodManager && mat) {
+                    for (let i = 0; i <= 2; i++) {
+                        const mesh = lodManager.getMesh(i);
+                        if (mesh) mesh.material = mat;
+                    }
                 }
             }
 
@@ -825,12 +823,20 @@
             const imageData = ctx.getImageData(0, 0, img.width, img.height);
             const pixels = imageData.data;
 
-            // Generate specular map
+            // Perform safe pixel access for specular map generation
             const specularData = new Uint8ClampedArray(pixels.length);
             for (let i = 0; i < pixels.length; i += 4) {
+                // Ensure array index access is safe (TS safety)
+                if (i + 3 >= pixels.length) break;
+
                 const r = pixels[i];
                 const g = pixels[i + 1];
                 const b = pixels[i + 2];
+
+                // Fallback for undefined which shouldn't happen with the break above
+                if (r === undefined || g === undefined || b === undefined)
+                    continue;
+
                 // Water detection (blue dominant)
                 const isWater = b > r + 20 && b > g + 10;
                 const specular = isWater ? 200 : 20;
@@ -847,10 +853,39 @@
                 img.width,
                 img.height,
                 scene!,
-                true,
+                false,
                 false,
                 Texture.TRILINEAR_SAMPLINGMODE,
             );
+
+            // Pass texture to the shader
+            if (displacementShader) {
+                // Ensure material exists (might not have heightmap yet)
+                if (!displacementShader.getMaterial()) {
+                    console.log(
+                        "[WorldController] Creating default DisplacementShader material",
+                    );
+                    displacementShader.createMaterial(null);
+                }
+
+                displacementShader.setDiffuseTexture(globeTexture);
+                console.log(
+                    "[WorldController] Texture applied to Displacement Shader",
+                );
+            } else {
+                console.warn(
+                    "[WorldController] Displacement Shader not ready for texture",
+                );
+            }
+
+            // Use getMaterial() instead of accessing private property
+            if (displacementShader && displacementShader.getMaterial()) {
+                // Double check we are using the right material
+            }
+
+            // Standard Material Fallback REMOVED
+            // We now rely solely on DisplacementShader to handle the texture rendering
+            // to support the Icosphere geometry (preventing pole pinching).
 
             // Create specular texture
             const specularTexture = RawTexture.CreateRGBATexture(
@@ -863,8 +898,10 @@
                 Texture.TRILINEAR_SAMPLINGMODE,
             );
 
-            globeMaterial.diffuseTexture = globeTexture;
-            globeMaterial.specularTexture = specularTexture;
+            // Pass specular texture to the shader
+            if (displacementShader) {
+                displacementShader.setSpecularTexture(specularTexture);
+            }
 
             console.log("[BabylonGlobe] Planet texture updated");
         } catch (err) {

@@ -51,7 +51,8 @@ export class LODManager implements ILODManager {
     getLODLevel(distance: number): number {
         // Find the highest quality level where camera is within threshold
         for (let i = 0; i < this.config.levels.length; i++) {
-            if (distance < this.config.levels[i].distance) {
+            const level = this.config.levels[i];
+            if (level && distance < level.distance) {
                 return i;
             }
         }
@@ -64,7 +65,9 @@ export class LODManager implements ILODManager {
      */
     getSegmentsForLevel(level: number): number {
         const clampedLevel = Math.max(0, Math.min(level, this.config.levels.length - 1));
-        return this.config.levels[clampedLevel].segments;
+        const configLevel = this.config.levels[clampedLevel];
+        // Default fallback if somehow undefined
+        return configLevel ? configLevel.segments : 32;
     }
 
     /**
@@ -79,7 +82,12 @@ export class LODManager implements ILODManager {
         }
 
         // Apply hysteresis - require distance to be significantly past threshold
-        const threshold = this.config.levels[Math.min(newLevel, this.config.levels.length - 1)].distance;
+        const clampedIndex = Math.min(newLevel, this.config.levels.length - 1);
+        const levelConfig = this.config.levels[clampedIndex];
+
+        if (!levelConfig) return false;
+
+        const threshold = levelConfig.distance;
         const hysteresisMargin = threshold * this.hysteresis;
 
         // When moving to higher detail (lower level), check we're significantly under
@@ -121,11 +129,32 @@ export class LODManager implements ILODManager {
     /**
      * Create or get mesh for a LOD level in the given scene.
      */
+    /**
+     * Create or get mesh for a LOD level in the given scene.
+     */
     createMesh(scene: Scene, level: number, name: string = "globe"): Mesh {
         const segments = this.getSegmentsForLevel(level);
-        const mesh = MeshBuilder.CreateSphere(
+
+        // Map linear segments to IcoSphere subdivisions
+        // segments: 128 -> sub: 32 (high)
+        // segments: 64  -> sub: 16 (med)
+        // segments: 32  -> sub: 8  (low)
+        // Icosphere vertex count grows fast, so we need fewer subdivisions than sphere segments
+        // Ico: 4 * sub^2 faces approximately. 
+        // Sphere: segments^2 * 2 faces
+        // Let's use a mapping that provides reasonable density without killing performance.
+        let subdivisions = 32;
+        if (segments <= 32) subdivisions = 16;
+        if (segments <= 16) subdivisions = 8;
+
+        // Use IcoSphere to avoid pole pinching!
+        const mesh = MeshBuilder.CreateIcoSphere(
             `${name}_lod${level}`,
-            { segments, diameter: 2, updatable: true },
+            {
+                radius: 1, // Diameter 2 = Radius 1
+                subdivisions: subdivisions,
+                updatable: true
+            },
             scene
         );
         this.meshes.set(level, mesh);
