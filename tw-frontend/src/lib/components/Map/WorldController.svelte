@@ -46,6 +46,7 @@
     export let globeHeightmapBlob: Blob | null = null;
     export let materialBlob: Blob | null = null;
     export let iceBlob: Blob | null = null;
+    export let normalMapBlob: Blob | null = null;
     export let seaLevel: number = 0;
     export let maxElevation: number = 8848;
     export let minElevation: number = -11000;
@@ -510,6 +511,11 @@
         applyMaterialTexture(materialBlob);
     }
 
+    // Watch for normal map blob changes
+    $: if (normalMapBlob && scene && globeMaterial) {
+        applyNormalMap(normalMapBlob);
+    }
+
     // Watch for ice blob changes (glacier/polar visualization)
     $: if (iceBlob && scene && displacementShader) {
         applyIceTexture(iceBlob);
@@ -940,6 +946,27 @@
                 "[BabylonGlobe] Failed to apply material texture:",
                 err,
             );
+        }
+    }
+
+    async function applyNormalMap(blob: Blob) {
+        if (!scene || !displacementShader) return;
+
+        console.log(
+            `[BabylonGlobe] Applying normal map from blob (${blob.size} bytes)`,
+        );
+
+        try {
+            const url = URL.createObjectURL(blob);
+            const texture = new Texture(url, scene, true, false); // No mipmaps for normals? Actually default is fine
+
+            texture.onLoadObservable.addOnce(() => {
+                console.log("[BabylonGlobe] Normal map loaded");
+                displacementShader?.setNormalMap(texture);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            });
+        } catch (err) {
+            console.error("[BabylonGlobe] Failed to apply normal map:", err);
         }
     }
 

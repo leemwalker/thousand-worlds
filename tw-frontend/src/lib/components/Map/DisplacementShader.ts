@@ -62,8 +62,10 @@ Effect.ShadersStore["displacementFragmentShader"] = `
     // Data textures for data-driven coloring
     uniform sampler2D materialTex; // R=hardness, G=continental, B=sediment
     uniform sampler2D iceTex;      // R=ice thickness
+    uniform sampler2D normalTex;   // Normal map for 3D shadows
     uniform bool hasMaterialTex;
     uniform bool hasIceTex;
+    uniform bool hasNormalTex;
 
     // Color palette for rock types based on hardness
     vec3 getRockColor(float hardness, bool isContinental) {
@@ -115,8 +117,27 @@ Effect.ShadersStore["displacementFragmentShader"] = `
     }
 
     void main(void) {
+        // Calculate perturbed normal
+        vec3 normal = normalize(vNormal);
+        
+        if (hasNormalTex) {
+            // Sample normal map (tangent space)
+            vec3 mapN = texture2D(normalTex, vUV).rgb * 2.0 - 1.0;
+            
+            // Calculate TBN matrix
+            // Tangent (East-West)
+            vec3 T = normalize(cross(vec3(0.0, 1.0, 0.0), normal));
+            if (length(T) < 0.001) T = vec3(1.0, 0.0, 0.0); // Pole fallback
+            
+            // Bitangent (North-South)
+            vec3 B = normalize(cross(normal, T));
+            
+            // Transform to World Space
+            normal = normalize(T * mapN.x + B * mapN.y + normal * mapN.z);
+        }
+
         // Lighting
-        float ndotl = max(0.0, dot(vNormal, lightDirection));
+        float ndotl = max(0.0, dot(normal, lightDirection));
         
         // Sample material data if available
         float hardness = 0.5;
@@ -182,8 +203,8 @@ export class DisplacementShader implements IShaderProvider {
             },
             {
                 attributes: ["position", "normal", "uv"],
-                uniforms: ["world", "viewProjection", "scale", "color", "lightDirection", "seaLevel", "minElevation", "maxElevation", "hasMaterialTex", "hasIceTex"],
-                samplers: ["heightmap", "materialTex", "iceTex"],
+                uniforms: ["world", "viewProjection", "scale", "color", "lightDirection", "seaLevel", "minElevation", "maxElevation", "hasMaterialTex", "hasIceTex", "hasNormalTex"],
+                samplers: ["heightmap", "materialTex", "iceTex", "normalTex"],
             }
         );
 
@@ -201,6 +222,7 @@ export class DisplacementShader implements IShaderProvider {
         // Data texture flags - default to false until textures are provided
         this.material.setInt("hasMaterialTex", 0);
         this.material.setInt("hasIceTex", 0);
+        this.material.setInt("hasNormalTex", 0);
 
         // Render back faces too just in case, though sphere usually doesn't need it
         this.material.backFaceCulling = true;
@@ -254,6 +276,18 @@ export class DisplacementShader implements IShaderProvider {
             this.material.setTexture("iceTex", texture);
             this.material.setInt("hasIceTex", 1);
             console.log("[DisplacementShader] Ice texture set");
+        }
+    }
+
+    /**
+     * Set the normal map texture for 3D shadows.
+     * @param texture Normal map texture (RGB PNG, Tangent Space)
+     */
+    public setNormalMap(texture: Texture): void {
+        if (this.material) {
+            this.material.setTexture("normalTex", texture);
+            this.material.setInt("hasNormalTex", 1);
+            console.log("[DisplacementShader] Normal map set");
         }
     }
 

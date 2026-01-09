@@ -29,8 +29,8 @@ export interface IHeightmapProvider {
  * Provider for displacement shader materials.
  */
 export interface IShaderProvider {
-    /** Create a displacement shader material for the given scene */
-    createMaterial(scene: Scene, heightmap: Texture): ShaderMaterial;
+    /** Create a displacement shader material */
+    createMaterial(heightmap: Texture, scale?: number): ShaderMaterial;
 
     /** Update the heightmap texture (for streaming) */
     updateHeightmap(texture: Texture): void;

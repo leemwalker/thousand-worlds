@@ -548,10 +548,10 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	log.Printf("[CLIMATE INIT] Year 0: Heat=%.2f, Geothermal=+%.1f°C, Greenhouse=+%.1f°C, SolarLum=%.2f",
 		initialHeat, climateDriver.GetGeothermalOffset(), climateDriver.GetGreenhouseOffset(), climateDriver.GetSolarLuminosity())
 
-	progressInterval := years / 10
-	// Cap progress interval to 10M years for better responsiveness on long simulations
-	if progressInterval > 10_000_000 {
-		progressInterval = 10_000_000
+	progressInterval := years / 100
+	// Ensure we don't have too many updates for short simulations
+	if progressInterval < 1000000 { // Min 1M years
+		progressInterval = 1000000
 	}
 	lastProgress := int64(0)
 
@@ -2347,6 +2347,13 @@ func (p *GameProcessor) sendMapUpdateToClient(ctx context.Context, client websoc
 		iceBytes = nil
 	}
 
+	// 6. Render Normal Map PNG (3D shadows)
+	normalMapBytes, err := p.mapService.RenderNormalMapPNG(ctx, worldID, geo, width, height)
+	if err != nil {
+		log.Printf("[MAP] Normal map render failed: %v", err)
+		normalMapBytes = nil
+	}
+
 	// Construct JSON Metadata
 	type MapImageMetadata struct {
 		Width            int     `json:"width"`
@@ -2360,6 +2367,7 @@ func (p *GameProcessor) sendMapUpdateToClient(ctx context.Context, client websoc
 		HasHeightmapData bool    `json:"has_heightmap_data"`
 		HasMaterialData  bool    `json:"has_material_data"`
 		HasIceData       bool    `json:"has_ice_data"`
+		HasNormalMapData bool    `json:"has_normal_map_data"`
 	}
 
 	stats := geo.GetStats()
@@ -2375,6 +2383,7 @@ func (p *GameProcessor) sendMapUpdateToClient(ctx context.Context, client websoc
 		HasHeightmapData: len(heightmapBytes) > 0,
 		HasMaterialData:  len(materialBytes) > 0,
 		HasIceData:       len(iceBytes) > 0,
+		HasNormalMapData: len(normalMapBytes) > 0,
 	}
 
 	jsonBytes, err := json.Marshal(metadata)
@@ -2408,6 +2417,11 @@ func (p *GameProcessor) sendMapUpdateToClient(ctx context.Context, client websoc
 	binary.Write(binSection, binary.BigEndian, uint32(len(iceBytes)))
 	if len(iceBytes) > 0 {
 		binSection.Write(iceBytes)
+	}
+
+	binary.Write(binSection, binary.BigEndian, uint32(len(normalMapBytes)))
+	if len(normalMapBytes) > 0 {
+		binSection.Write(normalMapBytes)
 	}
 
 	binBytes := binSection.Bytes()

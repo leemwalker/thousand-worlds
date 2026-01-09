@@ -165,6 +165,14 @@ func (s *Service) RenderIcePNG(ctx context.Context, worldID uuid.UUID, geo *ecos
 	return s.renderer.RenderIcePNG(ctx, worldID.String(), geo, width, height)
 }
 
+// RenderNormalMapPNG renders a normal map PNG for the given world geometry
+func (s *Service) RenderNormalMapPNG(ctx context.Context, worldID uuid.UUID, geo *ecosystem.WorldGeology, width, height int) ([]byte, error) {
+	if s.renderer == nil {
+		return nil, fmt.Errorf("renderer not initialized")
+	}
+	return s.renderer.RenderNormalMapPNG(ctx, worldID.String(), geo, width, height)
+}
+
 // worldToGrid converts world coordinates to heightmap grid indices
 // World coordinates can be very large (e.g., spherical world with circumference 17M)
 // but heightmap is typically 512x512 or similar

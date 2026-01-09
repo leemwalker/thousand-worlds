@@ -396,6 +396,20 @@ export class GameWebSocket {
                 }
             }
 
+            // Read Normal Map Length and Data (if present - 3D shadows)
+            let normalMapBlob: Blob | null = null;
+            if (offset + 4 <= buffer.byteLength) {
+                const normalMapLen = view.getUint32(offset, false);
+                offset += 4;
+
+                if (normalMapLen > 0 && offset + normalMapLen <= buffer.byteLength) {
+                    const normalMapBytes = new Uint8Array(buffer, offset, normalMapLen);
+                    normalMapBlob = new Blob([normalMapBytes], { type: 'image/png' });
+                    offset += normalMapLen;
+                    console.log(`[WebSocket] Parsed normal map data: ${normalMapLen} bytes`);
+                }
+            }
+
             // Construct a ServerMessage to dispatch
             const message: ServerMessage = {
                 type: 'world_map_image_response',
@@ -405,7 +419,8 @@ export class GameWebSocket {
                     gridData: gridData,      // Binary grid data (or null)
                     heightmapBlob: heightmapBlob, // PNG heightmap blob (or null)
                     materialBlob: materialBlob,   // PNG material data (or null)
-                    iceBlob: iceBlob              // PNG ice sheet data (or null)
+                    iceBlob: iceBlob,             // PNG ice sheet data (or null)
+                    normalMapBlob: normalMapBlob  // PNG normal map data (or null)
                 },
                 timestamp: Date.now()
             };

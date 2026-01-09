@@ -123,6 +123,7 @@ export interface WorldMapImageMessage extends BaseServerMessage {
         heightmapBlob: Blob | null;
         materialBlob: Blob | null;
         iceBlob: Blob | null;
+        normalMapBlob: Blob | null;
 
         // Stats
         sea_level?: number;
