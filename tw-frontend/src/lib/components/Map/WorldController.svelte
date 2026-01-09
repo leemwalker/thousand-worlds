@@ -228,10 +228,7 @@
             return;
         }
 
-        console.log(
-            "[WorldController] Initializing world scene, uid:",
-            scene.uid,
-        );
+        console.log("[WorldController] Initializing world scene...");
 
         // Setup molten state if no texture
         if (!globeTextureBlob && !globeHeightmapBlob) {
@@ -350,44 +347,11 @@
 
         // Apply initial material to all meshes
         if (isMoltenState && moltenShader) {
-            // DEBUG: Use bright standard material instead of shader to test geometry
-            const debugMat = new StandardMaterial("debugMat", scene);
-            debugMat.diffuseColor = new Color3(1.0, 0.3, 0.0); // Bright orange
-            debugMat.emissiveColor = new Color3(0.5, 0.1, 0.0); // Glowing
-            debugMat.specularColor = new Color3(0.3, 0.3, 0.3);
-
-            globe.material = debugMat;
-            mediumMesh.material = debugMat;
-            lowMesh.material = debugMat;
-            console.log(
-                "[WorldController] Applied DEBUG material (should be bright orange)",
-            );
-            console.log(
-                "[WorldController] Globe position:",
-                globe.getAbsolutePosition(),
-            );
-            console.log("[WorldController] Camera position:", camera?.position);
-            console.log(
-                "[WorldController] Camera target:",
-                camera?.getTarget(),
-            );
-            console.log(
-                "[WorldController] Scene meshes count:",
-                scene.meshes.length,
-            );
-            console.log(
-                "[WorldController] Scene activeCamera:",
-                scene.activeCamera?.name,
-            );
-            console.log(
-                "[WorldController] Scene lights count:",
-                scene.lights.length,
-            );
-            console.log(
-                "[WorldController] Globe isEnabled:",
-                globe.isEnabled(),
-            );
-            console.log("[WorldController] Sun position:", sunMesh?.position);
+            const moltenMat = moltenShader.getMaterial();
+            globe.material = moltenMat;
+            mediumMesh.material = moltenMat;
+            lowMesh.material = moltenMat;
+            console.log("[WorldController] Applied Molten Planet Shader");
         } else {
             globe.material = globeMaterial;
             mediumMesh.material = globeMaterial;
@@ -400,8 +364,7 @@
         createMoons(scene);
 
         // Create starfield background
-        // DEBUG: Disabled to test occlusion
-        // createStarfield(scene);
+        createStarfield(scene);
 
         // Initialize tile streaming system (if command callback is provided)
         if (sendTileCommand && planetNode) {
@@ -449,8 +412,7 @@
             fpsAccessibility = new FPSAccessibilityOptions();
 
             // Horizon renderer (sky dome)
-            // DEBUG: Disabled to test occlusion
-            // horizonRenderer = new HorizonRenderer(scene);
+            horizonRenderer = new HorizonRenderer(scene);
 
             // Water effects
             waterEffects = new WaterEffects(scene);

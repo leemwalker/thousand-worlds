@@ -70,10 +70,6 @@ export class SceneManager {
      * Create a new scene for a location.
      */
     async createScene(location: GameLocation): Promise<Scene> {
-        // DEBUG: Track every createScene call with stack trace
-        console.log(`[SceneManager] createScene called for ${location}`);
-        console.trace('[SceneManager] createScene stack:');
-
         if (!this.engine) {
             throw new Error('[SceneManager] Engine not initialized');
         }
@@ -81,13 +77,11 @@ export class SceneManager {
         // Dispose existing scene for this location
         const existingScene = this.scenes.get(location);
         if (existingScene) {
-            console.log(`[SceneManager] Disposing existing ${location} scene, uid:`, existingScene.uid);
             existingScene.dispose();
         }
 
         // Create new scene
         const scene = new Scene(this.engine);
-        console.log(`[SceneManager] Created new ${location} scene, uid:`, scene.uid);
         scene.clearColor = new Color4(0, 0, 0, 1);
 
         // Apply factory if registered

@@ -45,8 +45,7 @@
     sceneManager.registerSceneFactory("WORLD", {
         create: async (scene: Scene) => {
             console.log(
-                "[SimulationMode] Created WORLD scene with default camera, uid:",
-                scene.uid,
+                "[SimulationMode] Created WORLD scene with default camera",
             );
             // Create a default ArcRotateCamera so scene can render while WorldController initializes
             const canvas = scene.getEngine().getRenderingCanvas();
