@@ -368,6 +368,23 @@
                 "[WorldController] Camera target:",
                 camera?.getTarget(),
             );
+            console.log(
+                "[WorldController] Scene meshes count:",
+                scene.meshes.length,
+            );
+            console.log(
+                "[WorldController] Scene activeCamera:",
+                scene.activeCamera?.name,
+            );
+            console.log(
+                "[WorldController] Scene lights count:",
+                scene.lights.length,
+            );
+            console.log(
+                "[WorldController] Globe isEnabled:",
+                globe.isEnabled(),
+            );
+            console.log("[WorldController] Sun position:", sunMesh?.position);
         } else {
             globe.material = globeMaterial;
             mediumMesh.material = globeMaterial;
