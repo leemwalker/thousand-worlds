@@ -228,7 +228,10 @@
             return;
         }
 
-        console.log("[WorldController] Initializing world scene...");
+        console.log(
+            "[WorldController] Initializing world scene, uid:",
+            scene.uid,
+        );
 
         // Setup molten state if no texture
         if (!globeTextureBlob && !globeHeightmapBlob) {
