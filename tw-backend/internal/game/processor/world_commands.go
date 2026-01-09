@@ -662,6 +662,21 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 				client.SendGameMessage("system", fmt.Sprintf("⏳ Progress: %d%% (Year %d)", percent, year), nil)
 			}
 			lastProgress = year
+
+			// Broadcast map update at 25%, 50%, 75% milestones for visual feedback
+			if percent == 25 || percent == 50 || percent == 75 {
+				client.SendGameMessage("system", fmt.Sprintf("🗺️ Updating map at %d%%...", percent), nil)
+				pct := int(percent)
+				processor := p
+				wID := char.WorldID
+				go func() {
+					updateCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+					defer cancel()
+					if err := processor.broadcastMapUpdate(updateCtx, wID); err != nil {
+						log.Printf("[WorldSimCmd] Map update at %d%% failed: %v", pct, err)
+					}
+				}()
+			}
 		}
 
 		// Simulate population dynamics + evolution + speciation
@@ -1459,6 +1474,13 @@ func (p *GameProcessor) handleWorldReset(ctx context.Context, client websocket.G
 	}
 
 	client.SendGameMessage("system", "🔄 World reset complete. Geology, entities, and simulation state cleared.\nUse 'world simulate <years>' or 'world run' to start fresh.", nil)
+
+	// Broadcast map update so frontend knows to reset to molten planet
+	// (empty geology will trigger molten state)
+	if err := p.broadcastMapUpdate(ctx, worldID); err != nil {
+		log.Printf("[WorldReset] Failed to broadcast reset update: %v", err)
+	}
+
 	return nil
 }
 
