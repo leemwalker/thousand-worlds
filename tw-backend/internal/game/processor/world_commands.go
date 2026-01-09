@@ -663,8 +663,9 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			}
 			lastProgress = year
 
-			// Send map update to client every 10% milestone for visual feedback (10-90%)
-			if percent%10 == 0 && percent > 0 && percent < 100 {
+			// Send map update to client every progress interval for visual feedback
+			// Only send if we're past 0% and before 100% (final update happens at end)
+			if percent > 0 && percent < 100 {
 				client.SendGameMessage("system", fmt.Sprintf("🗺️ Updating map at %d%%...", percent), nil)
 				pct := int(percent)
 				processor := p
