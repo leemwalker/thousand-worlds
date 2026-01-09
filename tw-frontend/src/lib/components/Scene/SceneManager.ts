@@ -132,9 +132,11 @@ export class SceneManager {
                 this.engine.stopRenderLoop();
             }
 
-            // Start render loop for new scene
+            // Start render loop for new scene - use getActiveScene() to ensure
+            // we render the same scene that WorldController receives
             this.engine.runRenderLoop(() => {
-                targetScene?.render();
+                const activeScene = this.scenes.get(this.currentLocation);
+                activeScene?.render();
             });
 
             // Notify listeners
