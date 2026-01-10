@@ -254,11 +254,36 @@ export class LobbyScene {
     private createPortalParticles(scene: Scene, position: Vector3): void {
         this.portalParticles = new ParticleSystem("portalParticles", 500, scene);
 
-        // Create a procedural texture for particles
-        this.portalParticles.particleTexture = new Texture(
-            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAKElEQVQYV2NkYGD4z4AEGIEMRgYGBkY0SSYGEgA2SRI0kGBgMBgAADqFBQW/M7MeAAAAAElFTkSuQmCC",
-            scene
+        // Create a procedural texture for particles using canvas
+        // This avoids the base64 PNG which was causing WebGL errors
+        const size = 32;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+            // Create a radial gradient for soft particle
+            const gradient = ctx.createRadialGradient(
+                size / 2, size / 2, 0,
+                size / 2, size / 2, size / 2
+            );
+            gradient.addColorStop(0, "rgba(255, 255, 255, 1)");
+            gradient.addColorStop(0.3, "rgba(200, 200, 255, 0.8)");
+            gradient.addColorStop(0.7, "rgba(100, 50, 200, 0.3)");
+            gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+        }
+
+        // Create texture from canvas with noMipmap=true to avoid WebGL errors
+        const particleTexture = new Texture(
+            canvas.toDataURL(),
+            scene,
+            true,  // noMipmap - prevents glGenerateMipmap error
+            false  // invertY
         );
+        this.portalParticles.particleTexture = particleTexture;
 
         this.portalParticles.emitter = position;
         this.portalParticles.minEmitBox = new Vector3(-0.5, -1.5, -0.5);
