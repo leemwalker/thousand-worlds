@@ -85,7 +85,8 @@ type WorldGeology struct {
 	sphereNeedsSync bool
 
 	// Ocean phase state (Hadean vapor → Modern liquid transition)
-	OceanVaporFraction float64 // 0.0 = all liquid (cool planet), 1.0 = all vapor (hot planet)
+	OceanVaporFraction    float64 // 0.0 = all liquid (cool planet), 1.0 = all vapor (hot planet)
+	OceanPhaseAccumulator float64 // Years since last ocean phase calculation (optimization)
 
 	// Atmospheric composition tracking (for life evolution)
 	Atmosphere       AtmosphericComposition
@@ -1353,72 +1354,77 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 		g.WeatherAccumulator = math.Mod(g.WeatherAccumulator, weatherInterval)
 	}
 
-	// === Ocean Phase Transition Logic ===
-	oceanPhaseStart := time.Now()
-	// Model water vapor ↔ liquid phase changes based on surface temperature
-	// Early Earth (Hadean): >100°C → water exists as atmospheric vapor
-	// Modern Earth: <100°C → water condenses into liquid oceans
+	// === Ocean Phase Transition Logic (Throttled) ===
+	// OPTIMIZATION: Only run every 1M years instead of every iteration
+	const oceanPhaseInterval = 1_000_000.0 // 1M years
+	g.OceanPhaseAccumulator += dtFloat
 
-	// Calculate average surface temperature
-	avgTemp := g.calculateAverageSurfaceTemp(globalTempMod)
-
-	// Define phase transition parameters
-	const (
-		modernSeaLevel = 0.0    // Baseline sea level (meters)
-		vaporTempLow   = 90.0   // °C - start of transition zone
-		vaporTempHigh  = 110.0  // °C - full vaporization
-		vaporDepth     = 4000.0 // meters - ocean basins depth
-	)
-
-	// Store previous state for event detection
-	wasVaporized := g.OceanVaporFraction > 0.5
-
-	// Calculate vapor fraction (0.0 = all liquid, 1.0 = all vapor)
-	vaporFraction := 0.0
-	if avgTemp > vaporTempHigh {
-		vaporFraction = 1.0 // Fully vaporized (Hadean steam atmosphere)
-	} else if avgTemp > vaporTempLow {
-		// Smooth transition zone (90-110°C)
-		vaporFraction = (avgTemp - vaporTempLow) / (vaporTempHigh - vaporTempLow)
-	}
-	// else: vaporFraction = 0.0 (fully liquid, modern Earth)
-
-	// Bounds checking
-	if vaporFraction < 0.0 {
-		vaporFraction = 0.0
-	}
-	if vaporFraction > 1.0 {
-		vaporFraction = 1.0
-	}
-
-	// Update ocean vapor fraction
-	g.OceanVaporFraction = vaporFraction
-
-	// Calculate target sea level based on vapor fraction
-	// When water vaporizes, sea level drops as ocean basins empty
-	targetSeaLevel = modernSeaLevel - (vaporFraction * vaporDepth)
-
-	// Smooth transition (exponential relaxation)
-	// Prevents jarring jumps, simulates realistic evaporation/condensation timescales
-	// Use exponential decay to be time-step independent: value += (target - value) * (1 - e^(-k * dt))
-	// k=1.0e-4 gives ~10% change per 1000 years, reasonable for phase change lag
-	const phaseChangeRate = 1.0e-4
-	smoothingFactor := 1.0 - math.Exp(-phaseChangeRate*float64(dt))
-
-	g.SeaLevel += (targetSeaLevel - g.SeaLevel) * smoothingFactor
-
-	// Detect "Great Deluge" event (water condensing from atmosphere to form oceans)
-	// Triggers when planet cools and vapor fraction drops below 50%
 	var phaseEvent *PhaseTransitionEvent
-	if wasVaporized && vaporFraction < 0.5 {
-		phaseEvent = &PhaseTransitionEvent{
-			Type:        "GreatDeluge",
-			Year:        g.TotalYearsSimulated,
-			Description: "Atmospheric water vapor condenses into liquid oceans as planet cools below 100°C",
-		}
-	}
 
-	oceanPhaseTime = time.Since(oceanPhaseStart)
+	if g.OceanPhaseAccumulator >= oceanPhaseInterval {
+		oceanPhaseStart := time.Now()
+		// Model water vapor ↔ liquid phase changes based on surface temperature
+		// Early Earth (Hadean): >100°C → water exists as atmospheric vapor
+		// Modern Earth: <100°C → water condenses into liquid oceans
+
+		// Calculate average surface temperature
+		avgTemp := g.calculateAverageSurfaceTemp(globalTempMod)
+
+		// Define phase transition parameters
+		const (
+			modernSeaLevel = 0.0    // Baseline sea level (meters)
+			vaporTempLow   = 90.0   // °C - start of transition zone
+			vaporTempHigh  = 110.0  // °C - full vaporization
+			vaporDepth     = 4000.0 // meters - ocean basins depth
+		)
+
+		// Store previous state for event detection
+		wasVaporized := g.OceanVaporFraction > 0.5
+
+		// Calculate vapor fraction (0.0 = all liquid, 1.0 = all vapor)
+		vaporFraction := 0.0
+		if avgTemp > vaporTempHigh {
+			vaporFraction = 1.0 // Fully vaporized (Hadean steam atmosphere)
+		} else if avgTemp > vaporTempLow {
+			// Smooth transition zone (90-110°C)
+			vaporFraction = (avgTemp - vaporTempLow) / (vaporTempHigh - vaporTempLow)
+		}
+		// else: vaporFraction = 0.0 (fully liquid, modern Earth)
+
+		// Bounds checking
+		if vaporFraction < 0.0 {
+			vaporFraction = 0.0
+		}
+		if vaporFraction > 1.0 {
+			vaporFraction = 1.0
+		}
+
+		// Update ocean vapor fraction
+		g.OceanVaporFraction = vaporFraction
+
+		// Calculate target sea level based on vapor fraction
+		// When water vaporizes, sea level drops as ocean basins empty
+		targetSeaLevel = modernSeaLevel - (vaporFraction * vaporDepth)
+
+		// Smooth transition (exponential relaxation)
+		// Use accumulated time for smoothing factor
+		const phaseChangeRate = 1.0e-4
+		smoothingFactor := 1.0 - math.Exp(-phaseChangeRate*g.OceanPhaseAccumulator)
+
+		g.SeaLevel += (targetSeaLevel - g.SeaLevel) * smoothingFactor
+
+		// Detect "Great Deluge" event (water condensing from atmosphere to form oceans)
+		if wasVaporized && vaporFraction < 0.5 {
+			phaseEvent = &PhaseTransitionEvent{
+				Type:        "GreatDeluge",
+				Year:        g.TotalYearsSimulated,
+				Description: "Atmospheric water vapor condenses into liquid oceans as planet cools below 100°C",
+			}
+		}
+
+		oceanPhaseTime = time.Since(oceanPhaseStart)
+		g.OceanPhaseAccumulator = 0 // Reset accumulator
+	}
 
 	// Log deep profiling every 10M years
 	if profilingEnabled {
@@ -1541,7 +1547,7 @@ func (g *WorldGeology) advancePlates(years float64) {
 	// Periodic plate region reassignment for realistic continental drift
 	// Every 50M years, reassign which cells belong to which plate based on new centroids
 	// This allows boundaries to shift as plates move, preventing permanent mountain walls
-	const reassignmentInterval = 50_000_000.0 // 50 million years
+	const reassignmentInterval = 100_000_000.0 // 100 million years (optimization: was 50M)
 	g.PlateReassignmentAccumulator += years
 
 	if g.PlateReassignmentAccumulator >= reassignmentInterval && g.Topology != nil {

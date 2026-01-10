@@ -521,6 +521,42 @@ func (sr *SimulationRunner) tick(yearsToAdvance int64) error {
 
 // tickLocked performs the actual simulation step (assumes lock held)
 func (sr *SimulationRunner) tickLocked(yearsToAdvance int64) error {
+	// OPTIMIZATION: Adaptive time stepping during Hadean era
+	// Population dynamics are skipped when heat > 4.0, so we can batch years
+	heat := GetPlanetaryHeat(sr.currentYear)
+
+	// During Hadean (heat > 4.0), only geology matters - jump directly to geology intervals
+	if heat > 4.0 && sr.popSim != nil {
+		// Calculate next geology checkpoint (multiples of 100000)
+		currentYear := sr.popSim.CurrentYear
+		nextGeoYear := ((currentYear / 100000) + 1) * 100000
+		yearsToGeo := nextGeoYear - currentYear
+
+		// If we can skip ahead to geology update, do so
+		if yearsToGeo <= yearsToAdvance {
+			sr.popSim.CurrentYear = nextGeoYear
+			sr.updateGeology(100000)
+			// Handle remaining years recursively if needed
+			remaining := yearsToAdvance - yearsToGeo
+			if remaining > 0 {
+				return sr.tickLocked(remaining)
+			}
+			// Update local state
+			sr.currentYear = sr.popSim.CurrentYear
+			sr.yearsSimulated += yearsToAdvance
+			sr.tickCount++
+			sr.lastTickTime = time.Now()
+			return nil
+		}
+		// Otherwise just advance the year counter
+		sr.popSim.CurrentYear += yearsToAdvance
+		sr.currentYear = sr.popSim.CurrentYear
+		sr.yearsSimulated += yearsToAdvance
+		sr.tickCount++
+		sr.lastTickTime = time.Now()
+		return nil
+	}
+
 	// Run V2 Simulation Step(s)
 	// We run years one by one to ensure proper granularity of events
 	for i := int64(0); i < yearsToAdvance; i++ {
