@@ -104,7 +104,9 @@ func (h *InterviewHandler) GetActiveInterview(w http.ResponseWriter, r *http.Req
 	}
 
 	if session == nil {
-		respondError(w, http.StatusNotFound, "No active interview found")
+		// No active interview is a valid state, not an error
+		// Return 200 with null/empty response
+		respondJSON(w, http.StatusOK, nil)
 		return
 	}
 
