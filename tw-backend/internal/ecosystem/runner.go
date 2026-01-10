@@ -702,12 +702,12 @@ func (sr *SimulationRunner) tickLocked(yearsToAdvance int64) error {
 			}
 		}
 
-		// Visualization Update: 10% progress OR 100M years (whichever is smaller)
+		// Visualization Update: 1% progress OR 100M years (whichever is smaller)
 		vizInterval := int64(100_000_000) // Default 100M years limit
 		if sr.config.MaxYearTarget > 0 {
-			tenPercent := sr.config.MaxYearTarget / 10
-			if tenPercent < vizInterval {
-				vizInterval = tenPercent
+			onePercent := sr.config.MaxYearTarget / 100
+			if onePercent < vizInterval {
+				vizInterval = onePercent
 			}
 		}
 		if vizInterval < 1_000_000 {
