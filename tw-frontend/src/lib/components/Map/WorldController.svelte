@@ -943,13 +943,35 @@
             heightmapTexture.onLoadObservable.addOnce(() => {
                 console.log("[BabylonGlobe] Heightmap texture loaded");
 
-                // Update shader with texture and scale
-                // Scale factor: maxElevation (8848m) / Earth Radius (6371000m) * Globe Radius (1.0)
-                // = ~0.0014. But we want exaggerated terrain.
-                const material = displacementShader?.createMaterial(
-                    heightmapTexture,
-                    0.05,
-                );
+                // Check if material already exists - if so, just update the heightmap
+                // This preserves existing texture flags (hasIceTex, hasMaterialTex, etc.)
+                let material = displacementShader?.getMaterial();
+                if (material) {
+                    console.log(
+                        "[BabylonGlobe] Updating existing shader heightmap (preserving textures)",
+                    );
+                    displacementShader?.updateHeightmap(heightmapTexture);
+                } else {
+                    // First time - create material with heightmap
+                    console.log("[BabylonGlobe] Creating new shader material");
+                    material = displacementShader?.createMaterial(
+                        heightmapTexture,
+                        0.05,
+                    );
+
+                    // Apply shader material to all LOD meshes (only needed on first creation)
+                    if (material && lodManager) {
+                        for (let i = 0; i <= 2; i++) {
+                            const mesh = lodManager.getMesh(i);
+                            if (mesh) {
+                                mesh.material = material;
+                                console.log(
+                                    `[BabylonGlobe] Applied shader to LOD mesh ${i}`,
+                                );
+                            }
+                        }
+                    }
+                }
 
                 // Set elevation range for proper sea level coloring
                 displacementShader?.setElevationRange(
@@ -957,20 +979,6 @@
                     maxElevation,
                     seaLevel,
                 );
-
-                // Apply shader material to all LOD meshes
-                if (material && lodManager) {
-                    // Apply to known LOD levels (0, 1, 2)
-                    for (let i = 0; i <= 2; i++) {
-                        const mesh = lodManager.getMesh(i);
-                        if (mesh) {
-                            mesh.material = material;
-                            console.log(
-                                `[BabylonGlobe] Applied shader to LOD mesh ${i}`,
-                            );
-                        }
-                    }
-                }
 
                 // Cleanup URL
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
