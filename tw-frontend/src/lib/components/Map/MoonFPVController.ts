@@ -1,0 +1,315 @@
+/**
+ * MoonFPVController - First-person view controller for moon surfaces.
+ * 
+ * Extends the concept of FirstPersonController with moon-specific features:
+ * - Dynamic gravity calculated from moon's mass and radius
+ * - Horizon-based fog distance (smaller moons = closer horizon)
+ * - Procedural crater terrain generation
+ * - Observation mode only (no editing/interaction)
+ */
+
+import type { Scene } from "@babylonjs/core/scene";
+import type { Camera } from "@babylonjs/core/Cameras/camera";
+import type { Mesh } from "@babylonjs/core/Meshes/mesh";
+import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { Color3 } from "@babylonjs/core/Maths/math.color";
+import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { PointLight } from "@babylonjs/core/Lights/pointLight";
+import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
+import type { IPlayerController } from './interfaces';
+import type { MoonData, MoonFPVParams } from "$lib/types/moon";
+import { getMoonFPVParams, calculateHorizonDistance } from "$lib/types/moon";
+
+// Side-effect imports
+import "@babylonjs/core/Collisions/collisionCoordinator";
+import "@babylonjs/core/Cameras/Inputs/freeCameraKeyboardMoveInput";
+import "@babylonjs/core/Cameras/Inputs/freeCameraMouseInput";
+
+export interface MoonFPVOptions {
+    /** Starting position on moon surface */
+    startPosition?: Vector3;
+    /** Eye height above ground */
+    eyeHeight?: number;
+}
+
+interface Position {
+    lat: number;
+    lon: number;
+    altitude: number;
+}
+
+/**
+ * Controller for first-person observation on moon surfaces.
+ * Gravity and movement are calculated from moon properties.
+ */
+export class MoonFPVController implements IPlayerController {
+    private scene: Scene;
+    private camera: UniversalCamera;
+    private moonParams: MoonFPVParams;
+    private velocity: Vector3 = Vector3.Zero();
+    private isGrounded: boolean = true;
+    private disposed: boolean = false;
+    private terrain: Mesh | null = null;
+    private eyeHeight: number;
+
+    // Moon-specific
+    private moon: MoonData;
+    private sunLight: PointLight | null = null;
+    private ambientLight: HemisphericLight | null = null;
+
+    constructor(scene: Scene, moon: MoonData, options: MoonFPVOptions = {}) {
+        this.scene = scene;
+        this.moon = moon;
+        this.moonParams = getMoonFPVParams(moon);
+        this.eyeHeight = options.eyeHeight ?? 1.7;
+
+        const startPos = options.startPosition ?? new Vector3(0, this.eyeHeight + 1, 0);
+
+        // Create FPS camera
+        this.camera = new UniversalCamera("moonFPSCamera", startPos, scene);
+        this.camera.setTarget(startPos.add(new Vector3(0, 0, 1)));
+        this.camera.ellipsoid = new Vector3(0.5, 0.9, 0.5);
+        this.camera.checkCollisions = true;
+        this.camera.applyGravity = true;
+
+        // Set camera speed based on moon gravity
+        this.camera.speed = this.moonParams.moveSpeed;
+
+        // Movement keys
+        this.camera.keysUp = [87]; // W
+        this.camera.keysDown = [83]; // S
+        this.camera.keysLeft = [65]; // A
+        this.camera.keysRight = [68]; // D
+        this.camera.keysRotateLeft = [81]; // Q
+        this.camera.keysRotateRight = [69]; // E
+        this.camera.angularSensibility = 500;
+
+        // Set fog based on horizon distance (visibility limit)
+        this.setupHorizonFog();
+
+        // Create procedural moon terrain
+        this.createProceduralTerrain();
+
+        // Setup lighting (sun direction + ambient)
+        this.setupLighting();
+
+        console.log(`[MoonFPV] Created for ${moon.name}: gravity=${this.moonParams.gravity.toFixed(3)} m/s², horizon=${this.moonParams.horizonDistance.toFixed(0)}m`);
+    }
+
+    /**
+     * Set up fog based on moon horizon distance.
+     * Smaller moons have closer horizons, so fog starts sooner.
+     */
+    private setupHorizonFog(): void {
+        // Scale horizon for rendering (we don't render full scale)
+        // Use log scale to make it usable for rendering
+        const fogStart = Math.min(this.moonParams.horizonDistance / 1000, 500);
+        const fogEnd = fogStart * 2;
+
+        this.scene.fogMode = 2; // Exponential
+        this.scene.fogDensity = 0.001;
+        this.scene.fogColor = new Color3(0.02, 0.02, 0.03); // Dark space
+        this.scene.fogStart = fogStart;
+        this.scene.fogEnd = fogEnd;
+    }
+
+    /**
+     * Create simple procedural crater terrain.
+     * More complex terrain generation can be added later.
+     */
+    private createProceduralTerrain(): void {
+        // Create a ground plane with craters (simple version)
+        const terrainSize = 200;
+        const subdivisions = 64;
+
+        this.terrain = MeshBuilder.CreateGround("moonTerrain", {
+            width: terrainSize,
+            height: terrainSize,
+            subdivisions: subdivisions,
+            updatable: true
+        }, this.scene);
+
+        // Apply crater deformations to terrain
+        this.applyProcedurcraters(subdivisions);
+
+        // Material based on moon color
+        const terrainMat = new StandardMaterial("moonTerrainMat", this.scene);
+        const moonColorHex = this.moon.color || "#888888";
+        const r = parseInt(moonColorHex.slice(1, 3), 16) / 255;
+        const g = parseInt(moonColorHex.slice(3, 5), 16) / 255;
+        const b = parseInt(moonColorHex.slice(5, 7), 16) / 255;
+
+        terrainMat.diffuseColor = new Color3(r * 0.8, g * 0.8, b * 0.8);
+        terrainMat.specularColor = new Color3(0.1, 0.1, 0.1);
+        this.terrain.material = terrainMat;
+        this.terrain.checkCollisions = true;
+    }
+
+    /**
+     * Apply procedural crater deformations to terrain.
+     */
+    private applyProcedurcraters(subdivisions: number): void {
+        if (!this.terrain) return;
+
+        const positions = this.terrain.getVerticesData('position');
+        if (!positions) return;
+
+        // Create some random craters
+        const craters = [];
+        const craterCount = 15 + Math.floor(Math.random() * 10);
+
+        for (let i = 0; i < craterCount; i++) {
+            craters.push({
+                x: (Math.random() - 0.5) * 180,
+                z: (Math.random() - 0.5) * 180,
+                radius: 5 + Math.random() * 20,
+                depth: 0.5 + Math.random() * 2
+            });
+        }
+
+        // Deform vertices based on craters
+        for (let i = 0; i < positions.length; i += 3) {
+            const x = positions[i];
+            const z = positions[i + 2];
+            let y = 0;
+
+            // Apply each crater's depression
+            for (const crater of craters) {
+                const dx = x - crater.x;
+                const dz = z - crater.z;
+                const dist = Math.sqrt(dx * dx + dz * dz);
+
+                if (dist < crater.radius) {
+                    // Crater shape: deeper in center, rim at edge
+                    const normalizedDist = dist / crater.radius;
+                    const craterDepth = -crater.depth * Math.cos(normalizedDist * Math.PI * 0.5);
+                    y += craterDepth;
+
+                    // Add slight rim
+                    if (normalizedDist > 0.7) {
+                        y += crater.depth * 0.2 * (normalizedDist - 0.7) / 0.3;
+                    }
+                }
+            }
+
+            // Add some noise for roughness
+            y += (Math.random() - 0.5) * 0.3;
+
+            positions[i + 1] = y;
+        }
+
+        this.terrain.updateVerticesData('position', positions);
+        this.terrain.createNormals(true);
+    }
+
+    /**
+     * Setup lighting for moon surface.
+     */
+    private setupLighting(): void {
+        // Ambient light (very dim - space)
+        this.ambientLight = new HemisphericLight("moonAmbient", new Vector3(0, 1, 0), this.scene);
+        this.ambientLight.intensity = 0.1;
+        this.ambientLight.groundColor = new Color3(0.02, 0.02, 0.02);
+
+        // Sun light (distant, directional-like)
+        this.sunLight = new PointLight("moonSun", new Vector3(1000, 500, 0), this.scene);
+        this.sunLight.intensity = 1.5;
+        this.sunLight.diffuse = new Color3(1.0, 0.98, 0.9); // Slightly warm
+        this.sunLight.range = 5000;
+    }
+
+    /**
+     * Get the calculated gravity for this moon.
+     */
+    getGravity(): number {
+        return this.moonParams.gravity;
+    }
+
+    /**
+     * Get the horizon distance for this moon.
+     */
+    getHorizonDistance(): number {
+        return this.moonParams.horizonDistance;
+    }
+
+    /**
+     * Get moon info for display.
+     */
+    getMoonInfo(): { name: string; gravity: number; horizon: number } {
+        return {
+            name: this.moon.name,
+            gravity: this.moonParams.gravity,
+            horizon: this.moonParams.horizonDistance
+        };
+    }
+
+    // IPlayerController implementation
+
+    handleInput(deltaTime: number): void {
+        if (this.disposed) return;
+
+        // Apply moon-specific gravity
+        if (!this.isGrounded) {
+            this.velocity.y -= this.moonParams.gravity * deltaTime;
+        }
+    }
+
+    getPosition(): Position {
+        const pos = this.camera.position;
+        const distance = Math.sqrt(pos.x * pos.x + pos.z * pos.z);
+        const lat = Math.atan2(pos.y, distance) * (180 / Math.PI);
+        const lon = Math.atan2(pos.z, pos.x) * (180 / Math.PI);
+        const altitude = pos.y;
+        return { lat, lon, altitude };
+    }
+
+    getCamera(): Camera {
+        return this.camera;
+    }
+
+    activate(): void {
+        if (this.disposed) return;
+        this.scene.activeCamera = this.camera;
+        const canvas = this.scene.getEngine().getRenderingCanvas();
+        if (canvas) {
+            this.camera.attachControl(canvas, true);
+        }
+    }
+
+    deactivate(): void {
+        if (this.disposed) return;
+        this.camera.detachControl();
+    }
+
+    jump(): void {
+        if (this.isGrounded && !this.disposed) {
+            // Jump height scales with lower gravity
+            this.velocity.y = Math.sqrt(2 * this.moonParams.gravity * this.moonParams.jumpHeight);
+            this.isGrounded = false;
+        }
+    }
+
+    teleport(position: Vector3): void {
+        if (this.disposed) return;
+        this.camera.position = position.clone();
+        this.velocity = Vector3.Zero();
+    }
+
+    isDisposed(): boolean {
+        return this.disposed;
+    }
+
+    dispose(): void {
+        if (this.disposed) return;
+        this.disposed = true;
+
+        this.camera.detachControl();
+        this.camera.dispose();
+        this.terrain?.dispose();
+        this.sunLight?.dispose();
+        this.ambientLight?.dispose();
+        this.terrain = null;
+    }
+}
