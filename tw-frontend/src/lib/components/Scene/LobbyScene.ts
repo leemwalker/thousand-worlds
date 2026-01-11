@@ -22,6 +22,7 @@ import "@babylonjs/core/Meshes/meshBuilder";
 
 export interface LobbySceneCallbacks {
     onPortalEnter?: () => void;
+    onEastPortalEnter?: () => void; // Tropical test world portal
     onStatueInteract?: () => void;
 }
 
@@ -35,8 +36,11 @@ export class LobbyScene {
     private statue: Mesh | null = null;
     private portal: Mesh | null = null;
     private portalParticles: ParticleSystem | null = null;
+    private eastPortal: Mesh | null = null; // Tropical test world portal
+    private eastPortalParticles: ParticleSystem | null = null;
     private callbacks: LobbySceneCallbacks = {};
     private portalEntered: boolean = false;
+    private eastPortalEntered: boolean = false;
 
     // Room dimensions
     private readonly ROOM_WIDTH = 30;
@@ -63,6 +67,7 @@ export class LobbyScene {
         this.createWalls(scene);
         this.createStatue(scene);
         this.createPortal(scene);
+        this.createEastPortal(scene); // Tropical test world portal
         this.createFPSController(scene);
 
         // Register update loop
@@ -131,15 +136,32 @@ export class LobbyScene {
         southWall.material = wallMat;
         southWall.checkCollisions = true;
 
-        // East wall
-        const eastWall = MeshBuilder.CreateBox("eastWall", {
+        // East wall (with portal hole for tropical world) - split into two parts
+        const eastWallLeft = MeshBuilder.CreateBox("eastWallLeft", {
             width: wallThickness,
             height: wallHeight,
-            depth: this.ROOM_DEPTH
+            depth: this.ROOM_DEPTH / 2 - this.PORTAL_RADIUS - 1
         }, scene);
-        eastWall.position = new Vector3(this.ROOM_WIDTH / 2, wallHeight / 2, 0);
-        eastWall.material = wallMat;
-        eastWall.checkCollisions = true;
+        eastWallLeft.position = new Vector3(
+            this.ROOM_WIDTH / 2,
+            wallHeight / 2,
+            this.ROOM_DEPTH / 4 + this.PORTAL_RADIUS / 2
+        );
+        eastWallLeft.material = wallMat;
+        eastWallLeft.checkCollisions = true;
+
+        const eastWallRight = MeshBuilder.CreateBox("eastWallRight", {
+            width: wallThickness,
+            height: wallHeight,
+            depth: this.ROOM_DEPTH / 2 - this.PORTAL_RADIUS - 1
+        }, scene);
+        eastWallRight.position = new Vector3(
+            this.ROOM_WIDTH / 2,
+            wallHeight / 2,
+            -this.ROOM_DEPTH / 4 - this.PORTAL_RADIUS / 2
+        );
+        eastWallRight.material = wallMat;
+        eastWallRight.checkCollisions = true;
 
         // West wall (with portal hole) - split into two parts
         const westWallLeft = MeshBuilder.CreateBox("westWallLeft", {
@@ -317,6 +339,116 @@ export class LobbyScene {
     }
 
     /**
+     * Create the eastern portal with tropical green/gold particle effect.
+     * This portal leads to the tropical test world.
+     */
+    private createEastPortal(scene: Scene): void {
+        // Portal frame (torus) - tropical colors
+        this.eastPortal = MeshBuilder.CreateTorus("eastPortal", {
+            diameter: this.PORTAL_RADIUS * 2,
+            thickness: 0.3,
+            tessellation: 32
+        }, scene);
+        // Position on east wall (opposite of west portal)
+        this.eastPortal.position = new Vector3(this.ROOM_WIDTH / 2 - 0.5, this.PORTAL_RADIUS + 0.5, 0);
+        this.eastPortal.rotation.y = -Math.PI / 2; // Face inward
+
+        const eastPortalMat = new StandardMaterial("eastPortalMat", scene);
+        eastPortalMat.diffuseColor = new Color3(0.2, 0.5, 0.3); // Green-gold
+        eastPortalMat.emissiveColor = new Color3(0.1, 0.4, 0.2);
+        this.eastPortal.material = eastPortalMat;
+
+        // Portal center
+        const eastPortalCenter = MeshBuilder.CreateDisc("eastPortalCenter", {
+            radius: this.PORTAL_RADIUS - 0.3,
+            tessellation: 32
+        }, scene);
+        eastPortalCenter.position = this.eastPortal.position.clone();
+        eastPortalCenter.rotation.y = -Math.PI / 2;
+
+        const eastCenterMat = new StandardMaterial("eastCenterMat", scene);
+        eastCenterMat.diffuseColor = new Color3(0.3, 0.2, 0.1); // Warm amber
+        eastCenterMat.emissiveColor = new Color3(0.4, 0.3, 0.1);
+        eastCenterMat.alpha = 0.7;
+        eastPortalCenter.material = eastCenterMat;
+
+        // Portal light - warm tropical
+        const eastPortalLight = new PointLight("eastPortalLight", this.eastPortal.position.clone(), scene);
+        eastPortalLight.intensity = 1.2;
+        eastPortalLight.diffuse = new Color3(0.6, 0.5, 0.2); // Golden
+        eastPortalLight.range = 10;
+
+        // Create particle system with tropical colors
+        this.createEastPortalParticles(scene, this.eastPortal.position);
+    }
+
+    /**
+     * Create swirling particle effect for east portal with tropical gold/green colors.
+     */
+    private createEastPortalParticles(scene: Scene, position: Vector3): void {
+        this.eastPortalParticles = new ParticleSystem("eastPortalParticles", 500, scene);
+
+        // Create procedural texture
+        const size = 32;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+            const gradient = ctx.createRadialGradient(
+                size / 2, size / 2, 0,
+                size / 2, size / 2, size / 2
+            );
+            gradient.addColorStop(0, "rgba(255, 215, 0, 1)"); // Gold center
+            gradient.addColorStop(0.3, "rgba(200, 180, 50, 0.8)");
+            gradient.addColorStop(0.7, "rgba(50, 150, 80, 0.3)"); // Green edge
+            gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+        }
+
+        const particleTexture = new Texture(
+            canvas.toDataURL(),
+            scene,
+            true,
+            false
+        );
+        this.eastPortalParticles.particleTexture = particleTexture;
+
+        this.eastPortalParticles.emitter = position;
+        this.eastPortalParticles.minEmitBox = new Vector3(-0.5, -1.5, -0.5);
+        this.eastPortalParticles.maxEmitBox = new Vector3(0.5, 1.5, 0.5);
+
+        // Tropical colors: gold and green
+        this.eastPortalParticles.color1 = new Color4(0.8, 0.7, 0.2, 1);
+        this.eastPortalParticles.color2 = new Color4(0.2, 0.6, 0.3, 1);
+        this.eastPortalParticles.colorDead = new Color4(0.1, 0.3, 0, 0);
+
+        this.eastPortalParticles.minSize = 0.05;
+        this.eastPortalParticles.maxSize = 0.15;
+
+        this.eastPortalParticles.minLifeTime = 0.5;
+        this.eastPortalParticles.maxLifeTime = 1.5;
+
+        this.eastPortalParticles.emitRate = 100;
+
+        this.eastPortalParticles.gravity = new Vector3(0, 0.5, 0);
+
+        this.eastPortalParticles.direction1 = new Vector3(-0.5, 1, -0.5);
+        this.eastPortalParticles.direction2 = new Vector3(0.5, 1, 0.5);
+
+        this.eastPortalParticles.minAngularSpeed = 0;
+        this.eastPortalParticles.maxAngularSpeed = Math.PI;
+
+        this.eastPortalParticles.minEmitPower = 0.5;
+        this.eastPortalParticles.maxEmitPower = 1.5;
+        this.eastPortalParticles.updateSpeed = 0.01;
+
+        this.eastPortalParticles.start();
+    }
+
+    /**
      * Create FPS controller with floor collision.
      */
     private createFPSController(scene: Scene): void {
@@ -336,22 +468,30 @@ export class LobbyScene {
      * Check for portal proximity and trigger callback.
      */
     update(deltaTime: number): void {
-        if (!this.fpsController || !this.portal) return;
+        if (!this.fpsController) return;
 
         this.fpsController.handleInput(deltaTime);
 
-        // Don't check portal if already entered
-        if (this.portalEntered) return;
-
-        // Check distance to portal
         const pos = this.fpsController.getCamera().position;
-        const portalPos = this.portal.position;
-        const distance = Vector3.Distance(pos, portalPos);
 
-        // If player is very close to portal, trigger enter (only once)
-        if (distance < this.PORTAL_RADIUS + 1) {
-            this.portalEntered = true;
-            this.callbacks.onPortalEnter?.();
+        // Check west portal (main world) proximity
+        if (!this.portalEntered && this.portal) {
+            const portalPos = this.portal.position;
+            const distance = Vector3.Distance(pos, portalPos);
+            if (distance < this.PORTAL_RADIUS + 1) {
+                this.portalEntered = true;
+                this.callbacks.onPortalEnter?.();
+            }
+        }
+
+        // Check east portal (tropical test world) proximity
+        if (!this.eastPortalEntered && this.eastPortal) {
+            const eastPortalPos = this.eastPortal.position;
+            const distance = Vector3.Distance(pos, eastPortalPos);
+            if (distance < this.PORTAL_RADIUS + 1) {
+                this.eastPortalEntered = true;
+                this.callbacks.onEastPortalEnter?.();
+            }
         }
     }
 
@@ -362,11 +502,13 @@ export class LobbyScene {
         console.log("[LobbyScene] Disposing");
         this.fpsController?.dispose();
         this.portalParticles?.dispose();
+        this.eastPortalParticles?.dispose();
         // Scene disposal handles meshes
         this.scene = null;
         this.fpsController = null;
         this.floor = null;
         this.statue = null;
         this.portal = null;
+        this.eastPortal = null;
     }
 }

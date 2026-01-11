@@ -63,6 +63,34 @@ type Satellite struct {
 	Radius float64 `json:"radius"`
 	// Color is the hex string for visualization (e.g. "#AAAAAA")
 	Color string `json:"color"`
+	// Density in kg/m³ (Moon: ~3344 kg/m³)
+	Density float64 `json:"density"`
+	// Destroyed indicates if the moon has been destroyed
+	Destroyed bool `json:"destroyed"`
+	// DestroyedAt is the simulation year when the moon was destroyed
+	DestroyedAt int64 `json:"destroyed_at,omitempty"`
+	// RingFormed indicates if the destruction created a ring
+	RingFormed bool `json:"ring_formed,omitempty"`
+}
+
+// SurfaceGravity calculates this moon's surface gravity in m/s².
+// Formula: g = G × M / r² where G is gravitational constant.
+// Earth's Moon has ~1.62 m/s², each moon calculates its own based on size/density.
+func (s *Satellite) SurfaceGravity() float64 {
+	if s.Radius <= 0 {
+		return 0
+	}
+	return GravitationalConstant * s.Mass / (s.Radius * s.Radius)
+}
+
+// HorizonDistance calculates the distance to the horizon from a given eye height.
+// Formula: d = √(2 × radius × eyeHeight)
+// Smaller bodies have closer horizons.
+func (s *Satellite) HorizonDistance(eyeHeight float64) float64 {
+	if s.Radius <= 0 || eyeHeight <= 0 {
+		return 0
+	}
+	return math.Sqrt(2 * s.Radius * eyeHeight)
 }
 
 // PlanetarySystem holds the planet and its natural satellites
@@ -137,6 +165,7 @@ func GenerateMoons(seed int64, planetMass float64, config SatelliteConfig) []Sat
 			Period:   period,
 			Radius:   radius,
 			Color:    "#AAAAAA", // Default gray
+			Density:  3344.0,    // kg/m³, similar to Earth's Moon
 		}
 	}
 

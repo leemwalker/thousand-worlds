@@ -19,6 +19,9 @@ const (
 	EventWarming          GeologicalEventType = "warming"           // Post-glacial warming
 	EventGreenhouseSpike  GeologicalEventType = "greenhouse_spike"  // CO2-driven warming
 	EventGlobalGlaciation GeologicalEventType = "global_glaciation" // Snowball Earth (Phase 9b)
+	EventMoonImpact       GeologicalEventType = "moon_impact"       // Asteroid hits moon
+	EventMoonDestruction  GeologicalEventType = "moon_destruction"  // Moon destroyed by impacts
+	EventRingFormation    GeologicalEventType = "ring_formation"    // Ring forms from moon debris
 )
 
 // GeologicalEvent represents an active environmental event

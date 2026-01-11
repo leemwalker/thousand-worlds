@@ -117,6 +117,12 @@
     let isMoltenState: boolean = true;
     let moltenShader: MoltenPlanetShader | null = null;
 
+    // Camera Focus State - for click-to-focus on planet/moons
+    type FocusTarget = "planet" | "moon" | null;
+    let focusTarget: FocusTarget = "planet"; // Default focus on planet
+    let focusedMoonIndex: number = -1; // Which moon is focused (-1 = none)
+    let lastClickTime: number = 0; // For detecting double-click on focused object
+
     // Subscribe to text mode changes for pausing/resuming WebGL
     $: if (typeof window !== "undefined") {
         unsubscribeTextMode?.();
@@ -443,9 +449,122 @@
             }
         };
 
+        // Single-click handler for focus selection (planet/moon)
+        const handleFocusClick = (evt: MouseEvent) => {
+            if (!scene || !camera || fpsMode) return;
+
+            const pickResult = scene.pick(evt.clientX, evt.clientY);
+            if (!pickResult || !pickResult.hit || !pickResult.pickedMesh)
+                return;
+
+            const meshName = pickResult.pickedMesh.name;
+            const now = performance.now();
+
+            // Check if clicked on planet (globe)
+            if (meshName.startsWith("globe")) {
+                if (focusTarget === "planet" && now - lastClickTime < 500) {
+                    // Double-click on already focused planet → enter FPS
+                    // Handled by handleDoubleClick already
+                } else {
+                    focusTarget = "planet";
+                    focusedMoonIndex = -1;
+                    updateCameraForSunAlignment("planet");
+                    console.log("[WorldController] Focus: Planet");
+                }
+                lastClickTime = now;
+                return;
+            }
+
+            // Check if clicked on a moon
+            const moonMatch = meshName.match(/^moon_(.+)$/);
+            if (moonMatch) {
+                const moonIndex = moonMeshes.findIndex(
+                    (m) => m.name === meshName,
+                );
+                if (moonIndex >= 0) {
+                    if (
+                        focusTarget === "moon" &&
+                        focusedMoonIndex === moonIndex &&
+                        now - lastClickTime < 500
+                    ) {
+                        // Double-click on already focused moon → could enter moon FPV (future)
+                        console.log(
+                            "[WorldController] Double-click on moon - FPV not yet implemented",
+                        );
+                    } else {
+                        focusTarget = "moon";
+                        focusedMoonIndex = moonIndex;
+                        updateCameraForSunAlignment("moon", moonIndex);
+                        console.log(
+                            `[WorldController] Focus: Moon ${moonIndex}`,
+                        );
+                    }
+                    lastClickTime = now;
+                }
+            }
+        };
+
+        // Position camera between target (planet/moon) and sun
+        function updateCameraForSunAlignment(
+            target: "planet" | "moon",
+            moonIndex: number = -1,
+        ) {
+            if (!camera || !orbitNode) return;
+
+            let targetPosition: Vector3;
+
+            if (target === "planet") {
+                targetPosition = orbitNode.position.clone();
+            } else if (
+                target === "moon" &&
+                moonIndex >= 0 &&
+                moonMeshes[moonIndex]
+            ) {
+                // Get moon's world position
+                const moon = moonMeshes[moonIndex];
+                targetPosition = moon.getAbsolutePosition();
+            } else {
+                return;
+            }
+
+            // Sun is at origin (0, 0, 0)
+            const sunPosition = Vector3.Zero();
+
+            // Direction from sun to target
+            const sunToTarget = targetPosition
+                .subtract(sunPosition)
+                .normalize();
+
+            // Camera should be positioned on the opposite side of target from sun
+            // At a distance of camera.radius from target
+            const cameraDistance = camera.radius;
+            const newCameraPosition = targetPosition.add(
+                sunToTarget.scale(cameraDistance),
+            );
+
+            // Animate camera to new position
+            camera.target = targetPosition;
+
+            // Calculate alpha/beta from new position
+            const direction = newCameraPosition.subtract(targetPosition);
+            const alpha = Math.atan2(direction.z, direction.x);
+            const horizontalDist = Math.sqrt(
+                direction.x * direction.x + direction.z * direction.z,
+            );
+            const beta = Math.atan2(horizontalDist, direction.y);
+
+            camera.alpha = alpha;
+            camera.beta = beta;
+
+            console.log(
+                `[WorldController] Camera aligned: sun at back, target=${target}`,
+            );
+        }
+
         const canvas = scene.getEngine().getRenderingCanvas();
         if (canvas) {
             canvas.addEventListener("dblclick", handleDoubleClick);
+            canvas.addEventListener("click", handleFocusClick);
         }
 
         // Escape key to exit FPS mode
