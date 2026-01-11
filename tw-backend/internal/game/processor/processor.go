@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"tw-backend/cmd/game-server/websocket"
+	"tw-backend/internal/ai/ollama"
 	"tw-backend/internal/auth"
 	"tw-backend/internal/character"
 	"tw-backend/internal/economy/crafting"
@@ -64,6 +65,9 @@ type GameProcessor struct {
 	validator          *validation.Validator
 	eventPublisher     events.Publisher // Event infrastructure for simulation events
 
+	// AI Services
+	ollamaClient *ollama.OllamaClient
+
 	// WorldGeology stores geological state per world (worldID -> geology)
 	worldGeology map[uuid.UUID]*ecosystem.WorldGeology
 
@@ -95,6 +99,7 @@ func NewGameProcessor(
 	simSnapshotRepo *ecosystem.SimulationSnapshotRepository,
 	runnerStateRepo *ecosystem.RunnerStateRepository,
 	eventPublisher events.Publisher,
+	ollamaClient *ollama.OllamaClient,
 ) *GameProcessor {
 	// Create map service with available dependencies
 	mapSvc := gamemap.NewService(worldRepo, skillsRepo, entityService, lookService, worldEntityService, ecosystemService)
@@ -126,6 +131,7 @@ func NewGameProcessor(
 		simSnapshotRepo:    simSnapshotRepo,
 		runnerStateRepo:    runnerStateRepo,
 		eventPublisher:     eventPublisher,
+		ollamaClient:       ollamaClient,
 	}
 }
 
@@ -261,12 +267,21 @@ func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.Gam
 		return p.handleEcosystem(ctx, client, cmd)
 	case "world":
 		return p.handleWorld(ctx, client, cmd)
+	// get_satellites is already handled elsewhere or added below
+	case "destroy_moon":
+		return p.handleDestroyMoon(ctx, client, cmd)
 	case "fly":
 		return p.handleFly(ctx, client, cmd)
 	case "world_map_image":
 		return p.handleWorldMapImage(ctx, client, cmd)
 	case "world_tile":
 		return p.handleWorldTile(ctx, client, cmd)
+	case "get_pois":
+		return p.handleGetPOIs(ctx, client, cmd)
+	case "enter_tropical_world":
+		return p.handleEnterTropicalWorld(ctx, client, cmd)
+	case "get_satellites":
+		return p.handleGetSatellites(ctx, client, cmd)
 
 	default:
 		return fmt.Errorf("%w: %s", ErrInvalidAction, cmd.Action)

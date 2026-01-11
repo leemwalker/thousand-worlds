@@ -28,10 +28,17 @@
     import { PerformanceOverlay } from "./PerformanceOverlay";
     import { FPSAccessibilityOptions } from "./FPSAccessibilityOptions";
     import { HorizonRenderer } from "./HorizonRenderer";
+
     import { WaterEffects } from "./WaterEffects";
+    import { PoiManager } from "./PoiManager"; // NEW
+    import type { PointOfInterest } from "$lib/types/pois";
+
+    import { ParticleSystem } from "@babylonjs/core/Particles/particleSystem";
+    import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 
     // Interface Mode Management
     import { isTextMode } from "$lib/stores/ui";
+    import { gameStore } from "$lib/stores/game";
 
     // Types for satellite/moon data
     interface Satellite {
@@ -50,7 +57,10 @@
     export let seaLevel: number = 0;
     export let maxElevation: number = 8848;
     export let minElevation: number = -11000;
+
     export let satellites: Satellite[] = []; // Moon data from world
+    export let rings: any = null; // Ring system data
+    export let pois: PointOfInterest[] = []; // POI data from world
     export let simulationSpeed: number = 1.0; // Time multiplier for animations
     export let onSendCommand:
         | ((action: string, message?: string) => void)
@@ -98,6 +108,7 @@
     let fpsAccessibility: FPSAccessibilityOptions | null = null;
     let horizonRenderer: HorizonRenderer | null = null;
     let waterEffects: WaterEffects | null = null;
+    let poiManager: PoiManager | null = null; // NEW
 
     // Animation state
     let lastTime = 0;
@@ -243,6 +254,38 @@
             moltenShader = new MoltenPlanetShader(scene);
         }
 
+        // Initialize POI Manager
+        poiManager = new PoiManager(scene, 10, (poi) => {
+            console.log(
+                "[WorldController] POI clicked:",
+                poi.name,
+                poi.coordinates,
+            );
+            if (fpsTransitionController) {
+                // Transition to ground at POI location
+                // We use the POI's lat/lon directly
+                fpsTransitionController.transitionToGround(
+                    poi.coordinates.lat,
+                    poi.coordinates.lon,
+                );
+
+                // Enable FPV mode flag
+                fpsMode = true;
+            }
+        });
+
+        // Request POIs if empty
+        if (pois.length === 0 && onSendCommand) {
+            console.log("[WorldController] Requesting POIs...");
+            onSendCommand("get_pois", JSON.stringify({ limit: 50 }));
+        }
+
+        // Request satellites/rings if empty
+        if (satellites.length === 0 && onSendCommand) {
+            console.log("[WorldController] Requesting Satellites...");
+            onSendCommand("get_satellites");
+        }
+
         // ===========================================
         // Solar System Hierarchy
         // ===========================================
@@ -336,6 +379,14 @@
         globe = lodManager.createMesh(scene, 0, "globe");
         globe.parent = planetNode;
 
+        // Update POI manager radius (LOD mesh 0 is the main one, size should be consistent)
+        // LODManager creates sphere with diameter 20 (radius 10) by default in its logic?
+        // Let's check LODManager or just set it to 10 as per previous logic.
+        if (poiManager) {
+            poiManager.setRadius(10);
+        }
+        globe.parent = planetNode;
+
         const mediumMesh = lodManager.createMesh(scene, 1, "globe");
         mediumMesh.parent = planetNode;
         mediumMesh.setEnabled(false);
@@ -366,6 +417,11 @@
         // Create Moons (if any satellites provided)
         // ===========================================
         createMoons(scene);
+
+        // ===========================================
+        // Create Rings (if any provided)
+        // ===========================================
+        createRings(scene);
 
         // Create starfield background
         createStarfield(scene);
@@ -1239,7 +1295,163 @@
         }
     }
 
+    // Reactive: If POI update comes in
+    $: if (poiManager && pois) {
+        poiManager.updatePOIs(pois);
+    }
+
+    let ringMeshes: Mesh[] = [];
+
+    function createRings(s: Scene) {
+        if (!planetNode || !rings || !rings.rings || rings.rings.length === 0) {
+            // No rings to create
+            return;
+        }
+
+        console.log(
+            `[BabylonGlobe] Creating ${rings.rings.length} planetary rings`,
+        );
+
+        // Clear existing rings
+        ringMeshes.forEach((m) => m.dispose());
+        ringMeshes = [];
+
+        // Sort rings by radius to render inner to outer
+        const sortedRings = [...rings.rings].sort(
+            (a: any, b: any) => a.inner_radius - b.inner_radius,
+        );
+
+        sortedRings.forEach((ring: any, index: number) => {
+            // Ring data is in METERS, simple scaling for visual representation
+            // Planet radius is assumed 5 units in Babylon
+            // Earth radius = 6371 km = 6,371,000 m
+            // So scale = 5 / 6,371,000
+            const scale = 5 / 6371000;
+            const innerRadius = ring.inner_radius * scale;
+            const outerRadius = ring.outer_radius * scale;
+
+            // Create Torus for ring
+            // Flatten it to look like a disc
+            const ringMesh = MeshBuilder.CreateTorus(
+                `ring_${ring.id}`,
+                {
+                    diameter: innerRadius + outerRadius, // Average diameter
+                    thickness: outerRadius - innerRadius,
+                    tessellation: 64,
+                },
+                s,
+            );
+
+            ringMesh.scaling.y = 0.001; // Flatten
+            ringMesh.parent = planetNode;
+
+            // Material
+            const ringMat = new StandardMaterial(`ringMat_${ring.id}`, s);
+            if (ring.color) {
+                ringMat.diffuseColor = Color3.FromHexString(ring.color);
+            } else {
+                ringMat.diffuseColor = new Color3(0.6, 0.5, 0.4); // Default dusty color
+            }
+
+            // Make it slightly transparent
+            ringMat.alpha = 0.7;
+            ringMat.backFaceCulling = false; // Visible from both sides
+            ringMat.specularColor = new Color3(0.1, 0.1, 0.1);
+
+            ringMesh.material = ringMat;
+            ringMeshes.push(ringMesh);
+            ringMesh.material = ringMat;
+            ringMeshes.push(ringMesh);
+        });
+    }
+
+    // Monitor for simulation events (e.g., moon destruction)
+    let processedEventIds = new Set<string>();
+    $: if ($gameStore.world.sim.events) {
+        $gameStore.world.sim.events.forEach((event: any) => {
+            // Basic de-duplication if events persist
+            // Ideally events should be cleared, but for now we track IDs or timestamps if available?
+            // Since we don't have IDs on all events, we'll assume transient for now or check object ref
+            // But simpler: just assume strictly new events if the array changes?
+            // Svelte reactive statement runs on valid change.
+            // Let's implement destroyMoon if type matches.
+            if (
+                event.type === "moon_destroyed" &&
+                !processedEventIds.has(event.metadata?.moon_id + "_destroyed")
+            ) {
+                destroyMoon(event.metadata.moon_id);
+                processedEventIds.add(event.metadata.moon_id + "_destroyed");
+            }
+        });
+    }
+
+    function destroyMoon(moonNameID: string) {
+        if (!scene) return;
+
+        console.log(`[BabylonGlobe] Destroying moon: ${moonNameID}`);
+
+        // Find moon mesh
+        const moonMesh = moonMeshes.find(
+            (m) =>
+                m.name === `moon_${moonNameID}` || m.name.includes(moonNameID),
+        );
+        if (!moonMesh) {
+            console.warn(
+                `[BabylonGlobe] Moon mesh not found for destruction: ${moonNameID}`,
+            );
+            return;
+        }
+
+        // Create Explosion Effect
+        const particleSystem = new ParticleSystem("moonExplosion", 2000, scene);
+        // Use a default particle texture (flare or circle)
+        // If we don't have one, we can create a dynamic texture or use a cloud URL if available
+        // For now, let's try to use a base64 placeholder or assume a standard texture exists?
+        // Actually, Babylon often needs a URL. We can use a generated data URI for a white circle.
+        const particleTextureUrl =
+            "https://raw.githubusercontent.com/BabylonJS/Babylon.js/master/packages/tools/playground/public/textures/flare.png"; // Fallback
+        particleSystem.particleTexture = new Texture(particleTextureUrl, scene);
+
+        particleSystem.emitter = moonMesh.position.clone();
+        particleSystem.minEmitBox = new Vector3(-0.5, -0.5, -0.5);
+        particleSystem.maxEmitBox = new Vector3(0.5, 0.5, 0.5);
+
+        particleSystem.color1 = new Color4(0.7, 0.7, 0.7, 1.0);
+        particleSystem.color2 = new Color4(0.2, 0.2, 0.2, 1.0);
+        particleSystem.colorDead = new Color4(0, 0, 0, 0.0);
+
+        particleSystem.minSize = 0.1;
+        particleSystem.maxSize = 0.5;
+
+        particleSystem.minLifeTime = 0.3;
+        particleSystem.maxLifeTime = 1.5;
+
+        particleSystem.emitRate = 1000;
+        particleSystem.gravity = new Vector3(0, 0, 0);
+
+        particleSystem.manualEmitCount = 500; // One-time burst
+        particleSystem.start();
+
+        // Dispose moon
+        moonMesh.dispose();
+
+        // Remove from our tracking array
+        moonMeshes = moonMeshes.filter((m) => m !== moonMesh);
+
+        // Optional: Leave behind a debris cloud (mesh)
+        // For now, the particle burst is the visual.
+    }
+
+    // Reactive: If rings change (e.g. from update), recreate them
+    $: if (rings && scene && planetNode) {
+        createRings(scene);
+    }
+
     onDestroy(() => {
+        // Cleanup rings
+        ringMeshes.forEach((m) => m.dispose());
+        ringMeshes = [];
+
         // Cleanup moons
         moonMeshes.forEach((m) => m.dispose());
         moonOrbitNodes.forEach((n) => n.dispose());
@@ -1295,6 +1507,11 @@
         if (moltenShader) {
             moltenShader.dispose();
             moltenShader = null;
+        }
+
+        if (poiManager) {
+            poiManager.dispose();
+            poiManager = null;
         }
 
         // Scene is managed by SceneManager, so we don't dispose it here

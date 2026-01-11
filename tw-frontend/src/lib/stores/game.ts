@@ -1,5 +1,6 @@
 import { writable, derived, type Writable } from 'svelte/store';
 import type { User, Character, Item, CharacterStats, Entity, GameMessage } from '$lib/types/game';
+import type { PointOfInterest } from '$lib/types/pois';
 
 // Scene location types for visual mode
 export type GameLocation = 'LOBBY' | 'WORLD' | 'LOADING';
@@ -31,6 +32,9 @@ export interface WorldState {
     };
     sim: {
         satellites: any[];
+        rings: any; // PlanetaryRingSystem
+        pois: PointOfInterest[];
+        events?: any[]; // Transient events like moon_destroyed
     };
 }
 
@@ -40,7 +44,7 @@ const initialWorldState: WorldState = {
     materialBlob: null,
     iceBlob: null,
     geo: { seaLevel: 0, maxElevation: 0, minElevation: 0 },
-    sim: { satellites: [] }
+    sim: { satellites: [], rings: null, pois: [] }
 };
 
 const initialState: GameState = {
@@ -97,6 +101,27 @@ function createGameStore() {
         updateWorld: (worldState: Partial<WorldState>) => update(s => ({
             ...s,
             world: { ...s.world, ...worldState }
+        })),
+
+        // Deep update for simulation state
+        updateSim: (simState: Partial<WorldState['sim']>) => update(s => ({
+            ...s,
+            world: {
+                ...s.world,
+                sim: { ...s.world.sim, ...simState }
+            }
+        })),
+
+        // Add a simulation event (transient)
+        addSimEvent: (event: any) => update(s => ({
+            ...s,
+            world: {
+                ...s.world,
+                sim: {
+                    ...s.world.sim,
+                    events: [...(s.world.sim.events || []), event]
+                }
+            }
         })),
 
         // Reset world to molten state (clears all textures, triggers molten planet shader)

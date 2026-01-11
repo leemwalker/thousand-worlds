@@ -620,7 +620,7 @@
             const worldId =
                 targetWorldId || "00000000-0000-0000-0000-000000000001";
 
-            await createCharacter(name, species, worldId);
+            await createCharacter(name!, species, worldId);
         } else {
             addMessage(
                 "error",
@@ -657,6 +657,25 @@
                 break;
             case "error":
                 addMessage("error", msg.data.message);
+                break;
+            case "satellites_info":
+                // Update game store with satellites and rings data
+                import("$lib/stores/game").then(({ gameStore }) => {
+                    gameStore.updateSim({
+                        satellites: msg.data.satellites,
+                        rings: msg.data.rings,
+                    });
+                });
+                break;
+            case "moon_destroyed":
+                // Notify user and let WorldController handle visual
+                addMessage(
+                    "game_message",
+                    `Moon destroyed: ${msg.data.metadata.moon_id}`,
+                );
+                import("$lib/stores/game").then(({ gameStore }) => {
+                    gameStore.addSimEvent(msg.data);
+                });
                 break;
             case "sim_event":
                 // Pass to World Map Modal
@@ -957,7 +976,6 @@
     <WorldMapModal
         isOpen={showWorldMap}
         onClose={() => (showWorldMap = false)}
-        {latestSimEvent}
     />
 </GameContainer>
 

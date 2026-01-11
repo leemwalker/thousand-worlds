@@ -1,4 +1,5 @@
 import type { Entity } from './game';
+import type { PointOfInterest } from './pois';
 import type { VisibleTile, RenderQuality } from '$lib/components/Map/MapRenderer';
 
 // --- Command Messages (Client -> Server) ---
@@ -38,7 +39,31 @@ export type ServerMessageType =
     | 'error'
     | 'world_map_image_response'
     | 'world_tile_response'
-    | 'world_reset';
+    | 'world_reset'
+    | 'points_of_interest'
+    | 'satellites_info'
+    | 'moon_destroyed'; // New event
+
+export interface SatellitesInfoMessage extends BaseServerMessage {
+    type: 'satellites_info';
+    data: {
+        satellites: any[];
+        rings: any;
+    };
+}
+
+export interface MoonDestroyedMessage extends BaseServerMessage {
+    type: 'moon_destroyed';
+    data: {
+        type: 'moon_destroyed';
+        metadata: {
+            moon_id: string;
+            debris_mass: number;
+        };
+    };
+}
+
+// ServerMessage union defined at bottom of file
 
 export interface BaseServerMessage {
     type: ServerMessageType;
@@ -95,6 +120,8 @@ export interface ErrorMessage extends BaseServerMessage {
     };
 }
 
+// ... (interfaces)
+
 export interface WorldResetMessage extends BaseServerMessage {
     type: 'world_reset';
     data: {
@@ -102,16 +129,14 @@ export interface WorldResetMessage extends BaseServerMessage {
     };
 }
 
-export type ServerMessage =
-    | GameOutputMessage
-    | StateUpdateMessage
-    | MapUpdateMessage
-    | CombatEventMessage
-    | ErrorMessage
-    | WorldMapImageMessage
-    | WorldTileMessage
-    | WorldResetMessage;
+export interface PointsOfInterestMessage extends BaseServerMessage {
+    type: 'points_of_interest';
+    data: {
+        pois: PointOfInterest[];
+    };
+}
 
+// Fixed Interface Names
 export interface WorldMapImageMessage extends BaseServerMessage {
     type: 'world_map_image_response';
     data: {
@@ -153,3 +178,17 @@ export interface WorldTileMessage extends BaseServerMessage {
         heightmapBytes: Uint8Array;
     };
 }
+
+// Consolidated ServerMessage Type
+export type ServerMessage =
+    | GameOutputMessage
+    | StateUpdateMessage
+    | MapUpdateMessage
+    | CombatEventMessage
+    | ErrorMessage
+    | WorldMapImageMessage
+    | WorldTileMessage
+    | WorldResetMessage
+    | PointsOfInterestMessage
+    | SatellitesInfoMessage
+    | MoonDestroyedMessage;
