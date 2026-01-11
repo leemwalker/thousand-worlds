@@ -118,26 +118,23 @@ func (rs *RingSystem) AddRing(ring *PlanetaryRing) {
 	}
 }
 
-// UpdateRingStages advances ring formation based on elapsed time
+// UpdateRingStages advances ring formation based on elapsed time.
+// Rings can progress through multiple stages if enough time has passed.
 func (rs *RingSystem) UpdateRingStages(currentYear int64) {
 	for i := range rs.Rings {
 		ring := &rs.Rings[i]
 		age := currentYear - ring.FormedAtYear
 
-		switch ring.Stage {
-		case RingStageChunks:
-			if age >= ChunksToDebrisYears {
-				ring.Stage = RingStageDebris
-			}
-		case RingStageDebris:
-			if age >= DebrisToSpreadingYears {
-				ring.Stage = RingStageSpreading
-			}
-		case RingStageSpreading:
-			if age >= SpreadingToStableYears {
-				ring.Stage = RingStageStable
-			}
+		// Progress through all applicable stages based on age
+		// This handles time jumps in simulation (e.g., jumping 100 years)
+		if age >= SpreadingToStableYears {
+			ring.Stage = RingStageStable
+		} else if age >= DebrisToSpreadingYears {
+			ring.Stage = RingStageSpreading
+		} else if age >= ChunksToDebrisYears {
+			ring.Stage = RingStageDebris
 		}
+		// Otherwise remains at RingStageChunks
 	}
 }
 
