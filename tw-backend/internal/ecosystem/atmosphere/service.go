@@ -18,6 +18,11 @@ type Atmosphere struct {
 	TotalMass        float64 // Total atmospheric mass (atm)
 	GreenhouseFactor float64 // Temperature offset from greenhouse effect (°C)
 
+	// Planet Physics
+	PlanetMassKg    float64
+	PlanetRadiusM   float64
+	RetentionFactor float64 // 0.0 to 1.0 (how well the planet holds atmosphere)
+
 	// Simulation state
 	TotalYearsSimulated int64
 }
@@ -39,10 +44,16 @@ type AtmosphereStats struct {
 // - Trace CO2 (~400 ppm)
 // - N2-dominated (78%)
 // - O2 from photosynthesis (21%)
-func NewAtmosphere(startYear int64) *Atmosphere {
+// NewAtmosphere creates initial atmospheric composition based on planetary age
+func NewAtmosphere(startYear int64, massKg, radiusM float64) *Atmosphere {
 	atm := &Atmosphere{
 		TotalYearsSimulated: startYear,
+		PlanetMassKg:        massKg,
+		PlanetRadiusM:       radiusM,
 	}
+
+	// Calculate atmospheric retention based on escape velocity
+	atm.calculateRetentionFactor()
 
 	// Initialize based on starting year
 	if startYear < 2_000_000_000 {
@@ -70,13 +81,52 @@ func NewAtmosphere(startYear int64) *Atmosphere {
 //
 // Physics: CO2 absorbs infrared radiation, trapping heat
 // More CO2 → stronger absorption → higher surface temperature
+// calculateRetentionFactor determines how well the planet holds an atmosphere
+// Based on escape velocity relative to terrestrial (Earth) baseline.
+// - Mars (0.1 mass): Poor retention
+// - Earth (1.0 mass): Good retention
+// - Super-Earth (2.0 mass): Excellent retention (thick atmosphere)
+func (a *Atmosphere) calculateRetentionFactor() {
+	const G = 6.67430e-11
+	const EarthEscapeVelocity = 11186.0 // m/s
+
+	if a.PlanetMassKg <= 0 || a.PlanetRadiusM <= 0 {
+		a.RetentionFactor = 0.0
+		return
+	}
+
+	escapeVelocity := math.Sqrt(2 * G * a.PlanetMassKg / a.PlanetRadiusM)
+	ratio := escapeVelocity / EarthEscapeVelocity
+
+	// Non-linear retention curve
+	// < 0.5 (Mars-like): Rapid loss
+	// 0.5 - 1.0: Increasing retention
+	// > 1.0 (Super-Earth): Accumulates thick atmosphere
+	if ratio < 0.5 {
+		a.RetentionFactor = ratio * 0.2 // Very poor
+	} else {
+		a.RetentionFactor = math.Pow(ratio, 2.0) // Quadratic scaling
+	}
+}
+
 func (a *Atmosphere) updateDerivedProperties() {
-	a.TotalMass = a.CO2Mass + a.N2Mass + a.O2Mass
+	// Base mass from composition
+	baseMass := a.CO2Mass + a.N2Mass + a.O2Mass
+
+	// Apply planet retention capability
+	// A massive planet holds 2x atmosphere for the same "geological output"
+	// A small planet loses most of it
+	a.TotalMass = baseMass * a.RetentionFactor
 
 	// Calculate greenhouse warming from CO2
 	// Reference: Modern CO2 = 400 ppm = 0.0006 atm
 	const modernCO2 = 0.0006
 	const degreesPerDoubling = 3.0 // IPCC consensus value
+
+	// Update greenhouse effect based on Total Mass (pressure broadening)
+	// Thicker atmosphere = stronger greenhouse effect
+	// Thin atmosphere = weaker greenhouse
+	pressureEffect := math.Sqrt(a.TotalMass) // Square root scaling for pressure broadening
 
 	if a.CO2Mass <= 0 {
 		a.GreenhouseFactor = 0.0
@@ -85,7 +135,9 @@ func (a *Atmosphere) updateDerivedProperties() {
 
 	// Calculate number of doublings relative to modern baseline
 	// log₂(C/C₀) gives doublings
-	doublings := math.Log2(a.CO2Mass / modernCO2)
+	// Use effective CO2 (scaled by total pressure)
+	effectiveCO2 := a.CO2Mass * pressureEffect
+	doublings := math.Log2(effectiveCO2 / modernCO2)
 
 	//Greenhouse temperature offset (°C)
 	a.GreenhouseFactor = doublings * degreesPerDoubling

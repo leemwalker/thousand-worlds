@@ -5,6 +5,7 @@ package ecosystem
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -1149,11 +1150,34 @@ func (sr *SimulationRunner) SetGeology(geology *WorldGeology) {
 	if sr.climateDriver != nil {
 		sr.climateDriver.BaseObliquity = geology.Params.AxialTiltDeg
 		sr.climateDriver.DayLengthSec = geology.Params.DayLengthSec
+		sr.climateDriver.PlanetMassKg = geology.Params.MassKg
+		sr.climateDriver.PlanetRadiusM = geology.Params.RadiusM
 	}
 
 	// Update Population Simulator with Day Length
 	if sr.popSim != nil {
 		sr.popSim.DayLengthSec = geology.Params.DayLengthSec
+	}
+}
+
+// SetPlanetMass updates the planet mass and radius, affecting gravity and atmosphere
+func (sr *SimulationRunner) SetPlanetMass(massMultiplier float64) {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+
+	// Update geology physics
+	if sr.geology != nil {
+		sr.geology.Params.MassKg = astronomy.EarthMassKg * massMultiplier
+		// Radius roughly scales with cube root of mass assuming constant density (simplified)
+		// R = R_earth * (M/M_earth)^(1/3)
+		radiusRatio := math.Pow(massMultiplier, 1.0/3.0)
+		sr.geology.Params.RadiusM = astronomy.EarthRadiusMeters * radiusRatio
+
+		// Update Climate Driver
+		if sr.climateDriver != nil {
+			sr.climateDriver.PlanetMassKg = sr.geology.Params.MassKg
+			sr.climateDriver.PlanetRadiusM = sr.geology.Params.RadiusM
+		}
 	}
 }
 

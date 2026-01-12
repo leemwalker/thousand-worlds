@@ -526,7 +526,8 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	// Initialize Atmospheric Composition (Carbon-Silicate Cycle)
 	// Early Earth: High CO2 to compensate for faint young Sun
 	// Modern Earth: Low CO2 after billions of years of weathering
-	atm := atmosphere.NewAtmosphere(0) // Start at year 0
+	// Pass default Earth parameters (will be updated if params change)
+	atm := atmosphere.NewAtmosphere(0, astronomy.EarthMassKg, astronomy.EarthRadiusMeters)
 
 	// === PRE-WARM CLIMATE PHYSICS ===
 	// Initialize climate state BEFORE first map generation to avoid "Instant Ice Age" bug.
@@ -2501,6 +2502,24 @@ func (p *GameProcessor) handleWorldConfigure(ctx context.Context, client websock
 		runner.SetDayLength(seconds)
 		hours := seconds / 3600.0
 		client.SendGameMessage("system", fmt.Sprintf("Day length set to %.2f seconds (%.2f hours)", seconds, hours), nil)
+
+	case "mass":
+		multiplier, err := strconv.ParseFloat(valueStr, 64)
+		if err != nil {
+			client.SendGameMessage("error", fmt.Sprintf("Invalid mass multiplier: %v", err), nil)
+			return nil
+		}
+		if multiplier <= 0.05 {
+			client.SendGameMessage("error", "Mass multiplier too small (min 0.05)", nil)
+			return nil
+		}
+		if multiplier > 20.0 {
+			client.SendGameMessage("error", "Mass multiplier too large (max 20.0)", nil)
+			return nil
+		}
+
+		runner.SetPlanetMass(multiplier)
+		client.SendGameMessage("system", fmt.Sprintf("Planet mass set to %.2fy Earth Mass", multiplier), nil)
 
 	default:
 		client.SendGameMessage("error", fmt.Sprintf("Unknown parameter: %s", param), nil)

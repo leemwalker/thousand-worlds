@@ -264,3 +264,65 @@ func TestHandleWorld_Configure_DayLength(t *testing.T) {
 	}
 	assert.True(t, found, "Should confirm day length update")
 }
+
+func TestHandleWorld_Configure_Mass(t *testing.T) {
+	// Setup
+	mockAuthRepo := auth.NewMockRepository()
+	mockWorldRepo := NewMockWorldRepository()
+	ecoSvc := ecosystem.NewService(time.Now().Unix())
+
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil, nil, nil, nil, nil)
+
+	charID := uuid.New()
+	userID := uuid.New()
+	worldID := uuid.New()
+	circ := 40000000.0
+
+	mockWorldRepo.CreateWorld(context.Background(), &repository.World{
+		ID:            worldID,
+		Name:          "Test World",
+		Circumference: &circ,
+	})
+
+	mockAuthRepo.CreateCharacter(context.Background(), &auth.Character{
+		CharacterID: charID,
+		UserID:      userID,
+		WorldID:     worldID,
+	})
+
+	client := &mockClient{
+		UserID:      userID,
+		CharacterID: charID,
+	}
+
+	// Initialize simulation runner using 'run'
+	target := "run"
+	runCmd := &websocket.CommandData{
+		Action:  "world",
+		Target:  &target,
+	}
+	proc.ProcessCommand(context.Background(), client, runCmd)
+
+	// EXECUTE: Configure mass
+	targetCfg := "configure"
+	msgCfg := "mass 0.5" // Mars-sized (half earth mass?? No Mars is 0.1 but 0.5 is fine for test)
+	cmd := &websocket.CommandData{
+		Action:  "world",
+		Target:  &targetCfg,
+		Message: &msgCfg,
+	}
+
+	err := proc.ProcessCommand(context.Background(), client, cmd)
+	require.NoError(t, err)
+
+	// VERIFY: Last message should confirm mass
+	messages := client.GetMessages()
+	found := false
+	for i := len(messages) - 1; i >= 0; i-- {
+		if strings.Contains(messages[i].Text, "Planet mass set to 0.50y Earth Mass") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "Should confirm planet mass update")
+}

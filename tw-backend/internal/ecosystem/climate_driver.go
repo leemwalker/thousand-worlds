@@ -1,6 +1,7 @@
 package ecosystem
 
 import (
+	"math"
 	"tw-backend/internal/worldgen/astronomy"
 )
 
@@ -59,9 +60,13 @@ type ClimateDriver struct {
 	// Based on Gough (1981) stellarevolution model
 	SolarLuminosity float64
 
+	// Planetary Physics (for Atmosphere retention)
+	PlanetMassKg  float64
+	PlanetRadiusM float64
+
 	// GreenhouseOffset is the temperature increase from atmospheric CO2
 	// Set by atmospheric simulation, represents greenhouse warming
-	// Early Earth: High CO2 → +50°C, Modern: Low CO2 → ~0°C
+	// Early Earth: High CO2 → +50°C, Modern Earth: ~0°C
 	GreenhouseOffset float64
 
 	// GlobalAlbedo is the planetary reflectivity (0.0 = black body, 1.0 = perfect reflector)
@@ -88,6 +93,8 @@ func NewClimateDriver(eventManager *GeologicalEventManager) *ClimateDriver {
 		DayLengthSec:       86400.0,                     // Default to Earth-like day (24h)
 		GeothermalOffset:   0.0,                         // Will be calculated on first Update
 		SolarLuminosity:    0.71,                        // Early Earth baseline
+		PlanetMassKg:       astronomy.EarthMassKg,       // Default Earth
+		PlanetRadiusM:      astronomy.EarthRadiusMeters, // Default Earth
 		OrbitalInsolation:  1.0,                         // Initial value
 		GreenhouseOffset:   0.0,                         // Will be set by atmosphere
 		GlobalAlbedo:       0.30,                        // Modern Earth baseline
@@ -100,6 +107,7 @@ func NewClimateDriver(eventManager *GeologicalEventManager) *ClimateDriver {
 // Uses ObliquityStability to scale obliquity variance for chaotic/stable worlds.
 // Calculates GeothermalOffset from planetary age for early Earth heating.
 // Calculates SolarLuminosity from stellar evolution (Faint Young Sun).
+// Applies Atmospheric Retention physics based on PlanetMassKg and RadiusM.
 func (cd *ClimateDriver) Update(year int64) {
 	// Calculate current orbital state with stability-adjusted obliquity
 	cd.CurrentState = astronomy.CalculateOrbitalStateWithStability(year, cd.ObliquityStability, cd.BaseObliquity)
@@ -146,6 +154,33 @@ func (cd *ClimateDriver) Update(year int64) {
 			}
 		}
 	}
+
+	// Calculate Atmospheric Retention Physics
+	// Determine how well the planet holds thick atmosphere based on escape velocity
+	const G = 6.67430e-11
+	const EarthEscapeVelocity = 11186.0 // m/s
+
+	retentionFactor := 1.0
+	if cd.PlanetMassKg > 0 && cd.PlanetRadiusM > 0 {
+		escapeVel := math.Sqrt(2 * G * cd.PlanetMassKg / cd.PlanetRadiusM)
+		ratio := escapeVel / EarthEscapeVelocity
+
+		// Non-linear retention curve:
+		// < 0.5 (Mars-like): Rapid loss -> Thin atmosphere
+		// > 1.0 (Super-Earth): Accumulates thick atmosphere
+		if ratio < 0.5 {
+			retentionFactor = ratio * 0.2 // Very poor retention
+		} else {
+			retentionFactor = math.Pow(ratio, 2.0) // Quadratic scaling
+		}
+	}
+
+	// Apply Pressure Broadening to Greenhouse Effect
+	// Thicker atmosphere (high retention) = stronger greenhouse effect
+	// We scale the base greenhouse offset (derived from gas composition) by retention
+	// Note: We modify the offset *after* it has been set by CarbonCycle
+	pressureBroadening := math.Sqrt(retentionFactor)
+	cd.GreenhouseOffset *= pressureBroadening
 
 	// =========================================================================
 	// Phase 9b: SNOWBALL EARTH (Global Glaciation / Ice-Albedo Feedback)
