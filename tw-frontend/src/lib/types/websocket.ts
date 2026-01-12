@@ -42,13 +42,43 @@ export type ServerMessageType =
     | 'world_reset'
     | 'points_of_interest'
     | 'satellites_info'
-    | 'moon_destroyed'; // New event
+    | 'satellites_info'
+    | 'moon_destroyed' // New event
+    | 'asteroid_impact';
 
 export interface SatellitesInfoMessage extends BaseServerMessage {
     type: 'satellites_info';
     data: {
         satellites: any[];
         rings: any;
+    };
+}
+// ... (MoonDestroyedMessage is above) ...
+// ... (AsteroidImpactMessage is above) ...
+
+// Consolidated ServerMessage Type
+export type ServerMessage =
+    | GameOutputMessage
+    | StateUpdateMessage
+    | MapUpdateMessage
+    | CombatEventMessage
+    | ErrorMessage
+    | WorldMapImageMessage
+    | WorldTileMessage
+    | WorldResetMessage
+    | PointsOfInterestMessage
+    | SatellitesInfoMessage
+    | MoonDestroyedMessage
+    | AsteroidImpactMessage;
+
+export interface MoonDestroyedMessage extends BaseServerMessage {
+    type: 'moon_destroyed';
+    data: {
+        type: 'moon_destroyed';
+        metadata: {
+            moon_id: string;
+            debris_mass: number;
+        };
     };
 }
 
@@ -59,6 +89,26 @@ export interface MoonDestroyedMessage extends BaseServerMessage {
         metadata: {
             moon_id: string;
             debris_mass: number;
+        };
+    };
+}
+
+export interface AsteroidImpactMessage extends BaseServerMessage {
+    type: 'asteroid_impact';
+    data: {
+        type: 'asteroid_impact';
+        metadata: {
+            location: {
+                lat: number;
+                lon: number;
+            };
+            mass: number;
+            impact_time: number;
+            origin?: {
+                distance: number;
+                phi: number;
+                theta: number;
+            };
         };
     };
 }
@@ -191,4 +241,6 @@ export type ServerMessage =
     | WorldResetMessage
     | PointsOfInterestMessage
     | SatellitesInfoMessage
-    | MoonDestroyedMessage;
+    | SatellitesInfoMessage
+    | MoonDestroyedMessage
+    | AsteroidImpactMessage;

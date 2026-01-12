@@ -7,6 +7,7 @@
     import { onMount, onDestroy } from "svelte";
     import { isMobile } from "$lib/stores/ui";
     import { gameStore } from "$lib/stores/game";
+    import { gameWebSocket } from "$lib/services/websocket";
     import MessageOverlay from "$lib/components/HUD/MessageOverlay.svelte";
 
     // Scene Management
@@ -37,6 +38,12 @@
         onPortalEnter: () => {
             console.log("Portal entered! Transitioning to WORLD...");
             gameStore.enterWorld("new-world");
+        },
+        onEastPortalEnter: () => {
+            console.log(
+                "East Portal entered! Transitioning to Tropical Test World...",
+            );
+            gameWebSocket.sendRawCommand("enter_tropical_world", {});
         },
     });
     sceneManager.registerSceneFactory("LOBBY", lobbyScene);
@@ -126,6 +133,24 @@
                 maxElevation={$gameStore.world.geo.maxElevation}
                 minElevation={$gameStore.world.geo.minElevation}
                 satellites={$gameStore.world.sim.satellites}
+                pois={$gameStore.world.sim.pois}
+                onSendCommand={(action, payload) => {
+                    // Handle object payload vs string
+                    if (typeof payload === "object") {
+                        gameWebSocket.sendRawCommand(action, payload);
+                    } else {
+                        // Legacy support if payload is string but sendRawCommand expects any
+                        // Check logic in websocket.ts
+                        try {
+                            const p = payload ? JSON.parse(payload) : {};
+                            gameWebSocket.sendRawCommand(action, p);
+                        } catch (e) {
+                            gameWebSocket.sendRawCommand(action, {
+                                data: payload,
+                            });
+                        }
+                    }
+                }}
             />
         {/if}
     </div>

@@ -1,34 +1,17 @@
 <script lang="ts">
-    import { onMount, onDestroy } from "svelte";
+    import { onMount, tick } from "svelte";
+    import { gameStore } from "$lib/stores/game";
+    import * as BABYLON from "@babylonjs/core";
     import { Engine } from "@babylonjs/core/Engines/engine";
     import { Scene } from "@babylonjs/core/scene";
+    import { Vector3, Matrix, Color3, Color4 } from "@babylonjs/core/Maths/math"; 
     import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
-    import { PointLight } from "@babylonjs/core/Lights/pointLight";
     import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
+    import { PointLight } from "@babylonjs/core/Lights/pointLight";
     import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
-    import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
+    import { Mesh } from "@babylonjs/core/Meshes/mesh";
     import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
     import { Texture } from "@babylonjs/core/Materials/Textures/texture";
-    import { RawTexture } from "@babylonjs/core/Materials/Textures/rawTexture";
-    import { Vector3 } from "@babylonjs/core/Maths/math.vector";
-    import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
-    import { GlowLayer } from "@babylonjs/core/Layers/glowLayer";
-    import type { Mesh } from "@babylonjs/core/Meshes/mesh";
-    import type { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData";
-    import { LODManager } from "./LODManager";
-    import { DisplacementShader } from "./DisplacementShader";
-    import { TileGlobeManager } from "./TileGlobeManager";
-    import { MoltenPlanetShader } from "./MoltenPlanetShader";
-
-    // FPS Mode Imports
-    import { FPSTransitionController } from "./FPSTransitionController";
-    import { AltitudeChunkManager } from "./AltitudeChunkManager";
-    import { FPSMovementController } from "./FPSMovementController";
-    import { FPSPerformanceManager } from "./FPSPerformanceManager";
-    import { PerformanceOverlay } from "./PerformanceOverlay";
-    import { FPSAccessibilityOptions } from "./FPSAccessibilityOptions";
-    import { HorizonRenderer } from "./HorizonRenderer";
-
     import { WaterEffects } from "./WaterEffects";
     import { PoiManager } from "./PoiManager"; // NEW
     import type { PointOfInterest } from "$lib/types/pois";
@@ -39,6 +22,11 @@
     // Interface Mode Management
     import { isTextMode } from "$lib/stores/ui";
     import { gameStore } from "$lib/stores/game";
+
+    // View Mode Management
+    import { ViewModeManager } from "./ViewModeManager";
+    import { ViewMode } from "./interfaces";
+    import { AsteroidManager } from "./AsteroidManager";
 
     // Types for satellite/moon data
     interface Satellite {
@@ -98,6 +86,9 @@
     // Tile system for high-resolution streaming
     let tileGlobeManager: TileGlobeManager | null = null;
     // sendTileCommand already declared as reactive statement above
+
+    // View Mode Manager
+    let viewModeManager: ViewModeManager | null = null;
 
     // FPS Mode state
     let fpsMode: boolean = false;
@@ -192,20 +183,27 @@
         orbitNode.rotateAround(Vector3.Zero(), Vector3.Up(), yearRotation);
 
         // Update camera target to follow planet
+        // Update camera target to follow planet
         if (camera) {
             camera.target = orbitNode.position;
             // Update LOD based on camera distance
             lodManager?.update(camera);
+            
+            // Map updates handled by ViewModeManager
+            if (viewModeManager) {
+                viewModeManager.update(camera, deltaTime);
+            }
 
             // Update tile system for high-resolution streaming
             if (tileGlobeManager) {
-                const cameraDistance = camera.radius || 5;
-                if (cameraDistance < 2.5) {
-                    tileGlobeManager.enable();
-                    tileGlobeManager.update(camera);
-                } else {
-                    tileGlobeManager.disable();
-                }
+                // Determine enablement via ViewModeManager callback, 
+                // but we still need to update it if enabled
+                // (Note: tileGlobeManager.update checks for enablement internally too?)
+                // Let's call update if it's enabled or just call it and let it decide.
+                // But previously we enabled/disabled here.
+                // Now ViewModeManager callback handles enable/disable.
+                // We just call update.
+                tileGlobeManager.update(camera);
             }
         }
 
@@ -427,7 +425,6 @@
         createStarfield(scene);
 
         // Initialize tile streaming system (if command callback is provided)
-        if (sendTileCommand && planetNode) {
             tileGlobeManager = new TileGlobeManager(
                 scene,
                 planetNode,
@@ -439,6 +436,55 @@
             );
             console.log("[BabylonGlobe] Tile system initialized");
         }
+        
+        // ===========================================
+        // Initialize View Mode Manager
+        // ===========================================
+        viewModeManager = new ViewModeManager({
+            orbitThreshold: 2.5,
+            terrainThreshold: 1.2
+        });
+        
+        viewModeManager.onModeChange((mode, prevMode) => {
+            console.log(`[ViewMode] Changed from ${prevMode} to ${mode}`);
+            
+            // Handle Tile System
+            if (tileGlobeManager) {
+                if (mode === ViewMode.TILE) {
+                    tileGlobeManager.enable();
+                } else if (mode === ViewMode.ORBIT) {
+                    tileGlobeManager.disable();
+                } else if (mode === ViewMode.TERRAIN) {
+                    // Keep active during transition, or handle specially
+                    // Usually we might want tiles for far terrain in FPS mode
+                    // But for now let's disable to save resources for FPS chunks
+                    tileGlobeManager.disable();
+                }
+            }
+            
+            // Handle FPS Mode Transition (Scroll-based)
+            if (mode === ViewMode.TERRAIN && prevMode !== ViewMode.TERRAIN) {
+                if (fpsTransitionController && !fpsMode) {
+                    console.log("[ViewMode] Triggering scroll-based FPS transition");
+                    // Use new method to transition from current camera look-at
+                    if (camera) {
+                        fpsTransitionController.transitionFromCurrentPosition();
+                    }
+                }
+            }
+            
+            // Handle Exit FPS Mode (Scroll out)
+            if (mode !== ViewMode.TERRAIN && prevMode === ViewMode.TERRAIN) {
+                if (fpsMode) {
+                     console.log("[ViewMode] Exiting FPS mode via scroll");
+                     // Return to orbit? Or just disable FPS flag?
+                     if (fpsTransitionController) {
+                         fpsTransitionController.returnToOrbit();
+                         fpsMode = false;
+                     }
+                }
+            }
+        });
 
         // ===========================================
         // Initialize FPS Mode Components
@@ -1367,22 +1413,41 @@
 
     // Monitor for simulation events (e.g., moon destruction)
     let processedEventIds = new Set<string>();
-    $: if ($gameStore.world.sim.events) {
-        $gameStore.world.sim.events.forEach((event: any) => {
-            // Basic de-duplication if events persist
-            // Ideally events should be cleared, but for now we track IDs or timestamps if available?
-            // Since we don't have IDs on all events, we'll assume transient for now or check object ref
-            // But simpler: just assume strictly new events if the array changes?
-            // Svelte reactive statement runs on valid change.
-            // Let's implement destroyMoon if type matches.
-            if (
-                event.type === "moon_destroyed" &&
-                !processedEventIds.has(event.metadata?.moon_id + "_destroyed")
-            ) {
-                destroyMoon(event.metadata.moon_id);
-                processedEventIds.add(event.metadata.moon_id + "_destroyed");
-            }
-        });
+    // Asteroid Manager
+    let asteroidManager: AsteroidManager | null = null;
+
+    // Reactive: Handle Simulation Events (Transient)
+    $: if ($gameStore.world?.sim?.events?.length > 0) {
+        const events = $gameStore.world.sim.events;
+        // Process latest event
+        const latestEvent = events[events.length - 1]; // Simple approach, or use a queue
+        
+        if (latestEvent.type === 'moon_destroyed') {
+            console.log("[WorldController] Processing Moon Destroyed event:", latestEvent);
+            destroyMoon(latestEvent.metadata.moon_id);
+        } else if (latestEvent.type === 'asteroid_impact') {
+             console.log("[WorldController] Processing Asteroid Impact event:", latestEvent);
+             if (asteroidManager) {
+                 asteroidManager.handleImpactEvent(latestEvent);
+             }
+        }
+    }
+    
+    onMount(() => {
+        if (!scene) return;
+        
+        // Initialize Asteroid Manager
+        // Note: planetNode is set later in createPlanet/createSolarSystem?
+        // Actually solarSystemRoot/planetNode logic is complex.
+        // Let's defer passing planetNode until it's created, or pass null and set later.
+        asteroidManager = new AsteroidManager(scene, globe); // 'globe' is the mesh
+        
+        // ... (existing initialization) ...
+    });
+
+    // Watch for globe creation to update manager
+    $: if (asteroidManager && globe) {
+        asteroidManager.setPlanetNode(globe);
     }
 
     function destroyMoon(moonNameID: string) {

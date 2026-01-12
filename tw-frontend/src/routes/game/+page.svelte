@@ -11,6 +11,7 @@
     import QuickButtons from "$lib/components/Input/QuickButtons.svelte";
     import ModeToggle from "$lib/components/Layout/ModeToggle.svelte";
     import GameContainer from "$lib/components/Layout/GameContainer.svelte";
+    import GameMenuModal from "$lib/components/Layout/GameMenuModal.svelte";
     import { gameSystem } from "$lib/services/GameSystem";
     import { interfaceMode } from "$lib/stores/ui";
 
@@ -65,6 +66,7 @@
 
     // World Map state
     let showWorldMap = false;
+    let showGameMenu = false;
     let latestSimEvent: any = null;
 
     let currentUser: User | null = null;
@@ -658,6 +660,13 @@
             case "error":
                 addMessage("error", msg.data.message);
                 break;
+            case "world_reset":
+                addMessage("system", msg.data.text);
+                // Force UI update to reflect reset state (e.g. molten planet)
+                import("$lib/stores/game").then(({ gameStore }) => {
+                    gameStore.resetWorld();
+                });
+                break;
             case "satellites_info":
                 // Update game store with satellites and rings data
                 import("$lib/stores/game").then(({ gameStore }) => {
@@ -672,6 +681,20 @@
                 addMessage(
                     "game_message",
                     `Moon destroyed: ${msg.data.metadata.moon_id}`,
+                );
+                import("$lib/stores/game").then(({ gameStore }) => {
+                    gameStore.addSimEvent(msg.data);
+                });
+                break;
+                import("$lib/stores/game").then(({ gameStore }) => {
+                    gameStore.addSimEvent(msg.data);
+                });
+                break;
+            case "asteroid_impact":
+                // Notify user and let WorldController handle visual
+                addMessage(
+                    "game_message",
+                    `ASTEROID IMPACT DETECTED! Mass: ${msg.data.metadata.mass} kg`,
                 );
                 import("$lib/stores/game").then(({ gameStore }) => {
                     gameStore.addSimEvent(msg.data);
@@ -776,6 +799,41 @@
             addMessage("error", "Failed to load skills.");
         }
     }
+
+    async function handleResetWorld() {
+        gameSystem.processCommand("world reset");
+        showGameMenu = false;
+        addMessage("system", "World reset initiated...");
+    }
+
+    async function handleReturnToLobby() {
+        showGameMenu = false;
+        await joinLobby();
+        addMessage("system", "Returned to Lobby");
+    }
+
+    function toggleGameMenu() {
+        // Don't toggle if other modals are open
+        if (showEntryModal || showCharacterSheet || showWorldMap) return;
+        showGameMenu = !showGameMenu;
+    }
+
+    // Listen for Escape to toggle menu (if not consumed elsewhere)
+    function handleGlobalKeydown(e: KeyboardEvent) {
+        if (e.key === "Escape") {
+            // If menu is open, it handles escape to close via prop
+            // If menu is closed, open it?
+            // Only if no other modal is open
+            if (
+                !showGameMenu &&
+                !showEntryModal &&
+                !showCharacterSheet &&
+                !showWorldMap
+            ) {
+                toggleGameMenu();
+            }
+        }
+    }
 </script>
 
 <GameContainer>
@@ -818,6 +876,12 @@
                 class="text-sm text-gray-400 hover:text-white transition-colors"
             >
                 Logout
+            </button>
+            <button
+                on:click={toggleGameMenu}
+                class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm transition-colors"
+            >
+                Menu
             </button>
             <!-- Mode Indicator Badge -->
             <span
@@ -977,7 +1041,18 @@
         isOpen={showWorldMap}
         onClose={() => (showWorldMap = false)}
     />
+
+    <!-- Game Menu Modal -->
+    <GameMenuModal
+        isOpen={showGameMenu}
+        on:close={() => (showGameMenu = false)}
+        on:resetWorld={handleResetWorld}
+        on:returnToLobby={handleReturnToLobby}
+        on:logout={handleLogout}
+    />
 </GameContainer>
+
+<svelte:window on:keydown={handleGlobalKeydown} />
 
 <style>
     .messages-container::-webkit-scrollbar {

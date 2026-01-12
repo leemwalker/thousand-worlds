@@ -14,6 +14,7 @@
     import type { Scene } from "@babylonjs/core/scene";
     import { fade, fly } from "svelte/transition";
     import { mapStore } from "$lib/stores/map";
+    import { gameStore } from "$lib/stores/game";
     import { gameWebSocket } from "$lib/services/websocket";
     import type { OverlayMode } from "$lib/types/overlays";
     import type { VisibleTile } from "./MapRenderer";
@@ -819,7 +820,10 @@
                                 seaLevel={globeSeaLevel}
                                 maxElevation={globeMaxElevation}
                                 minElevation={globeMinElevation}
-                                satellites={worldMapData?.satellites ?? []}
+                                satellites={$gameStore.sim.satellites.length > 0
+                                    ? $gameStore.sim.satellites
+                                    : (worldMapData?.satellites ?? [])}
+                                rings={$gameStore.sim.rings}
                             />
                         {/if}
                     {:else}

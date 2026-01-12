@@ -53,7 +53,10 @@ function latLonToCartesian(lat: number, lon: number, radius: number): Vector3 {
 /**
  * Converts Cartesian position to lat/lon.
  */
-function cartesianToLatLon(position: Vector3): { lat: number; lon: number } {
+/**
+ * Converts Cartesian position to lat/lon.
+ */
+export function cartesianToLatLon(position: Vector3): { lat: number; lon: number } {
     const radius = position.length();
     const lat = Math.asin(position.y / radius) * 180 / Math.PI;
     const lon = Math.atan2(position.z, position.x) * 180 / Math.PI;
@@ -64,6 +67,7 @@ function cartesianToLatLon(position: Vector3): { lat: number; lon: number } {
  * Controller for transitioning from orbital view to ground-level FPS.
  */
 export class FPSTransitionController {
+    // ... existing properties ...
     private scene: Scene;
     private camera: ArcRotateCamera;
     private state: TransitionState = 'idle';
@@ -85,26 +89,14 @@ export class FPSTransitionController {
         this.onAltitudeChange = options.onAltitudeChange;
     }
 
-    /**
-     * Get current transition state.
-     */
-    getState(): TransitionState {
-        return this.state;
-    }
+    // ... existing methods ...
 
     /**
-     * Get current target, if any.
+     * Start transition to flying altitude from current camera position.
      */
-    getTarget(): TransitionTarget | null {
-        return this.target;
-    }
-
-    /**
-     * Get current altitude (camera radius - planet radius).
-     */
-    getCurrentAltitude(): number {
-        const radius = this.camera.radius;
-        return radius - 1.0; // Assuming planet radius = 1.0
+    transitionFromCurrentPosition(): void {
+        const { lat, lon } = cartesianToLatLon(this.camera.position);
+        this.transitionToFlying(lat, lon);
     }
 
     /**

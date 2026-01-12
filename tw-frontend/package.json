@@ -37,6 +37,7 @@
     },
     "dependencies": {
         "@babylonjs/core": "^7.34.6",
+        "@babylonjs/gui": "^7.54.3",
         "@babylonjs/loaders": "^7.34.6",
         "nats.ws": "^1.30.3",
         "ws": "^8.18.3",

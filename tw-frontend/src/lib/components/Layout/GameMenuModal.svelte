@@ -13,6 +13,7 @@
 
     type Tab = "world" | "character" | "account";
     let activeTab: Tab = "world";
+    let confirmReset = false;
 
     function handleClose() {
         dispatch("close");
@@ -86,12 +87,37 @@
             <div class="tab-content">
                 {#if activeTab === "world"}
                     <div class="tab-panel">
-                        <button
-                            class="action-btn warning"
-                            on:click={handleResetWorld}
-                        >
-                            Reset World
-                        </button>
+                        {#if !confirmReset}
+                            <button
+                                class="action-btn warning"
+                                on:click={() => (confirmReset = true)}
+                            >
+                                Reset World
+                            </button>
+                        {:else}
+                            <div class="confirm-box">
+                                <p class="confirm-msg">
+                                    This will wipe all world progress.
+                                </p>
+                                <div class="confirm-row">
+                                    <button
+                                        class="action-btn danger"
+                                        on:click={() => {
+                                            dispatch("resetWorld");
+                                            confirmReset = false;
+                                        }}
+                                    >
+                                        Confirm Reset
+                                    </button>
+                                    <button
+                                        class="action-btn"
+                                        on:click={() => (confirmReset = false)}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        {/if}
                         <button
                             class="action-btn"
                             on:click={handleReturnToLobby}
@@ -259,5 +285,33 @@
         color: rgba(255, 255, 255, 0.5);
         text-align: center;
         padding: 20px;
+    }
+
+    .confirm-box {
+        background: rgba(220, 53, 69, 0.1);
+        border: 1px solid rgba(220, 53, 69, 0.3);
+        border-radius: 8px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .confirm-msg {
+        color: #ff8787;
+        margin: 0;
+        font-size: 0.9rem;
+        text-align: center;
+    }
+
+    .confirm-row {
+        display: flex;
+        gap: 10px;
+    }
+
+    .confirm-row .action-btn {
+        flex: 1;
+        padding: 8px;
+        font-size: 0.9rem;
     }
 </style>
