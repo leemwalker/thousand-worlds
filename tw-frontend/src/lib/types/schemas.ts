@@ -26,7 +26,13 @@ export const ServerMessageTypeSchema = z.enum([
     'map_update',
     'combat_event',
     'error',
-    'world_map_image_response'
+    'world_map_image_response',
+    'world_tile_response',
+    'world_reset',
+    'points_of_interest',
+    'satellites_info',
+    'moon_destroyed',
+    'asteroid_impact'
 ]);
 
 // --- Map Update Schema ---
@@ -116,6 +122,9 @@ export type ValidationResult = {
     data?: unknown;
 };
 
+// Internal helper for type safety
+type ValidationResponse = { success: true; data?: any } | { success: false; error: z.ZodError };
+
 /**
  * Validates a server message and returns typed result.
  * 
@@ -147,7 +156,7 @@ export function validateServerMessage(message: unknown): ValidationResult {
 
     // Type-specific validation
     const msg = result.data;
-    let dataResult;
+    let dataResult: ValidationResponse;
 
     switch (msg.type) {
         case 'map_update':
@@ -166,8 +175,14 @@ export function validateServerMessage(message: unknown): ValidationResult {
             dataResult = ErrorDataSchema.safeParse(msg.data);
             break;
         case 'world_map_image_response':
-            // Custom validation for binary-mixed message not strictly needed here
-            // as it is constructed manually in handleBinaryMessage
+        case 'world_tile_response':
+        case 'world_reset':
+        case 'points_of_interest':
+        case 'satellites_info':
+        case 'moon_destroyed':
+        case 'asteroid_impact':
+            // Schemas not yet defined/enforced for these types
+            // Proceed as valid
             dataResult = { success: true };
             break;
         default:
@@ -177,6 +192,7 @@ export function validateServerMessage(message: unknown): ValidationResult {
     }
 
     if (!dataResult.success) {
+        // SafeParseError has 'error' property which is ZodError
         const errors = dataResult.error.errors.map((e: { path: (string | number)[]; message: string }) =>
             `data.${e.path.join('.')}: ${e.message}`
         );
@@ -186,4 +202,3 @@ export function validateServerMessage(message: unknown): ValidationResult {
 
     return { valid: true, data: msg };
 }
-

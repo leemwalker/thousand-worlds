@@ -91,7 +91,8 @@
         position: fixed;
         bottom: 80px; /* Above command input */
         left: 20px;
-        right: 20px;
+        width: 300px; /* Fixed width for consistency */
+        max-width: 40%;
         pointer-events: none; /* Allow click-through for FPS camera */
         z-index: 100;
         display: flex;
@@ -99,6 +100,7 @@
         gap: 4px;
         max-height: 200px;
         overflow: hidden;
+        align-items: flex-start; /* Left align messages */
     }
 
     .message {

@@ -42,8 +42,7 @@ export type ServerMessageType =
     | 'world_reset'
     | 'points_of_interest'
     | 'satellites_info'
-    | 'satellites_info'
-    | 'moon_destroyed' // New event
+    | 'moon_destroyed'
     | 'asteroid_impact';
 
 export interface SatellitesInfoMessage extends BaseServerMessage {
@@ -51,34 +50,6 @@ export interface SatellitesInfoMessage extends BaseServerMessage {
     data: {
         satellites: any[];
         rings: any;
-    };
-}
-// ... (MoonDestroyedMessage is above) ...
-// ... (AsteroidImpactMessage is above) ...
-
-// Consolidated ServerMessage Type
-export type ServerMessage =
-    | GameOutputMessage
-    | StateUpdateMessage
-    | MapUpdateMessage
-    | CombatEventMessage
-    | ErrorMessage
-    | WorldMapImageMessage
-    | WorldTileMessage
-    | WorldResetMessage
-    | PointsOfInterestMessage
-    | SatellitesInfoMessage
-    | MoonDestroyedMessage
-    | AsteroidImpactMessage;
-
-export interface MoonDestroyedMessage extends BaseServerMessage {
-    type: 'moon_destroyed';
-    data: {
-        type: 'moon_destroyed';
-        metadata: {
-            moon_id: string;
-            debris_mass: number;
-        };
     };
 }
 
@@ -112,8 +83,6 @@ export interface AsteroidImpactMessage extends BaseServerMessage {
         };
     };
 }
-
-// ServerMessage union defined at bottom of file
 
 export interface BaseServerMessage {
     type: ServerMessageType;
@@ -170,11 +139,10 @@ export interface ErrorMessage extends BaseServerMessage {
     };
 }
 
-// ... (interfaces)
-
 export interface WorldResetMessage extends BaseServerMessage {
     type: 'world_reset';
     data: {
+        text: string;
         message?: string;
     };
 }
@@ -240,7 +208,6 @@ export type ServerMessage =
     | WorldTileMessage
     | WorldResetMessage
     | PointsOfInterestMessage
-    | SatellitesInfoMessage
     | SatellitesInfoMessage
     | MoonDestroyedMessage
     | AsteroidImpactMessage;

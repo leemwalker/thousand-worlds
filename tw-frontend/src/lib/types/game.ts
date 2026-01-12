@@ -64,3 +64,10 @@ export interface GameMessage {
     sender?: string | undefined;
     channel?: string | undefined;
 }
+
+export interface Skill {
+    id: string;
+    name: string;
+    level: number;
+    xp: number;
+}

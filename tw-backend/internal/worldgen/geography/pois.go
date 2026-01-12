@@ -31,13 +31,15 @@ type PointOfInterest struct {
 		X int `json:"x"`
 		Y int `json:"y"`
 	} `json:"location"`
-	Coordinates struct {
-		Lat float64 `json:"lat"`
-		Lon float64 `json:"lon"`
-	} `json:"coordinates"`
-	Elevation   float64 `json:"elevation"`
-	Importance  float64 `json:"importance"` // 0.0 to 1.0, for filtering
-	Description string  `json:"description,omitempty"`
+	Coordinates Coordinates `json:"coordinates"`
+	Elevation   float64     `json:"elevation"`
+	Importance  float64     `json:"importance"` // 0.0 to 1.0, for filtering
+	Description string      `json:"description,omitempty"`
+}
+
+type Coordinates struct {
+	Lat float64 `json:"lat"`
+	Lon float64 `json:"lon"`
 }
 
 // GeneratePOIs scans the terrain to find significant features.
@@ -153,10 +155,10 @@ func createPOI(coord spatial.Coordinate, elevation float64, poiType POIType, imp
 			X int `json:"x"`
 			Y int `json:"y"`
 		}{X: coord.X, Y: coord.Y},
-		Coordinates: struct {
-			Lat float64 `json:"lat"`
-			Lon float64 `json:"lon"`
-		}{Lat: lat, Lon: lon},
+		Coordinates: Coordinates{
+			Lat: lat,
+			Lon: lon,
+		},
 		Elevation:   elevation,
 		Importance:  importance,
 		Description: generateDescription(poiType, elevation, importance),

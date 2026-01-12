@@ -1,8 +1,10 @@
 <script lang="ts">
     import { onMount, onDestroy, tick } from "svelte";
     import { goto } from "$app/navigation";
-    import { gameAPI, type User } from "$lib/services/api";
-    import { gameWebSocket, type ServerMessage } from "$lib/services/websocket";
+    import { gameAPI } from "$lib/services/api";
+    import { type User } from "$lib/types/game";
+    import { gameWebSocket } from "$lib/services/websocket";
+    import type { ServerMessage } from "$lib/types/websocket";
     import WorldEntry from "$lib/components/WorldEntry.svelte";
     import CharacterSheet from "$lib/components/Character/CharacterSheet.svelte";
     import WorldMapModal from "$lib/components/Map/WorldMapModal.svelte";
@@ -171,11 +173,10 @@
                     // Assuming getCharacters returns list of characters
                     // We need to type check roughly or assume any[]
                     if (data && data.characters) {
-                        const char = data.characters.find(
                             (c) => c.world_id === currentUser?.last_world_id,
                         );
                         if (char) {
-                            await joinGame(char.character_id);
+                            await joinGame(char.id);
                             return;
                         }
                     }
@@ -561,7 +562,7 @@
             );
 
             // Join game
-            await joinGame(data.character.character_id);
+            await joinGame(data.character.id);
         } catch (error: any) {
             addMessage("error", error.message);
         }
@@ -686,10 +687,6 @@
                     gameStore.addSimEvent(msg.data);
                 });
                 break;
-                import("$lib/stores/game").then(({ gameStore }) => {
-                    gameStore.addSimEvent(msg.data);
-                });
-                break;
             case "asteroid_impact":
                 // Notify user and let WorldController handle visual
                 addMessage(
@@ -791,7 +788,13 @@
 
         try {
             const data = await gameAPI.getSkills(currentCharacterId);
-            characterSkills = data.skills || {};
+            const skillsMap: Record<string, Skill> = {};
+            if (data.skills) {
+                Object.entries(data.skills).forEach(([name, level]) => {
+                    skillsMap[name] = { id: name, name, level, xp: 0 };
+                });
+            }
+            characterSkills = skillsMap;
             // In a real app we'd fetch stats too, skipping for now
             showCharacterSheet = true;
         } catch (e) {

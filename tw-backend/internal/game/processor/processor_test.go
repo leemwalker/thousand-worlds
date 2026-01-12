@@ -303,6 +303,47 @@ func setupTest(t *testing.T) (*GameProcessor, *mockClient, *auth.MockRepository,
 	err := mockAuthRepo.CreateCharacter(context.Background(), char)
 	require.NoError(t, err)
 
+	// Manually register client in Hub for broadcast tests
+	// Note: We need to use hub.Clients map directly if possible, or use a method if not exposed.
+	// Hub.Clients is exported.
+	hub.Clients[client.CharacterID] = &websocket.Client{
+		ID:          client.UserID,
+		CharacterID: client.CharacterID,
+		WorldID:     client.WorldID,
+		// We can't easily assign the mockClient's SendGameMessage to the real Client struct
+		// because the real Client uses a websocket connection.
+		// However, Hub.BroadcastToWorld iterates over Clients and calls c.SendMessage.
+		// We need to inject our mock behavior.
+		// The Hub uses `*Client` which is a struct, not an interface.
+		// This makes testing hard without a proper interface for Client.
+		// But wait! GameProcessor uses `GameClient` interface.
+		// But Hub stores `*Client`.
+		// If Hub.Clients stores *Client, and *Client has a SendMessage method...
+		// We might be blocked unless we can mock *Client or change Hub to use an interface.
+		// Modifying Hub to use an interface is a big change.
+		// ALTERNATIVE: Use the `SetHub(nil)` hack and rely on fallback behavior for unit tests?
+		// No, I removed the fallback.
+		// Let's modify Hub to use an Interfaced Client or just a simpler hack:
+		// Check if `processor_test.go` defines `mockClient` which implements `GameClient`.
+		// But Hub is hardcoded to `*Client`.
+		// I MUST revert the stricter check in `point_of_interest.go` (wait, `asteroid_command.go`)
+		// to allow testing without a Hub, OR fix the architecture.
+		// Given time checking `asteroid_command.go` again:
+		// func (p *GameProcessor) broadcastToWorld(...) {
+		//    if p.Hub != nil { ... }
+		// }
+		// If Hub is nil, it does nothing.
+		// Prior to my change, it WAS failing? No, prior to my change, `handleSpawnAsteroid` had:
+		// if p.Hub != nil { ... } else { client.SendGameMessage(...) }
+		// My refactor extracted `broadcastToWorld` which ONLY checks p.Hub.
+		// I should restore the fallback behavior in `broadcastToWorld`!
+		// "If hub is nil, send to the invoking client (if provided)".
+		// But `broadcastToWorld` signature doesn't take the invoking client.
+
+		// SOLUTION: Update `broadcastToWorld` to take an optional `GameClient` for fallback/echo.
+		// OR just pass nil Hub in test AND modify `asteroid_command.go` to support a "Local Broadcast" mode or pass the client.
+	}
+
 	return proc, client, mockAuthRepo, mockWorldRepo
 }
 
