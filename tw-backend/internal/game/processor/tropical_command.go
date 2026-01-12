@@ -75,6 +75,13 @@ func (p *GameProcessor) handleEnterTropicalWorld(ctx context.Context, client web
 			generated, err := svc.GenerateWorld(ctx, tropicalWorld.ID, config)
 			if err == nil {
 				geo := mapGeneratedToGeology(generated)
+				// Re-apply physics params from metadata
+				if dl, ok := tropicalWorld.Metadata["day_length_hours"].(float64); ok {
+					geo.Params.DayLengthSec = dl * 3600.0
+				}
+				if tilt, ok := tropicalWorld.Metadata["axial_tilt"].(float64); ok {
+					geo.Params.AxialTiltDeg = tilt
+				}
 				p.worldGeology[tropicalWorld.ID] = geo
 				p.mapService.SetWorldGeology(tropicalWorld.ID, geo)
 			}
@@ -149,6 +156,18 @@ func (p *GameProcessor) generateTropicalWorld(ctx context.Context) (*repository.
 	// 6. In-Memory State Update
 	// Construct WorldGeology for runtime usage (map service, weather, etc.)
 	geo := mapGeneratedToGeology(generated)
+
+	// Apply physics parameters from metadata
+	// Note: mapGeneratedToGeology creates default Earth params, we override here
+	if dl, ok := repoWorld.Metadata["day_length_hours"].(float64); ok {
+		geo.Params.DayLengthSec = dl * 3600.0
+	}
+	if tilt, ok := repoWorld.Metadata["axial_tilt"].(float64); ok {
+		geo.Params.AxialTiltDeg = tilt
+	}
+	// Mass is default 1.0 for tropical test world
+	geo.Params.MassKg = 5.972e24 // Earth mass
+	geo.Params.RadiusM = 6371000 // Earth radius
 
 	// Store in processor state
 	p.worldGeology[generated.WorldID] = geo

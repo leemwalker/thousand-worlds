@@ -90,6 +90,12 @@ func TestHandleEnterTropicalWorld(t *testing.T) {
 	assert.True(t, exists, "Geology should be stored in memory")
 	assert.NotNil(t, geo.Heightmap, "Heightmap should be generated")
 
+	// Verify Physics Params
+	// Day length: 30 hours * 3600 = 108000
+	assert.Equal(t, 108000.0, geo.Params.DayLengthSec, "Day length should be 30 hours")
+	// Tilt: 2.0 degrees
+	assert.Equal(t, 2.0, geo.Params.AxialTiltDeg, "Axial tilt should be 2.0 degrees")
+
 	// Verify Welcome Message
 	foundWelcome := false
 	for _, msg := range client.messages {
