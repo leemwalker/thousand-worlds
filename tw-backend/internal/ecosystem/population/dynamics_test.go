@@ -478,3 +478,43 @@ func TestFloodBasaltEvent(t *testing.T) {
 		t.Error("Land species should suffer from flood basalt toxic gases")
 	}
 }
+
+func TestDayLengthEffects(t *testing.T) {
+	// Normal Day (24h)
+	simNormal := NewPopulationSimulator(uuid.New(), 12345)
+	simNormal.DayLengthSec = 86400
+	biomeNormal := NewBiomePopulation(uuid.New(), geography.BiomeGrassland)
+	speciesNormal := &SpeciesPopulation{
+		SpeciesID: uuid.New(),
+		Name:      "Test",
+		Count:     1000,
+		Traits:    DefaultTraitsForDiet(DietHerbivore),
+		Diet:      DietHerbivore,
+	}
+	biomeNormal.AddSpecies(speciesNormal)
+	simNormal.Biomes[biomeNormal.BiomeID] = biomeNormal
+
+	// Short Day (2h) - Stressful
+	simStress := NewPopulationSimulator(uuid.New(), 12345)
+	simStress.DayLengthSec = 7200
+	biomeStress := NewBiomePopulation(uuid.New(), geography.BiomeGrassland)
+	speciesStress := &SpeciesPopulation{
+		SpeciesID: uuid.New(),
+		Name:      "Test",
+		Count:     1000,
+		Traits:    DefaultTraitsForDiet(DietHerbivore),
+		Diet:      DietHerbivore,
+	}
+	biomeStress.AddSpecies(speciesStress)
+	simStress.Biomes[biomeStress.BiomeID] = biomeStress
+
+	// Simulate both
+	simNormal.SimulateYear()
+	simStress.SimulateYear()
+
+	t.Logf("Normal Day Pop: %d, Stress Day Pop: %d", speciesNormal.Count, speciesStress.Count)
+
+	if speciesStress.Count >= speciesNormal.Count {
+		t.Error("Species under diurnal stress should have lower population/growth than normal")
+	}
+}

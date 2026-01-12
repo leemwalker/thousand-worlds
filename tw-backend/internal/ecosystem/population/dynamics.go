@@ -21,6 +21,7 @@ type PopulationSimulator struct {
 	RecoveryPhase            bool     // True if recovering from mass extinction
 	RecoveryCounter          int64    // Years remaining in recovery phase
 	Events                   []string // Log of significant events this year
+	DayLengthSec             float64  // Length of day in seconds (default 86400)
 	rng                      *rand.Rand
 
 	// Geographic systems for isolation tracking (Phase 2)
@@ -108,6 +109,7 @@ func NewPopulationSimulator(worldID uuid.UUID, seed int64) *PopulationSimulator 
 		CurrentYear:              0,
 		OxygenLevel:              0.21, // Modern Earth baseline (21%)
 		ContinentalFragmentation: 0.5,  // Start at medium fragmentation
+		DayLengthSec:             86400.0,
 		rng:                      rand.New(rand.NewSource(seed)),
 	}
 }
@@ -815,6 +817,18 @@ func (ps *PopulationSimulator) simulateBiomeYear(biome *BiomePopulation) {
 	foodModifier := SeasonalFoodModifier(season, biome.BiomeType)
 	breedingModifier := SeasonalBreedingModifier(season, biome.BiomeType)
 
+	// Calculate diurnal stress factor based on day length deviation from 24h
+	// Extreme day lengths (very short or very long) cause environmental stress
+	// 86400s = 0 stress. 43200s (12h) or 172800s (48h) = ~0.05 stress
+	dayLengthRatio := ps.DayLengthSec / 86400.0
+	if dayLengthRatio < 1.0 {
+		dayLengthRatio = 1.0 / dayLengthRatio
+	}
+	diurnalStress := (dayLengthRatio - 1.0) * 0.05
+	if diurnalStress > 0.5 {
+		diurnalStress = 0.5
+	}
+
 	// Count populations by diet type
 	var floraCount, herbivoreCount, carnivoreCount int64
 	for _, sp := range biome.Species {
@@ -844,7 +858,8 @@ func (ps *PopulationSimulator) simulateBiomeYear(biome *BiomePopulation) {
 			growthRate := 0.5 * species.Traits.Fertility * fitness * foodModifier
 			k := float64(biome.CarryingCapacity) * 0.4 // Flora takes 40% of capacity
 			p := float64(oldCount)
-			growth := growthRate * p * (1 - p/k)
+			// Apply diurnal stress to flora growth (less efficient photosynthesis with extreme days)
+			growth := growthRate * p * (1 - p/k) * (1.0 - diurnalStress)
 			// Reduction from herbivore grazing
 			grazingRate := 0.001 * float64(herbivoreCount) * (1 - species.Traits.Camouflage*0.3)
 			// Seeds always survive - minimum population of 10
@@ -862,6 +877,9 @@ func (ps *PopulationSimulator) simulateBiomeYear(biome *BiomePopulation) {
 			// Apply seasonal breeding modifier - animals breed more in spring/summer
 			birthRate := 0.25 * species.Traits.Fertility * fitness * reproModifier * breedingModifier
 			deathRate := (0.05 / species.Traits.Lifespan * 10) / fitness
+
+			// Apply diurnal stress (higher mortality)
+			deathRate *= (1.0 + diurnalStress)
 
 			// Predation scales with predator count but herbivores get defensive bonuses
 			// Larger herbivores are harder to take down
@@ -894,6 +912,9 @@ func (ps *PopulationSimulator) simulateBiomeYear(biome *BiomePopulation) {
 			efficiency := 0.3 * (1 + species.Traits.Intelligence*0.3) * fitness * sizeHuntingBonus
 			predationRate := 0.002 * (0.5 + species.Traits.Speed*0.1) * (0.5 + species.Traits.Strength*0.1)
 			deathRate := (0.05 / species.Traits.Lifespan * 10) / fitness
+
+			// Apply diurnal stress (higher mortality)
+			deathRate *= (1.0 + diurnalStress)
 
 			p := float64(oldCount)
 			preyCount := herbivoreCount

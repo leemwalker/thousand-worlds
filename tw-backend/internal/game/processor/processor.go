@@ -166,6 +166,8 @@ func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.Gam
 		}
 		// PREVENT DATA LOSS: Preserve generic payload during parsing
 		parsedCmd.Payload = cmd.Payload
+		// PREVENT DATA LOSS: Preserve original text for handlers that parse it manually
+		parsedCmd.Text = cmd.Text
 		// Use parsed command for processing
 		cmd = parsedCmd
 	}
@@ -282,6 +284,8 @@ func (p *GameProcessor) ProcessCommand(ctx context.Context, client websocket.Gam
 		return p.handleEnterTropicalWorld(ctx, client, cmd)
 	case "get_satellites":
 		return p.handleGetSatellites(ctx, client, cmd)
+	case "spawn_asteroid":
+		return p.handleSpawnAsteroid(ctx, client, cmd)
 
 	default:
 		return fmt.Errorf("%w: %s", ErrInvalidAction, cmd.Action)

@@ -76,6 +76,13 @@ func (p *GameProcessor) handleDestroyMoon(ctx context.Context, client websocket.
 		return nil
 	}
 
+	// Remove moon from geology
+	if !geology.RemoveSatellite(moonName) {
+		// Should have been found earlier, but race condition possible
+		client.SendGameMessage("error", fmt.Sprintf("Moon '%s' not found (concurrently removed?)", moonName), nil)
+		return nil
+	}
+
 	// Emit destruction event
 	eventData := map[string]interface{}{
 		"type": "moon_destroyed",

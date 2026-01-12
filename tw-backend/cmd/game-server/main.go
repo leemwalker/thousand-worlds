@@ -250,6 +250,7 @@ func main() {
 		simSnapshotRepo,
 		runnerStateRepo,
 		eventPublisher,
+		ollamaClient,
 	)
 
 	// Create and start the Hub

@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -120,6 +121,7 @@ func (m *MockWorldRepository) DeleteWorld(ctx context.Context, worldID uuid.UUID
 }
 
 // Mock client for testing
+// Mock client for testing
 type mockClient struct {
 	CharacterID  uuid.UUID
 	UserID       uuid.UUID
@@ -127,6 +129,7 @@ type mockClient struct {
 	WorldID      uuid.UUID
 	messages     []websocket.GameMessageData
 	stateUpdates int
+	mu           sync.Mutex
 }
 
 func (m *mockClient) GetCharacterID() uuid.UUID {
@@ -150,11 +153,21 @@ func (m *mockClient) GetUsername() string {
 }
 
 func (m *mockClient) SendGameMessage(msgType, text string, metadata map[string]interface{}) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.messages = append(m.messages, websocket.GameMessageData{
 		Type:     msgType,
 		Text:     text,
 		Metadata: metadata, // Capture metadata for verification
 	})
+}
+
+func (m *mockClient) GetMessages() []websocket.GameMessageData {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	copied := make([]websocket.GameMessageData, len(m.messages))
+	copy(copied, m.messages)
+	return copied
 }
 
 func (m *mockClient) SendStateUpdate(state *websocket.StateUpdateData) {
@@ -268,7 +281,7 @@ func setupTest(t *testing.T) (*GameProcessor, *mockClient, *auth.MockRepository,
 
 	mockCharRepo := &MockCharacterRepo{}
 
-	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, mockCharRepo, lookService, entityService, interviewService, spatialService, nil, nil, worldEntityService, nil, combatService, inventoryService, nil, craftingService, nil, nil, nil)
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, mockCharRepo, lookService, entityService, interviewService, spatialService, nil, nil, worldEntityService, nil, combatService, inventoryService, nil, craftingService, nil, nil, nil, nil)
 
 	// Create and set up the hub
 	hub := websocket.NewHub(proc)

@@ -1146,6 +1146,44 @@ func (sr *SimulationRunner) SetGeology(geology *WorldGeology) {
 	sr.mu.Lock()
 	defer sr.mu.Unlock()
 	sr.geology = geology
+	if sr.climateDriver != nil {
+		sr.climateDriver.BaseObliquity = geology.Params.AxialTiltDeg
+		sr.climateDriver.DayLengthSec = geology.Params.DayLengthSec
+	}
+
+	// Update Population Simulator with Day Length
+	if sr.popSim != nil {
+		sr.popSim.DayLengthSec = geology.Params.DayLengthSec
+	}
+}
+
+// SetAxialTilt updates the planet's axial tilt dynamics
+func (sr *SimulationRunner) SetAxialTilt(degrees float64) {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+
+	if sr.geology != nil {
+		sr.geology.Params.AxialTiltDeg = degrees
+	}
+	if sr.climateDriver != nil {
+		sr.climateDriver.BaseObliquity = degrees
+	}
+}
+
+// SetDayLength updates the planet's rotation period
+func (sr *SimulationRunner) SetDayLength(seconds float64) {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+
+	if sr.geology != nil {
+		sr.geology.Params.DayLengthSec = seconds
+	}
+	if sr.climateDriver != nil {
+		sr.climateDriver.DayLengthSec = seconds
+	}
+	if sr.popSim != nil {
+		sr.popSim.DayLengthSec = seconds
+	}
 }
 
 // GetDiseaseSystem returns the disease system for external access

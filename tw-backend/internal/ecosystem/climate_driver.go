@@ -42,6 +42,13 @@ type ClimateDriver struct {
 	// Affects the amplitude of obliquity oscillations
 	ObliquityStability float64
 
+	// BaseObliquity is the planetary average axial tilt in degrees (default 23.44)
+	BaseObliquity float64
+
+	// DayLengthSec is the length of a solar day in seconds (default 86400)
+	// Affects diurnal temperature swings and coriolis forces
+	DayLengthSec float64
+
 	// GeothermalOffset is the temperature increase from planetary internal heat
 	// High during early Earth (Hadean), approaches zero in modern era
 	// Represents geothermal flux from mantle/core cooling
@@ -76,12 +83,14 @@ func NewClimateDriver(eventManager *GeologicalEventManager) *ClimateDriver {
 		eventManager:       eventManager,
 		IceAgeActive:       false,
 		IceAgeStartYear:    0,
-		ObliquityStability: 1.0,  // Default to Earth-like stability
-		GeothermalOffset:   0.0,  // Will be calculated on first Update
-		SolarLuminosity:    0.71, // Early Earth baseline
-		OrbitalInsolation:  1.0,  // Initial value
-		GreenhouseOffset:   0.0,  // Will be set by atmosphere
-		GlobalAlbedo:       0.30, // Modern Earth baseline
+		ObliquityStability: 1.0,                         // Default to Earth-like stability
+		BaseObliquity:      astronomy.ObliquityBaseline, // Default to Earth-like tilt
+		DayLengthSec:       86400.0,                     // Default to Earth-like day (24h)
+		GeothermalOffset:   0.0,                         // Will be calculated on first Update
+		SolarLuminosity:    0.71,                        // Early Earth baseline
+		OrbitalInsolation:  1.0,                         // Initial value
+		GreenhouseOffset:   0.0,                         // Will be set by atmosphere
+		GlobalAlbedo:       0.30,                        // Modern Earth baseline
 		IsSnowball:         false,
 	}
 }
@@ -93,8 +102,8 @@ func NewClimateDriver(eventManager *GeologicalEventManager) *ClimateDriver {
 // Calculates SolarLuminosity from stellar evolution (Faint Young Sun).
 func (cd *ClimateDriver) Update(year int64) {
 	// Calculate current orbital state with stability-adjusted obliquity
-	cd.CurrentState = astronomy.CalculateOrbitalStateWithStability(year, cd.ObliquityStability)
-	baseInsolation := astronomy.CalculateInsolation(cd.CurrentState)
+	cd.CurrentState = astronomy.CalculateOrbitalStateWithStability(year, cd.ObliquityStability, cd.BaseObliquity)
+	baseInsolation := astronomy.CalculateInsolation(cd.CurrentState, cd.BaseObliquity)
 	cd.OrbitalInsolation = baseInsolation
 
 	// Calculate solar luminosity evolution (Faint Young Sun)

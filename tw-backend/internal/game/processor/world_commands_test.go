@@ -24,7 +24,7 @@ func TestHandleWorld_Simulate_OnlyGeology(t *testing.T) {
 	mockWorldRepo := NewMockWorldRepository()
 	ecoSvc := ecosystem.NewService(time.Now().Unix())
 
-	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil, nil, nil, nil)
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	// Create user character and key world data
 	charID := uuid.New()
@@ -91,7 +91,7 @@ func TestHandleWorld_Simulate_Default(t *testing.T) {
 	mockWorldRepo := NewMockWorldRepository()
 	ecoSvc := ecosystem.NewService(time.Now().Unix())
 
-	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil, nil, nil, nil)
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	charID := uuid.New()
 	userID := uuid.New()
@@ -138,4 +138,129 @@ func TestHandleWorld_Simulate_Default(t *testing.T) {
 	if len(ecoSvc.Entities) > 0 {
 		assert.True(t, foundSpawnMsg, "Should report spawning if entities exist")
 	}
+}
+
+func TestHandleWorld_Configure_Tilt(t *testing.T) {
+	// Setup
+	mockAuthRepo := auth.NewMockRepository()
+	mockWorldRepo := NewMockWorldRepository()
+	ecoSvc := ecosystem.NewService(time.Now().Unix())
+
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil, nil, nil, nil, nil)
+
+	charID := uuid.New()
+	userID := uuid.New()
+	worldID := uuid.New()
+	circ := 40000000.0
+
+	mockWorldRepo.CreateWorld(context.Background(), &repository.World{
+		ID:            worldID,
+		Name:          "Test World",
+		Circumference: &circ,
+	})
+
+	mockAuthRepo.CreateCharacter(context.Background(), &auth.Character{
+		CharacterID: charID,
+		UserID:      userID,
+		WorldID:     worldID,
+	})
+
+	client := &mockClient{
+		UserID:      userID,
+		CharacterID: charID,
+	}
+
+	// Initialize simulation first to ensure Runner exists
+	// Initialize simulation runner using 'run'
+	target := "run"
+	runCmd := &websocket.CommandData{
+		Action: "world",
+		Target: &target,
+	}
+	proc.ProcessCommand(context.Background(), client, runCmd)
+
+	// EXECUTE: Configure tilt
+	targetCfg := "configure"
+	msgCfg := "tilt 45.5"
+	cmd := &websocket.CommandData{
+		Action:  "world",
+		Target:  &targetCfg,
+		Message: &msgCfg,
+	}
+
+	err := proc.ProcessCommand(context.Background(), client, cmd)
+	require.NoError(t, err)
+
+	// VERIFY: Last message should confirm tilt
+	messages := client.GetMessages()
+	found := false
+	for i := len(messages) - 1; i >= 0; i-- {
+		if strings.Contains(messages[i].Text, "Axial tilt set to 45.50") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "Should confirm axial tilt update")
+}
+
+func TestHandleWorld_Configure_DayLength(t *testing.T) {
+	// Setup
+	mockAuthRepo := auth.NewMockRepository()
+	mockWorldRepo := NewMockWorldRepository()
+	ecoSvc := ecosystem.NewService(time.Now().Unix())
+
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil, nil, nil, nil, nil)
+
+	charID := uuid.New()
+	userID := uuid.New()
+	worldID := uuid.New()
+	circ := 40000000.0
+
+	mockWorldRepo.CreateWorld(context.Background(), &repository.World{
+		ID:            worldID,
+		Name:          "Test World",
+		Circumference: &circ,
+	})
+
+	mockAuthRepo.CreateCharacter(context.Background(), &auth.Character{
+		CharacterID: charID,
+		UserID:      userID,
+		WorldID:     worldID,
+	})
+
+	client := &mockClient{
+		UserID:      userID,
+		CharacterID: charID,
+	}
+
+	// Initialize simulation runner using 'run'
+	target := "run"
+	runCmd := &websocket.CommandData{
+		Action:  "world",
+		Target:  &target,
+	}
+	proc.ProcessCommand(context.Background(), client, runCmd)
+
+	// EXECUTE: Configure day length
+	targetCfg := "configure"
+	msgCfg := "day 36000" // 10 hours
+	cmd := &websocket.CommandData{
+		Action:  "world",
+		Target:  &targetCfg,
+		Message: &msgCfg,
+	}
+
+	err := proc.ProcessCommand(context.Background(), client, cmd)
+	require.NoError(t, err)
+
+	// VERIFY: Last message should confirm day length
+	messages := client.GetMessages()
+	found := false
+	for i := len(messages) - 1; i >= 0; i-- {
+		if strings.Contains(messages[i].Text, "Day length set to 36000.00 seconds") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "Should confirm day length update")
 }

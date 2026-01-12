@@ -12,15 +12,6 @@ import (
 
 // Physical constants
 const (
-	// GravitationalConstant is Newton's gravitational constant (m³/(kg·s²))
-	GravitationalConstant = 6.674e-11
-
-	// EarthRadiusMeters is Earth's mean radius in meters
-	EarthRadiusMeters = 6.371e6
-
-	// EarthMassKg is Earth's mass in kilograms
-	EarthMassKg = 5.972e24
-
 	// MoonMassKg is Earth's Moon mass in kilograms
 	MoonMassKg = 7.342e22
 

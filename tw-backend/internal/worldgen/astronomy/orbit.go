@@ -61,9 +61,9 @@ type OrbitalState struct {
 // Uses simplified sine wave superposition based on Milankovitch theory.
 //
 // The function is deterministic: the same year always produces identical results.
-// This is equivalent to CalculateOrbitalStateWithStability(year, 1.0) for Earth-like stability.
+// This is equivalent to CalculateOrbitalStateWithStability(year, 1.0, ObliquityBaseline) for Earth-like stability.
 func CalculateOrbitalState(year int64) OrbitalState {
-	return CalculateOrbitalStateWithStability(year, 1.0)
+	return CalculateOrbitalStateWithStability(year, 1.0, ObliquityBaseline)
 }
 
 // CalculateOrbitalStateWithStability computes orbital parameters with obliquity chaos.
@@ -73,6 +73,8 @@ func CalculateOrbitalState(year int64) OrbitalState {
 //   - 0.5 = Reduced stability: ~7° swing
 //   - 0.0 = No moons (Mars-like): Chaotic obliquity, ~26° swing
 //
+// baseObliquity is the average axial tilt in degrees (Earth: 23.44°).
+//
 // Physics: Large moons stabilize axial tilt through gravitational interactions.
 // Without a stabilizing moon, axial tilt can swing wildly over millions of years,
 // causing extreme climate variations (flip between ice ages and hothouse conditions).
@@ -80,7 +82,7 @@ func CalculateOrbitalState(year int64) OrbitalState {
 // The chaos multiplier scales the amplitude of obliquity oscillation:
 //   - At stability=1.0: variance = 1.2° (Earth normal)
 //   - At stability=0.0: variance = 1.2° × 11 = 13.2° (chaos)
-func CalculateOrbitalStateWithStability(year int64, stability float64) OrbitalState {
+func CalculateOrbitalStateWithStability(year int64, stability float64, baseObliquity float64) OrbitalState {
 	// Clamp stability to valid range
 	if stability < 0 {
 		stability = 0
@@ -109,9 +111,9 @@ func CalculateOrbitalStateWithStability(year int64, stability float64) OrbitalSt
 		Eccentricity: EccentricityBaseline + EccentricityAmplitude*math.Sin(eccAngle),
 
 		// Obliquity: baseline ± effective amplitude * sin(cycle)
-		// Stable: 23.44° ± 1.2° = [22.24°, 24.64°]
-		// Chaotic: 23.44° ± 13.2° = [10.24°, 36.64°]
-		Obliquity: ObliquityBaseline + effectiveAmplitude*math.Sin(oblAngle),
+		// Stable: base ± 1.2°
+		// Chaotic: base ± 13.2°
+		Obliquity: baseObliquity + effectiveAmplitude*math.Sin(oblAngle),
 
 		// Precession: simple sine wave [-1, 1]
 		// Represents the phase of orbital precession
@@ -128,7 +130,7 @@ func CalculateOrbitalStateWithStability(year int64, stability float64) OrbitalSt
 //   - Precession: Modulates the effect of eccentricity on seasons
 //
 // Returns a value typically in the range [0.93, 1.07].
-func CalculateInsolation(state OrbitalState) float64 {
+func CalculateInsolation(state OrbitalState, baseObliquity float64) float64 {
 	// Baseline insolation
 	insolation := 1.0
 
@@ -138,8 +140,8 @@ func CalculateInsolation(state OrbitalState) float64 {
 	//
 	// At min obliquity (22.24°): reduced summer heating → ice age risk
 	// At max obliquity (24.64°): enhanced summer heating → interglacial
-	obliquityMin := ObliquityBaseline - ObliquityAmplitude                            // 22.24
-	obliquityMax := ObliquityBaseline + ObliquityAmplitude                            // 24.64
+	obliquityMin := baseObliquity - ObliquityAmplitude                                // 22.24
+	obliquityMax := baseObliquity + ObliquityAmplitude                                // 24.64
 	obliquityNorm := (state.Obliquity - obliquityMin) / (obliquityMax - obliquityMin) // 0 to 1
 
 	// Map to [-0.03, +0.03] effect on insolation
@@ -162,8 +164,8 @@ func CalculateInsolation(state OrbitalState) float64 {
 // IceAgePotential returns a value from 0.0 to 1.0 indicating the likelihood
 // of ice age conditions based on the orbital state.
 // A value > 0.5 suggests ice age prone conditions.
-func IceAgePotential(state OrbitalState) float64 {
-	insolation := CalculateInsolation(state)
+func IceAgePotential(state OrbitalState, baseObliquity float64) float64 {
+	insolation := CalculateInsolation(state, baseObliquity)
 
 	// Map insolation to ice age potential
 	// Insolation ~0.93 → potential ~1.0 (maximum ice age risk)

@@ -125,7 +125,7 @@ func TestCalculateInsolation_Range(t *testing.T) {
 	// Test across a million years to capture all orbital combinations
 	for year := int64(0); year <= 1000000; year += 1000 {
 		state := CalculateOrbitalState(year)
-		insolation := CalculateInsolation(state)
+		insolation := CalculateInsolation(state, ObliquityBaseline)
 
 		// Insolation should stay close to 1.0 (±0.1 is reasonable for orbital variations)
 		if insolation < 0.90 || insolation > 1.10 {
@@ -137,6 +137,7 @@ func TestCalculateInsolation_Range(t *testing.T) {
 // TestCalculateInsolation_IceAgePotential tests that low obliquity produces
 // lower insolation (ice age potential).
 func TestCalculateInsolation_IceAgePotential(t *testing.T) {
+	// Create contrasting states manually
 	// Create contrasting states manually
 	lowObliquityState := OrbitalState{
 		Eccentricity: 0.017, // baseline
@@ -150,8 +151,8 @@ func TestCalculateInsolation_IceAgePotential(t *testing.T) {
 		Precession:   0.0,
 	}
 
-	lowInsolation := CalculateInsolation(lowObliquityState)
-	highInsolation := CalculateInsolation(highObliquityState)
+	lowInsolation := CalculateInsolation(lowObliquityState, ObliquityBaseline)
+	highInsolation := CalculateInsolation(highObliquityState, ObliquityBaseline)
 
 	// Low obliquity should result in lower insolation (ice age potential)
 	if lowInsolation >= highInsolation {
@@ -168,8 +169,8 @@ func TestCalculateInsolation_Deterministic(t *testing.T) {
 		Precession:   0.5,
 	}
 
-	result1 := CalculateInsolation(state)
-	result2 := CalculateInsolation(state)
+	result1 := CalculateInsolation(state, ObliquityBaseline)
+	result2 := CalculateInsolation(state, ObliquityBaseline)
 
 	if result1 != result2 {
 		t.Errorf("Insolation not deterministic: %v != %v", result1, result2)
@@ -186,7 +187,7 @@ func TestIceAgeThreshold(t *testing.T) {
 	troughYear := int64(30750)
 
 	state := CalculateOrbitalState(troughYear)
-	insolation := CalculateInsolation(state)
+	insolation := CalculateInsolation(state, ObliquityBaseline)
 
 	t.Logf("Year %d: Obliquity=%.2f°, Insolation=%.4f", troughYear, state.Obliquity, insolation)
 
@@ -211,7 +212,7 @@ func TestObliquityChaos_StableWorld(t *testing.T) {
 
 	// Sample over 100k years to capture cycle extremes
 	for year := int64(0); year < 100000; year += 1000 {
-		state := CalculateOrbitalStateWithStability(year, stability)
+		state := CalculateOrbitalStateWithStability(year, stability, ObliquityBaseline)
 		if state.Obliquity < minObliquity {
 			minObliquity = state.Obliquity
 		}
@@ -243,7 +244,7 @@ func TestObliquityChaos_ChaoticWorld(t *testing.T) {
 
 	// Sample over 100k years to capture cycle extremes
 	for year := int64(0); year < 100000; year += 1000 {
-		state := CalculateOrbitalStateWithStability(year, stability)
+		state := CalculateOrbitalStateWithStability(year, stability, ObliquityBaseline)
 		if state.Obliquity < minObliquity {
 			minObliquity = state.Obliquity
 		}
@@ -287,7 +288,7 @@ func TestObliquityChaos_Gradient(t *testing.T) {
 			maxObl := 0.0
 
 			for year := int64(0); year < 100000; year += 1000 {
-				state := CalculateOrbitalStateWithStability(year, tt.stability)
+				state := CalculateOrbitalStateWithStability(year, tt.stability, ObliquityBaseline)
 				if state.Obliquity < minObl {
 					minObl = state.Obliquity
 				}
@@ -312,7 +313,7 @@ func TestObliquityChaos_Gradient(t *testing.T) {
 func TestCalculateOrbitalStateWithStability_BackwardCompatible(t *testing.T) {
 	for year := int64(0); year < 100000; year += 10000 {
 		original := CalculateOrbitalState(year)
-		withStability := CalculateOrbitalStateWithStability(year, 1.0)
+		withStability := CalculateOrbitalStateWithStability(year, 1.0, ObliquityBaseline)
 
 		// Should be nearly identical for stability=1.0
 		if original.Eccentricity != withStability.Eccentricity {
@@ -345,6 +346,6 @@ func BenchmarkCalculateInsolation(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		CalculateInsolation(state)
+		CalculateInsolation(state, ObliquityBaseline)
 	}
 }

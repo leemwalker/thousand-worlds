@@ -58,6 +58,12 @@ func (p *GameProcessor) handleWorld(ctx context.Context, client websocket.GameCl
 			return nil
 		}
 		return p.handleWorldSpeed(ctx, client, *cmd.Message)
+	case "configure", "config":
+		if cmd.Message == nil {
+			client.SendGameMessage("error", "Usage: world configure <param> <value>", nil)
+			return nil
+		}
+		return p.handleWorldConfigure(ctx, client, *cmd.Message)
 	case "map":
 		return p.handleWorldMap(ctx, client)
 	default:
@@ -2438,6 +2444,67 @@ func (p *GameProcessor) sendMapUpdateToClient(ctx context.Context, client websoc
 
 	log.Printf("[MAP] Sending map update directly to client (world %s)", worldID)
 	client.SendRawBytes(payload)
+
+	return nil
+}
+
+// handleWorldConfigure updates planetary parameters
+func (p *GameProcessor) handleWorldConfigure(ctx context.Context, client websocket.GameClient, args string) error {
+	parts := strings.Fields(args)
+	if len(parts) < 2 {
+		client.SendGameMessage("error", "Usage: world configure <param> <value>\nParams: tilt", nil)
+		return nil
+	}
+
+	param := strings.ToLower(parts[0])
+	valueStr := parts[1]
+
+	// Get character to determine world ID
+	char, err := p.authRepo.GetCharacter(ctx, client.GetCharacterID())
+	if err != nil {
+		client.SendGameMessage("error", "Could not get character info", nil)
+		return nil
+	}
+
+	runner := p.getRunner(char.WorldID)
+	if runner == nil {
+		client.SendGameMessage("error", "World simulation not running", nil)
+		return nil
+	}
+
+	switch param {
+	case "tilt", "axial_tilt":
+		tilt, err := strconv.ParseFloat(valueStr, 64)
+		if err != nil {
+			client.SendGameMessage("error", fmt.Sprintf("Invalid tilt value: %v", err), nil)
+			return nil
+		}
+		if tilt < 0 || tilt > 180 {
+			client.SendGameMessage("error", "Tilt must be between 0 and 180 degrees", nil)
+			return nil
+		}
+
+		runner.SetAxialTilt(tilt)
+		client.SendGameMessage("system", fmt.Sprintf("Axial tilt set to %.2f°", tilt), nil)
+
+	case "day_length", "day":
+		seconds, err := strconv.ParseFloat(valueStr, 64)
+		if err != nil {
+			client.SendGameMessage("error", fmt.Sprintf("Invalid day length: %v", err), nil)
+			return nil
+		}
+		if seconds < 3600 {
+			client.SendGameMessage("error", "Day length must be at least 3600 seconds (1 hour)", nil)
+			return nil
+		}
+
+		runner.SetDayLength(seconds)
+		hours := seconds / 3600.0
+		client.SendGameMessage("system", fmt.Sprintf("Day length set to %.2f seconds (%.2f hours)", seconds, hours), nil)
+
+	default:
+		client.SendGameMessage("error", fmt.Sprintf("Unknown parameter: %s", param), nil)
+	}
 
 	return nil
 }

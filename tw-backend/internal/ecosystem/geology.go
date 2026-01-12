@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 	pb "tw-backend/api/proto"
@@ -33,6 +34,7 @@ type WorldGeology struct {
 	Heightmap       *geography.Heightmap       // Flat heightmap for legacy consumers
 	SphereHeightmap *geography.SphereHeightmap // Spherical heightmap reference
 	Core            *geography.PlanetaryCore   // Planetary physics (Mass, Gravity, etc.)
+	Params          astronomy.PlanetParameters // Planet configuration (Mass, Tilt, DayLength)
 
 	// Geological components
 	Plates        []geography.TectonicPlate
@@ -54,10 +56,12 @@ type WorldGeology struct {
 	Hotspots   []geography.Point // Fixed mantle plume locations
 	Rivers     [][]geography.Point
 	Biomes     []geography.Biome
-	Satellites []astronomy.Satellite     // Natural satellites
-	Rainfall   []float64                 // Per-cell rainfall (Phase 7: Dynamic Weather)
-	Hydrology  *geography.HydrologyLayer // Flow field for stream power erosion
-	IceSheet   *geography.IceSheet       // Glacial ice dynamics (Phase 10)
+	Satellites []astronomy.Satellite       // Natural satellites
+	Rings      *astronomy.RingSystem       // Planetary ring system
+	Rainfall   []float64                   // Per-cell rainfall (Phase 7: Dynamic Weather)
+	Hydrology  *geography.HydrologyLayer   // Flow field for stream power erosion
+	IceSheet   *geography.IceSheet         // Glacial ice dynamics (Phase 10)
+	POIs       []geography.PointOfInterest // Points of Interest (Peaks, Trenches, etc.)
 
 	// River path cache (avoid regenerating every cycle)
 	sphericalRivers      []geography.SphericalRiverPath // Cached river paths
@@ -125,6 +129,7 @@ type GeologyStats struct {
 	HotspotCount       int
 	RiverCount         int
 	BiomeCount         int
+	POICount           int
 	YearsSimulated     int64
 }
 
@@ -135,6 +140,7 @@ func NewWorldGeology(worldID uuid.UUID, seed int64, circumferenceMeters float64)
 		WorldID:       worldID,
 		Seed:          seed,
 		Circumference: circumferenceMeters,
+		Params:        astronomy.NewEarthParams(),
 		SeaLevel:      0,             // Baseline sea level
 		Composition:   "continental", // Default composition
 		rng:           rand.New(rand.NewSource(seed)),
@@ -147,6 +153,7 @@ func NewWorldGeology(worldID uuid.UUID, seed int64, circumferenceMeters float64)
 		},
 		EventPublisher: events.NewNoOpPublisher(),
 		Core:           geography.NewPlanetaryCore(1.0, 4.5), // Default to Earth-like for now
+		Rings:          astronomy.NewRingSystem(),
 	}
 }
 
@@ -156,6 +163,24 @@ func (g *WorldGeology) SetComposition(composition string) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.Composition = composition
+}
+
+// RemoveSatellite removes a satellite by name. Returns true if found and removed.
+func (g *WorldGeology) RemoveSatellite(name string) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	for i, s := range g.Satellites {
+		if strings.EqualFold(s.Name, name) {
+			// Fast delete: swap with last element (if order doesn't matter) or append (if order matters)
+			// Order might matter for consistent IDs if index used?
+			// Satellites usually have names. Order is likely visual or list based.
+			// Let's preserve order to be safe.
+			g.Satellites = append(g.Satellites[:i], g.Satellites[i+1:]...)
+			return true
+		}
+	}
+	return false
 }
 
 // GetPlanetaryHeat returns a heat multiplier based on planetary age.
