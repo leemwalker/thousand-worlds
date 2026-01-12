@@ -36,7 +36,7 @@ func TestClimateDriver_IceAgeTrigger(t *testing.T) {
 
 	for year := startSearch; year < startSearch+100000; year += 100 {
 		state := astronomy.CalculateOrbitalState(year)
-		insolation := astronomy.CalculateInsolation(state)
+		insolation := astronomy.CalculateInsolation(state, astronomy.ObliquityBaseline)
 		if insolation < IceAgeInsolationThreshold {
 			lowInsolationYear = year
 			break
@@ -101,7 +101,7 @@ func TestClimateDriver_IceAgeRecovery(t *testing.T) {
 
 	for year := startSearch; year < startSearch+100000; year += 100 {
 		state := astronomy.CalculateOrbitalState(year)
-		insolation := astronomy.CalculateInsolation(state)
+		insolation := astronomy.CalculateInsolation(state, astronomy.ObliquityBaseline)
 		if insolation > IceAgeRecoveryThreshold {
 			highInsolationYear = year
 			break

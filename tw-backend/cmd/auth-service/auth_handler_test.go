@@ -116,3 +116,100 @@ func TestHandleLogin_RateLimit(t *testing.T) {
 	err := handler.HandleLogin(context.Background(), msg)
 	assert.NoError(t, err)
 }
+
+func TestHandleLogin_InvalidJSON(t *testing.T) {
+	handler := NewAuthHandler(nil, nil, nil, nil, nil)
+	msg := &nats.Msg{Data: []byte("{invalid-json")}
+	err := handler.HandleLogin(context.Background(), msg)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unmarshal")
+}
+
+func TestHandleLogin_InvalidCredentials(t *testing.T) {
+	mockPub := new(MockPublisher)
+	mockRL := new(MockRateLimiter)
+	mockPH := new(MockPasswordHasher) // Needed for password verification logic
+
+	handler := NewAuthHandler(mockPub, nil, mockPH, nil, mockRL)
+	ctx := context.Background()
+
+	req := LoginRequest{Username: "admin", Password: "wrongpass"}
+	reqData, _ := json.Marshal(req)
+	msg := &nats.Msg{Data: reqData, Reply: "reply"}
+
+	mockRL.On("Allow", ctx, "login:admin", 5, time.Minute).Return(true, nil)
+	// We expect simple check: if username is admin, we verify hash
+	mockPH.On("HashPassword", "password123").Return("hashed", nil)
+	// Compare "wrongpass" with "hashed" -> false
+	mockPH.On("ComparePassword", "wrongpass", "hashed").Return(false, nil)
+
+	mockPub.On("Publish", "reply", mock.MatchedBy(func(data []byte) bool {
+		var resp LoginResponse
+		json.Unmarshal(data, &resp)
+		return resp.Error == "Invalid credentials"
+	})).Return(nil)
+
+	err := handler.HandleLogin(ctx, msg)
+	assert.NoError(t, err)
+	mockPub.AssertExpectations(t)
+}
+
+func TestHandleLogin_SessionError(t *testing.T) {
+	mockPub := new(MockPublisher)
+	mockRL := new(MockRateLimiter)
+	mockPH := new(MockPasswordHasher)
+	mockSM := new(MockSessionManager)
+
+	handler := NewAuthHandler(mockPub, nil, mockPH, mockSM, mockRL)
+	ctx := context.Background()
+
+	req := LoginRequest{Username: "admin", Password: "password123"}
+	reqData, _ := json.Marshal(req)
+	msg := &nats.Msg{Data: reqData, Reply: "reply"}
+
+	mockRL.On("Allow", ctx, "login:admin", 5, time.Minute).Return(true, nil)
+	mockPH.On("HashPassword", "password123").Return("hashed", nil)
+	mockPH.On("ComparePassword", "password123", "hashed").Return(true, nil)
+	mockSM.On("CreateSession", ctx, "user-admin-id", "admin").Return(nil, assert.AnError)
+
+	mockPub.On("Publish", "reply", mock.MatchedBy(func(data []byte) bool {
+		var resp LoginResponse
+		json.Unmarshal(data, &resp)
+		return resp.Error == "Internal server error"
+	})).Return(nil)
+
+	err := handler.HandleLogin(ctx, msg)
+	assert.NoError(t, err)
+	mockPub.AssertExpectations(t)
+}
+
+func TestHandleLogin_TokenError(t *testing.T) {
+	mockPub := new(MockPublisher)
+	mockRL := new(MockRateLimiter)
+	mockPH := new(MockPasswordHasher)
+	mockSM := new(MockSessionManager)
+	mockTM := new(MockTokenManager)
+
+	handler := NewAuthHandler(mockPub, mockTM, mockPH, mockSM, mockRL)
+	ctx := context.Background()
+
+	req := LoginRequest{Username: "admin", Password: "password123"}
+	reqData, _ := json.Marshal(req)
+	msg := &nats.Msg{Data: reqData, Reply: "reply"}
+
+	mockRL.On("Allow", ctx, "login:admin", 5, time.Minute).Return(true, nil)
+	mockPH.On("HashPassword", "password123").Return("hashed", nil)
+	mockPH.On("ComparePassword", "password123", "hashed").Return(true, nil)
+	mockSM.On("CreateSession", ctx, "user-admin-id", "admin").Return(&auth.Session{ID: "sess-1"}, nil)
+	mockTM.On("GenerateToken", "user-admin-id", "admin", []string{"admin"}).Return("", assert.AnError)
+
+	mockPub.On("Publish", "reply", mock.MatchedBy(func(data []byte) bool {
+		var resp LoginResponse
+		json.Unmarshal(data, &resp)
+		return resp.Error == "Internal server error"
+	})).Return(nil)
+
+	err := handler.HandleLogin(ctx, msg)
+	assert.NoError(t, err)
+	mockPub.AssertExpectations(t)
+}

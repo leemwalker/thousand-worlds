@@ -8,7 +8,7 @@ import (
 // TestNewAtmosphere verifies initial atmospheric composition
 func TestNewAtmosphere(t *testing.T) {
 	t.Run("early Earth has high CO2", func(t *testing.T) {
-		atm := NewAtmosphere(0) // Hadean
+		atm := NewAtmosphere(0, 5.972e24, 6.371e6) // Hadean, Earth-mass
 
 		if atm.CO2Mass < 10.0 {
 			t.Errorf("Early Earth should have high CO2: got %f, want >= 10.0", atm.CO2Mass)
@@ -20,7 +20,7 @@ func TestNewAtmosphere(t *testing.T) {
 	})
 
 	t.Run("modern Earth has low CO2", func(t *testing.T) {
-		atm := NewAtmosphere(4_500_000_000) // Modern
+		atm := NewAtmosphere(4_500_000_000, 5.972e24, 6.371e6) // Modern
 
 		// Modern Earth: ~400 ppm = 0.0006 atm
 		if atm.CO2Mass > 0.001 {
@@ -164,7 +164,7 @@ func TestCalculateWeatheringRate(t *testing.T) {
 
 // TestSimulateCarbonCycle verifies mass balance
 func TestSimulateCarbonCycle(t *testing.T) {
-	atm := NewAtmosphere(0)
+	atm := NewAtmosphere(0, 5.972e24, 6.371e6)
 	initialCO2 := atm.CO2Mass
 
 	// High volcanism, low weathering → CO2 increases

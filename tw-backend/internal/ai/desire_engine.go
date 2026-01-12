@@ -12,12 +12,21 @@ import (
 	"tw-backend/internal/repository"
 )
 
-type DesireEngine struct {
-	nc   *nats.Conn
-	repo *repository.NPCMemoryRepository
+type EventBus interface {
+	Subscribe(subject string, cb nats.MsgHandler) (*nats.Subscription, error)
+	Publish(subject string, data []byte) error
 }
 
-func NewDesireEngine(nc *nats.Conn, repo *repository.NPCMemoryRepository) *DesireEngine {
+type MemoryRepository interface {
+	GetMemoriesByWorldID(ctx context.Context, worldID string) ([]repository.Memory, error)
+}
+
+type DesireEngine struct {
+	nc   EventBus
+	repo MemoryRepository
+}
+
+func NewDesireEngine(nc EventBus, repo MemoryRepository) *DesireEngine {
 	return &DesireEngine{
 		nc:   nc,
 		repo: repo,
@@ -125,7 +134,7 @@ func (e *DesireEngine) handleAIResponse(msg *nats.Msg) {
 	// Since we don't have a parser yet, we'll publish to 'npc.action.performed' which could be picked up.
 	// OR we can assume the LLM outputs JSON with coords? No, prompt says "MOVE NORTH".
 	// I'll publish to `spatial.command.action` for now.
-	
+
 	if err := e.nc.Publish("spatial.command.action", []byte(resp.Response)); err != nil {
 		log.Error().Err(err).Msg("Failed to publish final action")
 	}
