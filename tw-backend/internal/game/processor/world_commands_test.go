@@ -9,6 +9,7 @@ import (
 	"tw-backend/cmd/game-server/websocket"
 	"tw-backend/internal/auth"
 	"tw-backend/internal/ecosystem"
+	"tw-backend/internal/ecosystem/state"
 	"tw-backend/internal/repository" // Added import
 
 	"github.com/google/uuid"
@@ -236,8 +237,8 @@ func TestHandleWorld_Configure_DayLength(t *testing.T) {
 	// Initialize simulation runner using 'run'
 	target := "run"
 	runCmd := &websocket.CommandData{
-		Action:  "world",
-		Target:  &target,
+		Action: "world",
+		Target: &target,
 	}
 	proc.ProcessCommand(context.Background(), client, runCmd)
 
@@ -298,8 +299,8 @@ func TestHandleWorld_Configure_Mass(t *testing.T) {
 	// Initialize simulation runner using 'run'
 	target := "run"
 	runCmd := &websocket.CommandData{
-		Action:  "world",
-		Target:  &target,
+		Action: "world",
+		Target: &target,
 	}
 	proc.ProcessCommand(context.Background(), client, runCmd)
 
@@ -325,4 +326,102 @@ func TestHandleWorld_Configure_Mass(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "Should confirm planet mass update")
+}
+
+func TestHandleWorld_Reset(t *testing.T) {
+	// Setup
+	mockAuthRepo := auth.NewMockRepository()
+	mockWorldRepo := NewMockWorldRepository()
+	ecoSvc := ecosystem.NewService(time.Now().Unix())
+
+	proc := NewGameProcessor(mockAuthRepo, mockWorldRepo, nil, nil, nil, nil, nil, nil, nil, nil, ecoSvc, nil, nil, nil, nil, nil, nil, nil, nil)
+
+	// Mock Map Service
+	proc.mapService = &mockMapService{
+		geologyMap: make(map[uuid.UUID]*ecosystem.WorldGeology),
+	}
+
+	charID := uuid.New()
+	userID := uuid.New()
+	worldID := uuid.New()
+	circ := 40000000.0
+
+	mockWorldRepo.CreateWorld(context.Background(), &repository.World{
+		ID:            worldID,
+		Name:          "Test World",
+		Circumference: &circ,
+	})
+
+	mockAuthRepo.CreateCharacter(context.Background(), &auth.Character{
+		CharacterID: charID,
+		UserID:      userID,
+		WorldID:     worldID,
+	})
+
+	client := &mockClient{
+		UserID:      userID,
+		CharacterID: charID,
+	}
+
+	// 1. Initialize Simulation State (Geology, Entities, Runner)
+	// Initialize geology manually as if simulation ran
+	geo := ecosystem.NewWorldGeology(worldID, 12345, circ)
+	proc.worldGeology[worldID] = geo
+	proc.mapService.SetWorldGeology(worldID, geo)
+
+	// Add dummy entity
+	entityID := uuid.New()
+	ecoSvc.Entities[entityID] = &state.LivingEntityState{
+		EntityID: entityID,
+		WorldID:  worldID,
+	}
+
+	// Initialize simulation runner
+	target := "run"
+	runCmd := &websocket.CommandData{Action: "world", Target: &target}
+	// This creates the runner
+	// Note: We ignore error here as run might fail if not fully configured,
+	// but we just need runner creation attempt.
+	// Actually, run creates runner.
+	proc.ProcessCommand(context.Background(), client, runCmd)
+
+	// Force create runner if not created by run command (due to mocks)
+	if proc.getRunner(worldID) == nil {
+		proc.getOrCreateRunner(worldID)
+	}
+	require.NotNil(t, proc.getRunner(worldID), "Runner should exist before reset")
+
+	// 2. EXECUTE: World Reset
+	targetReset := "reset"
+	cmd := &websocket.CommandData{Action: "world", Target: &targetReset}
+
+	err := proc.ProcessCommand(context.Background(), client, cmd)
+	require.NoError(t, err)
+
+	// 3. VERIFY
+	// Runner should be removed
+	assert.Nil(t, proc.getRunner(worldID), "Runner should be removed after reset")
+
+	// Geology should be cleared from processor
+	_, exists := proc.worldGeology[worldID]
+	assert.False(t, exists, "Geology should be cleared from processor")
+
+	// Geology should be cleared from map service
+	// We check if we can retrieve it (mock returns nil if cleared)
+	assert.Nil(t, proc.mapService.GetWorldGeology(worldID), "Geology should be cleared from map service")
+
+	// Entities for this world should be removed
+	_, entExists := ecoSvc.Entities[entityID]
+	assert.False(t, entExists, "Entities for world should be removed")
+
+	// Client should receive world_reset message
+	messages := client.GetMessages()
+	foundResetMsg := false
+	for _, m := range messages {
+		if m.Type == "world_reset" {
+			foundResetMsg = true
+			break
+		}
+	}
+	assert.True(t, foundResetMsg, "Should send world_reset message to client")
 }

@@ -54,7 +54,7 @@ type GameProcessor struct {
 	interviewService   *interview.InterviewService
 	spatialService     *player.SpatialService
 	weatherService     *weather.Service
-	mapService         *gamemap.Service
+	mapService         MapService
 	skillsRepo         skills.Repository
 	worldEntityService *worldentity.Service
 	ecosystemService   *ecosystem.Service
@@ -77,6 +77,21 @@ type GameProcessor struct {
 	// Persistence
 	simSnapshotRepo *ecosystem.SimulationSnapshotRepository
 	runnerStateRepo *ecosystem.RunnerStateRepository
+}
+
+// MapService interface defines the methods required by GameProcessor from the map service
+type MapService interface {
+	RenderMap(ctx context.Context, worldID uuid.UUID, geo *ecosystem.WorldGeology, width, height int) ([]byte, error)
+	RenderHeightmapPNG(ctx context.Context, worldID uuid.UUID, geo *ecosystem.WorldGeology, width, height int) ([]byte, error)
+	RenderMaterialPNG(ctx context.Context, worldID uuid.UUID, geo *ecosystem.WorldGeology, width, height int) ([]byte, error)
+	RenderIcePNG(ctx context.Context, worldID uuid.UUID, geo *ecosystem.WorldGeology, width, height int) ([]byte, error)
+	RenderNormalMapPNG(ctx context.Context, worldID uuid.UUID, geo *ecosystem.WorldGeology, width, height int) ([]byte, error)
+	BuildBinaryGrid(geo *ecosystem.WorldGeology, width, height int) *gamemap.BinaryGrid
+	SetWorldGeology(worldID uuid.UUID, geo *ecosystem.WorldGeology)
+	GetWorldGeology(worldID uuid.UUID) *ecosystem.WorldGeology
+	GetWorldMapData(ctx context.Context, char *auth.Character, gridSize int) (*gamemap.WorldMapData, error)
+	GetMapData(ctx context.Context, char *auth.Character) (*gamemap.MapData, error)
+	TileRenderer() *gamemap.TileRenderer
 }
 
 // NewGameProcessor creates a new game processor
