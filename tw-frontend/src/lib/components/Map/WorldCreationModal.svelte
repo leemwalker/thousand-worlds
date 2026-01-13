@@ -58,6 +58,18 @@
         if (!params.name) return;
         dispatch("complete", params);
     }
+
+    // Reactive dependency management
+    $: if (!params.sysGeology) {
+        params.sysWeather = false;
+        params.sysLife = false;
+    }
+
+    $: if (!params.sysLife) {
+        params.sysDisease = false;
+        params.sysSapience = false;
+        params.sysMigration = false;
+    }
 </script>
 
 {#if isOpen}

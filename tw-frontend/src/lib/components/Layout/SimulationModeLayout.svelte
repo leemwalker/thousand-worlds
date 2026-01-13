@@ -140,7 +140,7 @@
         if (params.sysMigration) cmd += ` --migration`;
 
         console.log("[SimulationModeLayout] Sending command:", cmd);
-        gameWebSocket.sendCommand(cmd);
+        gameWebSocket.sendRawCommand(cmd);
 
         showWorldCreationModal = false;
     }

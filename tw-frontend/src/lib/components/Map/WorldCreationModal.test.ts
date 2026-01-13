@@ -41,4 +41,20 @@ describe('WorldCreationModal', () => {
         expect(eventDetail.moonCount).toBeDefined();
         expect(eventDetail.sysGeology).toBe(true);
     });
+
+    it('enforces system dependencies', async () => {
+        const { getByLabelText, component } = render(WorldCreationModal, { isOpen: true });
+
+        // Uncheck Geology
+        const geologyToggle = getByLabelText('Geology') as HTMLInputElement;
+        await fireEvent.click(geologyToggle);
+        expect(geologyToggle.checked).toBe(false);
+
+        // Check that dependent systems are unchecked in DOM
+        const lifeToggle = getByLabelText('Life & Evolution') as HTMLInputElement;
+        expect(lifeToggle.checked).toBe(false);
+
+        const weatherToggle = getByLabelText('Weather & Climate') as HTMLInputElement;
+        expect(weatherToggle.checked).toBe(false);
+    });
 });
