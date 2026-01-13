@@ -50,8 +50,23 @@
     });
 
     function handleCanvasReady(event: CustomEvent) {
-        console.log("Canvas Ready", event.detail);
-        activeScene = event.detail.scene;
+        const canvas = event.detail;
+        console.log("[SimulationModeLayout] Canvas Ready", canvas);
+
+        // Initialize the Babylon.js engine with the canvas
+        sceneManager.initialize(canvas);
+
+        // If we're in the lobby, transition to the lobby scene
+        if (get(gameStore).gameLocation === "LOBBY") {
+            console.log("[SimulationModeLayout] Transitioning to LOBBY scene");
+            sceneManager.transitionTo("LOBBY").then(() => {
+                activeScene = sceneManager.getActiveScene();
+                console.log(
+                    "[SimulationModeLayout] LOBBY scene ready",
+                    activeScene,
+                );
+            });
+        }
     }
     function handleMenuClose() {
         isMenuOpen = false;
