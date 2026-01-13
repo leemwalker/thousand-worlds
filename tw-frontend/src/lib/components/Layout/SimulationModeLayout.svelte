@@ -116,8 +116,33 @@
     /** Handle world creation complete */
     function handleWorldCreationComplete(e: CustomEvent) {
         console.log("[SimulationModeLayout] World creation complete", e.detail);
+
+        const params: any = e.detail; // Type as any for now to avoid import issues, will be WorldCreationParams
+
+        // Construct command string based on parameters
+        let cmd = `world simulate 1000000`; // Default 1M years
+
+        // Add flags
+        if (params.seed) cmd += ` --seed ${params.seed}`;
+        else cmd += ` --seed ${Math.floor(Math.random() * 999999999)}`;
+
+        if (params.moonCount >= 0) cmd += ` --moons ${params.moonCount}`;
+        if (params.resolution) cmd += ` --resolution ${params.resolution}`;
+        if (params.coreType) cmd += ` --composition ${params.coreType}`; // Note: Backend needs to support this or it will be ignored (it's not in the flag list but handled in logic)
+        if (params.waterLevel) cmd += ` --water-level ${params.waterLevel}`;
+
+        // System toggles
+        if (params.sysGeology) cmd += ` --geology`;
+        if (params.sysWeather) cmd += ` --weather`;
+        if (params.sysLife) cmd += ` --life`;
+        if (params.sysDisease) cmd += ` --disease`;
+        if (params.sysSapience) cmd += ` --sapience`;
+        if (params.sysMigration) cmd += ` --migration`;
+
+        console.log("[SimulationModeLayout] Sending command:", cmd);
+        gameWebSocket.sendCommand(cmd);
+
         showWorldCreationModal = false;
-        // Future: trigger backend simulation with e.detail params (name, seed, etc.)
     }
 </script>
 

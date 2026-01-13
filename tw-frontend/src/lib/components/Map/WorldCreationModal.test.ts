@@ -3,37 +3,42 @@ import { describe, it, expect, vi } from 'vitest';
 import WorldCreationModal from './WorldCreationModal.svelte';
 
 describe('WorldCreationModal', () => {
-    it('renders open with title', () => {
-        const { getByText } = render(WorldCreationModal, { isOpen: true });
+    it('renders open with title and form', () => {
+        const { getByText, getByLabelText } = render(WorldCreationModal, { isOpen: true });
+
         expect(getByText('Genesis Protocol')).toBeDefined();
+        // Check for sections
+        expect(getByText('Physical Parameters')).toBeDefined();
+        expect(getByText('Active Systems')).toBeDefined();
     });
 
-    it('advances steps', async () => {
-        const { getByText, queryByText } = render(WorldCreationModal, { isOpen: true });
+    it('generates random name on open', async () => {
+        const { getByLabelText } = render(WorldCreationModal, { isOpen: true });
 
-        // Step 0
-        expect(getByText('Initiating planetary formation sequence...')).toBeDefined();
-        const initBtn = getByText('Initialize Core');
-
-        // Advance
-        await fireEvent.click(initBtn);
-
-        // Step 1
-        expect(getByText('Constructing terrain and atmosphere...')).toBeDefined();
-        expect(queryByText('Initiating planetary formation sequence...')).toBeNull();
+        const nameInput = getByLabelText('World Designation') as HTMLInputElement;
+        expect(nameInput.value).toBeTruthy();
+        expect(nameInput.value.length).toBeGreaterThan(0);
     });
 
-    it('dispatches complete event', async () => {
+    it('updates parameters and submits', async () => {
         const { getByText, component } = render(WorldCreationModal, { isOpen: true });
 
         const completeSpy = vi.fn();
         component.$on('complete', completeSpy);
 
-        // Step 0 -> Step 1
-        await fireEvent.click(getByText('Initialize Core'));
+        // Click a size button (medium)
+        await fireEvent.click(getByText('medium'));
 
-        // Complete
-        await fireEvent.click(getByText('Finalize Biosphere'));
+        // Submit
+        await fireEvent.click(getByText('Initialize Simulation'));
+
         expect(completeSpy).toHaveBeenCalled();
+        const eventDetail = completeSpy.mock.calls[0][0].detail;
+
+        // Check payload structure
+        expect(eventDetail.name).toBeTruthy();
+        expect(eventDetail.size).toBe('medium');
+        expect(eventDetail.moonCount).toBeDefined();
+        expect(eventDetail.sysGeology).toBe(true);
     });
 });

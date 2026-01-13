@@ -83,7 +83,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	var seedFlag int64 = 0
 	var moonsFlag int = -1       // -1 means random, >= 0 means override
 	var resolutionFlag int = 128 // Default resolution (64, 128, 256, 512)
-	var epochFlag, goalFlag, waterLevelFlag string
+	var epochFlag, goalFlag, waterLevelFlag, compositionFlag string
 
 	// Subsystem flags - all false by default, enabled explicitly or via "no flags = all"
 	enableGeology := false
@@ -154,11 +154,15 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 				waterLevelFlag = args[i+1]
 				i++
 			}
-		case "--seed":
 			if i+1 < len(args) {
 				if parsed, err := strconv.ParseInt(args[i+1], 10, 64); err == nil {
 					seedFlag = parsed
 				}
+				i++
+			}
+		case "--composition":
+			if i+1 < len(args) {
+				compositionFlag = args[i+1]
 				i++
 			}
 		// Legacy flags (for backward compatibility)
@@ -281,6 +285,12 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		geology = ecosystem.NewWorldGeology(char.WorldID, seedFlag, circumference)
 		geology.EventPublisher = p.eventPublisher // Inject event publisher
 		p.worldGeology[char.WorldID] = geology
+	}
+
+	// Set composition if flag provided (overrides default/existing)
+	if compositionFlag != "" {
+		geology.SetComposition(compositionFlag)
+		client.SendGameMessage("system", fmt.Sprintf("🪨 Core Composition set to: %s", compositionFlag), nil)
 	}
 
 	// Initialize terrain if first simulation
