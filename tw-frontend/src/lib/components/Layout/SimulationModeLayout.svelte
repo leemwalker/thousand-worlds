@@ -95,7 +95,23 @@
         console.log(
             "[SimulationModeLayout] Portal entered, showing world creation modal",
         );
-        gameStore.setGameLocation("WORLD"); // Transition to world scene
+
+        // Dispose lobby scene to stop rendering it
+        if (lobbyScene) {
+            lobbyScene.dispose();
+            console.log("[SimulationModeLayout] Lobby scene disposed");
+        }
+
+        // Transition to WORLD scene (creates new scene, starts render loop)
+        sceneManager.transitionTo("WORLD").then(() => {
+            activeScene = sceneManager.getActiveScene();
+            console.log(
+                "[SimulationModeLayout] WORLD scene ready",
+                activeScene,
+            );
+        });
+
+        gameStore.setGameLocation("WORLD"); // Update store state
         showWorldCreationModal = true; // Show modal
     }
 
