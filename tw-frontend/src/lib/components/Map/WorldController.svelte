@@ -176,6 +176,7 @@
     function registerRenderLoop() {
         if (!scene) return;
 
+        // Add animation update to before-render
         scene.onBeforeRenderObservable.add(() => {
             if (isPaused || !scene) return;
 
@@ -185,6 +186,15 @@
 
             updateAnimation(deltaTime);
         });
+
+        // Start the engine render loop
+        const engine = scene.getEngine();
+        if (engine) {
+            engine.runRenderLoop(() => {
+                scene.render();
+            });
+            console.log("[WorldController] Render loop started");
+        }
     }
 
     function updateAnimation(deltaTime: number) {
