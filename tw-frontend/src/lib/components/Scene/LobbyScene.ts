@@ -515,18 +515,15 @@ export class LobbyScene {
         // Dispose all meshes in the scene that we created
         // (walls, ceiling, lights, etc.)
         if (this.scene) {
-            // Get all meshes and dispose ones with lobby-related names
-            const meshesToDispose = this.scene.meshes.filter(m =>
-                m.name.startsWith('floor') ||
-                m.name.startsWith('wall') ||
-                m.name.startsWith('ceiling') ||
-                m.name.startsWith('statue') ||
-                m.name.startsWith('portal')
-            );
-            meshesToDispose.forEach(m => m.dispose());
+            // Dispose ALL meshes - copy array since we're modifying it
+            const allMeshes = [...this.scene.meshes];
+            console.log(`[LobbyScene] Disposing ${allMeshes.length} meshes`);
+            allMeshes.forEach(m => m.dispose());
 
             // Dispose all lights in the scene
-            [...this.scene.lights].forEach(l => l.dispose());
+            const allLights = [...this.scene.lights];
+            console.log(`[LobbyScene] Disposing ${allLights.length} lights`);
+            allLights.forEach(l => l.dispose());
         }
 
         // Clear references
