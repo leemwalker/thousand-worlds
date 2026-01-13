@@ -11,6 +11,9 @@ import (
 )
 
 func TestSessionManager_Lifecycle(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
 	client := setupTestRedis(t)
 	defer client.Close()
 

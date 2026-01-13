@@ -138,3 +138,38 @@ func TestScheduler_DuplicateRegister(t *testing.T) {
 	total, _, _ := s.GetStats()
 	assert.Equal(t, 1, total, "Duplicate registration should be ignored")
 }
+
+func TestScheduler_SetBuckets(t *testing.T) {
+	s := NewScheduler(4)
+
+	// Register 10 entities
+	ids := make([]uuid.UUID, 10)
+	for i := 0; i < 10; i++ {
+		ids[i] = uuid.New()
+		s.RegisterEntity(ids[i])
+	}
+
+	// Resize buckets to 2
+	s.SetBuckets(2)
+	assert.Equal(t, 2, s.totalBuckets)
+
+	// Verify redistribution
+	total, buckets, perBucket := s.GetStats()
+	assert.Equal(t, 10, total)
+	assert.Equal(t, 2, buckets)
+	assert.Len(t, perBucket, 2)
+	assert.Equal(t, 5, perBucket[0])
+	assert.Equal(t, 5, perBucket[1])
+
+	// Verify lookup still works
+	for _, id := range ids {
+		found := false
+		for tick := int64(0); tick < 2; tick++ {
+			if s.ShouldProcessEntity(tick, id) {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "Entity %s should be processable after resize", id)
+	}
+}

@@ -5,21 +5,31 @@ import (
 	"time"
 
 	"tw-backend/internal/errors"
-	"tw-backend/internal/game/services/inventory"
 	"tw-backend/internal/worldentity"
 
 	"github.com/google/uuid"
 )
 
+// InventoryProvider defines the inventory operations required by crafting
+type InventoryProvider interface {
+	RemoveItem(ctx context.Context, charID uuid.UUID, itemID uuid.UUID, quantity int) error
+	AddItem(ctx context.Context, charID uuid.UUID, itemID uuid.UUID, quantity int, metadata map[string]interface{}) error
+}
+
+// WorldEntityProvider defines world entity operations
+type WorldEntityProvider interface {
+	GetByID(ctx context.Context, id uuid.UUID) (*worldentity.WorldEntity, error)
+}
+
 // Service handles crafting operations
 type Service struct {
 	repo               Repository
-	inventoryService   *inventory.Service
-	worldEntityService *worldentity.Service
+	inventoryService   InventoryProvider
+	worldEntityService WorldEntityProvider
 }
 
 // NewService creates a new crafting service
-func NewService(repo Repository, invService *inventory.Service, worldEntService *worldentity.Service) *Service {
+func NewService(repo Repository, invService InventoryProvider, worldEntService WorldEntityProvider) *Service {
 	return &Service{
 		repo:               repo,
 		inventoryService:   invService,

@@ -122,3 +122,40 @@ func TestDesireEngine_HandleAIResponse(t *testing.T) {
 
 	mockBus.AssertExpectations(t)
 }
+
+func TestDesireEngine_ListenForDecisions_SubscribeError(t *testing.T) {
+	mockBus := new(MockEventBus)
+	mockRepo := new(MockMemoryRepository)
+	engine := NewDesireEngine(mockBus, mockRepo)
+
+	// Expect error on first subscribe
+	mockBus.On("Subscribe", "npc.command.decide_action", mock.Anything).Return(nil, assert.AnError)
+
+	err := engine.ListenForDecisions()
+	assert.Error(t, err)
+}
+
+func TestDesireEngine_HandleDecideAction_RepoError(t *testing.T) {
+	mockBus := new(MockEventBus)
+	mockRepo := new(MockMemoryRepository)
+	engine := NewDesireEngine(mockBus, mockRepo)
+
+	cmd := DecideActionCommand{EntityID: "npc-1", WorldID: "world-1"}
+	data, _ := json.Marshal(cmd)
+	msg := &nats.Msg{Data: data}
+
+	mockRepo.On("GetMemoriesByWorldID", mock.Anything, "world-1").Return(nil, assert.AnError)
+
+	engine.handleDecideAction(msg) // Should log error and return
+
+	mockRepo.AssertExpectations(t)
+}
+
+func TestDesireEngine_HandleDecideAction_UnmarshalError(t *testing.T) {
+	mockBus := new(MockEventBus)
+	mockRepo := new(MockMemoryRepository)
+	engine := NewDesireEngine(mockBus, mockRepo)
+
+	msg := &nats.Msg{Data: []byte("invalid json")}
+	engine.handleDecideAction(msg) // Should log error and return
+}

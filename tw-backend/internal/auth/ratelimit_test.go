@@ -13,6 +13,9 @@ import (
 )
 
 func TestRateLimiter_Allow(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
 	client := setupTestRedis(t)
 	defer client.Close()
 

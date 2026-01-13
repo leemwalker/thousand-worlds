@@ -213,3 +213,53 @@ func TestHandleLogin_TokenError(t *testing.T) {
 	assert.NoError(t, err)
 	mockPub.AssertExpectations(t)
 }
+
+func TestHandleLogin_RateLimitError(t *testing.T) {
+	mockPub := new(MockPublisher)
+	mockRL := new(MockRateLimiter)
+	handler := NewAuthHandler(mockPub, nil, nil, nil, mockRL)
+
+	req := LoginRequest{Username: "admin"}
+	reqData, _ := json.Marshal(req)
+	msg := &nats.Msg{Data: reqData, Reply: "reply"}
+
+	// Return error from rate limiter. Implementation should log and treat as denied (default false bool)
+	mockRL.On("Allow", mock.Anything, "login:admin", 5, time.Minute).Return(false, assert.AnError)
+
+	mockPub.On("Publish", "reply", mock.MatchedBy(func(data []byte) bool {
+		var resp LoginResponse
+		json.Unmarshal(data, &resp)
+		return resp.Error != ""
+	})).Return(nil)
+
+	err := handler.HandleLogin(context.Background(), msg)
+	assert.NoError(t, err)
+}
+
+func TestHandleLogin_PublishError(t *testing.T) {
+	mockPub := new(MockPublisher)
+	mockRL := new(MockRateLimiter)
+	mockPH := new(MockPasswordHasher)
+	mockSM := new(MockSessionManager)
+	mockTM := new(MockTokenManager)
+
+	handler := NewAuthHandler(mockPub, mockTM, mockPH, mockSM, mockRL)
+
+	req := LoginRequest{Username: "admin", Password: "password123"}
+	reqData, _ := json.Marshal(req)
+	msg := &nats.Msg{Data: reqData, Reply: "reply"}
+
+	// Standard success flow up to publish
+	mockRL.On("Allow", mock.Anything, "login:admin", 5, time.Minute).Return(true, nil)
+	mockPH.On("HashPassword", "password123").Return("hashed", nil)
+	mockPH.On("ComparePassword", "password123", "hashed").Return(true, nil)
+	mockSM.On("CreateSession", mock.Anything, "user-admin-id", "admin").Return(&auth.Session{ID: "sess-1"}, nil)
+	mockTM.On("GenerateToken", "user-admin-id", "admin", []string{"admin"}).Return("token", nil)
+
+	// Publish fails
+	mockPub.On("Publish", "reply", mock.Anything).Return(assert.AnError)
+
+	err := handler.HandleLogin(context.Background(), msg)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "publish")
+}

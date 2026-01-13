@@ -25,6 +25,24 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 
 	// Game Loop Steps - Handled by InitializeGameLoopSteps(ctx)
 	InitializeGameLoopSteps(ctx)
+
+	// Analytics Steps - Handled by InitializeAnalyticsSteps(ctx)
+	InitializeAnalyticsSteps(ctx)
+
+	// Economy Steps - Handled by InitializeEconomySteps(ctx)
+	InitializeEconomySteps(ctx)
+
+	// Combat Steps
+	combatCtx := &CombatContext{}
+	InitializeCombatSteps(ctx, combatCtx)
+
+	// Auth Steps
+	authCtx := &AuthContext{}
+	InitializeAuthSteps(ctx, authCtx)
+
+	// AI Steps
+	aiCtx := &AIContext{}
+	InitializeAISteps(ctx, aiCtx)
 }
 
 func TestMain(m *testing.M) {

@@ -18,6 +18,9 @@ import (
 
 // TestSessionManager_BatchUpdates tests batch session update functionality
 func TestSessionManager_BatchUpdates(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
 	ctx := context.Background()
 
 	// Start Redis container
@@ -123,6 +126,9 @@ func TestSessionManager_BatchUpdates(t *testing.T) {
 
 // TestRateLimiter_CommandThrottling tests per-client command rate limiting
 func TestRateLimiter_CommandThrottling(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
 	ctx := context.Background()
 
 	// Start Redis container

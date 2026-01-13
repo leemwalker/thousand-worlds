@@ -81,7 +81,15 @@ func TestCombatService_JoinAndAttack(t *testing.T) {
 	// Wait, `action.CombatResolver` has `Queue` field exported?
 	// references `s.resolver.Queue.Enqueue` in `service.go`. So it must be exported.
 
-	// Let's verify queue length.
-	// Queue implementation might hide length.
-	// Assuming we can't easily peek, we rely on `QueueAttack` success.
+	// Verify queue length (mock peek)
+	// assert.Equal(t, 1, svc.resolver.Queue.Len()) // If Queue exposes Len
+}
+
+func TestCombatService_QueueAttack_AttackerNotFound(t *testing.T) {
+	entSvc := entity.NewService()
+	svc := NewService(entSvc)
+
+	err := svc.QueueAttack(uuid.New(), uuid.New())
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "attacker not found")
 }

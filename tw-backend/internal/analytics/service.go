@@ -41,12 +41,15 @@ func NewService(dbURL string) (*Service, error) {
 		Timeout:          30 * time.Second,
 	}
 	cb := circuitbreaker.New(cbConfig)
-
-	// Log state transitions
 	cb.OnStateChange(func(name string, from, to circuitbreaker.State) {
 		fmt.Printf("[CircuitBreaker] %s: %s -> %s\n", name, from, to)
 	})
 
+	return NewServiceWithDB(db, cb)
+}
+
+// NewServiceWithDB creates a service with existing dependencies (useful for testing)
+func NewServiceWithDB(db *sql.DB, cb *circuitbreaker.CircuitBreaker) (*Service, error) {
 	s := &Service{db: db, cb: cb}
 
 	if err := s.initializeSchema(); err != nil {

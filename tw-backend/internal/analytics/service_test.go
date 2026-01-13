@@ -2,43 +2,18 @@ package analytics
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
+	"tw-backend/internal/circuitbreaker"
 	"tw-backend/internal/ecosystem"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// TestService_RecordStats_Unit tests the RecordStats method without DB
-// This is a unit test that verifies the struct implements the interface
-func TestService_ImplementsMetricsCollector(t *testing.T) {
-	// Compile-time interface check
-	var _ ecosystem.MetricsCollector = (*Service)(nil)
-}
-
-// TestGlobalStats_Defaults tests GlobalStats struct initialization
-func TestGlobalStats_Defaults(t *testing.T) {
-	stats := ecosystem.GlobalStats{
-		WorldID:          uuid.New(),
-		Year:             1000000,
-		Population:       5000,
-		AvgTemperature:   14.5,
-		MaxTemperature:   45.0,
-		MinTemperature:   -40.0,
-		AvgElevation:     250.0,
-		SeaLevel:         0.0,
-		AtmosphereCarbon: 400.0,
-		AtmosphereOxygen: 21.0,
-	}
-
-	assert.NotEqual(t, uuid.Nil, stats.WorldID)
-	assert.Equal(t, int64(1000000), stats.Year)
-	assert.Equal(t, 14.5, stats.AvgTemperature)
-	assert.Equal(t, 21.0, stats.AtmosphereOxygen)
-}
 
 // TestNewService_InvalidURL tests error handling for bad connection strings
 func TestNewService_InvalidURL(t *testing.T) {
@@ -53,39 +28,193 @@ func TestNewService_EmptyURL(t *testing.T) {
 	require.Error(t, err)
 }
 
-// Integration test - requires TimescaleDB
-// Skip in short mode
-func TestService_Integration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
+func TestNewServiceWithDB(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
 
-	// This test requires a running TimescaleDB instance
-	// Set ANALYTICS_TEST_URL environment variable to run
-	testURL := "postgres://admin:password123@localhost:5433/mud_metrics?sslmode=disable"
+	cb := circuitbreaker.New(circuitbreaker.DefaultConfig("test"))
 
-	service, err := NewService(testURL)
-	if err != nil {
-		t.Skipf("TimescaleDB not available: %v", err)
-	}
-	defer service.Close()
+	// Expect initialization queries
+	mock.ExpectExec("CREATE EXTENSION IF NOT EXISTS timescaledb").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS world_metrics").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("SELECT create_hypertable").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE INDEX IF NOT EXISTS").WillReturnResult(sqlmock.NewResult(0, 0))
 
-	// Test recording stats
-	ctx := context.Background()
+	svc, err := NewServiceWithDB(db, cb)
+	require.NoError(t, err)
+	require.NotNil(t, svc)
+
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestNewServiceWithDB_InitFailure(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	cb := circuitbreaker.New(circuitbreaker.DefaultConfig("test"))
+
+	// Fail on first query
+	mock.ExpectExec("CREATE EXTENSION IF NOT EXISTS timescaledb").WillReturnError(errors.New("db error"))
+
+	svc, err := NewServiceWithDB(db, cb)
+	require.Error(t, err)
+	require.Nil(t, svc)
+	assert.Contains(t, err.Error(), "init schema")
+
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestNewServiceWithDB_InitFailure_TableCreation(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	cb := circuitbreaker.New(circuitbreaker.DefaultConfig("test"))
+
+	mock.ExpectExec("CREATE EXTENSION IF NOT EXISTS timescaledb").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS world_metrics").WillReturnError(errors.New("table init failed"))
+
+	svc, err := NewServiceWithDB(db, cb)
+	require.Error(t, err)
+	require.Nil(t, svc)
+	assert.Contains(t, err.Error(), "create metrics table")
+
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestNewServiceWithDB_InitFailure_Hypertable(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	cb := circuitbreaker.New(circuitbreaker.DefaultConfig("test"))
+
+	mock.ExpectExec("CREATE EXTENSION").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE TABLE").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("SELECT create_hypertable").WillReturnError(errors.New("hypertable failed"))
+
+	svc, err := NewServiceWithDB(db, cb)
+	require.Error(t, err)
+	require.Nil(t, svc)
+	assert.Contains(t, err.Error(), "create hypertable")
+
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestNewServiceWithDB_InitFailure_Index(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	cb := circuitbreaker.New(circuitbreaker.DefaultConfig("test"))
+
+	mock.ExpectExec("CREATE EXTENSION").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE TABLE").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("SELECT create_hypertable").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE INDEX").WillReturnError(errors.New("index failed"))
+
+	svc, err := NewServiceWithDB(db, cb)
+	require.Error(t, err)
+	require.Nil(t, svc)
+	assert.Contains(t, err.Error(), "create index")
+
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestRecordStats(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	cb := circuitbreaker.New(circuitbreaker.DefaultConfig("test"))
+
+	// Init queries
+	mock.ExpectExec("CREATE EXTENSION").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE TABLE").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("SELECT create_hypertable").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE INDEX").WillReturnResult(sqlmock.NewResult(0, 0))
+
+	svc, err := NewServiceWithDB(db, cb)
+	require.NoError(t, err)
+
 	stats := ecosystem.GlobalStats{
 		WorldID:          uuid.New(),
-		Year:             1000000,
-		Population:       5000,
-		AvgTemperature:   14.5,
-		MaxTemperature:   45.0,
-		MinTemperature:   -40.0,
-		AvgElevation:     250.0,
+		Year:             2025,
+		Population:       1000,
+		AvgTemperature:   20.5,
+		MaxTemperature:   30.0,
+		MinTemperature:   10.0,
+		AvgElevation:     500.0,
 		SeaLevel:         0.0,
-		AtmosphereCarbon: 400.0,
-		AtmosphereOxygen: 21.0,
+		AtmosphereCarbon: 420.0,
+		AtmosphereOxygen: 20.9,
 		RecordedAt:       time.Now(),
 	}
 
-	err = service.RecordStats(ctx, stats)
-	assert.NoError(t, err)
+	mock.ExpectExec("INSERT INTO world_metrics").
+		WithArgs(stats.RecordedAt, stats.WorldID, stats.Year, stats.Population,
+			stats.AvgTemperature, stats.MaxTemperature, stats.MinTemperature,
+			stats.AvgElevation, stats.SeaLevel,
+			stats.AtmosphereCarbon, stats.AtmosphereOxygen).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	err = svc.RecordStats(context.Background(), stats)
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestRecordStats_CircuitBreaker(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	cfg := circuitbreaker.DefaultConfig("test")
+	cfg.FailureThreshold = 1
+	cfg.Timeout = 100 * time.Millisecond
+	cb := circuitbreaker.New(cfg)
+
+	// Init
+	mock.ExpectExec("CREATE EXTENSION").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE TABLE").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("SELECT create_hypertable").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE INDEX").WillReturnResult(sqlmock.NewResult(0, 0))
+
+	svc, err := NewServiceWithDB(db, cb)
+	require.NoError(t, err)
+
+	// 1. Failure triggers CB Open
+	mock.ExpectExec("INSERT INTO world_metrics").WillReturnError(errors.New("db down"))
+	err = svc.RecordStats(context.Background(), ecosystem.GlobalStats{})
+	require.Error(t, err)
+
+	// 2. Next call fails fast (Circuit Open)
+	err = svc.RecordStats(context.Background(), ecosystem.GlobalStats{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "circuit breaker is open")
+
+	// Circuit breaker stats check
+	stats := svc.CircuitBreakerStats()
+	assert.Equal(t, "open", stats.State)
+}
+
+func TestClose(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+
+	cb := circuitbreaker.New(circuitbreaker.DefaultConfig("test"))
+
+	mock.ExpectExec("CREATE EXTENSION").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE TABLE").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("SELECT create_hypertable").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE INDEX").WillReturnResult(sqlmock.NewResult(0, 0))
+
+	svc, err := NewServiceWithDB(db, cb)
+	require.NoError(t, err)
+
+	mock.ExpectClose()
+	err = svc.Close()
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
 }

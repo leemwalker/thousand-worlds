@@ -87,7 +87,7 @@ func (s *Service) Register(ctx context.Context, email, username, password string
 func (s *Service) Login(ctx context.Context, email, password string) (string, *User, error) {
 	// Get user
 	user, err := s.repo.GetUserByEmail(ctx, email)
-	if err != nil {
+	if err != nil || user == nil {
 		return "", nil, ErrInvalidCredentials
 	}
 
