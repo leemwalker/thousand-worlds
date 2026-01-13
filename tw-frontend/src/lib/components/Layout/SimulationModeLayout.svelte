@@ -96,23 +96,18 @@
             "[SimulationModeLayout] Portal entered, showing world creation modal",
         );
 
-        // Dispose lobby scene to stop rendering it
+        // Dispose lobby scene meshes (floor, walls, statue, portals)
+        // This clears the lobby contents but keeps the underlying Babylon scene
         if (lobbyScene) {
             lobbyScene.dispose();
+            lobbyScene = null;
             console.log("[SimulationModeLayout] Lobby scene disposed");
         }
 
-        // Transition to WORLD scene (creates new scene, starts render loop)
-        sceneManager.transitionTo("WORLD").then(() => {
-            activeScene = sceneManager.getActiveScene();
-            console.log(
-                "[SimulationModeLayout] WORLD scene ready",
-                activeScene,
-            );
-        });
-
-        gameStore.setGameLocation("WORLD"); // Update store state
-        showWorldCreationModal = true; // Show modal
+        // Update store state - this triggers WorldController to render
+        // WorldController creates its own camera and content in onMount
+        gameStore.setGameLocation("WORLD");
+        showWorldCreationModal = true;
     }
 
     /** Handle world creation complete */
