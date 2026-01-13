@@ -2512,10 +2512,10 @@ TypeError: sceneOrEngine.getClassName is not a function
 
  FAIL  Tests failed. Watching for file changes...
        press h to show help, press q to quit
-ata,
-    991|                 width,
- ❯ src/lib/components/Map/WorldController.svelte:436:9
- ❯ run node_modules/svelte/src/runtime/internal/utils.js:41:9
+c[3J RERUN  src/lib/components/Map/WorldController.svelte x2 
+        Filename pattern: src/lib/components/Map/WorldController.test.ts
+
+ernal/utils.js:41:9
  ❯ node_modules/svelte/src/runtime/internal/Component.js:47:48
  ❯ Module.flush node_modules/svelte/src/runtime/internal/scheduler.js:99:5
  ❯ Module.init node_modules/svelte/src/runtime/internal/Component.js:164:3
@@ -3788,10 +3788,10 @@ TypeError: sceneOrEngine.getClassName is not a function
 
  FAIL  Tests failed. Watching for file changes...
        press h to show help, press q to quit
-py] {
-    getMockName: [36m[Function (anonymous)][39m,
-    mockName: [36m[Function (anonymous)][39m,
-    mockClear: [36m[Function (anonymous)][39m,
+c[3J RERUN  src/lib/components/Map/WorldController.svelte x3 
+        Filename pattern: src/lib/components/Map/WorldController.test.ts
+
+onymous)][39m,
     mockReset: [36m[Function (anonymous)][39m,
     mockRestore: [36m[Function (anonymous)][39m,
     getMockImplementation: [36m[Function (anonymous)][39m,
@@ -5188,9 +5188,10 @@ TypeError: sceneOrEngine.getClassName is not a function
 
  FAIL  Tests failed. Watching for file changes...
        press h to show help, press q to quit
-plementation: [36m[Function (anonymous)][39m,
-    mockImplementation: [36m[Function (anonymous)][39m,
-    mockImplementationOnce: [36m[Function (anonymous)][39m,
+c[3J RERUN  src/lib/components/Map/WorldController.svelte x4 
+        Filename pattern: src/lib/components/Map/WorldController.test.ts
+
+m[Function (anonymous)][39m,
     withImplementation: [36m[Function: withImplementation][39m,
     mockReturnThis: [36m[Function (anonymous)][39m,
     mockReturnValue: [36m[Function (anonymous)][39m,
@@ -6563,10 +6564,10 @@ TypeError: sceneOrEngine.getClassName is not a function
 
  FAIL  Tests failed. Watching for file changes...
        press h to show help, press q to quit
-e x5 
+c[3J RERUN  src/lib/components/Map/WorldController.svelte x5 
         Filename pattern: src/lib/components/Map/WorldController.test.ts
 
-stdout | src/lib/components/Map/WorldController.test.ts > WorldController > mounts and initializes scene objects
+WorldController > mounts and initializes scene objects
 [WorldController:Debug] Reactive scene prop: {
   onBeforeRenderObservable: {
     add: [Function: spy] {
@@ -7818,9 +7819,10 @@ TypeError: sceneOrEngine.getClassName is not a function
 
  FAIL  Tests failed. Watching for file changes...
        press h to show help, press q to quit
-[36m[Function (anonymous)][39m,
-    getMockImplementation: [36m[Function (anonymous)][39m,
-    mockImplementation: [36m[Function (anonymous)][39m,
+c[3J RERUN  src/lib/components/Map/WorldController.svelte x6 
+        Filename pattern: src/lib/components/Map/WorldController.test.ts
+
+ymous)][39m,
     mockImplementationOnce: [36m[Function (anonymous)][39m,
     withImplementation: [36m[Function: withImplementation][39m,
     mockReturnThis: [36m[Function (anonymous)][39m,
@@ -10021,9 +10023,10 @@ TypeError: sceneOrEngine.getClassName is not a function
 
  FAIL  Tests failed. Watching for file changes...
        press h to show help, press q to quit
- mockReset: [36m[Function (anonymous)][39m,
-    mockRestore: [36m[Function (anonymous)][39m,
-    getMockImplementation: [36m[Function (anonymous)][39m,
+c[3J RERUN  src/lib/components/Map/WorldController.svelte x8 
+        Filename pattern: src/lib/components/Map/WorldController.test.ts
+
+ (anonymous)][39m,
     mockImplementation: [36m[Function (anonymous)][39m,
     mockImplementationOnce: [36m[Function (anonymous)][39m,
     withImplementation: [36m[Function: withImplementation][39m,
@@ -11553,10 +11556,10 @@ TypeError: sceneOrEngine.getClassName is not a function
 
  FAIL  Tests failed. Watching for file changes...
        press h to show help, press q to quit
-[39m,
-    mockImplementation: [36m[Function (anonymous)][39m,
-    mockImplementationOnce: [36m[Function (anonymous)][39m,
-    withImplementation: [36m[Function: withImplementation][39m,
+c[3J RERUN  src/lib/components/Map/WorldController.svelte x10 
+        Filename pattern: src/lib/components/Map/WorldController.test.ts
+
+ementation: [36m[Function: withImplementation][39m,
     mockReturnThis: [36m[Function (anonymous)][39m,
     mockReturnValue: [36m[Function (anonymous)][39m,
     mockReturnValueOnce: [36m[Function (anonymous)][39m,
@@ -11606,9 +11609,10 @@ TypeError: sceneOrEngine.getClassName is not a function
 
  FAIL  Tests failed. Watching for file changes...
        press h to show help, press q to quit
-: [1mnull[22m
-}
-[WorldController:Debug] Reactive satellites: [ { name: [32m'Moon1'[39m, mass: [33m100000000000000000000[39m, distance: [33m10000[39m } ]
+c[3J RERUN  src/lib/components/Map/WorldController.svelte x12 
+        Filename pattern: src/lib/components/Map/WorldController.test.ts
+
+: [33m10000[39m } ]
 [WorldController] Initializing world scene...
 [WorldController] Applied Molten Planet Shader
 [BabylonGlobe] Creating 1 moon(s)
@@ -12278,9 +12282,10 @@ TypeError: sceneOrEngine.getClassName is not a function
 
  FAIL  Tests failed. Watching for file changes...
        press h to show help, press q to quit
-: src/lib/components/Map/WorldController.test.ts
+c[3J RERUN  src/lib/components/Map/WorldController.svelte x13 
+        Filename pattern: src/lib/components/Map/WorldController.test.ts
 
-stdout | src/lib/components/Map/WorldController.test.ts > WorldController > mounts and initializes scene objects
+itializes scene objects
 [WorldController:Debug] Reactive scene prop: {
   onBeforeRenderObservable: {
     add: [Function: spy] {
@@ -13532,13 +13537,10 @@ TypeError: sceneOrEngine.getClassName is not a function
 
  FAIL  Tests failed. Watching for file changes...
        press h to show help, press q to quit
-39m
-  },
-  lights: [],
-  activeCamera: [1mnull[22m
-}
-[WorldController:Debug] Reactive satellites: []
-[WorldController] Initializing world scene...
+c[3J RERUN  src/lib/components/Map/WorldController.svelte x15 
+        Filename pattern: src/lib/components/Map/WorldController.test.ts
+
+ scene...
 [WorldController] Applied Molten Planet Shader
 [BabylonGlobe] No moons to create
 [WorldController:Debug] Reactive scene prop: {
@@ -14611,10 +14613,10 @@ TypeError: sceneOrEngine.getClassName is not a function
 
  FAIL  Tests failed. Watching for file changes...
        press h to show help, press q to quit
-m[Function (anonymous)][39m,
-      mockClear: [36m[Function (anonymous)][39m,
-      mockReset: [36m[Function (anonymous)][39m,
-      mockRestore: [36m[Function (anonymous)][39m,
+c[3J RERUN  src/lib/components/Map/WorldController.svelte x17 
+        Filename pattern: src/lib/components/Map/WorldController.test.ts
+
+ockRestore: [36m[Function (anonymous)][39m,
       getMockImplementation: [36m[Function (anonymous)][39m,
       mockImplementation: [36m[Function (anonymous)][39m,
       mockImplementationOnce: [36m[Function (anonymous)][39m,
@@ -15454,10 +15456,10 @@ TypeError: sceneOrEngine.getClassName is not a function
 
  FAIL  Tests failed. Watching for file changes...
        press h to show help, press q to quit
-anonymous)][39m,
-    withImplementation: [36m[Function: withImplementation][39m,
-    mockReturnThis: [36m[Function (anonymous)][39m,
-    mockReturnValue: [36m[Function (anonymous)][39m,
+c[3J RERUN  src/lib/components/Map/WorldController.svelte x19 
+        Filename pattern: src/lib/components/Map/WorldController.test.ts
+
+   mockReturnValue: [36m[Function (anonymous)][39m,
     mockReturnValueOnce: [36m[Function (anonymous)][39m,
     mockResolvedValue: [36m[Function (anonymous)][39m,
     mockResolvedValueOnce: [36m[Function (anonymous)][39m,
@@ -15786,9 +15788,10 @@ anonymous)][39m,
   lights: [],
   activeCamera: [1mnull[22m
 }
-[WorldController:Debug] Reactive satellites: [ { name: [32m'Moon1'[39m, mass: [33m100000000000000000000[39m, distance: [33m10000[39m } ]
-[WorldController] Initializing world scene...
-[WorldController] Applied Molten Planet Shader
+[WorldController:Debug] Reactive satellites: [ { name: [c[3J RERUN  src/lib/components/Map/WorldController.svelte x20 
+        Filename pattern: src/lib/components/Map/WorldController.test.ts
+
+ontroller] Applied Molten Planet Shader
 [BabylonGlobe] Creating 1 moon(s)
 [WorldController:Debug] Reactive scene prop: {
   onBeforeRenderObservable: {
@@ -16456,10 +16459,10 @@ TypeError: sceneOrEngine.getClassName is not a function
 
  FAIL  Tests failed. Watching for file changes...
        press h to show help, press q to quit
-[39m,
-    withImplementation: [36m[Function: withImplementation][39m,
-    mockReturnThis: [36m[Function (anonymous)][39m,
-    mockReturnValue: [36m[Function (anonymous)][39m,
+c[3J RERUN  src/lib/components/Map/WorldController.svelte x22 
+        Filename pattern: src/lib/components/Map/WorldController.test.ts
+
+rnValue: [36m[Function (anonymous)][39m,
     mockReturnValueOnce: [36m[Function (anonymous)][39m,
     mockResolvedValue: [36m[Function (anonymous)][39m,
     mockResolvedValueOnce: [36m[Function (anonymous)][39m,
@@ -16755,10 +16758,10 @@ TypeError: sceneOrEngine.getClassName is not a function
 
  FAIL  Tests failed. Watching for file changes...
        press h to show help, press q to quit
-e: [36m[Function (anonymous)][39m,
-    mockName: [36m[Function (anonymous)][39m,
-    mockClear: [36m[Function (anonymous)][39m,
-    mockReset: [36m[Function (anonymous)][39m,
+c[3J RERUN  src/lib/components/Map/WorldController.svelte x23 
+        Filename pattern: src/lib/components/Map/WorldController.test.ts
+
+ockReset: [36m[Function (anonymous)][39m,
     mockRestore: [36m[Function (anonymous)][39m,
     getMockImplementation: [36m[Function (anonymous)][39m,
     mockImplementation: [36m[Function (anonymous)][39m,
@@ -17945,9 +17948,10 @@ TypeError: sceneOrEngine.getClassName is not a function
 
  FAIL  Tests failed. Watching for file changes...
        press h to show help, press q to quit
-36m[Function (anonymous)][39m,
-    mockResolvedValue: [36m[Function (anonymous)][39m,
-    mockResolvedValueOnce: [36m[Function (anonymous)][39m,
+c[3J RERUN  src/lib/components/Map/WorldController.svelte x26 
+        Filename pattern: src/lib/components/Map/WorldController.test.ts
+
+us)][39m,
     mockRejectedValue: [36m[Function (anonymous)][39m,
     mockRejectedValueOnce: [36m[Function (anonymous)][39m,
     [[32mSymbol(nodejs.dispose)[39m]: [36m[Function (anonymous)][39m
@@ -18543,10 +18547,10 @@ stdout | src/lib/components/Map/WorldController.test.ts > WorldController > init
   },
   addTransformNode: [Function: spy] {
     getMockName: [36m[Function (anonymous)][39m,
-    mockName: [36m[Function (anonymous)][39m,
-    mockClear: [36m[Function (anonymous)][39m,
-    mockReset: [36m[Function (anonymous)][39m,
-    mockRestore: [36m[Function (anonymous)][39m,
+    mockName: [36m[Function (anonymc[3J RERUN  src/lib/components/Map/WorldController.svelte x26 
+        Filename pattern: src/lib/components/Map/WorldController.test.ts
+
+on (anonymous)][39m,
     getMockImplementation: [36m[Function (anonymous)][39m,
     mockImplementation: [36m[Function (anonymous)][39m,
     mockImplementationOnce: [36m[Function (anonymous)][39m,
@@ -18886,9 +18890,10 @@ TypeError: sceneOrEngine.getClassName is not a function
 
  FAIL  Tests failed. Watching for file changes...
        press h to show help, press q to quit
-   mockResolvedValue: [36m[Function (anonymous)][39m,
-    mockResolvedValueOnce: [36m[Function (anonymous)][39m,
-    mockRejectedValue: [36m[Function (anonymous)][39m,
+c[3J RERUN  src/lib/components/Map/WorldController.svelte x26 
+        Filename pattern: src/lib/components/Map/WorldController.test.ts
+
+ [36m[Function (anonymous)][39m,
     mockRejectedValueOnce: [36m[Function (anonymous)][39m,
     [[32mSymbol(nodejs.dispose)[39m]: [36m[Function (anonymous)][39m
   },
@@ -19436,10 +19441,10 @@ stdout | src/lib/components/Map/WorldController.test.ts > WorldController > init
   },
   addTransformNode: [Function: spy] {
     getMockName: [36m[Function (anonymous)][39m,
-    mockName: [36m[Function (anonymous)][39m,
-    mockClear: [36m[Function (anonymous)][39m,
-    mockReset: [36m[Function (anonymous)][39m,
-    mockRestore: [36m[Function (anonymous)][39m,
+    mockName: [36m[c[3J RERUN  src/lib/components/Map/WorldController.svelte x26 
+        Filename pattern: src/lib/components/Map/WorldController.test.ts
+
+re: [36m[Function (anonymous)][39m,
     getMockImplementation: [36m[Function (anonymous)][39m,
     mockImplementation: [36m[Function (anonymous)][39m,
     mockImplementationOnce: [36m[Function (anonymous)][39m,
@@ -19779,3 +19784,6 @@ TypeError: sceneOrEngine.getClassName is not a function
 
  FAIL  Tests failed. Watching for file changes...
        press h to show help, press q to quit
+c[3J RERUN  src/lib/components/Map/WorldController.svelte x26 
+        Filename pattern: src/lib/components/Map/WorldController.test.ts
+

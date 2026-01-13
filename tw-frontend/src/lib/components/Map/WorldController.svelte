@@ -35,6 +35,13 @@
     import { AsteroidManager } from "./AsteroidManager";
     import { MoltenPlanetShader } from "./MoltenPlanetShader";
     import { DisplacementShader } from "./DisplacementShader";
+    import { TileGlobeManager } from "./TileGlobeManager";
+    import { FPSTransitionController } from "./FPSTransitionController";
+    import { FPSMovementController } from "./FPSMovementController";
+    import { FPSPerformanceManager } from "./FPSPerformanceManager";
+    import { FPSAccessibilityOptions } from "./FPSAccessibilityOptions";
+    import { HorizonRenderer } from "./HorizonRenderer";
+    import { PerformanceOverlay } from "./PerformanceOverlay";
 
     // Types for satellite/moon data
     interface Satellite {
