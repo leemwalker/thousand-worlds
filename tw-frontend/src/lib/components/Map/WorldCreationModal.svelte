@@ -333,9 +333,15 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <!-- Geology (Primary) -->
                         <label
-                            class="flex items-center justify-between p-3 rounded-lg bg-slate-800/30 border border-slate-700/50 cursor-pointer"
+                            class="flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer {params.sysGeology
+                                ? 'bg-blue-600/20 border-blue-500/50'
+                                : 'bg-slate-800/30 border-slate-700/50'}"
                         >
-                            <span class="text-sm text-slate-200">Geology</span>
+                            <span
+                                class="text-sm {params.sysGeology
+                                    ? 'text-blue-100 font-medium'
+                                    : 'text-slate-200'}">Geology</span
+                            >
                             <input
                                 type="checkbox"
                                 bind:checked={params.sysGeology}
@@ -345,12 +351,16 @@
 
                         <!-- Dependent Systems -->
                         <label
-                            class="flex items-center justify-between p-3 rounded-lg bg-slate-800/30 border border-slate-700/50 cursor-pointer {params.sysGeology
+                            class="flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer {params.sysWeather
+                                ? 'bg-blue-600/20 border-blue-500/50'
+                                : 'bg-slate-800/30 border-slate-700/50'} {params.sysGeology
                                 ? ''
                                 : 'opacity-50 pointer-events-none'}"
                         >
-                            <span class="text-sm text-slate-200"
-                                >Weather & Climate</span
+                            <span
+                                class="text-sm {params.sysWeather
+                                    ? 'text-blue-100 font-medium'
+                                    : 'text-slate-200'}">Weather & Climate</span
                             >
                             <input
                                 type="checkbox"
@@ -361,12 +371,16 @@
                         </label>
 
                         <label
-                            class="flex items-center justify-between p-3 rounded-lg bg-slate-800/30 border border-slate-700/50 cursor-pointer {params.sysGeology
+                            class="flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer {params.sysLife
+                                ? 'bg-blue-600/20 border-blue-500/50'
+                                : 'bg-slate-800/30 border-slate-700/50'} {params.sysGeology
                                 ? ''
                                 : 'opacity-50 pointer-events-none'}"
                         >
-                            <span class="text-sm text-slate-200"
-                                >Life & Evolution</span
+                            <span
+                                class="text-sm {params.sysLife
+                                    ? 'text-blue-100 font-medium'
+                                    : 'text-slate-200'}">Life & Evolution</span
                             >
                             <input
                                 type="checkbox"
@@ -377,11 +391,16 @@
                         </label>
 
                         <label
-                            class="flex items-center justify-between p-3 rounded-lg bg-slate-800/30 border border-slate-700/50 cursor-pointer {params.sysLife
+                            class="flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer {params.sysDisease
+                                ? 'bg-blue-600/20 border-blue-500/50'
+                                : 'bg-slate-800/30 border-slate-700/50'} {params.sysLife
                                 ? ''
                                 : 'opacity-50 pointer-events-none'}"
                         >
-                            <span class="text-sm text-slate-200">Pathogens</span
+                            <span
+                                class="text-sm {params.sysDisease
+                                    ? 'text-blue-100 font-medium'
+                                    : 'text-slate-200'}">Pathogens</span
                             >
                             <input
                                 type="checkbox"
@@ -392,11 +411,17 @@
                         </label>
 
                         <label
-                            class="flex items-center justify-between p-3 rounded-lg bg-slate-800/30 border border-slate-700/50 cursor-pointer {params.sysLife
+                            class="flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer {params.sysSapience
+                                ? 'bg-blue-600/20 border-blue-500/50'
+                                : 'bg-slate-800/30 border-slate-700/50'} {params.sysLife
                                 ? ''
                                 : 'opacity-50 pointer-events-none'}"
                         >
-                            <span class="text-sm text-slate-200">Sapience</span>
+                            <span
+                                class="text-sm {params.sysSapience
+                                    ? 'text-blue-100 font-medium'
+                                    : 'text-slate-200'}">Sapience</span
+                            >
                             <input
                                 type="checkbox"
                                 bind:checked={params.sysSapience}
@@ -406,11 +431,16 @@
                         </label>
 
                         <label
-                            class="flex items-center justify-between p-3 rounded-lg bg-slate-800/30 border border-slate-700/50 cursor-pointer {params.sysLife
+                            class="flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer {params.sysMigration
+                                ? 'bg-blue-600/20 border-blue-500/50'
+                                : 'bg-slate-800/30 border-slate-700/50'} {params.sysLife
                                 ? ''
                                 : 'opacity-50 pointer-events-none'}"
                         >
-                            <span class="text-sm text-slate-200">Migration</span
+                            <span
+                                class="text-sm {params.sysMigration
+                                    ? 'text-blue-100 font-medium'
+                                    : 'text-slate-200'}">Migration</span
                             >
                             <input
                                 type="checkbox"
