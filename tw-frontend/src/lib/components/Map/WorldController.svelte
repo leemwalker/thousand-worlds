@@ -1,32 +1,39 @@
 <script lang="ts">
-    import { onMount, tick } from "svelte";
+    import { onMount, tick, onDestroy } from "svelte";
     import { gameStore } from "$lib/stores/game";
     import * as BABYLON from "@babylonjs/core";
     import { Engine } from "@babylonjs/core/Engines/engine";
     import { Scene } from "@babylonjs/core/scene";
-    import { Vector3, Matrix, Color3, Color4 } from "@babylonjs/core/Maths/math"; 
+    import {
+        Vector3,
+        Matrix,
+        Color3,
+        Color4,
+    } from "@babylonjs/core/Maths/math";
     import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
     import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
     import { PointLight } from "@babylonjs/core/Lights/pointLight";
     import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
     import { Mesh } from "@babylonjs/core/Meshes/mesh";
+    import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
     import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
     import { Texture } from "@babylonjs/core/Materials/Textures/texture";
     import { WaterEffects } from "./WaterEffects";
     import { PoiManager } from "./PoiManager"; // NEW
+    import { LODManager } from "./LODManager";
     import type { PointOfInterest } from "$lib/types/pois";
 
     import { ParticleSystem } from "@babylonjs/core/Particles/particleSystem";
-    import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 
     // Interface Mode Management
     import { isTextMode } from "$lib/stores/ui";
-    import { gameStore } from "$lib/stores/game";
 
     // View Mode Management
     import { ViewModeManager } from "./ViewModeManager";
     import { ViewMode } from "./interfaces";
     import { AsteroidManager } from "./AsteroidManager";
+    import { MoltenPlanetShader } from "./MoltenPlanetShader";
+    import { DisplacementShader } from "./DisplacementShader";
 
     // Types for satellite/moon data
     interface Satellite {
@@ -45,6 +52,9 @@
     export let seaLevel: number = 0;
     export let maxElevation: number = 8848;
     export let minElevation: number = -11000;
+
+    $: console.log("[WorldController:Debug] Reactive scene prop:", scene);
+    $: console.log("[WorldController:Debug] Reactive satellites:", satellites);
 
     export let satellites: Satellite[] = []; // Moon data from world
     export let rings: any = null; // Ring system data
@@ -188,7 +198,7 @@
             camera.target = orbitNode.position;
             // Update LOD based on camera distance
             lodManager?.update(camera);
-            
+
             // Map updates handled by ViewModeManager
             if (viewModeManager) {
                 viewModeManager.update(camera, deltaTime);
@@ -196,7 +206,7 @@
 
             // Update tile system for high-resolution streaming
             if (tileGlobeManager) {
-                // Determine enablement via ViewModeManager callback, 
+                // Determine enablement via ViewModeManager callback,
                 // but we still need to update it if enabled
                 // (Note: tileGlobeManager.update checks for enablement internally too?)
                 // Let's call update if it's enabled or just call it and let it decide.
@@ -350,6 +360,7 @@
             new Vector3(SUN_DISTANCE, 0, 0), // Target the planet's position
             scene,
         );
+
         camera.attachControl(scene.getEngine().getRenderingCanvas(), true);
         camera.lowerRadiusLimit = 1.05; // Allow very close zoom (just above surface)
         camera.upperRadiusLimit = 50; // Allow zooming out to see sun
@@ -425,29 +436,28 @@
         createStarfield(scene);
 
         // Initialize tile streaming system (if command callback is provided)
-            tileGlobeManager = new TileGlobeManager(
-                scene,
-                planetNode,
-                sendTileCommand,
-                {
-                    maxLevel: 4,
-                    maxActiveTiles: 50,
-                },
-            );
-            console.log("[BabylonGlobe] Tile system initialized");
-        }
-        
+        tileGlobeManager = new TileGlobeManager(
+            scene,
+            planetNode,
+            sendTileCommand,
+            {
+                maxLevel: 4,
+                maxActiveTiles: 50,
+            },
+        );
+        console.log("[BabylonGlobe] Tile system initialized");
+
         // ===========================================
         // Initialize View Mode Manager
         // ===========================================
         viewModeManager = new ViewModeManager({
             orbitThreshold: 2.5,
-            terrainThreshold: 1.2
+            terrainThreshold: 1.2,
         });
-        
+
         viewModeManager.onModeChange((mode, prevMode) => {
             console.log(`[ViewMode] Changed from ${prevMode} to ${mode}`);
-            
+
             // Handle Tile System
             if (tileGlobeManager) {
                 if (mode === ViewMode.TILE) {
@@ -461,27 +471,29 @@
                     tileGlobeManager.disable();
                 }
             }
-            
+
             // Handle FPS Mode Transition (Scroll-based)
             if (mode === ViewMode.TERRAIN && prevMode !== ViewMode.TERRAIN) {
                 if (fpsTransitionController && !fpsMode) {
-                    console.log("[ViewMode] Triggering scroll-based FPS transition");
+                    console.log(
+                        "[ViewMode] Triggering scroll-based FPS transition",
+                    );
                     // Use new method to transition from current camera look-at
                     if (camera) {
                         fpsTransitionController.transitionFromCurrentPosition();
                     }
                 }
             }
-            
+
             // Handle Exit FPS Mode (Scroll out)
             if (mode !== ViewMode.TERRAIN && prevMode === ViewMode.TERRAIN) {
                 if (fpsMode) {
-                     console.log("[ViewMode] Exiting FPS mode via scroll");
-                     // Return to orbit? Or just disable FPS flag?
-                     if (fpsTransitionController) {
-                         fpsTransitionController.returnToOrbit();
-                         fpsMode = false;
-                     }
+                    console.log("[ViewMode] Exiting FPS mode via scroll");
+                    // Return to orbit? Or just disable FPS flag?
+                    if (fpsTransitionController) {
+                        fpsTransitionController.returnToOrbit();
+                        fpsMode = false;
+                    }
                 }
             }
         });
@@ -1421,27 +1433,33 @@
         const events = $gameStore.world.sim.events;
         // Process latest event
         const latestEvent = events[events.length - 1]; // Simple approach, or use a queue
-        
-        if (latestEvent.type === 'moon_destroyed') {
-            console.log("[WorldController] Processing Moon Destroyed event:", latestEvent);
+
+        if (latestEvent.type === "moon_destroyed") {
+            console.log(
+                "[WorldController] Processing Moon Destroyed event:",
+                latestEvent,
+            );
             destroyMoon(latestEvent.metadata.moon_id);
-        } else if (latestEvent.type === 'asteroid_impact') {
-             console.log("[WorldController] Processing Asteroid Impact event:", latestEvent);
-             if (asteroidManager) {
-                 asteroidManager.handleImpactEvent(latestEvent);
-             }
+        } else if (latestEvent.type === "asteroid_impact") {
+            console.log(
+                "[WorldController] Processing Asteroid Impact event:",
+                latestEvent,
+            );
+            if (asteroidManager) {
+                asteroidManager.handleImpactEvent(latestEvent);
+            }
         }
     }
-    
+
     onMount(() => {
         if (!scene) return;
-        
+
         // Initialize Asteroid Manager
         // Note: planetNode is set later in createPlanet/createSolarSystem?
         // Actually solarSystemRoot/planetNode logic is complex.
         // Let's defer passing planetNode until it's created, or pass null and set later.
         asteroidManager = new AsteroidManager(scene, globe); // 'globe' is the mesh
-        
+
         // ... (existing initialization) ...
     });
 

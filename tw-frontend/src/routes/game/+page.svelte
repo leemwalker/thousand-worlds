@@ -110,83 +110,38 @@
         if (unsubscribe) unsubscribe();
     });
 
+    import { OnboardingService } from "$lib/services/OnboardingService";
+    const onboardingService = new OnboardingService();
+
     async function checkOnboardingStatus() {
         try {
-            // Check for active interview
-            const interviewRes = await fetch(
-                `${API_URL}/world/interview/active`,
-                {
-                    credentials: "include", // Send cookies
-                },
-            );
+            const state = await onboardingService.checkStatus(currentUser);
+            onboardingStep = state.step;
 
-            if (interviewRes.ok) {
-                const interview = await interviewRes.json();
-                if (interview && interview.status === "in_progress") {
-                    // Resume interview
-                    onboardingStep = "interview";
-                    interviewSessionId = interview.session_id;
-
-                    // Check if interview is already complete
-                    if (
-                        interview.question ===
-                            "The interview is already complete." ||
-                        interview.question ===
-                            "This interview is already complete."
-                    ) {
-                        addMessage(
-                            "system",
-                            "World interview previously completed.",
-                        );
-                        setTimeout(() => {
-                            // Go to lobby instead of character creation directly
-                            joinLobby();
-                        }, 1000);
-                        return;
-                    }
-
-                    conversationHistory = interview.conversation || [];
-                    if (conversationHistory.length > 0) {
-                        const lastMessage =
-                            conversationHistory[conversationHistory.length - 1];
-                        if (lastMessage.role === "assistant") {
-                            currentQuestion = lastMessage.text;
-                        }
-                    } else if (interview.question) {
-                        currentQuestion = interview.question;
-                        addMessage("interview", currentQuestion);
-                    }
-
-                    addMessage(
-                        "system",
-                        "Resuming your world creation interview...",
-                    );
-                    return;
-                }
+            if (state.sessionId) {
+                interviewSessionId = state.sessionId;
+            }
+            if (state.currentQuestion) {
+                currentQuestion = state.currentQuestion;
+                addMessage("interview", currentQuestion);
+            }
+            if (state.conversationHistory) {
+                conversationHistory = state.conversationHistory;
             }
 
-            // check for auto-resume
-            if (currentUser?.last_world_id) {
-                try {
-                    const data = await gameAPI.getCharacters();
-                    // Find character for this world
-                    // Assuming getCharacters returns list of characters
-                    // We need to type check roughly or assume any[]
-                    if (data && data.characters) {
-                            (c) => c.world_id === currentUser?.last_world_id,
-                        );
-                        if (char) {
-                            await joinGame(char.id);
-                            return;
-                        }
-                    }
-                } catch (e) {
-                    console.error("Auto-resume check failed", e);
-                }
+            if (onboardingStep === "interview") {
+                addMessage(
+                    "system",
+                    "Resuming your world creation interview...",
+                );
+                return;
+            } else if (onboardingStep === "lobby") {
+                await joinLobby();
+                return;
+            } else if (onboardingStep === "game") {
+                // Fallback
+                await joinLobby();
             }
-
-            // Always join Lobby first
-            await joinLobby();
         } catch (error) {
             console.error("Onboarding check failed:", error);
             onboardingStep = "game";
@@ -194,7 +149,6 @@
                 "error",
                 "Failed to check status. Starting in game mode.",
             );
-            // Attempt to join lobby (connect WS) even if API check failed
             joinLobby();
         }
     }
@@ -202,16 +156,12 @@
     async function joinLobby() {
         console.log("[Lobby] Joining lobby...");
         try {
-            // Join Lobby (backend handles Ghost creation or existing character)
-            // Lobby ID is 00000000-0000-0000-0000-000000000000, but we just connect without character_id to auto-join lobby
-            // Wait, handler logic: if character_id is nil, join lobby.
-
             console.log("[Lobby] Disconnecting existing WebSocket...");
             gameWebSocket.disconnect();
             await new Promise((resolve) => setTimeout(resolve, 100));
 
             console.log("[Lobby] Connecting to WebSocket...");
-            gameWebSocket.connect(); // No token or character ID needed - cookie sent automatically
+            gameWebSocket.connect();
 
             onboardingStep = "lobby";
             console.log("[Lobby] Lobby join complete");
@@ -223,56 +173,18 @@
 
     async function startWorldInterview() {
         try {
-            // addMessage(
-            //     "system",
-            //     "Welcome to Thousand Worlds! Let's create your custom world...",
-            // );
+            const state = await onboardingService.startInterview();
+            if (state.error) throw new Error(state.error);
 
-            const response = await fetch(`${API_URL}/world/interview/start`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                credentials: "include", // Send cookies
-            });
+            interviewSessionId = state.sessionId;
+            currentQuestion = state.currentQuestion;
+            conversationHistory = state.conversationHistory;
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error(
-                    "Interview start failed:",
-                    response.status,
-                    errorText,
-                );
-                throw new Error(
-                    `Failed to start interview: ${response.status}`,
-                );
-            }
-
-            const data = await response.json();
-            console.log("Interview started:", data);
-
-            if (!data.session_id || !data.question) {
-                console.error("Invalid interview response:", data);
-                throw new Error("Invalid response from server");
-            }
-
-            interviewSessionId = data.session_id;
-            currentQuestion =
-                data.question ||
-                "Tell me about the world you'd like to create.";
-            conversationHistory.push({
-                role: "assistant",
-                text: currentQuestion,
-            });
             addMessage("interview", currentQuestion);
             onboardingStep = "interview";
         } catch (error: any) {
             console.error("Failed to start interview:", error);
-            addMessage(
-                "error",
-                error.message ||
-                    "Failed to start world interview. Please try again.",
-            );
+            addMessage("error", error.message || "Failed to start interview");
         }
     }
 
@@ -280,66 +192,48 @@
         if (!userResponse.trim() || !interviewSessionId) return;
 
         const userMessage = userResponse.trim();
-        conversationHistory.push({ role: "user", text: userMessage });
+        // Optimistically add message
+        conversationHistory = [
+            ...conversationHistory,
+            { role: "user", text: userMessage },
+        ];
         addMessage("user", userMessage);
         userResponse = "";
 
+        addMessage("system", "Thinking... (this may take 10-20 seconds)");
+
         try {
-            addMessage("system", "Thinking... (this may take 10-20 seconds)");
+            const result = await onboardingService.sendResponse(
+                interviewSessionId,
+                userMessage,
+                conversationHistory,
+            );
 
-            // Create AbortController for manual timeout control (60 seconds for LLM)
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 60000);
+            // Update history
+            conversationHistory = result.newHistory;
 
-            const response = await fetch(`${API_URL}/world/interview/message`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                credentials: "include", // Send cookies
-                body: JSON.stringify({
-                    session_id: interviewSessionId,
-                    message: userMessage,
-                }),
-                signal: controller.signal,
-            });
+            // Check errors
+            if (result.error) throw new Error(result.error);
 
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error(
-                    "Interview message failed:",
-                    response.status,
-                    errorText,
-                );
-                throw new Error(`Failed to send message: ${response.status}`);
-            }
-
-            const data = await response.json();
-            console.log("Interview response:", data);
-
-            if (
-                data.completed ||
-                data.question === "The interview is already complete." ||
-                data.question === "This interview is already complete."
-            ) {
+            if (result.completed) {
                 addMessage(
                     "system",
                     "World interview complete! Creating your world...",
                 );
+
+                // Show last message if any
                 if (
-                    data.question &&
-                    !data.question.includes("already complete")
+                    conversationHistory.length > 0 &&
+                    conversationHistory[conversationHistory.length - 1].role ===
+                        "assistant"
                 ) {
-                    conversationHistory.push({
-                        role: "assistant",
-                        text: data.question,
-                    });
-                    addMessage("interview", data.question);
+                    const last =
+                        conversationHistory[conversationHistory.length - 1];
+                    if (!last.text.includes("already complete")) {
+                        addMessage("interview", last.text);
+                    }
                 }
 
-                // Return to Lobby
                 setTimeout(() => {
                     joinLobby();
                     addMessage(
@@ -348,27 +242,14 @@
                     );
                 }, 2000);
             } else {
-                // Get next question - check multiple possible field names
-                const nextQuestion =
-                    data.next_question ||
-                    data.question ||
-                    data.response ||
-                    "Please continue...";
-                currentQuestion = nextQuestion;
-                conversationHistory.push({
-                    role: "assistant",
-                    text: nextQuestion,
-                });
-                addMessage("interview", nextQuestion);
+                if (result.nextQuestion) {
+                    currentQuestion = result.nextQuestion;
+                    addMessage("interview", result.nextQuestion);
+                }
             }
         } catch (error: any) {
             console.error("Failed to send response:", error);
-            // ... (Recovery logic omitted for brevity, keep existing if possible or simplify)
-            addMessage(
-                "error",
-                error.message ||
-                    "Failed to process your response. Please try again.",
-            );
+            addMessage("error", error.message || "Failed to process response");
         }
     }
 

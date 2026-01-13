@@ -8,6 +8,8 @@
     import { isMobile } from "$lib/stores/ui";
     import { gameStore } from "$lib/stores/game";
     import { gameWebSocket } from "$lib/services/websocket";
+    import { gameAPI } from "$lib/services/api";
+    import { get } from "svelte/store";
     // Layout and UI Components
     import MessageOverlay from "$lib/components/HUD/MessageOverlay.svelte";
     import GameMenuModal from "$lib/components/Layout/GameMenuModal.svelte";
@@ -20,21 +22,23 @@
     } from "$lib/components/Scene/SceneManager";
     import { LobbyScene } from "$lib/components/Scene/LobbyScene";
     import WorldController from "$lib/components/Map/WorldController.svelte";
-    import { authStore } from "$lib/stores/auth"; // Start logic for menu?
 
     /** Start with menu closed */
     let isMenuOpen = false;
 
-    // ... (rest of imports are fine, skipping to HTML structure)
+    let activeScene: any;
+    let textLogExpanded = false;
 
-    // ... (logic) ...
-
+    function handleCanvasReady(event: CustomEvent) {
+        console.log("Canvas Ready", event.detail);
+        activeScene = event.detail.scene;
+    }
     function handleMenuClose() {
         isMenuOpen = false;
     }
 
     function handleResetWorld() {
-        if (!gameWebSocket.isConnected()) return;
+        if (!get(gameWebSocket.connected)) return;
         gameWebSocket.sendRawCommand("reset_world", {});
         isMenuOpen = false;
     }
@@ -45,7 +49,8 @@
     }
 
     function handleLogout() {
-        authStore.logout();
+        gameAPI.logout();
+        gameStore.clearUser();
         isMenuOpen = false;
     }
 </script>

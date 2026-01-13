@@ -73,8 +73,8 @@ export class FPSTransitionController {
     private state: TransitionState = 'idle';
     private target: TransitionTarget | null = null;
     private transitionDuration: number;
-    private onStateChange?: (state: TransitionState) => void;
-    private onAltitudeChange?: (altitude: number) => void;
+    private onStateChange?: ((state: TransitionState) => void) | undefined;
+    private onAltitudeChange?: ((altitude: number) => void) | undefined;
     private animationGroup: Animation[] = [];
 
     constructor(
@@ -87,6 +87,14 @@ export class FPSTransitionController {
         this.transitionDuration = options.transitionDuration ?? 2.0;
         this.onStateChange = options.onStateChange;
         this.onAltitudeChange = options.onAltitudeChange;
+    }
+
+    public getState(): TransitionState {
+        return this.state;
+    }
+
+    public getTarget(): TransitionTarget | null {
+        return this.target;
     }
 
     // ... existing methods ...

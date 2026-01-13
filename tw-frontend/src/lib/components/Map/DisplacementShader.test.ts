@@ -5,6 +5,7 @@ const mockShaderMaterial = {
     setTexture: vi.fn(),
     setFloat: vi.fn(),
     setVector3: vi.fn(),
+    setInt: vi.fn(),
     backFaceCulling: false,
 };
 

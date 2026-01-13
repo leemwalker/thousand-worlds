@@ -21,6 +21,8 @@ export default defineConfig({
         }
     },
     resolve: {
+        conditions: ['browser'],
+        dedupe: ['svelte'],
         alias: {
             $lib: path.resolve('./src/lib')
         }

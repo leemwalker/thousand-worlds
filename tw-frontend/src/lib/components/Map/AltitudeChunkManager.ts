@@ -119,7 +119,7 @@ function getTilesAround(centerLat: number, centerLon: number, level: number, rad
     const tileAngle = 360 / tilesPerSide / 6; // Rough approximation
 
     // Calculate number of tiles to load based on radius
-    const tileRadius = Math.ceil(radius / (tileAngle / 360));
+    const tileRadius = Math.ceil(radius / tileAngle);
 
     // Get center tile
     const centerTile = latLonToTileCoord(centerLat, centerLon, level);
@@ -168,8 +168,8 @@ export class AltitudeChunkManager {
     private targetLon: number = 0;
     private loadedChunks: Set<string> = new Set();
     private pendingChunks: Set<string> = new Set();
-    private onChunkRequest?: (coords: TileCoord[]) => void;
-    private onStageChange?: (stage: AltitudeStage) => void;
+    private onChunkRequest?: ((coords: TileCoord[]) => void) | undefined;
+    private onStageChange?: ((stage: AltitudeStage) => void) | undefined;
 
     constructor(scene: Scene, options: AltitudeChunkManagerOptions = {}) {
         this.scene = scene;

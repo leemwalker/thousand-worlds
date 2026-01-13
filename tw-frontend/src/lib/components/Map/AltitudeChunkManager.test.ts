@@ -75,8 +75,8 @@ describe('getTilesAround', () => {
     });
 
     it('should return more tiles for larger radius', () => {
-        const smallRadius = getTilesAround(0, 0, 2, 0.01);
-        const largeRadius = getTilesAround(0, 0, 2, 0.1);
+        const smallRadius = getTilesAround(0, 0, 2, 10);
+        const largeRadius = getTilesAround(0, 0, 2, 60);
 
         expect(largeRadius.length).toBeGreaterThan(smallRadius.length);
     });
