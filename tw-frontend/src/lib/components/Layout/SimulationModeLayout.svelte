@@ -35,15 +35,6 @@
     /** LobbyScene instance for callbacks */
     let lobbyScene: LobbyScene | null = null;
 
-    onMount(() => {
-        // Instantiate LobbyScene and set up portal callbacks
-        lobbyScene = new LobbyScene();
-        sceneManager.registerSceneFactory("LOBBY", lobbyScene);
-        lobbyScene.setCallbacks({
-            onPortalEnter: handlePortalEnter,
-        });
-    });
-
     onDestroy(() => {
         lobbyScene?.dispose();
         lobbyScene = null;
@@ -55,6 +46,16 @@
 
         // Initialize the Babylon.js engine with the canvas
         sceneManager.initialize(canvas);
+
+        // Instantiate LobbyScene and register BEFORE transitioning
+        if (!lobbyScene) {
+            lobbyScene = new LobbyScene();
+            sceneManager.registerSceneFactory("LOBBY", lobbyScene);
+            lobbyScene.setCallbacks({
+                onPortalEnter: handlePortalEnter,
+            });
+            console.log("[SimulationModeLayout] LobbyScene factory registered");
+        }
 
         // If we're in the lobby, transition to the lobby scene
         if (get(gameStore).gameLocation === "LOBBY") {
