@@ -787,6 +787,11 @@
         applyIceTexture(iceBlob);
     }
 
+    // Reactively update moons when satellites data changes
+    $: if (scene && planetNode && satellites) {
+        createMoons(scene);
+    }
+
     function createMoons(s: Scene) {
         if (!planetNode || satellites.length === 0) {
             console.log("[BabylonGlobe] No moons to create");
