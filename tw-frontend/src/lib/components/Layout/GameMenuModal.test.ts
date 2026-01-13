@@ -35,6 +35,12 @@ describe('GameMenuModal', () => {
         await fireEvent.click(getByText('Character'));
         expect(getByText('Character options coming soon...')).toBeDefined();
 
+        // Switch to Inventory
+        await fireEvent.click(getByText('Inventory'));
+        expect(getByText('Emergency Rations')).toBeDefined();
+        // Check weight bar or items
+        expect(getByText('3.7 / 50')).toBeDefined();
+
         // Switch to Account
         await fireEvent.click(getByText('Account'));
         expect(getByText('Logout')).toBeDefined();

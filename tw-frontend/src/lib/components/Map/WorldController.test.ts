@@ -138,11 +138,42 @@ vi.mock('@babylonjs/core/Lights/pointLight', () => ({
     }))
 }));
 vi.mock('@babylonjs/core/Meshes/meshBuilder', () => ({ MeshBuilder: mocks.MockMeshBuilder }));
-vi.mock('@babylonjs/core/Meshes/mesh', () => ({ Mesh: vi.fn() }));
-vi.mock('@babylonjs/core/Meshes/transformNode', () => ({ TransformNode: vi.fn() }));
+vi.mock('@babylonjs/core/Meshes/mesh', () => ({
+    Mesh: vi.fn(() => ({
+        dispose: vi.fn(),
+        setEnabled: vi.fn(),
+        material: null,
+        isPickable: false
+    }))
+}));
+vi.mock('@babylonjs/core/Meshes/transformNode', () => ({
+    TransformNode: vi.fn(() => ({
+        dispose: vi.fn(),
+        parent: null,
+        rotation: { y: 0 },
+        position: { x: 0, y: 0, z: 0 }
+    }))
+}));
 vi.mock('@babylonjs/core/Materials/standardMaterial', () => ({ StandardMaterial: mocks.MockStandardMaterial }));
 vi.mock('@babylonjs/core/Materials/Textures/texture', () => ({ Texture: mocks.MockTexture }));
-vi.mock('@babylonjs/core/Particles/particleSystem', () => ({ ParticleSystem: vi.fn() }));
+vi.mock('@babylonjs/core/Particles/particleSystem', () => ({
+    ParticleSystem: vi.fn(() => ({
+        start: vi.fn(),
+        dispose: vi.fn(),
+        minLifeTime: 0,
+        maxLifeTime: 0,
+        minSize: 0,
+        maxSize: 0,
+        emitRate: 0,
+        gravity: { y: 0 },
+        direction1: { x: 0, y: 0, z: 0 },
+        direction2: { x: 0, y: 0, z: 0 },
+        minEmitPower: 0,
+        maxEmitPower: 0,
+        updateSpeed: 0,
+        emitter: null
+    }))
+}));
 
 // Fix PoiManager Mock
 vi.mock('./PoiManager', () => {

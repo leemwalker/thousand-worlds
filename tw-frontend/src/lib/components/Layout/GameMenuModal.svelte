@@ -1,6 +1,9 @@
 <script lang="ts">
     import { createEventDispatcher } from "svelte";
 
+    import InventoryPanel from "$lib/components/Inventory/InventoryPanel.svelte";
+    import { InventoryService } from "$lib/services/InventoryService";
+
     // Props
     export let isOpen = false;
 
@@ -11,9 +14,47 @@
         logout: void;
     }>();
 
-    type Tab = "world" | "character" | "account";
+    type Tab = "world" | "character" | "inventory" | "account";
     let activeTab: Tab = "world";
     let confirmReset = false;
+
+    // Initialize Service (Persists while modal exists)
+    const inventoryService = new InventoryService(50); // 50kg capacity
+    // Debug: Add some items for testing
+    inventoryService.addItem({
+        itemID: "test-1",
+        name: "Emergency Rations",
+        quality: "common",
+        quantity: 5,
+        weight: 0.5,
+        equipable: false,
+        icon: "🥫",
+    });
+    inventoryService.addItem({
+        itemID: "test-2",
+        name: "Standard Multi-Tool",
+        quality: "good",
+        quantity: 1,
+        weight: 1.2,
+        equipable: true,
+        icon: "🔧",
+    });
+
+    const { store: inventoryStore } = inventoryService;
+
+    function handleuseItem(e: CustomEvent) {
+        // TODO: specific logic for usage
+        console.log("Using item", e.detail.itemID);
+        inventoryService.removeItem(e.detail.itemID, 1);
+    }
+
+    function handleequipItem(e: CustomEvent) {
+        inventoryService.equipItem(e.detail.itemID);
+    }
+
+    function handledropItem(e: CustomEvent) {
+        inventoryService.removeItem(e.detail.itemID, 1);
+    }
 
     function handleClose() {
         dispatch("close");
@@ -81,6 +122,13 @@
                 >
                     Account
                 </button>
+                <button
+                    class="tab-btn"
+                    class:active={activeTab === "inventory"}
+                    on:click={() => (activeTab = "inventory")}
+                >
+                    Inventory
+                </button>
             </nav>
 
             <!-- Tab Content -->
@@ -140,6 +188,17 @@
                         >
                             Logout
                         </button>
+                    </div>
+                {:else if activeTab === "inventory"}
+                    <div class="tab-panel" style="min-width: 400px;">
+                        <InventoryPanel
+                            inventory={$inventoryStore}
+                            currentWeight={inventoryService.getCurrentWeight()}
+                            maxWeight={50}
+                            on:useItem={handleuseItem}
+                            on:equipItem={handleequipItem}
+                            on:dropItem={handledropItem}
+                        />
                     </div>
                 {/if}
             </div>
