@@ -500,10 +500,36 @@ export class LobbyScene {
      */
     dispose(): void {
         console.log("[LobbyScene] Disposing");
+
+        // Dispose controllers and particles
         this.fpsController?.dispose();
         this.portalParticles?.dispose();
         this.eastPortalParticles?.dispose();
-        // Scene disposal handles meshes
+
+        // Dispose all meshes created in this scene
+        this.floor?.dispose();
+        this.statue?.dispose();
+        this.portal?.dispose();
+        this.eastPortal?.dispose();
+
+        // Dispose all meshes in the scene that we created
+        // (walls, ceiling, lights, etc.)
+        if (this.scene) {
+            // Get all meshes and dispose ones with lobby-related names
+            const meshesToDispose = this.scene.meshes.filter(m =>
+                m.name.startsWith('floor') ||
+                m.name.startsWith('wall') ||
+                m.name.startsWith('ceiling') ||
+                m.name.startsWith('statue') ||
+                m.name.startsWith('portal')
+            );
+            meshesToDispose.forEach(m => m.dispose());
+
+            // Dispose all lights in the scene
+            [...this.scene.lights].forEach(l => l.dispose());
+        }
+
+        // Clear references
         this.scene = null;
         this.fpsController = null;
         this.floor = null;
