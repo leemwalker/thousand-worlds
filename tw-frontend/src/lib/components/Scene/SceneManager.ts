@@ -185,6 +185,17 @@ export class SceneManager {
     }
 
     /**
+     * Stop the current render loop.
+     * Call this before disposing a scene to prevent "No camera defined" errors.
+     */
+    stopRenderLoop(): void {
+        if (this.engine) {
+            this.engine.stopRenderLoop();
+            console.log('[SceneManager] Render loop stopped');
+        }
+    }
+
+    /**
      * Set callback for location changes.
      */
     setOnLocationChange(callback: (location: GameLocation) => void): void {

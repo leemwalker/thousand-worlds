@@ -96,8 +96,11 @@
             "[SimulationModeLayout] Portal entered, showing world creation modal",
         );
 
+        // Stop the render loop BEFORE disposing the lobby scene
+        // This prevents "No camera defined" errors
+        sceneManager.stopRenderLoop();
+
         // Dispose lobby scene meshes (floor, walls, statue, portals)
-        // This clears the lobby contents but keeps the underlying Babylon scene
         if (lobbyScene) {
             lobbyScene.dispose();
             lobbyScene = null;
@@ -105,7 +108,7 @@
         }
 
         // Update store state - this triggers WorldController to render
-        // WorldController creates its own camera and content in onMount
+        // WorldController creates its own camera and starts its own render loop
         gameStore.setGameLocation("WORLD");
         showWorldCreationModal = true;
     }
