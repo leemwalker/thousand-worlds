@@ -139,8 +139,16 @@
         if (params.sysSapience) cmd += ` --sapience`;
         if (params.sysMigration) cmd += ` --migration`;
 
-        console.log("[SimulationModeLayout] Sending command:", cmd);
-        gameWebSocket.sendRawCommand(cmd);
+        console.log("[SimulationModeLayout] V3 Sending command:", cmd);
+        if (typeof gameWebSocket.sendRawCommand === "function") {
+            gameWebSocket.sendRawCommand(cmd);
+        } else {
+            console.error(
+                "gameWebSocket.sendRawCommand is missing!",
+                gameWebSocket,
+            );
+            // Fallback or explicit error
+        }
 
         showWorldCreationModal = false;
     }
