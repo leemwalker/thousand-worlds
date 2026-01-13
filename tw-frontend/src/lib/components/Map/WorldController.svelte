@@ -18,6 +18,7 @@
     import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
     import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
     import { Texture } from "@babylonjs/core/Materials/Textures/texture";
+    import { RawTexture } from "@babylonjs/core/Materials/Textures/rawTexture";
     import { WaterEffects } from "./WaterEffects";
     import { PoiManager } from "./PoiManager"; // NEW
     import { LODManager } from "./LODManager";
