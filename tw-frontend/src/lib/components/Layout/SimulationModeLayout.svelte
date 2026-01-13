@@ -13,6 +13,7 @@
     // Layout and UI Components
     import MessageOverlay from "$lib/components/HUD/MessageOverlay.svelte";
     import GameMenuModal from "$lib/components/Layout/GameMenuModal.svelte";
+    import WorldCreationModal from "$lib/components/Map/WorldCreationModal.svelte";
 
     // Scene Management
     import SceneCanvas from "$lib/components/Scene/SceneCanvas.svelte";
@@ -25,9 +26,28 @@
 
     /** Start with menu closed */
     let isMenuOpen = false;
+    /** World creation modal state */
+    let showWorldCreationModal = false;
 
     let activeScene: any;
     let textLogExpanded = false;
+
+    /** LobbyScene instance for callbacks */
+    let lobbyScene: LobbyScene | null = null;
+
+    onMount(() => {
+        // Instantiate LobbyScene and set up portal callbacks
+        lobbyScene = new LobbyScene();
+        sceneManager.registerSceneFactory("LOBBY", lobbyScene);
+        lobbyScene.setCallbacks({
+            onPortalEnter: handlePortalEnter,
+        });
+    });
+
+    onDestroy(() => {
+        lobbyScene?.dispose();
+        lobbyScene = null;
+    });
 
     function handleCanvasReady(event: CustomEvent) {
         console.log("Canvas Ready", event.detail);
@@ -52,6 +72,22 @@
         gameAPI.logout();
         gameStore.clearUser();
         isMenuOpen = false;
+    }
+
+    /** Handle portal entry - transition to world scene and show creation modal */
+    function handlePortalEnter() {
+        console.log(
+            "[SimulationModeLayout] Portal entered, showing world creation modal",
+        );
+        gameStore.setGameLocation("WORLD"); // Transition to world scene
+        showWorldCreationModal = true; // Show modal
+    }
+
+    /** Handle world creation complete */
+    function handleWorldCreationComplete(e: CustomEvent) {
+        console.log("[SimulationModeLayout] World creation complete", e.detail);
+        showWorldCreationModal = false;
+        // Future: trigger backend simulation with e.detail params (name, seed, etc.)
     }
 </script>
 
@@ -269,6 +305,12 @@
         {/if}
     </div>
 </div>
+
+<!-- World Creation Modal (outside main layout for proper z-index) -->
+<WorldCreationModal
+    isOpen={showWorldCreationModal}
+    on:complete={handleWorldCreationComplete}
+/>
 
 <style>
     .simulation-layout {

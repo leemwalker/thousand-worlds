@@ -39,6 +39,28 @@ vi.mock('$lib/components/Map/WorldController.svelte', () => ({
 vi.mock('$lib/components/HUD/MessageOverlay.svelte', () => ({
     default: hooks.MockSvelteComponent
 }));
+vi.mock('$lib/components/Map/WorldCreationModal.svelte', () => ({
+    default: hooks.MockSvelteComponent
+}));
+
+// Mock LobbyScene
+vi.mock('$lib/components/Scene/LobbyScene', () => ({
+    LobbyScene: class MockLobbyScene {
+        setCallbacks = vi.fn();
+        dispose = vi.fn();
+        create = vi.fn();
+    }
+}));
+
+// Mock SceneManager
+vi.mock('$lib/components/Scene/SceneManager', () => ({
+    sceneManager: {
+        registerSceneFactory: vi.fn(),
+        transitionTo: vi.fn(),
+        getActiveScene: vi.fn(),
+        getCurrentLocation: vi.fn(() => 'LOBBY')
+    }
+}));
 
 // Mock services
 vi.mock('$lib/services/websocket', async () => {
@@ -94,4 +116,14 @@ describe('SimulationModeLayout', () => {
         const { getByText } = render(SimulationModeLayout);
         expect(getByText('Stats Overlay')).toBeTruthy();
     });
+
+    it('registers LobbyScene as factory on mount', async () => {
+        const { LobbyScene } = await import('$lib/components/Scene/LobbyScene');
+        const { sceneManager } = await import('$lib/components/Scene/SceneManager');
+
+        render(SimulationModeLayout);
+
+        expect(sceneManager.registerSceneFactory).toHaveBeenCalledWith('LOBBY', expect.any(Object));
+    });
 });
+
