@@ -173,6 +173,7 @@
                 seaLevel={$gameStore.world.geo.seaLevel}
                 maxElevation={$gameStore.world.geo.maxElevation}
                 minElevation={$gameStore.world.geo.minElevation}
+                planetRadius={$gameStore.world.geo.planetRadius}
                 satellites={$gameStore.world.sim.satellites}
                 pois={$gameStore.world.sim.pois}
                 onSendCommand={(action, payload) => {

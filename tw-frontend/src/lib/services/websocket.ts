@@ -250,7 +250,7 @@ export class GameWebSocket {
                 gameStore.setInventory(message.data.inventory);
             }
         } else if (message.type === 'world_map_image_response') {
-            const d = message.data;
+            const d = message.data as Record<string, any>;
             gameStore.updateWorld({
                 textureBlob: d.imageBlob,
                 heightmapBlob: d.heightmapBlob,
@@ -259,7 +259,8 @@ export class GameWebSocket {
                 geo: {
                     seaLevel: d.sea_level || 0,
                     maxElevation: d.max_elevation || 0,
-                    minElevation: d.min_elevation || 0
+                    minElevation: d.min_elevation || 0,
+                    planetRadius: d.planet_radius || 6.371e6 // Default to Earth radius
                 }
                 // Maintain existing satellites if not provided
             });

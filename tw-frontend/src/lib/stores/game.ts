@@ -29,6 +29,7 @@ export interface WorldState {
         seaLevel: number;
         maxElevation: number;
         minElevation: number;
+        planetRadius: number; // Planet radius in meters (default: Earth 6.371e6)
     };
     sim: {
         satellites: any[];
@@ -43,7 +44,7 @@ const initialWorldState: WorldState = {
     heightmapBlob: null,
     materialBlob: null,
     iceBlob: null,
-    geo: { seaLevel: 0, maxElevation: 0, minElevation: 0 },
+    geo: { seaLevel: 0, maxElevation: 0, minElevation: 0, planetRadius: 6.371e6 },
     sim: { satellites: [], rings: null, pois: [] }
 };
 

@@ -749,6 +749,14 @@ func (s *Service) GetWorldMapData(ctx context.Context, char *auth.Character, gri
 				}
 			}
 			result.MaxElevation = maxElev
+			result.MinElevation = minElev
+
+			// Set planet radius from geology params (defaults to Earth radius if not set)
+			if geo.Params.RadiusM > 0 {
+				result.PlanetRadius = geo.Params.RadiusM
+			} else {
+				result.PlanetRadius = 6.371e6 // Default Earth radius in meters
+			}
 
 			// Calculate Land Coverage
 			landCount := 0

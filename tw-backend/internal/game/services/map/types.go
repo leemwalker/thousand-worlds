@@ -92,6 +92,8 @@ type WorldMapData struct {
 	// Simulation summary data (populated after simulation)
 	AvgTemperature float64 `json:"avg_temperature,omitempty"` // Average temperature in Celsius
 	MaxElevation   float64 `json:"max_elevation,omitempty"`   // Maximum elevation in meters
+	MinElevation   float64 `json:"min_elevation,omitempty"`   // Minimum elevation in meters
+	PlanetRadius   float64 `json:"planet_radius,omitempty"`   // Planet radius in meters
 	SeaLevel       float64 `json:"sea_level,omitempty"`       // Sea level in meters
 	LandCoverage   float64 `json:"land_coverage,omitempty"`   // Percentage of land above sea level
 	SimulatedYears int64   `json:"simulated_years,omitempty"` // Total years simulated

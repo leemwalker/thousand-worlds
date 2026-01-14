@@ -60,6 +60,23 @@
     export let seaLevel: number = 0;
     export let maxElevation: number = 8848;
     export let minElevation: number = -11000;
+    export let planetRadius: number = 6.371e6; // Earth radius in meters
+
+    // Visual exaggeration for orbital view (terrain would be invisible at true scale)
+    // Scientific scale = elevationRange / planetRadius ≈ 0.003 for Earth
+    // We multiply by this factor to make terrain visible from orbit
+    const VISUAL_EXAGGERATION = 30;
+
+    // Calculate dynamic displacement scale based on planet data
+    $: elevationRange = Math.abs(maxElevation - minElevation) || 19345; // Default ~19km
+    $: scientificDisplacementScale = elevationRange / planetRadius;
+    $: orbitalDisplacementScale =
+        scientificDisplacementScale * VISUAL_EXAGGERATION;
+    // Clamp to reasonable range to prevent extreme values
+    $: displacementScale = Math.max(
+        0.001,
+        Math.min(0.15, orbitalDisplacementScale),
+    );
 
     $: console.log("[WorldController:Debug] Reactive scene prop:", scene);
     $: console.log("[WorldController:Debug] Reactive satellites:", satellites);
@@ -1259,10 +1276,13 @@
                     }
                 } else {
                     // First time - create material with heightmap
-                    console.log("[BabylonGlobe] Creating new shader material");
+                    // Use dynamic displacement scale based on planet radius and elevation range
+                    console.log(
+                        `[BabylonGlobe] Creating material with dynamic scale: ${displacementScale.toFixed(4)} (elev=${elevationRange.toFixed(0)}m, radius=${(planetRadius / 1e6).toFixed(2)}Mm, exaggeration=${VISUAL_EXAGGERATION}x)`,
+                    );
                     material = displacementShader?.createMaterial(
                         heightmapTexture,
-                        0.001, // Reduced further - minimal displacement for flat terrain
+                        displacementScale,
                     );
 
                     // Apply shader material to all LOD meshes (only needed on first creation)
