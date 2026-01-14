@@ -64,9 +64,9 @@
 
     // Visual exaggeration for orbital view (terrain would be invisible at true scale)
     // Scientific scale = elevationRange / planetRadius ≈ 0.003 for Earth
-    // We multiply by this factor to make terrain visible from orbit
-    // 15x gives ~0.045 displacement which shows terrain without extreme spikes
-    const VISUAL_EXAGGERATION = 15;
+    // Exaggeration = 1 means scientifically accurate (no visual enhancement)
+    // Increase to 5-15 for more visible terrain features from orbit
+    const VISUAL_EXAGGERATION = 1;
 
     // Calculate dynamic displacement scale based on planet data
     $: elevationRange = Math.abs(maxElevation - minElevation) || 19345; // Default ~19km
@@ -966,8 +966,8 @@
                 false,
             );
             moonMat.diffuseTexture = moonTex;
-            moonMat.specularColor = new Color3(0.1, 0.1, 0.1);
-            moonMat.emissiveColor = new Color3(0.05, 0.05, 0.05); // Slight glow for visibility
+            moonMat.specularColor = new Color3(0, 0, 0); // Fully matte - no shine
+            moonMat.emissiveColor = new Color3(0.02, 0.02, 0.02); // Very subtle glow for visibility
             moon.material = moonMat;
 
             // Store references

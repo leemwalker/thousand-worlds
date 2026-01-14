@@ -81,11 +81,11 @@ Effect.ShadersStore["displacementFragmentShader"] = `
     uniform sampler2D iceTex;      // R=ice thickness
     uniform sampler2D normalTex;   // Normal map for 3D shadows
     
-    uniform bool hasDiffuseTex;
-    uniform bool hasSpecularTex;
-    uniform bool hasMaterialTex;
-    uniform bool hasIceTex;
-    uniform bool hasNormalTex;
+    uniform int hasDiffuseTex;
+    uniform int hasSpecularTex;
+    uniform int hasMaterialTex;
+    uniform int hasIceTex;
+    uniform int hasNormalTex;
 
     const float PI = 3.14159265359;
 
@@ -168,7 +168,7 @@ Effect.ShadersStore["displacementFragmentShader"] = `
         // Calculate perturbed normal
         vec3 normal = normalize(vNormal);
         
-        if (hasNormalTex) {
+        if (hasNormalTex != 0) {
             // Sample normal map (tangent space)
             // Use textureGrad for seam-safe sampling
             vec3 mapN;
@@ -199,7 +199,7 @@ Effect.ShadersStore["displacementFragmentShader"] = `
         // --- BASE SURFACE COLOR ---
         vec3 surfaceColor = vec3(0.5); // Default grey
         
-        if (hasDiffuseTex) {
+        if (hasDiffuseTex != 0) {
             // If we have a diffuse texture (real map), use it!
             #ifdef GL_OES_standard_derivatives
                 surfaceColor = texture2DGradEXT(diffuseTex, uv, uv_dx, uv_dy).rgb;
@@ -213,7 +213,7 @@ Effect.ShadersStore["displacementFragmentShader"] = `
             bool isContinental = true;
             float sediment = 0.0;
             
-            if (hasMaterialTex) {
+            if (hasMaterialTex != 0) {
                 vec4 matData;
                 #ifdef GL_OES_standard_derivatives
                     matData = texture2DGradEXT(materialTex, uv, uv_dx, uv_dy);
@@ -244,7 +244,7 @@ Effect.ShadersStore["displacementFragmentShader"] = `
         
         // --- OVERLAYS (Ice, etc.) ---
         // Apply ice overlay
-        if (hasIceTex) {
+        if (hasIceTex != 0) {
             float ice;
             #ifdef GL_OES_standard_derivatives
                 ice = texture2DGradEXT(iceTex, uv, uv_dx, uv_dy).r;
@@ -261,7 +261,7 @@ Effect.ShadersStore["displacementFragmentShader"] = `
         // SPECULAR HIGHLIGHT
         float specularPower = 30.0;
         float specularIntensity = 0.0;
-        if (hasSpecularTex) {
+        if (hasSpecularTex != 0) {
              #ifdef GL_OES_standard_derivatives
                 specularIntensity = texture2DGradEXT(specularTex, uv, uv_dx, uv_dy).r;
             #else
