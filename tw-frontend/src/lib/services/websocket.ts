@@ -352,6 +352,7 @@ export class GameWebSocket {
             const imageBytes = new Uint8Array(buffer, offset, imageLen);
             const imageBlob = new Blob([imageBytes], { type: 'image/webp' });
             offset += imageLen;
+            console.log(`[WebSocket] Parsed image data: ${imageLen} bytes`);
 
             // Read Grid Length and Data (if present)
             let gridData: ArrayBuffer | null = null;

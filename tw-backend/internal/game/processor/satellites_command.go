@@ -32,7 +32,7 @@ func (p *GameProcessor) handleGetSatellites(ctx context.Context, client websocke
 		rings = geology.Rings.GetVisibleRings()
 	}
 
-	client.SendGameMessage("satellites_info", "", map[string]interface{}{
+	client.SendTypedMessage("satellites_info", map[string]interface{}{
 		"satellites": satellites,
 		"rings":      rings,
 	})

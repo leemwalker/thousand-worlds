@@ -31,6 +31,7 @@ type GameClient interface {
 	GetUserID() uuid.UUID
 	GetUsername() string
 	SendGameMessage(msgType, text string, metadata map[string]interface{})
+	SendTypedMessage(msgType string, data interface{}) // For sending raw typed messages like satellites_info
 	SendStateUpdate(state *StateUpdateData)
 
 	// Reply command support
@@ -302,6 +303,11 @@ func (c *Client) SendGameMessage(msgType, text string, metadata map[string]inter
 		Timestamp: time.Now(),
 		Metadata:  metadata,
 	})
+}
+
+// SendTypedMessage sends a raw typed message (e.g., satellites_info) without wrapping
+func (c *Client) SendTypedMessage(msgType string, data interface{}) {
+	_ = c.SendMessage(msgType, data)
 }
 
 // SendStateUpdate sends a state update to the client
