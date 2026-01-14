@@ -275,6 +275,11 @@ export class GameWebSocket {
             // World was reset - clear texture data to trigger molten planet view
             console.log('[WS] world_reset received - switching to molten planet view');
             gameStore.resetWorld();
+        } else if (message.type === 'satellites_info') {
+            console.log('[WS] Satellites info received:', message.data.satellites?.length);
+            gameStore.updateSim({
+                satellites: message.data.satellites || []
+            });
         }
 
         // Notify all handlers

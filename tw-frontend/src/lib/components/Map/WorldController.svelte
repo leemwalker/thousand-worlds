@@ -1230,7 +1230,7 @@
                     console.log("[BabylonGlobe] Creating new shader material");
                     material = displacementShader?.createMaterial(
                         heightmapTexture,
-                        0.05,
+                        0.015, // Reduced from 0.05 to prevent spiky mountains
                     );
 
                     // Apply shader material to all LOD meshes (only needed on first creation)
