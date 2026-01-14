@@ -63,20 +63,21 @@
     export let planetRadius: number = 6.371e6; // Earth radius in meters
 
     // Visual exaggeration for orbital view (terrain would be invisible at true scale)
-    // Scientific scale = elevationRange / planetRadius ≈ 0.003 for Earth
-    // Exaggeration = 1 means scientifically accurate (no visual enhancement)
-    // Increase to 5-15 for more visible terrain features from orbit
-    const VISUAL_EXAGGERATION = 1;
+    // Scientific scale = elevationRange / planetRadius ≈ 0.0036 for Earth (23km/6371km)
+    // Exaggeration = 1 means scientifically accurate (barely visible from orbit)
+    // Increase to 2-3 for slight visibility, max ~5 to avoid "spiky" appearance
+    const VISUAL_EXAGGERATION = 3;
 
     // Calculate dynamic displacement scale based on planet data
     $: elevationRange = Math.abs(maxElevation - minElevation) || 19345; // Default ~19km
     $: scientificDisplacementScale = elevationRange / planetRadius;
     $: orbitalDisplacementScale =
         scientificDisplacementScale * VISUAL_EXAGGERATION;
-    // Clamp to reasonable range to prevent extreme values
+    // Clamp to reasonable range - max ~1% of radius to prevent extreme spiky terrain
+    // For Earth-like: scientific ≈ 0.003, with 3x exaggeration = 0.009
     $: displacementScale = Math.max(
-        0.001,
-        Math.min(0.15, orbitalDisplacementScale),
+        0.0005,
+        Math.min(0.015, orbitalDisplacementScale),
     );
 
     $: console.log("[WorldController:Debug] Reactive scene prop:", scene);
