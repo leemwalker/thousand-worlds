@@ -816,23 +816,37 @@
         moonOrbitNodes = [];
 
         satellites.forEach((sat, index) => {
-            // Create orbit node for this moon (NOT parented to planet for easier visibility)
+            // Create orbit node for this moon
             const moonOrbit = new TransformNode(`moonOrbit_${sat.name}`, s);
-            // Don't parent to planetNode - keep at world origin for easier debugging
-            // moonOrbit.parent = planetNode;
+            // Parent to planetNode so moons orbit with the planet
+            moonOrbit.parent = planetNode;
 
             // Calculate moon distance based on satellite data
-            // Normalize to visible distance - place between 2-4 units from center
-            const normalizedDistance = 2.0 + (sat.distance / 400000) * 1.5;
+            // Distance is in METERS (e.g., 186 million meters = 186,000 km)
+            // Use logarithmic scaling to compress vast distances into visible range (2-5 units)
+            // log10(1e8) = 8, log10(1e9) = 9, log10(1e10) = 10
+            // Map log range [7, 10] to normalized distance [1.5, 5]
+            const distanceMeters = Math.max(sat.distance, 1e7); // Min 10,000 km
+            const logDist = Math.log10(distanceMeters);
+            const normalizedDistance = 1.5 + (logDist - 7) * 1.0; // 1e7m -> 1.5, 1e10m -> 4.5
+
+            // Clamp to reasonable range
+            const clampedDistance = Math.max(
+                1.5,
+                Math.min(5.0, normalizedDistance),
+            );
 
             // Create moon mesh
-            // Increase base size to be more visible (minimum 0.15 diameter)
-            const moonSize =
-                0.2 + Math.log10(Math.max(sat.mass, 1e18) / 1e20) * 0.05;
-            const clampedSize = Math.max(0.15, Math.min(0.4, moonSize));
+            // Size based on mass - use logarithmic scale
+            // Moon mass range: ~1e20 to 1e23 kg (Earth's moon is 7.3e22 kg)
+            const massClamped = Math.max(sat.mass, 1e18);
+            const logMass = Math.log10(massClamped);
+            // Map log range [18, 23] to size [0.1, 0.4]
+            const moonSize = 0.1 + ((logMass - 18) / 5) * 0.3;
+            const clampedSize = Math.max(0.1, Math.min(0.4, moonSize));
 
             console.log(
-                `[BabylonGlobe] Moon ${sat.name}: distance=${sat.distance}, mass=${sat.mass}, normalizedDist=${normalizedDistance.toFixed(2)}, size=${clampedSize.toFixed(3)}`,
+                `[BabylonGlobe] Moon ${sat.name}: dist=${(sat.distance / 1e6).toFixed(0)}km, mass=${sat.mass.toExponential(1)}, normalizedDist=${clampedDistance.toFixed(2)}, size=${clampedSize.toFixed(3)}`,
             );
 
             const moon = MeshBuilder.CreateSphere(
@@ -841,13 +855,13 @@
                 s,
             );
             moon.parent = moonOrbit;
-            moon.position = new Vector3(normalizedDistance, 0, 0);
+            moon.position = new Vector3(clampedDistance, 0, 0);
 
             // Moon material (brighter for visibility)
             const moonMat = new StandardMaterial(`moonMat_${sat.name}`, s);
-            moonMat.diffuseColor = new Color3(0.9, 0.9, 0.85);
+            moonMat.diffuseColor = new Color3(0.8, 0.8, 0.75);
             moonMat.specularColor = new Color3(0.2, 0.2, 0.2);
-            moonMat.emissiveColor = new Color3(0.1, 0.1, 0.1); // Slight glow for visibility
+            moonMat.emissiveColor = new Color3(0.15, 0.15, 0.15); // Glow for visibility
             moon.material = moonMat;
 
             // Store references
