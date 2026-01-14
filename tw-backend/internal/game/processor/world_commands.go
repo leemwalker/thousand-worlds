@@ -81,8 +81,10 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	// Default values
 	years := int64(1_000_000)
 	var seedFlag int64 = 0
-	var moonsFlag int = -1       // -1 means random, >= 0 means override
-	var resolutionFlag int = 128 // Default resolution (64, 128, 256, 512)
+	var moonsFlag int = -1           // -1 means random, >= 0 means override
+	var resolutionFlag int = 128     // Default resolution (64, 128, 256, 512)
+	var diameterKm float64 = 12742.0 // Default Earth diameter in km
+	var gravityMult float64 = 1.0    // Default 1x Earth gravity
 	var epochFlag, goalFlag, waterLevelFlag, compositionFlag string
 
 	// Subsystem flags - all false by default, enabled explicitly or via "no flags = all"
@@ -188,6 +190,20 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 				}
 				i++
 			}
+		case "--diameter":
+			if i+1 < len(args) {
+				if parsed, err := strconv.ParseFloat(args[i+1], 64); err == nil && parsed >= 1000 {
+					diameterKm = parsed
+				}
+				i++
+			}
+		case "--gravity":
+			if i+1 < len(args) {
+				if parsed, err := strconv.ParseFloat(args[i+1], 64); err == nil && parsed >= 0.1 {
+					gravityMult = parsed
+				}
+				i++
+			}
 		}
 	}
 
@@ -275,9 +291,11 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	// Initialize geology if not exists
 	geology, exists := p.worldGeology[char.WorldID]
 	if !exists {
-		// Default circumference if not set (Earth-like: 40,000 km = 40,000,000 m)
-		circumference := 40_000_000.0
-		if world.Circumference != nil {
+		// Calculate circumference from diameter in km: C = π × D
+		// Convert diameter from km to meters for circumference
+		circumference := math.Pi * diameterKm * 1000.0 // meters
+		if world.Circumference != nil && diameterKm == 12742.0 {
+			// If diameter is default and world has custom circumference, use that
 			circumference = *world.Circumference
 		}
 
@@ -286,6 +304,14 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		geology.EventPublisher = p.eventPublisher // Inject event publisher
 		p.worldGeology[char.WorldID] = geology
 	}
+
+	// Display planet parameters if non-default
+	if diameterKm != 12742.0 || gravityMult != 1.0 {
+		earthRatio := diameterKm / 12742.0
+		client.SendGameMessage("system", fmt.Sprintf("🌍 Planet: %.0f km diameter (%.2fx Earth), %.2fx gravity",
+			diameterKm, earthRatio, gravityMult), nil)
+	}
+	_ = gravityMult // Reserved for future physics calculations
 
 	// Set composition if flag provided (overrides default/existing)
 	if compositionFlag != "" {

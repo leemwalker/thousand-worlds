@@ -254,8 +254,9 @@
         }
 
         // Moon orbital animation
+        // Moon orbital animation - slower periods, unique inclinations prevent collisions
         moonOrbitNodes.forEach((moonOrbit, i) => {
-            const moonPeriod = 5 + i * 2;
+            const moonPeriod = 50 + i * 30; // 50s, 80s, 110s periods (10x slower)
             const moonRotation =
                 (2 * Math.PI * deltaTime * simulationSpeed) / moonPeriod;
             moonOrbit.rotation.y += moonRotation;
@@ -976,6 +977,12 @@
 
             // Start each moon at different orbital position
             moonOrbit.rotation.y = (index * Math.PI * 2) / satellites.length;
+
+            // Add unique orbital plane inclinations to prevent collisions
+            // Each moon gets progressively more inclined (max ~25°)
+            const inclination = index * 0.15 + index * 0.05; // 0°, ~11°, ~23°...
+            moonOrbit.rotation.x = inclination;
+            moonOrbit.rotation.z = inclination * 0.5; // Slight tilt variation
         });
 
         console.log(`[BabylonGlobe] Created ${moonMeshes.length} moon meshes`);

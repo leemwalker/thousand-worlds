@@ -12,6 +12,7 @@
     import { get } from "svelte/store";
     // Layout and UI Components
     import MessageOverlay from "$lib/components/HUD/MessageOverlay.svelte";
+    import SimulationProgressOverlay from "$lib/components/HUD/SimulationProgressOverlay.svelte";
     import GameMenuModal from "$lib/components/Layout/GameMenuModal.svelte";
     import WorldCreationModal from "$lib/components/Map/WorldCreationModal.svelte";
 
@@ -35,7 +36,56 @@
     /** LobbyScene instance for callbacks */
     let lobbyScene: LobbyScene | null = null;
 
+    /** Simulation progress tracking */
+    let isSimulating = false;
+    let simulationYearsElapsed = 0;
+    let simulationTotalYears = 1000000000;
+    let unsubscribeMessages: (() => void) | null = null;
+
+    // Subscribe to websocket messages to parse progress
+    onMount(() => {
+        unsubscribeMessages = gameWebSocket.onMessage((msg) => {
+            if (msg.type === "game_message") {
+                const content = (msg as any).data?.content || "";
+                // Parse progress messages: "⏳ Progress: 50% (Year 500000,...)"
+                const progressMatch = content.match(
+                    /Progress:\s*(\d+)%\s*\(Year\s*([\d,]+)/i,
+                );
+                if (progressMatch) {
+                    const percent = parseInt(progressMatch[1], 10);
+                    const yearStr = progressMatch[2].replace(/,/g, "");
+                    simulationYearsElapsed = parseInt(yearStr, 10);
+                    isSimulating = true;
+                    // Stop simulation when at 100%
+                    if (percent >= 100) {
+                        setTimeout(() => {
+                            isSimulating = false;
+                        }, 10000);
+                    }
+                }
+                // Detect simulation start
+                if (
+                    content.includes("🌍 Simulation:") &&
+                    content.includes("years")
+                ) {
+                    const yearsMatch = content.match(
+                        /Simulation:\s*([\d,]+)\s*years/i,
+                    );
+                    if (yearsMatch) {
+                        simulationTotalYears = parseInt(
+                            yearsMatch[1].replace(/,/g, ""),
+                            10,
+                        );
+                        isSimulating = true;
+                        simulationYearsElapsed = 0;
+                    }
+                }
+            }
+        });
+    });
+
     onDestroy(() => {
+        unsubscribeMessages?.();
         lobbyScene?.dispose();
         lobbyScene = null;
     });
@@ -120,7 +170,9 @@
         const params: any = e.detail; // Type as any for now to avoid import issues, will be WorldCreationParams
 
         // Construct command string based on parameters
-        let cmd = `world simulate 1000000`; // Default 1M years
+        // Use yearsToSimulate from params (0 = open-ended, fallback to 1M)
+        const years = params.yearsToSimulate || 1000000;
+        let cmd = `world simulate ${years}`;
 
         // Add flags
         if (params.seed) cmd += ` --seed ${params.seed}`;
@@ -128,8 +180,10 @@
 
         if (params.moonCount >= 0) cmd += ` --moons ${params.moonCount}`;
         if (params.resolution) cmd += ` --resolution ${params.resolution}`;
-        if (params.coreType) cmd += ` --composition ${params.coreType}`; // Note: Backend needs to support this or it will be ignored (it's not in the flag list but handled in logic)
+        if (params.coreType) cmd += ` --composition ${params.coreType}`;
         if (params.waterLevel) cmd += ` --water-level ${params.waterLevel}`;
+        if (params.diameter) cmd += ` --diameter ${params.diameter}`;
+        if (params.gravity) cmd += ` --gravity ${params.gravity}`;
 
         // System toggles
         if (params.sysGeology) cmd += ` --geology`;
@@ -374,6 +428,13 @@
 <WorldCreationModal
     isOpen={showWorldCreationModal}
     on:complete={handleWorldCreationComplete}
+/>
+
+<!-- Simulation Progress Overlay (non-modal) -->
+<SimulationProgressOverlay
+    yearsElapsed={simulationYearsElapsed}
+    totalYears={simulationTotalYears}
+    {isSimulating}
 />
 
 <style>

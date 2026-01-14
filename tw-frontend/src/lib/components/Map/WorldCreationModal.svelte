@@ -2,7 +2,10 @@
     import { createEventDispatcher } from "svelte";
     import { fade, slide } from "svelte/transition";
     import type { WorldCreationParams } from "$lib/types/WorldCreationParams";
-    import { DEFAULT_WORLD_PARAMS } from "$lib/types/WorldCreationParams";
+    import {
+        DEFAULT_WORLD_PARAMS,
+        PLANET_PRESETS,
+    } from "$lib/types/WorldCreationParams";
 
     export let isOpen = false;
 
@@ -13,6 +16,19 @@
 
     let params: WorldCreationParams = { ...DEFAULT_WORLD_PARAMS };
     let showAdvanced = false;
+
+    // Years to simulate slider - maps 0=open-ended, 1-10 = 10^exponent years
+    let yearExponent = 9; // Default 1 billion (10^9)
+    $: params.yearsToSimulate =
+        yearExponent === 0 ? 0 : Math.pow(10, yearExponent);
+
+    function formatYears(years: number): string {
+        if (years === 0) return "Open-ended";
+        if (years >= 1e9) return `${(years / 1e9).toFixed(1)}B`;
+        if (years >= 1e6) return `${(years / 1e6).toFixed(1)}M`;
+        if (years >= 1e3) return `${(years / 1e3).toFixed(1)}K`;
+        return `${years}`;
+    }
 
     // Generate random name
     function randomizeName() {
@@ -150,36 +166,78 @@
                         Physical Parameters
                     </h3>
 
-                    <!-- Size -->
+                    <!-- Planet Diameter -->
                     <div class="space-y-2">
-                        <span class="block text-sm font-medium text-slate-300"
-                            >Class (Size)</span
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium text-slate-300"
+                                >Diameter</span
+                            >
+                            <span
+                                class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-blue-300"
+                                >{params.diameter.toLocaleString()} km ({(
+                                    params.diameter / 12742
+                                ).toFixed(2)}x Earth)</span
+                            >
+                        </div>
+                        <input
+                            type="range"
+                            min="1737"
+                            max="142984"
+                            step="100"
+                            bind:value={params.diameter}
+                            class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                        />
+                        <div
+                            class="flex justify-between text-xs text-slate-500"
                         >
-                        <div class="grid grid-cols-4 gap-2">
-                            {#each ["small", "medium", "large", "huge"] as size}
+                            <span>🌙 Moon</span>
+                            <span>🟤 Jupiter</span>
+                        </div>
+                        <!-- Preset buttons -->
+                        <div class="flex gap-1 flex-wrap">
+                            {#each Object.entries(PLANET_PRESETS) as [key, preset]}
                                 <button
-                                    class="flex flex-col items-center justify-center p-3 rounded-md border transition-all {params.size ===
-                                    size
-                                        ? 'bg-blue-600/20 border-blue-500 text-white'
-                                        : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600'}"
-                                    on:click={() => (params.size = size)}
+                                    class="px-2 py-1 text-xs rounded border transition-all {params.diameter ===
+                                    preset.diameter
+                                        ? 'border-blue-500 bg-blue-600/20 text-white'
+                                        : 'border-slate-600 text-slate-400 hover:border-slate-500'}"
+                                    on:click={() => {
+                                        params.diameter = preset.diameter;
+                                        params.gravity = preset.gravity;
+                                    }}
                                 >
-                                    <div
-                                        class="w-8 h-8 rounded-full bg-current mb-2 opacity-80"
-                                        style="transform: scale({size ===
-                                        'small'
-                                            ? 0.5
-                                            : size === 'medium'
-                                              ? 0.75
-                                              : size === 'large'
-                                                ? 1
-                                                : 1.25})"
-                                    ></div>
-                                    <span class="text-xs capitalize"
-                                        >{size}</span
-                                    >
+                                    {preset.label}
                                 </button>
                             {/each}
+                        </div>
+                    </div>
+
+                    <!-- Surface Gravity -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium text-slate-300"
+                                >Surface Gravity</span
+                            >
+                            <span
+                                class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-blue-300"
+                                >{params.gravity.toFixed(2)}x Earth ({(
+                                    params.gravity * 9.81
+                                ).toFixed(1)} m/s²)</span
+                            >
+                        </div>
+                        <input
+                            type="range"
+                            min="0.1"
+                            max="10"
+                            step="0.1"
+                            bind:value={params.gravity}
+                            class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                        />
+                        <div
+                            class="flex justify-between text-xs text-slate-500"
+                        >
+                            <span>0.1x (low)</span>
+                            <span>10x (crushing)</span>
                         </div>
                     </div>
 
@@ -207,6 +265,33 @@
                         >
                             <span>None</span>
                             <span>Multiple</span>
+                        </div>
+                    </div>
+
+                    <!-- Years to Simulate -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium text-slate-300"
+                                >Simulation Duration</span
+                            >
+                            <span
+                                class="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-blue-300"
+                                >{formatYears(params.yearsToSimulate)}</span
+                            >
+                        </div>
+                        <input
+                            type="range"
+                            min="0"
+                            max="10"
+                            step="1"
+                            bind:value={yearExponent}
+                            class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                        />
+                        <div
+                            class="flex justify-between text-xs text-slate-500"
+                        >
+                            <span>Open</span>
+                            <span>10B years</span>
                         </div>
                     </div>
                 </section>
