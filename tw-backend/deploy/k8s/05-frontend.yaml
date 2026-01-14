@@ -16,7 +16,7 @@ spec:
       containers:
       - name: frontend
         image: tw-frontend/frontend:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Never
         env:
         # Initial ORIGIN for server-side checks. Client connects to Node IP.
         - name: ORIGIN

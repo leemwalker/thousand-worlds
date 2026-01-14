@@ -34,7 +34,7 @@ echo "Building Game Server Docker Image..."
 docker build -t tw-backend/game-server:latest -f tw-backend/Dockerfile.game-server tw-backend
 
 echo "Building Frontend Docker Image..."
-docker build -t tw-frontend/frontend:latest -f tw-frontend/Dockerfile tw-frontend
+docker build --no-cache -t tw-frontend/frontend:latest -f tw-frontend/Dockerfile tw-frontend
 
 # 1b. Import Images to K3s (REQUIRED for K3s)
 # The user must be in the 'k3s' group OR run this via k3s subcommand
