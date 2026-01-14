@@ -816,18 +816,24 @@
         moonOrbitNodes = [];
 
         satellites.forEach((sat, index) => {
-            // Create orbit node for this moon (child of planet)
+            // Create orbit node for this moon (NOT parented to planet for easier visibility)
             const moonOrbit = new TransformNode(`moonOrbit_${sat.name}`, s);
-            moonOrbit.parent = planetNode;
+            // Don't parent to planetNode - keep at world origin for easier debugging
+            // moonOrbit.parent = planetNode;
 
             // Calculate moon distance based on satellite data
-            // Normalize to visible distance (real distances would be way too far)
-            const normalizedDistance = 1.5 + (sat.distance / 400000) * 2; // Scale down significantly
+            // Normalize to visible distance - place between 2-4 units from center
+            const normalizedDistance = 2.0 + (sat.distance / 400000) * 1.5;
 
             // Create moon mesh
-            // Size based on mass (logarithmic scale)
-            const moonSize = 0.1 + Math.log10(sat.mass / 1e20) * 0.05;
-            const clampedSize = Math.max(0.05, Math.min(0.3, moonSize));
+            // Increase base size to be more visible (minimum 0.15 diameter)
+            const moonSize =
+                0.2 + Math.log10(Math.max(sat.mass, 1e18) / 1e20) * 0.05;
+            const clampedSize = Math.max(0.15, Math.min(0.4, moonSize));
+
+            console.log(
+                `[BabylonGlobe] Moon ${sat.name}: distance=${sat.distance}, mass=${sat.mass}, normalizedDist=${normalizedDistance.toFixed(2)}, size=${clampedSize.toFixed(3)}`,
+            );
 
             const moon = MeshBuilder.CreateSphere(
                 `moon_${sat.name}`,
@@ -837,10 +843,11 @@
             moon.parent = moonOrbit;
             moon.position = new Vector3(normalizedDistance, 0, 0);
 
-            // Moon material (grey/white rocky)
+            // Moon material (brighter for visibility)
             const moonMat = new StandardMaterial(`moonMat_${sat.name}`, s);
-            moonMat.diffuseColor = new Color3(0.7, 0.7, 0.7);
-            moonMat.specularColor = new Color3(0.1, 0.1, 0.1);
+            moonMat.diffuseColor = new Color3(0.9, 0.9, 0.85);
+            moonMat.specularColor = new Color3(0.2, 0.2, 0.2);
+            moonMat.emissiveColor = new Color3(0.1, 0.1, 0.1); // Slight glow for visibility
             moon.material = moonMat;
 
             // Store references
@@ -1241,7 +1248,7 @@
                     console.log("[BabylonGlobe] Creating new shader material");
                     material = displacementShader?.createMaterial(
                         heightmapTexture,
-                        0.005, // Reduced from 0.015 to handle ~17500m elevation range
+                        0.001, // Reduced further - minimal displacement for flat terrain
                     );
 
                     // Apply shader material to all LOD meshes (only needed on first creation)
