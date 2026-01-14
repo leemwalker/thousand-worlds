@@ -535,6 +535,11 @@
                         console.log(
                             "Simulation Complete detected, opening world map.",
                         );
+                        // Refresh satellites and POIs to ensure they show up on the map
+                        gameWebSocket.sendRawCommand("get_satellites");
+                        gameWebSocket.sendRawCommand(
+                            'get_pois { "limit": 50 }',
+                        );
                         showWorldMap = true;
                     }
                 }

@@ -1207,6 +1207,24 @@
                         "[BabylonGlobe] Updating existing shader heightmap (preserving textures)",
                     );
                     displacementShader?.updateHeightmap(heightmapTexture);
+
+                    // FIX: Ensure we switch from molten mode if active
+                    if (isMoltenState) {
+                        console.log(
+                            "[WorldController] Forced transition from Molten to Displacement (Heightmap update)",
+                        );
+                        isMoltenState = false;
+                        if (moltenShader) {
+                            moltenShader.dispose();
+                            moltenShader = null;
+                        }
+                        if (lodManager) {
+                            for (let i = 0; i <= 2; i++) {
+                                const mesh = lodManager.getMesh(i);
+                                if (mesh) mesh.material = material;
+                            }
+                        }
+                    }
                 } else {
                     // First time - create material with heightmap
                     console.log("[BabylonGlobe] Creating new shader material");
@@ -1271,6 +1289,48 @@
                     console.log("[BabylonGlobe] Material texture loaded");
                     displacementShader?.setMaterialTexture(texture);
                     setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+                    // FIX: Ensure we switch from molten mode if active
+                    if (isMoltenState) {
+                        console.log(
+                            "[WorldController] Forced transition from Molten to Displacement (Material update)",
+                        );
+                        isMoltenState = false;
+                        if (moltenShader) {
+                            moltenShader.dispose();
+                            moltenShader = null;
+                        }
+                        if (lodManager && displacementShader) {
+                            const mat = displacementShader.getMaterial();
+                            if (mat) {
+                                for (let i = 0; i <= 2; i++) {
+                                    const mesh = lodManager.getMesh(i);
+                                    if (mesh) mesh.material = mat;
+                                }
+                            }
+                        }
+                    }
+
+                    // FIX: Ensure we switch from molten mode if active
+                    if (isMoltenState) {
+                        console.log(
+                            "[WorldController] Forced transition from Molten to Displacement (Material update)",
+                        );
+                        isMoltenState = false;
+                        if (moltenShader) {
+                            moltenShader.dispose();
+                            moltenShader = null;
+                        }
+                        if (lodManager && displacementShader) {
+                            const mat = displacementShader.getMaterial();
+                            if (mat) {
+                                for (let i = 0; i <= 2; i++) {
+                                    const mesh = lodManager.getMesh(i);
+                                    if (mesh) mesh.material = mat;
+                                }
+                            }
+                        }
+                    }
                 },
                 (message, exception) => {
                     // onError callback
