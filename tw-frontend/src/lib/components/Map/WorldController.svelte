@@ -65,7 +65,8 @@
     // Visual exaggeration for orbital view (terrain would be invisible at true scale)
     // Scientific scale = elevationRange / planetRadius ≈ 0.003 for Earth
     // We multiply by this factor to make terrain visible from orbit
-    const VISUAL_EXAGGERATION = 30;
+    // 15x gives ~0.045 displacement which shows terrain without extreme spikes
+    const VISUAL_EXAGGERATION = 15;
 
     // Calculate dynamic displacement scale based on planet data
     $: elevationRange = Math.abs(maxElevation - minElevation) || 19345; // Default ~19km
@@ -752,10 +753,11 @@
 
     // React to texture blob changes (with guard to avoid re-applying same blob)
     // Also reapply if objectUrl is null (component remounted but blob cached)
+    // NOTE: Use displacementShader instead of globeMaterial - we now use shader-based rendering
     $: if (
         globeTextureBlob &&
         scene &&
-        globeMaterial &&
+        displacementShader &&
         (globeTextureBlob.size !== lastAppliedBlobSize || !objectUrl)
     ) {
         console.log(
@@ -874,11 +876,98 @@
             moon.parent = moonOrbit;
             moon.position = new Vector3(clampedDistance, 0, 0);
 
-            // Moon material (brighter for visibility)
+            // Moon material with procedural cratered texture
             const moonMat = new StandardMaterial(`moonMat_${sat.name}`, s);
-            moonMat.diffuseColor = new Color3(0.8, 0.8, 0.75);
-            moonMat.specularColor = new Color3(0.2, 0.2, 0.2);
-            moonMat.emissiveColor = new Color3(0.15, 0.15, 0.15); // Glow for visibility
+
+            // Create procedural moon texture using canvas
+            const moonTexSize = 256;
+            const moonCanvas = document.createElement("canvas");
+            moonCanvas.width = moonTexSize;
+            moonCanvas.height = moonTexSize;
+            const moonCtx = moonCanvas.getContext("2d");
+            if (moonCtx) {
+                // Base gray color with slight variation
+                const baseGray = 140 + Math.floor(Math.random() * 40);
+                moonCtx.fillStyle = `rgb(${baseGray}, ${baseGray}, ${baseGray - 5})`;
+                moonCtx.fillRect(0, 0, moonTexSize, moonTexSize);
+
+                // Add craters (darker circles with lighter rims)
+                const numCraters = 20 + Math.floor(Math.random() * 30);
+                for (let c = 0; c < numCraters; c++) {
+                    const cx = Math.random() * moonTexSize;
+                    const cy = Math.random() * moonTexSize;
+                    const cr = 3 + Math.random() * 15;
+
+                    // Crater shadow (darker)
+                    const gradient = moonCtx.createRadialGradient(
+                        cx,
+                        cy,
+                        0,
+                        cx,
+                        cy,
+                        cr,
+                    );
+                    const shadowGray =
+                        baseGray - 30 - Math.floor(Math.random() * 20);
+                    const rimGray = baseGray + 10;
+                    gradient.addColorStop(
+                        0,
+                        `rgb(${shadowGray}, ${shadowGray}, ${shadowGray})`,
+                    );
+                    gradient.addColorStop(
+                        0.7,
+                        `rgb(${shadowGray + 10}, ${shadowGray + 10}, ${shadowGray + 10})`,
+                    );
+                    gradient.addColorStop(
+                        0.9,
+                        `rgb(${rimGray}, ${rimGray}, ${rimGray})`,
+                    );
+                    gradient.addColorStop(
+                        1,
+                        `rgb(${baseGray}, ${baseGray}, ${baseGray})`,
+                    );
+
+                    moonCtx.beginPath();
+                    moonCtx.arc(cx, cy, cr, 0, Math.PI * 2);
+                    moonCtx.fillStyle = gradient;
+                    moonCtx.fill();
+                }
+
+                // Add some noise texture
+                const noiseData = moonCtx.getImageData(
+                    0,
+                    0,
+                    moonTexSize,
+                    moonTexSize,
+                );
+                for (let i = 0; i < noiseData.data.length; i += 4) {
+                    const noise = (Math.random() - 0.5) * 10;
+                    noiseData.data[i] = Math.max(
+                        0,
+                        Math.min(255, noiseData.data[i] + noise),
+                    );
+                    noiseData.data[i + 1] = Math.max(
+                        0,
+                        Math.min(255, noiseData.data[i + 1] + noise),
+                    );
+                    noiseData.data[i + 2] = Math.max(
+                        0,
+                        Math.min(255, noiseData.data[i + 2] + noise),
+                    );
+                }
+                moonCtx.putImageData(noiseData, 0, 0);
+            }
+
+            // Create texture from canvas
+            const moonTex = new Texture(
+                moonCanvas.toDataURL(),
+                s,
+                false,
+                false,
+            );
+            moonMat.diffuseTexture = moonTex;
+            moonMat.specularColor = new Color3(0.1, 0.1, 0.1);
+            moonMat.emissiveColor = new Color3(0.05, 0.05, 0.05); // Slight glow for visibility
             moon.material = moonMat;
 
             // Store references
