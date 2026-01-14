@@ -787,8 +787,17 @@
         applyIceTexture(iceBlob);
     }
 
+    // Track last created moon count to avoid unnecessary rebuilds
+    let lastMoonCount = 0;
+
     // Reactively update moons when satellites data changes
-    $: if (scene && planetNode && satellites) {
+    $: if (
+        scene &&
+        planetNode &&
+        satellites &&
+        satellites.length !== lastMoonCount
+    ) {
+        lastMoonCount = satellites.length;
         createMoons(scene);
     }
 
@@ -841,6 +850,8 @@
             // Start each moon at different orbital position
             moonOrbit.rotation.y = (index * Math.PI * 2) / satellites.length;
         });
+
+        console.log(`[BabylonGlobe] Created ${moonMeshes.length} moon meshes`);
     }
 
     // Placeholder for future water mesh (Option 3)
@@ -1230,7 +1241,7 @@
                     console.log("[BabylonGlobe] Creating new shader material");
                     material = displacementShader?.createMaterial(
                         heightmapTexture,
-                        0.015, // Reduced from 0.05 to prevent spiky mountains
+                        0.005, // Reduced from 0.015 to handle ~17500m elevation range
                     );
 
                     // Apply shader material to all LOD meshes (only needed on first creation)
