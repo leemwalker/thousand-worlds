@@ -275,13 +275,12 @@
                                     bind:value={params.resolution}
                                     class="w-full bg-slate-950 border border-slate-700 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
-                                    <option value={32}>32 (Fastest)</option>
-                                    <option value={64}>64 (Fast)</option>
-                                    <option value={128}>128 (Balanced)</option>
-                                    <option value={256}
-                                        >256 (High Detail)</option
+                                    <option value={256}>256 (Fast)</option>
+                                    <option value={512}>512 (Balanced)</option>
+                                    <option value={1024}
+                                        >1024 (High Detail)</option
                                     >
-                                    <option value={512}>512 (Ultra)</option>
+                                    <option value={2048}>2048 (Ultra)</option>
                                 </select>
                             </div>
 

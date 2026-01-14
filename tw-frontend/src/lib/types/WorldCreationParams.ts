@@ -2,7 +2,7 @@ export interface WorldCreationParams {
     name: string;
     seed: string;
     size: 'small' | 'medium' | 'large' | 'huge';
-    resolution: 32 | 64 | 128 | 256 | 512;
+    resolution: 256 | 512 | 1024 | 2048;
     coreType: 'continental' | 'volcanic' | 'oceanic' | 'ancient';
     waterLevel: 'low' | 'medium' | 'high' | string;
     moonCount: number;
@@ -20,7 +20,7 @@ export const DEFAULT_WORLD_PARAMS: WorldCreationParams = {
     name: '',
     seed: '',
     size: 'large',     // Earth-like
-    resolution: 128,   // Standard Detail
+    resolution: 512,   // Balanced (new default)
     coreType: 'continental',
     waterLevel: 'medium',
     moonCount: 1,
