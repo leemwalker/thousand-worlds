@@ -233,13 +233,13 @@ Effect.ShadersStore["displacementFragmentShader"] = `
                 vec3 sedimentCol = getSedimentColor(sediment);
                 surfaceColor = mix(surfaceColor, sedimentCol, min(sediment * 1.5, 0.7));
             }
-            
-            // Check if underwater
-            if (vHeight < seaLevel) {
-                // Underwater - satellite-style bathymetry showing underwater terrain
-                float depthFactor = (seaLevel - vHeight) / max(seaLevel, 0.001);
-                surfaceColor = getBathymetricColor(surfaceColor, depthFactor);
-            }
+        }
+        
+        // Check if underwater - apply to ALL surfaces (diffuse texture or procedural)
+        if (vHeight < seaLevel) {
+            // Underwater - satellite-style bathymetry showing underwater terrain
+            float depthFactor = (seaLevel - vHeight) / max(seaLevel, 0.001);
+            surfaceColor = getBathymetricColor(surfaceColor, depthFactor);
         }
         
         // --- OVERLAYS (Ice, etc.) ---
