@@ -17,17 +17,19 @@
     let params: WorldCreationParams = { ...DEFAULT_WORLD_PARAMS };
     let showAdvanced = false;
 
-    // Years to simulate slider - maps 0=open-ended, 1-10 = 10^exponent years
-    let yearExponent = 9; // Default 1 billion (10^9)
-    $: params.yearsToSimulate =
-        yearExponent === 0 ? 0 : Math.pow(10, yearExponent);
+    // Years to simulate - specific milestone values
+    const YEAR_OPTIONS = [
+        0, 100_000_000, 1_000_000_000, 2_000_000_000, 3_000_000_000,
+        4_000_000_000, 5_000_000_000, 8_000_000_000, 10_000_000_000,
+    ];
+    let yearIndex = 2; // Default 1 billion (index 2)
+    $: params.yearsToSimulate = YEAR_OPTIONS[yearIndex];
 
     function formatYears(years: number): string {
-        if (years === 0) return "Open-ended";
-        if (years >= 1e9) return `${(years / 1e9).toFixed(1)}B`;
-        if (years >= 1e6) return `${(years / 1e6).toFixed(1)}M`;
-        if (years >= 1e3) return `${(years / 1e3).toFixed(1)}K`;
-        return `${years}`;
+        if (years === 0) return "Indefinite";
+        if (years >= 1e9) return `${(years / 1e9).toFixed(0)}B years`;
+        if (years >= 1e6) return `${(years / 1e6).toFixed(0)}M years`;
+        return `${years} years`;
     }
 
     // Generate random name
@@ -282,16 +284,16 @@
                         <input
                             type="range"
                             min="0"
-                            max="10"
+                            max="8"
                             step="1"
-                            bind:value={yearExponent}
+                            bind:value={yearIndex}
                             class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
                         />
                         <div
                             class="flex justify-between text-xs text-slate-500"
                         >
-                            <span>Open</span>
-                            <span>10B years</span>
+                            <span>∞</span>
+                            <span>10B</span>
                         </div>
                     </div>
                 </section>
