@@ -349,6 +349,16 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	// Set satellites in geology for map retrieval
 	geology.Satellites = satellites
 
+	// Send satellite info to client immediately so moons appear before simulation completes
+	// This is critical for long simulations (billions of years can take hours)
+	if len(satellites) > 0 {
+		log.Printf("[WorldSimCmd] Sending satellites_info immediately after generation (%d satellites)", len(satellites))
+		client.SendTypedMessage("satellites_info", map[string]interface{}{
+			"satellites": satellites,
+			"rings":      nil, // Rings form during simulation, not at start
+		})
+	}
+
 	// Handle Water Level Override
 	if waterLevelFlag != "" {
 		minElev, maxElev := geology.Heightmap.MinElev, geology.Heightmap.MaxElev
