@@ -1415,16 +1415,20 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 	}
 
 	// Send satellite info to client after simulation (for moon rendering)
+	log.Printf("[WorldSimCmd] Satellites count before send: %d", len(satellites))
 	if len(satellites) > 0 {
 		var rings interface{} = nil
 		if geology.Rings != nil {
 			rings = geology.Rings.GetVisibleRings()
 		}
+		log.Printf("[WorldSimCmd] Sending satellites_info with %d satellites", len(satellites))
 		client.SendTypedMessage("satellites_info", map[string]interface{}{
 			"satellites": satellites,
 			"rings":      rings,
 		})
 		log.Printf("[WorldSimCmd] Sent %d satellites to client", len(satellites))
+	} else {
+		log.Printf("[WorldSimCmd] WARNING: No satellites to send!")
 	}
 
 	return nil
