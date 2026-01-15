@@ -113,6 +113,13 @@
                 : "--",
     };
 
+    // Debug: track store satellites
+    $: console.log(
+        "[WorldMapModal] Store satellites changed:",
+        $gameStore.world.sim.satellites?.length,
+        $gameStore.world.sim.satellites,
+    );
+
     // Request world map when modal opens (works for both globe and flat map)
     $: if (isOpen && !hasRequestedMap) {
         hasRequestedMap = true;

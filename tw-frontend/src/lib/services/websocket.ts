@@ -277,10 +277,11 @@ export class GameWebSocket {
             console.log('[WS] world_reset received - switching to molten planet view');
             gameStore.resetWorld();
         } else if (message.type === 'satellites_info') {
-            console.log('[WS] Satellites info received:', message.data.satellites?.length);
+            console.log('[WS] Satellites info received:', message.data.satellites?.length, message.data.satellites);
             gameStore.updateSim({
                 satellites: message.data.satellites || []
             });
+            console.log('[WS] Store updated with satellites');
         }
 
         // Notify all handlers
