@@ -820,10 +820,11 @@
                                 seaLevel={globeSeaLevel}
                                 maxElevation={globeMaxElevation}
                                 minElevation={globeMinElevation}
-                                satellites={$gameStore.sim.satellites.length > 0
-                                    ? $gameStore.sim.satellites
+                                satellites={$gameStore.world.sim.satellites
+                                    .length > 0
+                                    ? $gameStore.world.sim.satellites
                                     : (worldMapData?.satellites ?? [])}
-                                rings={$gameStore.sim.rings}
+                                rings={$gameStore.world.sim.rings}
                             />
                         {/if}
                     {:else}

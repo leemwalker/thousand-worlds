@@ -289,7 +289,7 @@ export class DisplacementShader implements IShaderProvider {
         return this.material;
     }
 
-    public createMaterial(heightmap: Texture | null = null, scale: number = 0.5): ShaderMaterial {
+    public createMaterial(heightmap: Texture | null = null, scale: number = 0.05): ShaderMaterial {
         if (!heightmap) {
             // Create a default flat heightmap (1x1 pixel black)
             const data = new Uint8Array([0, 0, 0, 255]); // Black, full alpha
