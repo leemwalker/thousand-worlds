@@ -65,6 +65,8 @@ export class MoonFPVController implements IPlayerController {
     private planetMesh: Mesh | null = null;
     private planetDiameterKm: number = 12742; // Default Earth diameter
     private moonDistanceKm: number = 384400; // Default Moon distance
+    private terrainSize: number = 500; // Size of terrain for wrapping
+    private boundaryObserver: any = null; // Observer for position wrapping
 
     constructor(scene: Scene, moon: MoonData, options: MoonFPVOptions = {}) {
         this.scene = scene;
@@ -113,6 +115,9 @@ export class MoonFPVController implements IPlayerController {
 
         // Setup lighting (sun direction + ambient)
         this.setupLighting();
+
+        // Setup position wrapping for circumnavigation
+        this.setupPositionWrapping();
 
         console.log(`[MoonFPV] Created for ${moon.name}: gravity=${this.moonParams.gravity.toFixed(3)} m/s², horizon=${this.moonParams.horizonDistance.toFixed(0)}m`);
     }
@@ -165,68 +170,56 @@ export class MoonFPVController implements IPlayerController {
         this.terrain.material = terrainMat;
         this.terrain.checkCollisions = true;
 
-        // Create invisible boundary walls to prevent falling off
-        this.createBoundaryWalls(terrainSize);
+        // Store terrain size for position wrapping
+        this.terrainSize = terrainSize;
     }
 
     /**
-     * Create invisible walls around terrain perimeter.
+     * Setup position wrapping for circumnavigation.
+     * When player reaches terrain edge, they wrap to the opposite side.
      */
-    private createBoundaryWalls(terrainSize: number): void {
-        const wallHeight = 50;
-        const wallThickness = 2;
-        const halfSize = terrainSize / 2;
+    private setupPositionWrapping(): void {
+        const halfSize = this.terrainSize / 2;
+        const wrapBuffer = 5; // Buffer zone before wrapping
 
-        // Create invisible wall material
-        const invisibleMat = new StandardMaterial("invisibleWall", this.scene);
-        invisibleMat.alpha = 0; // Fully transparent
-        invisibleMat.disableLighting = true;
+        this.boundaryObserver = this.scene.onBeforeRenderObservable.add(() => {
+            if (this.disposed || !this.camera) return;
 
-        // North wall (positive Z)
-        const northWall = MeshBuilder.CreateBox("northWall", {
-            width: terrainSize,
-            height: wallHeight,
-            depth: wallThickness
-        }, this.scene);
-        northWall.position = new Vector3(0, wallHeight / 2, halfSize);
-        northWall.material = invisibleMat;
-        northWall.checkCollisions = true;
-        northWall.isVisible = false;
+            const pos = this.camera.position;
+            let wrapped = false;
 
-        // South wall (negative Z)
-        const southWall = MeshBuilder.CreateBox("southWall", {
-            width: terrainSize,
-            height: wallHeight,
-            depth: wallThickness
-        }, this.scene);
-        southWall.position = new Vector3(0, wallHeight / 2, -halfSize);
-        southWall.material = invisibleMat;
-        southWall.checkCollisions = true;
-        southWall.isVisible = false;
+            // Wrap X position (left/right)
+            if (pos.x > halfSize - wrapBuffer) {
+                pos.x = -halfSize + wrapBuffer * 2;
+                wrapped = true;
+            } else if (pos.x < -halfSize + wrapBuffer) {
+                pos.x = halfSize - wrapBuffer * 2;
+                wrapped = true;
+            }
 
-        // East wall (positive X)
-        const eastWall = MeshBuilder.CreateBox("eastWall", {
-            width: wallThickness,
-            height: wallHeight,
-            depth: terrainSize
-        }, this.scene);
-        eastWall.position = new Vector3(halfSize, wallHeight / 2, 0);
-        eastWall.material = invisibleMat;
-        eastWall.checkCollisions = true;
-        eastWall.isVisible = false;
+            // Wrap Z position (forward/back)
+            if (pos.z > halfSize - wrapBuffer) {
+                pos.z = -halfSize + wrapBuffer * 2;
+                wrapped = true;
+            } else if (pos.z < -halfSize + wrapBuffer) {
+                pos.z = halfSize - wrapBuffer * 2;
+                wrapped = true;
+            }
 
-        // West wall (negative X)
-        const westWall = MeshBuilder.CreateBox("westWall", {
-            width: wallThickness,
-            height: wallHeight,
-            depth: terrainSize
-        }, this.scene);
-        westWall.position = new Vector3(-halfSize, wallHeight / 2, 0);
-        westWall.material = invisibleMat;
-        westWall.checkCollisions = true;
-        westWall.isVisible = false;
+            if (wrapped) {
+                this.camera.position = pos;
+                console.log(`[MoonFPV] Position wrapped to (${pos.x.toFixed(1)}, ${pos.z.toFixed(1)})`);
+            }
 
-        console.log(`[MoonFPV] Created boundary walls for ${terrainSize}x${terrainSize} terrain`);
+            // Also prevent falling below terrain (safety net)
+            if (pos.y < -10) {
+                pos.y = this.eyeHeight + 5;
+                this.camera.position = pos;
+                console.log("[MoonFPV] Prevented fall through terrain");
+            }
+        });
+
+        console.log(`[MoonFPV] Position wrapping enabled for circumnavigation`);
     }
 
     /**
@@ -424,6 +417,12 @@ export class MoonFPVController implements IPlayerController {
     dispose(): void {
         if (this.disposed) return;
         this.disposed = true;
+
+        // Remove position wrapping observer
+        if (this.boundaryObserver) {
+            this.scene.onBeforeRenderObservable.remove(this.boundaryObserver);
+            this.boundaryObserver = null;
+        }
 
         this.camera.detachControl();
         this.camera.dispose();
