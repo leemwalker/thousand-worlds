@@ -164,6 +164,69 @@ export class MoonFPVController implements IPlayerController {
         terrainMat.specularColor = new Color3(0.1, 0.1, 0.1);
         this.terrain.material = terrainMat;
         this.terrain.checkCollisions = true;
+
+        // Create invisible boundary walls to prevent falling off
+        this.createBoundaryWalls(terrainSize);
+    }
+
+    /**
+     * Create invisible walls around terrain perimeter.
+     */
+    private createBoundaryWalls(terrainSize: number): void {
+        const wallHeight = 50;
+        const wallThickness = 2;
+        const halfSize = terrainSize / 2;
+
+        // Create invisible wall material
+        const invisibleMat = new StandardMaterial("invisibleWall", this.scene);
+        invisibleMat.alpha = 0; // Fully transparent
+        invisibleMat.disableLighting = true;
+
+        // North wall (positive Z)
+        const northWall = MeshBuilder.CreateBox("northWall", {
+            width: terrainSize,
+            height: wallHeight,
+            depth: wallThickness
+        }, this.scene);
+        northWall.position = new Vector3(0, wallHeight / 2, halfSize);
+        northWall.material = invisibleMat;
+        northWall.checkCollisions = true;
+        northWall.isVisible = false;
+
+        // South wall (negative Z)
+        const southWall = MeshBuilder.CreateBox("southWall", {
+            width: terrainSize,
+            height: wallHeight,
+            depth: wallThickness
+        }, this.scene);
+        southWall.position = new Vector3(0, wallHeight / 2, -halfSize);
+        southWall.material = invisibleMat;
+        southWall.checkCollisions = true;
+        southWall.isVisible = false;
+
+        // East wall (positive X)
+        const eastWall = MeshBuilder.CreateBox("eastWall", {
+            width: wallThickness,
+            height: wallHeight,
+            depth: terrainSize
+        }, this.scene);
+        eastWall.position = new Vector3(halfSize, wallHeight / 2, 0);
+        eastWall.material = invisibleMat;
+        eastWall.checkCollisions = true;
+        eastWall.isVisible = false;
+
+        // West wall (negative X)
+        const westWall = MeshBuilder.CreateBox("westWall", {
+            width: wallThickness,
+            height: wallHeight,
+            depth: terrainSize
+        }, this.scene);
+        westWall.position = new Vector3(-halfSize, wallHeight / 2, 0);
+        westWall.material = invisibleMat;
+        westWall.checkCollisions = true;
+        westWall.isVisible = false;
+
+        console.log(`[MoonFPV] Created boundary walls for ${terrainSize}x${terrainSize} terrain`);
     }
 
     /**
