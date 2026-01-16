@@ -644,13 +644,22 @@
                 const moonIndex = moonMeshes.findIndex(
                     (m) => m.name === meshName,
                 );
+                console.log(
+                    `[WorldController] Moon click: index=${moonIndex}, focusTarget=${focusTarget}, focusedMoonIndex=${focusedMoonIndex}, timeSinceLastClick=${now - lastClickTime}ms`,
+                );
                 if (moonIndex >= 0) {
-                    if (
+                    const isDoubleClick =
                         focusTarget === "moon" &&
                         focusedMoonIndex === moonIndex &&
-                        now - lastClickTime < 500
-                    ) {
+                        now - lastClickTime < 500;
+                    console.log(
+                        `[WorldController] Double-click check: ${isDoubleClick}`,
+                    );
+                    if (isDoubleClick) {
                         // Double-click on already focused moon → enter moon FPV
+                        console.log(
+                            `[WorldController] ENTERING MOON FPV via double-click`,
+                        );
                         enterMoonFPV(moonIndex);
                     } else {
                         focusTarget = "moon";
