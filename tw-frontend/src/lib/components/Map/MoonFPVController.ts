@@ -73,16 +73,22 @@ export class MoonFPVController implements IPlayerController {
         this.eyeHeight = options.eyeHeight ?? 1.7;
         this.planetDiameterKm = options.planetDiameterKm ?? 12742;
         // Use passed km distance, or convert from meters if not provided
-        this.moonDistanceKm = options.moonDistanceKm ?? (moon.distance / 1000);
+        // moon.distance is in meters, divide by 1e6 to get km
+        this.moonDistanceKm = options.moonDistanceKm ?? (moon.distance / 1e6);
 
-        const startPos = options.startPosition ?? new Vector3(0, this.eyeHeight + 1, 0);
+        // Start position - higher up to account for crater depressions
+        const startPos = options.startPosition ?? new Vector3(0, this.eyeHeight + 5, 0);
 
         // Create FPS camera
         this.camera = new UniversalCamera("moonFPSCamera", startPos, scene);
         this.camera.setTarget(startPos.add(new Vector3(0, 0, 1)));
-        this.camera.ellipsoid = new Vector3(0.5, 0.9, 0.5);
+        this.camera.ellipsoid = new Vector3(0.5, 1.0, 0.5); // Slightly taller ellipsoid
+        this.camera.ellipsoidOffset = new Vector3(0, 1.0, 0); // Offset to keep camera above ground
         this.camera.checkCollisions = true;
         this.camera.applyGravity = true;
+
+        // Set gravity for the scene based on moon gravity
+        scene.gravity = new Vector3(0, -this.moonParams.gravity / 50, 0); // Scaled for scene units
 
         // Set camera speed based on moon gravity
         this.camera.speed = this.moonParams.moveSpeed;

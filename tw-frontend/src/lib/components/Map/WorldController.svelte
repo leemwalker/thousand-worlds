@@ -49,7 +49,7 @@
     interface Satellite {
         name: string;
         mass: number; // kg
-        distance: number; // km from planet
+        distance: number; // meters from planet center
     }
 
     // Props
@@ -680,13 +680,14 @@
             if (!scene || !satellites[moonIndex]) return;
 
             const sat = satellites[moonIndex];
-            // Convert satellite distance from km to meters for MoonData
+            // Note: sat.distance is in METERS (despite interface comment saying km)
+            // MoonData.distance expects meters, so use directly
             const moonData: MoonData = {
                 id: sat.name,
                 name: sat.name,
                 mass: sat.mass,
                 radius: (sat as any).radius || 1e6, // Default 1000km radius if not specified
-                distance: sat.distance * 1000, // Convert km to meters
+                distance: sat.distance, // Already in meters
                 period: (sat as any).period || 0,
                 color: "#888888",
                 density: (sat as any).density || 3000,
@@ -701,7 +702,7 @@
 
             // Create new moon FPV controller with planet diameter for sky display
             const planetDiameterKm = (planetRadius * 2) / 1000; // Convert meters to km
-            const moonDistanceKm = sat.distance; // Keep original km value for sky rendering
+            const moonDistanceKm = sat.distance / 1e6; // Convert meters to km (divided by 1 million)
             moonFpvController = new MoonFPVController(scene, moonData, {
                 planetDiameterKm,
                 moonDistanceKm, // Pass km for accurate angular size calc
