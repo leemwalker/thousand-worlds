@@ -619,6 +619,10 @@
             const meshName = pickResult.pickedMesh.name;
             const now = performance.now();
 
+            console.log(
+                `[WorldController] Click on mesh: ${meshName}, moonMeshes count: ${moonMeshes.length}`,
+            );
+
             // Check if clicked on planet (globe)
             if (meshName.startsWith("globe")) {
                 if (focusTarget === "planet" && now - lastClickTime < 500) {
@@ -1035,6 +1039,7 @@
             moonMat.specularColor = new Color3(0, 0, 0); // Fully matte - no shine
             moonMat.emissiveColor = new Color3(0.02, 0.02, 0.02); // Very subtle glow for visibility
             moon.material = moonMat;
+            moon.isPickable = true; // Ensure moon is pickable for click detection
 
             // Store references
             moonMeshes.push(moon);
