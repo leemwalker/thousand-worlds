@@ -83,12 +83,14 @@ export class MoonFPVController implements IPlayerController {
         // moon.distance is in meters, divide by 1e6 to get km
         this.moonDistanceKm = options.moonDistanceKm ?? (moon.distance / 1e6);
 
-        // Start position on the sphere surface (top of sphere)
-        const startPos = new Vector3(0, this.sphereRadius + this.eyeHeight, 0);
+        // Start position INSIDE the sphere near inner surface
+        // Player walks on inside of sphere, so position is radius - eyeHeight from center
+        const startPos = new Vector3(0, this.sphereRadius - this.eyeHeight, 0);
 
         // Create FPS camera
         this.camera = new UniversalCamera("moonFPSCamera", startPos, scene);
-        this.camera.setTarget(startPos.add(new Vector3(0, 0, 1)));
+        // Look toward center initially (that's "up" in this inside-out world)
+        this.camera.setTarget(new Vector3(0, 0, 0));
         this.camera.ellipsoid = new Vector3(0.5, 1.0, 0.5);
         this.camera.ellipsoidOffset = new Vector3(0, 1.0, 0);
         this.camera.checkCollisions = true;
@@ -275,7 +277,7 @@ export class MoonFPVController implements IPlayerController {
      * Setup radial gravity and camera orientation for spherical surface.
      */
     private setupSphericalPhysics(): void {
-        const gravityStrength = this.moonParams.gravity / 100; // Scaled for scene
+        const gravityStrength = this.moonParams.gravity / 50; // Scaled for scene
 
         this.gravityObserver = this.scene.onBeforeRenderObservable.add(() => {
             if (this.disposed || !this.camera) return;
@@ -283,22 +285,22 @@ export class MoonFPVController implements IPlayerController {
             const pos = this.camera.position;
             const distFromCenter = pos.length();
 
-            // Radial gravity: pull toward center
-            const gravityDir = pos.normalize().scale(-1);
+            // Radial gravity: pull OUTWARD (toward inner surface of sphere)
+            const outwardDir = distFromCenter > 0.01 ? pos.normalize() : new Vector3(0, 1, 0);
 
             // Apply gravity to velocity
             const deltaTime = this.scene.getEngine().getDeltaTime() / 1000;
-            this.velocity.addInPlace(gravityDir.scale(gravityStrength * deltaTime * 60));
+            this.velocity.addInPlace(outwardDir.scale(gravityStrength * deltaTime * 60));
 
             // Apply velocity to position
             const newPos = pos.add(this.velocity.scale(deltaTime));
 
-            // Constrain to surface (clamp to sphere radius + eye height)
-            const targetDist = this.sphereRadius + this.eyeHeight;
+            // Constrain to inner surface (player at sphereRadius - eyeHeight)
+            const targetDist = this.sphereRadius - this.eyeHeight;
             const currentDist = newPos.length();
 
-            if (currentDist < targetDist) {
-                // On or below surface - snap to surface
+            if (currentDist > targetDist) {
+                // Beyond inner surface - snap to surface
                 newPos.normalize().scaleInPlace(targetDist);
                 this.velocity = Vector3.Zero(); // Reset velocity when grounded
                 this.isGrounded = true;
@@ -308,12 +310,12 @@ export class MoonFPVController implements IPlayerController {
 
             this.camera.position = newPos;
 
-            // Orient camera so "up" points away from sphere center
-            const upVector = newPos.normalize();
+            // Orient camera: "up" points TOWARD center (that's the sky)
+            const upVector = distFromCenter > 0.01 ? pos.normalize().scale(-1) : new Vector3(0, -1, 0);
             this.camera.upVector = upVector;
         });
 
-        console.log(`[MoonFPV] Spherical physics enabled, gravity=${gravityStrength.toFixed(4)}`);
+        console.log(`[MoonFPV] Inside-out physics enabled, gravity=${gravityStrength.toFixed(4)}`);
     }
 
     /**
