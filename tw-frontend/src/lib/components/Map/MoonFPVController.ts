@@ -89,8 +89,8 @@ export class MoonFPVController implements IPlayerController {
 
         // Create FPS camera
         this.camera = new UniversalCamera("moonFPSCamera", startPos, scene);
-        // Look toward center initially (that's "up" in this inside-out world)
-        this.camera.setTarget(new Vector3(0, 0, 0));
+        // Look FORWARD along tangent plane (not at center - that's degenerate with up vector)
+        this.camera.setTarget(new Vector3(0, startPos.y, 10)); // Look forward along +Z
         this.camera.ellipsoid = new Vector3(0.5, 1.0, 0.5);
         this.camera.ellipsoidOffset = new Vector3(0, 1.0, 0);
         this.camera.checkCollisions = true;
