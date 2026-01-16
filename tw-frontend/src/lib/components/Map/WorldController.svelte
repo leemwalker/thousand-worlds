@@ -675,6 +675,7 @@
         };
 
         // Enter FPV mode on a specific moon
+        // Hides orbital meshes and activates moon FPV controller
         function enterMoonFPV(moonIndex: number) {
             if (!scene || !satellites[moonIndex]) return;
 
@@ -691,11 +692,17 @@
                 destroyed: false,
             };
 
-            // Dispose existing moon FPV if any
+            // Dispose existing moon FPV controller if any
             moonFpvController?.dispose();
 
-            // Create new moon FPV controller
-            moonFpvController = new MoonFPVController(scene, moonData);
+            // Hide all orbital meshes to prevent intersection with FPV terrain
+            hideOrbitalMeshes();
+
+            // Create new moon FPV controller with planet diameter for sky display
+            const planetDiameterKm = (planetRadius * 2) / 1000; // Convert meters to km
+            moonFpvController = new MoonFPVController(scene, moonData, {
+                planetDiameterKm,
+            });
             moonFpvController.activate();
 
             isOnMoon = true;
@@ -715,6 +722,9 @@
             activeMoon = null;
             fpsMode = false;
 
+            // Restore all orbital meshes
+            showOrbitalMeshes();
+
             // Restore orbit camera
             if (camera) {
                 scene.activeCamera = camera;
@@ -725,6 +735,32 @@
             }
 
             console.log("[WorldController] Exited moon FPV");
+        }
+
+        // Hide orbital meshes (planet, sun, moons, starfield) during moon FPV
+        function hideOrbitalMeshes() {
+            if (globe) globe.isVisible = false;
+            if (sunMesh) sunMesh.isVisible = false;
+            moonMeshes.forEach((m) => (m.isVisible = false));
+
+            // Hide starfield mesh if it exists
+            const starfield = scene.getMeshByName("starSphere");
+            if (starfield) starfield.isVisible = false;
+
+            console.log("[WorldController] Orbital meshes hidden for moon FPV");
+        }
+
+        // Show orbital meshes when exiting moon FPV
+        function showOrbitalMeshes() {
+            if (globe) globe.isVisible = true;
+            if (sunMesh) sunMesh.isVisible = true;
+            moonMeshes.forEach((m) => (m.isVisible = true));
+
+            // Show starfield mesh
+            const starfield = scene.getMeshByName("starSphere");
+            if (starfield) starfield.isVisible = true;
+
+            console.log("[WorldController] Orbital meshes restored");
         }
 
         // Position camera between target (planet/moon) and sun

@@ -32,6 +32,8 @@ export interface MoonFPVOptions {
     startPosition?: Vector3;
     /** Eye height above ground */
     eyeHeight?: number;
+    /** Planet diameter in km for sky display */
+    planetDiameterKm?: number;
 }
 
 interface Position {
@@ -58,12 +60,15 @@ export class MoonFPVController implements IPlayerController {
     private moon: MoonData;
     private sunLight: PointLight | null = null;
     private ambientLight: HemisphericLight | null = null;
+    private planetMesh: Mesh | null = null;
+    private planetDiameterKm: number = 12742; // Default Earth diameter
 
     constructor(scene: Scene, moon: MoonData, options: MoonFPVOptions = {}) {
         this.scene = scene;
         this.moon = moon;
         this.moonParams = getMoonFPVParams(moon);
         this.eyeHeight = options.eyeHeight ?? 1.7;
+        this.planetDiameterKm = options.planetDiameterKm ?? 12742;
 
         const startPos = options.startPosition ?? new Vector3(0, this.eyeHeight + 1, 0);
 
@@ -91,6 +96,9 @@ export class MoonFPVController implements IPlayerController {
 
         // Create procedural moon terrain
         this.createProceduralTerrain();
+
+        // Create planet in the sky
+        this.createPlanetInSky();
 
         // Setup lighting (sun direction + ambient)
         this.setupLighting();
@@ -171,8 +179,8 @@ export class MoonFPVController implements IPlayerController {
 
         // Deform vertices based on craters
         for (let i = 0; i < positions.length; i += 3) {
-            const x = positions[i];
-            const z = positions[i + 2];
+            const x = positions[i] ?? 0;
+            const z = positions[i + 2] ?? 0;
             let y = 0;
 
             // Apply each crater's depression
@@ -202,6 +210,44 @@ export class MoonFPVController implements IPlayerController {
 
         this.terrain.updateVerticesData('position', positions);
         this.terrain.createNormals(true);
+    }
+
+    /**
+     * Create the parent planet visible in the sky.
+     * Size and position based on orbital distance.
+     */
+    private createPlanetInSky(): void {
+        // Calculate angular size of planet as seen from moon
+        // angularSize = 2 * atan(planetRadius / distance)
+        const planetRadiusKm = this.planetDiameterKm / 2;
+        const distanceKm = this.moon.distance; // Moon's orbital distance
+        const angularSizeRad = 2 * Math.atan(planetRadiusKm / distanceKm);
+        const angularSizeDeg = angularSizeRad * (180 / Math.PI);
+
+        // Place planet at a fixed distance in scene units
+        const skyDistance = 500; // Scene units
+        // Scale planet size proportionally
+        const planetSceneRadius = skyDistance * Math.tan(angularSizeRad / 2);
+        const planetSceneDiameter = Math.max(planetSceneRadius * 2, 10); // Minimum 10 units
+
+        console.log(`[MoonFPV] Planet in sky: angularSize=${angularSizeDeg.toFixed(1)}°, sceneDiameter=${planetSceneDiameter.toFixed(1)}`);
+
+        // Create planet sphere
+        this.planetMesh = MeshBuilder.CreateSphere("moonFPVPlanet", {
+            diameter: planetSceneDiameter,
+            segments: 32
+        }, this.scene);
+
+        // Position planet in sky - tidally locked moons always face the planet
+        // Place it at ~30 degrees above horizon
+        this.planetMesh.position = new Vector3(0, skyDistance * 0.4, skyDistance);
+
+        // Simple blue-green material for Earth-like planet
+        const planetMat = new StandardMaterial("moonFPVPlanetMat", this.scene);
+        planetMat.diffuseColor = new Color3(0.2, 0.4, 0.6);
+        planetMat.emissiveColor = new Color3(0.05, 0.1, 0.15);
+        planetMat.specularColor = new Color3(0.1, 0.1, 0.1);
+        this.planetMesh.material = planetMat;
     }
 
     /**
@@ -308,8 +354,10 @@ export class MoonFPVController implements IPlayerController {
         this.camera.detachControl();
         this.camera.dispose();
         this.terrain?.dispose();
+        this.planetMesh?.dispose();
         this.sunLight?.dispose();
         this.ambientLight?.dispose();
         this.terrain = null;
+        this.planetMesh = null;
     }
 }

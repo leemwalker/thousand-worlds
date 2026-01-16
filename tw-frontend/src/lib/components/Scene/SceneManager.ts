@@ -7,7 +7,7 @@ import { Engine } from "@babylonjs/core/Engines/engine";
 import { Scene } from "@babylonjs/core/scene";
 import { Color4 } from "@babylonjs/core/Maths/math.color";
 
-export type GameLocation = 'LOBBY' | 'WORLD' | 'LOADING' | 'PREVIEW';
+export type GameLocation = 'LOBBY' | 'WORLD' | 'LOADING' | 'PREVIEW' | 'MOON_FPV';
 
 export interface SceneTransitionOptions {
     fadeDuration?: number; // milliseconds
