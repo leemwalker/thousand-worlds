@@ -63,10 +63,15 @@ export class MoonFPVController implements IPlayerController {
     private sunLight: PointLight | null = null;
     private ambientLight: HemisphericLight | null = null;
     private planetMesh: Mesh | null = null;
+    private starfieldMesh: Mesh | null = null;
+    private sunMesh: Mesh | null = null;
     private planetDiameterKm: number = 12742; // Default Earth diameter
     private moonDistanceKm: number = 384400; // Default Moon distance
-    private terrainSize: number = 500; // Size of terrain for wrapping
-    private boundaryObserver: any = null; // Observer for position wrapping
+
+    // Spherical surface properties
+    private sphereRadius: number = 100; // Radius of walkable sphere
+    private gravityObserver: any = null; // Observer for radial gravity
+    private cameraOrientationObserver: any = null; // Observer for camera orientation
 
     constructor(scene: Scene, moon: MoonData, options: MoonFPVOptions = {}) {
         this.scene = scene;
@@ -78,19 +83,16 @@ export class MoonFPVController implements IPlayerController {
         // moon.distance is in meters, divide by 1e6 to get km
         this.moonDistanceKm = options.moonDistanceKm ?? (moon.distance / 1e6);
 
-        // Start position - higher up to account for crater depressions
-        const startPos = options.startPosition ?? new Vector3(0, this.eyeHeight + 5, 0);
+        // Start position on the sphere surface (top of sphere)
+        const startPos = new Vector3(0, this.sphereRadius + this.eyeHeight, 0);
 
         // Create FPS camera
         this.camera = new UniversalCamera("moonFPSCamera", startPos, scene);
         this.camera.setTarget(startPos.add(new Vector3(0, 0, 1)));
-        this.camera.ellipsoid = new Vector3(0.5, 1.0, 0.5); // Slightly taller ellipsoid
-        this.camera.ellipsoidOffset = new Vector3(0, 1.0, 0); // Offset to keep camera above ground
+        this.camera.ellipsoid = new Vector3(0.5, 1.0, 0.5);
+        this.camera.ellipsoidOffset = new Vector3(0, 1.0, 0);
         this.camera.checkCollisions = true;
-        this.camera.applyGravity = true;
-
-        // Set gravity for the scene based on moon gravity
-        scene.gravity = new Vector3(0, -this.moonParams.gravity / 50, 0); // Scaled for scene units
+        this.camera.applyGravity = false; // We'll apply custom radial gravity
 
         // Set camera speed based on moon gravity
         this.camera.speed = this.moonParams.moveSpeed;
@@ -100,15 +102,19 @@ export class MoonFPVController implements IPlayerController {
         this.camera.keysDown = [83]; // S
         this.camera.keysLeft = [65]; // A
         this.camera.keysRight = [68]; // D
-        this.camera.keysRotateLeft = [81]; // Q
-        this.camera.keysRotateRight = [69]; // E
         this.camera.angularSensibility = 500;
 
-        // Set fog based on horizon distance (visibility limit)
-        this.setupHorizonFog();
+        // Disable fog for spherical view (we want to see the sky)
+        this.scene.fogMode = 0;
 
-        // Create procedural moon terrain
-        this.createProceduralTerrain();
+        // Create the spherical moon surface (inside-out)
+        this.createSphericalTerrain();
+
+        // Create starfield (large sphere around everything)
+        this.createStarfield();
+
+        // Create sun in the sky
+        this.createSun();
 
         // Create planet in the sky
         this.createPlanetInSky();
@@ -116,47 +122,26 @@ export class MoonFPVController implements IPlayerController {
         // Setup lighting (sun direction + ambient)
         this.setupLighting();
 
-        // Setup position wrapping for circumnavigation
-        this.setupPositionWrapping();
+        // Setup radial gravity and camera orientation
+        this.setupSphericalPhysics();
 
-        console.log(`[MoonFPV] Created for ${moon.name}: gravity=${this.moonParams.gravity.toFixed(3)} m/s², horizon=${this.moonParams.horizonDistance.toFixed(0)}m`);
+        console.log(`[MoonFPV] Created spherical surface for ${moon.name}: radius=${this.sphereRadius}, gravity=${this.moonParams.gravity.toFixed(3)} m/s²`);
     }
 
     /**
-     * Set up fog based on moon horizon distance.
-     * Smaller moons have closer horizons, so fog starts sooner.
+     * Create the spherical moon surface using an inside-out sphere.
+     * Player walks on the inside surface, looking up at the "sky" (center of sphere).
      */
-    private setupHorizonFog(): void {
-        // Scale horizon for rendering (we don't render full scale)
-        // Use log scale to make it usable for rendering
-        const fogStart = Math.min(this.moonParams.horizonDistance / 1000, 500);
-        const fogEnd = fogStart * 2;
-
-        this.scene.fogMode = 2; // Exponential
-        this.scene.fogDensity = 0.001;
-        this.scene.fogColor = new Color3(0.02, 0.02, 0.03); // Dark space
-        this.scene.fogStart = fogStart;
-        this.scene.fogEnd = fogEnd;
-    }
-
-    /**
-     * Create simple procedural crater terrain.
-     * More complex terrain generation can be added later.
-     */
-    private createProceduralTerrain(): void {
-        // Create a ground plane with craters (larger for more exploration)
-        const terrainSize = 500;
-        const subdivisions = 128; // Higher resolution for larger terrain
-
-        this.terrain = MeshBuilder.CreateGround("moonTerrain", {
-            width: terrainSize,
-            height: terrainSize,
-            subdivisions: subdivisions,
-            updatable: true
+    private createSphericalTerrain(): void {
+        // Create sphere with inverted normals (player is inside)
+        this.terrain = MeshBuilder.CreateSphere("moonSurface", {
+            diameter: this.sphereRadius * 2,
+            segments: 64,
+            sideOrientation: 1 // BACKSIDE - render inside
         }, this.scene);
 
-        // Apply crater deformations to terrain
-        this.applyProcedurcraters(subdivisions);
+        // Apply crater-like height variations via vertex manipulation
+        this.applySphericalCraters();
 
         // Material based on moon color
         const terrainMat = new StandardMaterial("moonTerrainMat", this.scene);
@@ -167,116 +152,168 @@ export class MoonFPVController implements IPlayerController {
 
         terrainMat.diffuseColor = new Color3(r * 0.8, g * 0.8, b * 0.8);
         terrainMat.specularColor = new Color3(0.1, 0.1, 0.1);
+        terrainMat.backFaceCulling = false; // Show inside surface
         this.terrain.material = terrainMat;
         this.terrain.checkCollisions = true;
 
-        // Store terrain size for position wrapping
-        this.terrainSize = terrainSize;
+        console.log(`[MoonFPV] Created spherical terrain, radius=${this.sphereRadius}`);
     }
 
     /**
-     * Setup position wrapping for circumnavigation.
-     * When player reaches terrain edge, they wrap to the opposite side.
+     * Apply crater-like deformations to spherical terrain.
      */
-    private setupPositionWrapping(): void {
-        const halfSize = this.terrainSize / 2;
-        const wrapBuffer = 5; // Buffer zone before wrapping
-
-        this.boundaryObserver = this.scene.onBeforeRenderObservable.add(() => {
-            if (this.disposed || !this.camera) return;
-
-            const pos = this.camera.position;
-            let wrapped = false;
-
-            // Wrap X position (left/right)
-            if (pos.x > halfSize - wrapBuffer) {
-                pos.x = -halfSize + wrapBuffer * 2;
-                wrapped = true;
-            } else if (pos.x < -halfSize + wrapBuffer) {
-                pos.x = halfSize - wrapBuffer * 2;
-                wrapped = true;
-            }
-
-            // Wrap Z position (forward/back)
-            if (pos.z > halfSize - wrapBuffer) {
-                pos.z = -halfSize + wrapBuffer * 2;
-                wrapped = true;
-            } else if (pos.z < -halfSize + wrapBuffer) {
-                pos.z = halfSize - wrapBuffer * 2;
-                wrapped = true;
-            }
-
-            if (wrapped) {
-                this.camera.position = pos;
-                console.log(`[MoonFPV] Position wrapped to (${pos.x.toFixed(1)}, ${pos.z.toFixed(1)})`);
-            }
-
-            // Also prevent falling below terrain (safety net)
-            if (pos.y < -10) {
-                pos.y = this.eyeHeight + 5;
-                this.camera.position = pos;
-                console.log("[MoonFPV] Prevented fall through terrain");
-            }
-        });
-
-        console.log(`[MoonFPV] Position wrapping enabled for circumnavigation`);
-    }
-
-    /**
-     * Apply procedural crater deformations to terrain.
-     */
-    private applyProcedurcraters(subdivisions: number): void {
+    private applySphericalCraters(): void {
         if (!this.terrain) return;
 
         const positions = this.terrain.getVerticesData('position');
         if (!positions) return;
 
-        // Create some random craters
-        const craters = [];
-        const craterCount = 15 + Math.floor(Math.random() * 10);
+        // Create random craters
+        const craters: Array<{ center: Vector3, radius: number, depth: number }> = [];
+        const craterCount = 20 + Math.floor(Math.random() * 15);
 
         for (let i = 0; i < craterCount; i++) {
+            // Random point on unit sphere, then scale
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            const center = new Vector3(
+                Math.sin(phi) * Math.cos(theta),
+                Math.sin(phi) * Math.sin(theta),
+                Math.cos(phi)
+            ).scale(this.sphereRadius);
+
             craters.push({
-                x: (Math.random() - 0.5) * 180,
-                z: (Math.random() - 0.5) * 180,
-                radius: 5 + Math.random() * 20,
-                depth: 0.5 + Math.random() * 2
+                center,
+                radius: 5 + Math.random() * 15, // Crater radius
+                depth: 0.5 + Math.random() * 2  // Crater depth
             });
         }
 
-        // Deform vertices based on craters
+        // Apply crater deformations to vertices
         for (let i = 0; i < positions.length; i += 3) {
-            const x = positions[i] ?? 0;
-            const z = positions[i + 2] ?? 0;
-            let y = 0;
+            const vertex = new Vector3(
+                positions[i] ?? 0,
+                positions[i + 1] ?? 0,
+                positions[i + 2] ?? 0
+            );
 
-            // Apply each crater's depression
+            let depression = 0;
             for (const crater of craters) {
-                const dx = x - crater.x;
-                const dz = z - crater.z;
-                const dist = Math.sqrt(dx * dx + dz * dz);
-
+                const dist = Vector3.Distance(vertex, crater.center);
                 if (dist < crater.radius) {
-                    // Crater shape: deeper in center, rim at edge
-                    const normalizedDist = dist / crater.radius;
-                    const craterDepth = -crater.depth * Math.cos(normalizedDist * Math.PI * 0.5);
-                    y += craterDepth;
-
-                    // Add slight rim
-                    if (normalizedDist > 0.7) {
-                        y += crater.depth * 0.2 * (normalizedDist - 0.7) / 0.3;
-                    }
+                    // Parabolic crater profile
+                    const t = dist / crater.radius;
+                    depression += crater.depth * (1 - t * t);
                 }
             }
 
-            // Add some noise for roughness
-            y += (Math.random() - 0.5) * 0.3;
-
-            positions[i + 1] = y;
+            // Push vertex inward for craters (since normals face inward)
+            if (depression > 0) {
+                const normal = vertex.normalize();
+                positions[i] = (positions[i] ?? 0) - normal.x * depression;
+                positions[i + 1] = (positions[i + 1] ?? 0) - normal.y * depression;
+                positions[i + 2] = (positions[i + 2] ?? 0) - normal.z * depression;
+            }
         }
 
         this.terrain.updateVerticesData('position', positions);
-        this.terrain.createNormals(true);
+    }
+
+    /**
+     * Create starfield sphere surrounding the moon surface.
+     */
+    private createStarfield(): void {
+        // Create large sphere for starfield
+        const starfieldRadius = this.sphereRadius * 5;
+        this.starfieldMesh = MeshBuilder.CreateSphere("fpvStarfield", {
+            diameter: starfieldRadius * 2,
+            segments: 32,
+            sideOrientation: 1 // BACKSIDE - we're inside
+        }, this.scene);
+
+        // Simple dark material with emissive stars
+        const starMat = new StandardMaterial("starfieldMat", this.scene);
+        starMat.diffuseColor = new Color3(0, 0, 0);
+        starMat.emissiveColor = new Color3(0.02, 0.02, 0.05);
+        starMat.specularColor = new Color3(0, 0, 0);
+        starMat.backFaceCulling = false;
+        this.starfieldMesh.material = starMat;
+
+        // Starfield doesn't need collisions
+        this.starfieldMesh.checkCollisions = false;
+
+        console.log(`[MoonFPV] Created starfield, radius=${starfieldRadius}`);
+    }
+
+    /**
+     * Create sun visual in the sky.
+     */
+    private createSun(): void {
+        // Create sun sphere at distance
+        const sunDistance = this.sphereRadius * 4;
+        const sunSize = this.sphereRadius * 0.3;
+
+        this.sunMesh = MeshBuilder.CreateSphere("fpvSun", {
+            diameter: sunSize,
+            segments: 16
+        }, this.scene);
+
+        // Position sun (fixed position for now)
+        this.sunMesh.position = new Vector3(sunDistance, sunDistance * 0.5, 0);
+
+        // Bright emissive material
+        const sunMat = new StandardMaterial("sunMat", this.scene);
+        sunMat.diffuseColor = new Color3(1, 1, 0.8);
+        sunMat.emissiveColor = new Color3(1, 0.9, 0.7);
+        sunMat.specularColor = new Color3(0, 0, 0);
+        this.sunMesh.material = sunMat;
+
+        console.log(`[MoonFPV] Created sun at distance ${sunDistance}`);
+    }
+
+    /**
+     * Setup radial gravity and camera orientation for spherical surface.
+     */
+    private setupSphericalPhysics(): void {
+        const gravityStrength = this.moonParams.gravity / 100; // Scaled for scene
+
+        this.gravityObserver = this.scene.onBeforeRenderObservable.add(() => {
+            if (this.disposed || !this.camera) return;
+
+            const pos = this.camera.position;
+            const distFromCenter = pos.length();
+
+            // Radial gravity: pull toward center
+            const gravityDir = pos.normalize().scale(-1);
+
+            // Apply gravity to velocity
+            const deltaTime = this.scene.getEngine().getDeltaTime() / 1000;
+            this.velocity.addInPlace(gravityDir.scale(gravityStrength * deltaTime * 60));
+
+            // Apply velocity to position
+            const newPos = pos.add(this.velocity.scale(deltaTime));
+
+            // Constrain to surface (clamp to sphere radius + eye height)
+            const targetDist = this.sphereRadius + this.eyeHeight;
+            const currentDist = newPos.length();
+
+            if (currentDist < targetDist) {
+                // On or below surface - snap to surface
+                newPos.normalize().scaleInPlace(targetDist);
+                this.velocity = Vector3.Zero(); // Reset velocity when grounded
+                this.isGrounded = true;
+            } else {
+                this.isGrounded = false;
+            }
+
+            this.camera.position = newPos;
+
+            // Orient camera so "up" points away from sphere center
+            const upVector = newPos.normalize();
+            this.camera.upVector = upVector;
+        });
+
+        console.log(`[MoonFPV] Spherical physics enabled, gravity=${gravityStrength.toFixed(4)}`);
     }
 
     /**
@@ -287,17 +324,17 @@ export class MoonFPVController implements IPlayerController {
         // Calculate angular size of planet as seen from moon
         // angularSize = 2 * atan(planetRadius / distance)
         const planetRadiusKm = this.planetDiameterKm / 2;
-        const distanceKm = this.moonDistanceKm; // Use km value for accurate calculation
+        const distanceKm = this.moonDistanceKm;
         const angularSizeRad = 2 * Math.atan(planetRadiusKm / distanceKm);
         const angularSizeDeg = angularSizeRad * (180 / Math.PI);
 
-        // Place planet at a fixed distance in scene units (beyond terrain edge)
-        const skyDistance = 800; // Scene units - beyond 500 terrain radius
+        // Place planet between moon sphere and starfield
+        const skyDistance = this.sphereRadius * 3; // Between terrain and starfield
         // Scale planet size proportionally based on angular size
         const planetSceneRadius = skyDistance * Math.tan(angularSizeRad / 2);
-        const planetSceneDiameter = Math.max(planetSceneRadius * 2, 20); // Minimum 20 units
+        const planetSceneDiameter = Math.max(planetSceneRadius * 2, this.sphereRadius * 0.5);
 
-        console.log(`[MoonFPV] Planet in sky: planetDiam=${this.planetDiameterKm}km, distance=${distanceKm}km, angularSize=${angularSizeDeg.toFixed(1)}°, sceneDiameter=${planetSceneDiameter.toFixed(1)}`);
+        console.log(`[MoonFPV] Planet in sky: angularSize=${angularSizeDeg.toFixed(1)}°, sceneDiam=${planetSceneDiameter.toFixed(1)}`);
 
         // Create planet sphere
         this.planetMesh = MeshBuilder.CreateSphere("moonFPVPlanet", {
@@ -306,13 +343,13 @@ export class MoonFPVController implements IPlayerController {
         }, this.scene);
 
         // Position planet in sky - tidally locked moons always face the planet
-        // Place it at ~30 degrees above horizon
-        this.planetMesh.position = new Vector3(0, skyDistance * 0.4, skyDistance);
+        // For inside-out sphere, "up" from center is toward the sky
+        this.planetMesh.position = new Vector3(skyDistance * 0.8, skyDistance * 0.6, 0);
 
-        // Simple blue-green material for Earth-like planet
+        // Earth-like planet material with emissive glow
         const planetMat = new StandardMaterial("moonFPVPlanetMat", this.scene);
         planetMat.diffuseColor = new Color3(0.2, 0.4, 0.6);
-        planetMat.emissiveColor = new Color3(0.05, 0.1, 0.15);
+        planetMat.emissiveColor = new Color3(0.1, 0.15, 0.2);
         planetMat.specularColor = new Color3(0.1, 0.1, 0.1);
         this.planetMesh.material = planetMat;
     }
@@ -323,14 +360,15 @@ export class MoonFPVController implements IPlayerController {
     private setupLighting(): void {
         // Ambient light (very dim - space)
         this.ambientLight = new HemisphericLight("moonAmbient", new Vector3(0, 1, 0), this.scene);
-        this.ambientLight.intensity = 0.1;
+        this.ambientLight.intensity = 0.15;
         this.ambientLight.groundColor = new Color3(0.02, 0.02, 0.02);
 
-        // Sun light (distant, directional-like)
-        this.sunLight = new PointLight("moonSun", new Vector3(1000, 500, 0), this.scene);
-        this.sunLight.intensity = 1.5;
+        // Sun light - positioned at same location as sun mesh
+        const sunDistance = this.sphereRadius * 4;
+        this.sunLight = new PointLight("moonSun", new Vector3(sunDistance, sunDistance * 0.5, 0), this.scene);
+        this.sunLight.intensity = 2.0;
         this.sunLight.diffuse = new Color3(1.0, 0.98, 0.9); // Slightly warm
-        this.sunLight.range = 5000;
+        this.sunLight.range = sunDistance * 3;
     }
 
     /**
@@ -418,19 +456,23 @@ export class MoonFPVController implements IPlayerController {
         if (this.disposed) return;
         this.disposed = true;
 
-        // Remove position wrapping observer
-        if (this.boundaryObserver) {
-            this.scene.onBeforeRenderObservable.remove(this.boundaryObserver);
-            this.boundaryObserver = null;
+        // Remove spherical physics observer
+        if (this.gravityObserver) {
+            this.scene.onBeforeRenderObservable.remove(this.gravityObserver);
+            this.gravityObserver = null;
         }
 
         this.camera.detachControl();
         this.camera.dispose();
         this.terrain?.dispose();
         this.planetMesh?.dispose();
+        this.starfieldMesh?.dispose();
+        this.sunMesh?.dispose();
         this.sunLight?.dispose();
         this.ambientLight?.dispose();
         this.terrain = null;
         this.planetMesh = null;
+        this.starfieldMesh = null;
+        this.sunMesh = null;
     }
 }
