@@ -651,7 +651,7 @@
                     const isDoubleClick =
                         focusTarget === "moon" &&
                         focusedMoonIndex === moonIndex &&
-                        now - lastClickTime < 500;
+                        now - lastClickTime < 800;
                     console.log(
                         `[WorldController] Double-click check: ${isDoubleClick}`,
                     );
