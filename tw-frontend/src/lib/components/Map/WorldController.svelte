@@ -42,6 +42,8 @@
     import { FPSAccessibilityOptions } from "./FPSAccessibilityOptions";
     import { HorizonRenderer } from "./HorizonRenderer";
     import { PerformanceOverlay } from "./PerformanceOverlay";
+    import { MoonFPVController } from "./MoonFPVController";
+    import type { MoonData } from "$lib/types/moon";
 
     // Types for satellite/moon data
     interface Satellite {
@@ -161,6 +163,11 @@
     let focusTarget: FocusTarget = "planet"; // Default focus on planet
     let focusedMoonIndex: number = -1; // Which moon is focused (-1 = none)
     let lastClickTime: number = 0; // For detecting double-click on focused object
+
+    // Moon FPV State
+    let moonFpvController: MoonFPVController | null = null;
+    let isOnMoon: boolean = false;
+    let activeMoon: MoonData | null = null;
 
     // Subscribe to text mode changes for pausing/resuming WebGL
     $: if (typeof window !== "undefined") {
@@ -639,10 +646,8 @@
                         focusedMoonIndex === moonIndex &&
                         now - lastClickTime < 500
                     ) {
-                        // Double-click on already focused moon → could enter moon FPV (future)
-                        console.log(
-                            "[WorldController] Double-click on moon - FPV not yet implemented",
-                        );
+                        // Double-click on already focused moon → enter moon FPV
+                        enterMoonFPV(moonIndex);
                     } else {
                         focusTarget = "moon";
                         focusedMoonIndex = moonIndex;
@@ -655,6 +660,59 @@
                 }
             }
         };
+
+        // Enter FPV mode on a specific moon
+        function enterMoonFPV(moonIndex: number) {
+            if (!scene || !satellites[moonIndex]) return;
+
+            const sat = satellites[moonIndex];
+            const moonData: MoonData = {
+                id: sat.name,
+                name: sat.name,
+                mass: sat.mass,
+                radius: (sat as any).radius || 1e6, // Default 1000km radius if not specified
+                distance: sat.distance,
+                period: (sat as any).period || 0,
+                color: "#888888",
+                density: (sat as any).density || 3000,
+                destroyed: false,
+            };
+
+            // Dispose existing moon FPV if any
+            moonFpvController?.dispose();
+
+            // Create new moon FPV controller
+            moonFpvController = new MoonFPVController(scene, moonData);
+            moonFpvController.activate();
+
+            isOnMoon = true;
+            activeMoon = moonData;
+            fpsMode = true;
+
+            console.log(
+                `[WorldController] Entered FPV on ${moonData.name}, gravity=${moonFpvController.getGravity().toFixed(3)} m/s²`,
+            );
+        }
+
+        // Exit moon FPV mode and return to orbit
+        function exitMoonFPV() {
+            moonFpvController?.dispose();
+            moonFpvController = null;
+            isOnMoon = false;
+            activeMoon = null;
+            fpsMode = false;
+
+            // Restore orbit camera
+            if (camera) {
+                scene.activeCamera = camera;
+                const canvas = scene.getEngine().getRenderingCanvas();
+                if (canvas) {
+                    camera.attachControl(canvas, true);
+                }
+            }
+
+            console.log("[WorldController] Exited moon FPV");
+        }
 
         // Position camera between target (planet/moon) and sun
         function updateCameraForSunAlignment(
@@ -721,9 +779,15 @@
 
         // Escape key to exit FPS mode
         const handleKeyDown = (evt: KeyboardEvent) => {
-            if (evt.key === "Escape" && fpsMode && fpsTransitionController) {
-                fpsTransitionController.returnToOrbit();
-                fpsMode = false;
+            if (evt.key === "Escape" && fpsMode) {
+                if (isOnMoon) {
+                    // Exit moon FPV
+                    exitMoonFPV();
+                } else if (fpsTransitionController) {
+                    // Exit planet FPV
+                    fpsTransitionController.returnToOrbit();
+                    fpsMode = false;
+                }
                 console.log("[BabylonGlobe] Exiting FPS mode");
             }
             // Toggle performance overlay with F3
