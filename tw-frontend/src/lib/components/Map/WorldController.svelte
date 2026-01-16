@@ -680,12 +680,13 @@
             if (!scene || !satellites[moonIndex]) return;
 
             const sat = satellites[moonIndex];
+            // Convert satellite distance from km to meters for MoonData
             const moonData: MoonData = {
                 id: sat.name,
                 name: sat.name,
                 mass: sat.mass,
                 radius: (sat as any).radius || 1e6, // Default 1000km radius if not specified
-                distance: sat.distance,
+                distance: sat.distance * 1000, // Convert km to meters
                 period: (sat as any).period || 0,
                 color: "#888888",
                 density: (sat as any).density || 3000,
@@ -700,8 +701,10 @@
 
             // Create new moon FPV controller with planet diameter for sky display
             const planetDiameterKm = (planetRadius * 2) / 1000; // Convert meters to km
+            const moonDistanceKm = sat.distance; // Keep original km value for sky rendering
             moonFpvController = new MoonFPVController(scene, moonData, {
                 planetDiameterKm,
+                moonDistanceKm, // Pass km for accurate angular size calc
             });
             moonFpvController.activate();
 
@@ -739,15 +742,39 @@
 
         // Hide orbital meshes (planet, sun, moons, starfield) during moon FPV
         function hideOrbitalMeshes() {
-            if (globe) globe.isVisible = false;
-            if (sunMesh) sunMesh.isVisible = false;
+            // Hide globe (planet mesh)
+            if (globe) {
+                globe.isVisible = false;
+                console.log(
+                    `[WorldController] Hidden globe mesh: ${globe.name}`,
+                );
+            } else {
+                console.warn(
+                    "[WorldController] Globe mesh is null, cannot hide",
+                );
+            }
+
+            // Hide sun
+            if (sunMesh) {
+                sunMesh.isVisible = false;
+            }
+
+            // Hide all moon meshes
             moonMeshes.forEach((m) => (m.isVisible = false));
+
+            // Hide parent transform nodes to ensure all children are hidden
+            if (orbitNode) {
+                orbitNode.setEnabled(false);
+                console.log("[WorldController] Disabled orbitNode");
+            }
 
             // Hide starfield mesh if it exists
             const starfield = scene.getMeshByName("starSphere");
             if (starfield) starfield.isVisible = false;
 
-            console.log("[WorldController] Orbital meshes hidden for moon FPV");
+            console.log(
+                `[WorldController] Orbital meshes hidden for moon FPV (globe=${!!globe}, sun=${!!sunMesh}, moons=${moonMeshes.length})`,
+            );
         }
 
         // Show orbital meshes when exiting moon FPV
@@ -755,6 +782,11 @@
             if (globe) globe.isVisible = true;
             if (sunMesh) sunMesh.isVisible = true;
             moonMeshes.forEach((m) => (m.isVisible = true));
+
+            // Re-enable parent transform nodes
+            if (orbitNode) {
+                orbitNode.setEnabled(true);
+            }
 
             // Show starfield mesh
             const starfield = scene.getMeshByName("starSphere");

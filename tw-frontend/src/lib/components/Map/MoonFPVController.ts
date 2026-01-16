@@ -34,6 +34,8 @@ export interface MoonFPVOptions {
     eyeHeight?: number;
     /** Planet diameter in km for sky display */
     planetDiameterKm?: number;
+    /** Moon orbital distance in km for angular size calculation */
+    moonDistanceKm?: number;
 }
 
 interface Position {
@@ -62,6 +64,7 @@ export class MoonFPVController implements IPlayerController {
     private ambientLight: HemisphericLight | null = null;
     private planetMesh: Mesh | null = null;
     private planetDiameterKm: number = 12742; // Default Earth diameter
+    private moonDistanceKm: number = 384400; // Default Moon distance
 
     constructor(scene: Scene, moon: MoonData, options: MoonFPVOptions = {}) {
         this.scene = scene;
@@ -69,6 +72,8 @@ export class MoonFPVController implements IPlayerController {
         this.moonParams = getMoonFPVParams(moon);
         this.eyeHeight = options.eyeHeight ?? 1.7;
         this.planetDiameterKm = options.planetDiameterKm ?? 12742;
+        // Use passed km distance, or convert from meters if not provided
+        this.moonDistanceKm = options.moonDistanceKm ?? (moon.distance / 1000);
 
         const startPos = options.startPosition ?? new Vector3(0, this.eyeHeight + 1, 0);
 
@@ -128,9 +133,9 @@ export class MoonFPVController implements IPlayerController {
      * More complex terrain generation can be added later.
      */
     private createProceduralTerrain(): void {
-        // Create a ground plane with craters (simple version)
-        const terrainSize = 200;
-        const subdivisions = 64;
+        // Create a ground plane with craters (larger for more exploration)
+        const terrainSize = 500;
+        const subdivisions = 128; // Higher resolution for larger terrain
 
         this.terrain = MeshBuilder.CreateGround("moonTerrain", {
             width: terrainSize,
@@ -220,17 +225,17 @@ export class MoonFPVController implements IPlayerController {
         // Calculate angular size of planet as seen from moon
         // angularSize = 2 * atan(planetRadius / distance)
         const planetRadiusKm = this.planetDiameterKm / 2;
-        const distanceKm = this.moon.distance; // Moon's orbital distance
+        const distanceKm = this.moonDistanceKm; // Use km value for accurate calculation
         const angularSizeRad = 2 * Math.atan(planetRadiusKm / distanceKm);
         const angularSizeDeg = angularSizeRad * (180 / Math.PI);
 
-        // Place planet at a fixed distance in scene units
-        const skyDistance = 500; // Scene units
-        // Scale planet size proportionally
+        // Place planet at a fixed distance in scene units (beyond terrain edge)
+        const skyDistance = 800; // Scene units - beyond 500 terrain radius
+        // Scale planet size proportionally based on angular size
         const planetSceneRadius = skyDistance * Math.tan(angularSizeRad / 2);
-        const planetSceneDiameter = Math.max(planetSceneRadius * 2, 10); // Minimum 10 units
+        const planetSceneDiameter = Math.max(planetSceneRadius * 2, 20); // Minimum 20 units
 
-        console.log(`[MoonFPV] Planet in sky: angularSize=${angularSizeDeg.toFixed(1)}°, sceneDiameter=${planetSceneDiameter.toFixed(1)}`);
+        console.log(`[MoonFPV] Planet in sky: planetDiam=${this.planetDiameterKm}km, distance=${distanceKm}km, angularSize=${angularSizeDeg.toFixed(1)}°, sceneDiameter=${planetSceneDiameter.toFixed(1)}`);
 
         // Create planet sphere
         this.planetMesh = MeshBuilder.CreateSphere("moonFPVPlanet", {
