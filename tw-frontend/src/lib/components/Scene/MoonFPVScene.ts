@@ -51,10 +51,12 @@ export class MoonFPVScene {
     // Scene data passed from WorldController
     private sceneData: MoonFPVSceneData | null = null;
 
-    // Terrain parameters
     private readonly TERRAIN_SIZE = 200;
     private readonly TERRAIN_SUBDIVISIONS = 64;
-    private readonly EYE_HEIGHT = 1.7;
+    private readonly EYE_HEIGHT = 1.778; // 5'10" in meters
+    private moonRadiusM: number = 1737000; // Moon radius in meters for curvature
+    private playerLongitude: number = 0; // Player position for celestial body updates
+    private updateObserver: any = null;
 
     /**
      * Set scene data before creation.
@@ -77,6 +79,9 @@ export class MoonFPVScene {
 
         this.scene = scene;
         this.moonParams = getMoonFPVParams(this.sceneData.moon);
+
+        // Get moon radius for terrain curvature calculation
+        this.moonRadiusM = (this.sceneData.moon.radius || 1737) * 1000; // km to meters
 
         // Dark space background
         scene.clearColor = new Color4(0.01, 0.01, 0.02, 1);
@@ -128,22 +133,23 @@ export class MoonFPVScene {
     }
 
     /**
-     * Create starfield background sphere.
+     * Create skybox for star background.
      */
     private createStarfield(scene: Scene): void {
-        this.starfield = MeshBuilder.CreateSphere("moonFPVStarfield", {
-            diameter: 2000,
-            segments: 16
+        const skyboxSize = this.TERRAIN_SIZE * 10;
+        this.starfield = MeshBuilder.CreateBox("moonFPVSkybox", {
+            size: skyboxSize
         }, scene);
 
-        const starfieldMat = new StandardMaterial("moonFPVStarfieldMat", scene);
-        starfieldMat.emissiveColor = new Color3(0.02, 0.02, 0.03);
-        starfieldMat.disableLighting = true;
-        starfieldMat.backFaceCulling = false;
-        this.starfield.material = starfieldMat;
-
-        // Add some stars as small emissive spots
-        // For now, use a simple dark material - could add procedural stars later
+        const skyboxMat = new StandardMaterial("moonFPVSkyboxMat", scene);
+        skyboxMat.emissiveColor = new Color3(0.01, 0.01, 0.02);
+        skyboxMat.diffuseColor = new Color3(0, 0, 0);
+        skyboxMat.specularColor = new Color3(0, 0, 0);
+        skyboxMat.disableLighting = true;
+        skyboxMat.backFaceCulling = false;
+        this.starfield.material = skyboxMat;
+        this.starfield.infiniteDistance = true;
+        this.starfield.checkCollisions = false;
     }
 
     /**
@@ -197,11 +203,16 @@ export class MoonFPVScene {
             });
         }
 
-        // Deform vertices
+        // Deform vertices with curvature + craters
         for (let i = 0; i < positions.length; i += 3) {
             const x = positions[i] ?? 0;
             const z = positions[i + 2] ?? 0;
-            let y = 0;
+
+            // Calculate distance from center of terrain
+            const distFromCenter = Math.sqrt(x * x + z * z);
+
+            // Apply curvature: drop = d²/(2R) - approximation for spherical surface
+            let y = -(distFromCenter * distFromCenter) / (2 * this.moonRadiusM);
 
             for (const crater of craters) {
                 const dx = x - crater.x;
@@ -332,6 +343,33 @@ export class MoonFPVScene {
 
         // Make this the active camera
         scene.activeCamera = this.camera;
+
+        // Add render loop observer to enforce camera height above terrain
+        this.updateObserver = scene.onBeforeRenderObservable.add(() => {
+            if (this.disposed || !this.camera) return;
+
+            const pos = this.camera.position;
+            const halfSize = this.TERRAIN_SIZE / 2;
+
+            // Calculate terrain height at current position (curvature drop)
+            const distFromCenter = Math.sqrt(pos.x * pos.x + pos.z * pos.z);
+            const curvatureDrop = (distFromCenter * distFromCenter) / (2 * this.moonRadiusM);
+            const terrainHeight = -curvatureDrop; // Base terrain at y=0 plus curvature
+
+            // Lock camera to eye height above terrain
+            const targetY = terrainHeight + this.EYE_HEIGHT;
+            if (pos.y !== targetY) {
+                pos.y = targetY;
+                this.camera.position = pos;
+            }
+
+            // Position wrapping for circumnavigation
+            const wrapBuffer = 10;
+            if (pos.x > halfSize - wrapBuffer) pos.x = -halfSize + wrapBuffer * 2;
+            else if (pos.x < -halfSize + wrapBuffer) pos.x = halfSize - wrapBuffer * 2;
+            if (pos.z > halfSize - wrapBuffer) pos.z = -halfSize + wrapBuffer * 2;
+            else if (pos.z < -halfSize + wrapBuffer) pos.z = halfSize - wrapBuffer * 2;
+        });
     }
 
     /**
@@ -349,6 +387,12 @@ export class MoonFPVScene {
         this.disposed = true;
 
         console.log("[MoonFPVScene] Disposing");
+
+        // Remove update observer
+        if (this.updateObserver && this.scene) {
+            this.scene.onBeforeRenderObservable.remove(this.updateObserver);
+            this.updateObserver = null;
+        }
 
         this.camera?.detachControl();
         this.camera?.dispose();
