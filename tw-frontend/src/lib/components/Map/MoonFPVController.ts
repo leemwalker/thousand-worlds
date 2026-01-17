@@ -339,41 +339,44 @@ export class MoonFPVController implements IPlayerController {
      * Update sun and planet positions based on player's position on moon.
      */
     private updateCelestialBodies(): void {
-        if (!this.planetMesh || !this.sunMesh) return;
-
         const skyDistance = this.terrainSize * 1.5;
 
-        // Planet altitude: 90° when at lon=0 (directly facing planet), 0° at lon=±90° (horizon)
-        // Below horizon when abs(lon) > 90°
-        const planetAltitude = 90 - Math.abs(this.playerLongitude);
+        // Update planet position based on player longitude
+        // At lon=0: planet overhead, at lon=±90: planet at horizon, beyond: below horizon
+        if (this.planetMesh) {
+            const planetAltitude = 90 - Math.abs(this.playerLongitude);
 
-        if (planetAltitude > 0) {
-            // Planet is above horizon
-            this.planetMesh.setEnabled(true);
-            const altRad = (planetAltitude / 180) * Math.PI;
-            // Position planet in sky based on altitude
-            this.planetMesh.position = new Vector3(
-                skyDistance * Math.cos(altRad) * 0.8,
-                skyDistance * Math.sin(altRad),
-                0
-            );
-        } else {
-            // Planet is below horizon - on the far side
-            this.planetMesh.setEnabled(false);
+            if (planetAltitude > 0) {
+                // Planet is above horizon
+                this.planetMesh.setEnabled(true);
+                const altRad = (planetAltitude / 90) * (Math.PI / 2); // 0 to 90° maps to 0 to π/2
+                // Position planet in sky based on altitude
+                this.planetMesh.position = new Vector3(
+                    0, // Directly in front
+                    skyDistance * Math.sin(altRad),
+                    skyDistance * Math.cos(altRad)
+                );
+            } else {
+                // Planet is below horizon - on the far side
+                this.planetMesh.setEnabled(false);
+            }
         }
 
-        // Sun position (roughly opposite to planet side, but with orbital mechanics)
-        // For simplicity: sun orbits around the sky as player walks
-        const sunAngle = (this.playerLongitude / 180) * Math.PI;
-        this.sunMesh.position = new Vector3(
-            skyDistance * Math.cos(sunAngle),
-            skyDistance * 0.6 + skyDistance * 0.3 * Math.sin(sunAngle * 2),
-            skyDistance * Math.sin(sunAngle) * 0.5
-        );
+        // Sun position - moves as player walks (simulating moon's orbit around planet)
+        // Sun should appear to orbit across the sky over a lunar day
+        if (this.sunMesh) {
+            // Sun angle based on player longitude (full orbit = 360° of walking)
+            const sunAngle = (this.playerLongitude / 90) * Math.PI; // -π to π
+            this.sunMesh.position = new Vector3(
+                skyDistance * Math.sin(sunAngle),
+                skyDistance * (0.4 + 0.4 * Math.cos(sunAngle)), // Arc across sky
+                -skyDistance * Math.cos(sunAngle)
+            );
 
-        // Update sun light position
-        if (this.sunLight) {
-            this.sunLight.position = this.sunMesh.position.clone();
+            // Update sun light position
+            if (this.sunLight) {
+                this.sunLight.position = this.sunMesh.position.clone();
+            }
         }
     }
 
