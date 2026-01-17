@@ -770,8 +770,8 @@
             }
 
             // Hide starfield mesh if it exists
-            const starfield = scene.getMeshByName("starSphere");
-            if (starfield) starfield.isVisible = false;
+            const starfieldMesh = scene.getMeshByName("starfield");
+            if (starfieldMesh) starfieldMesh.isVisible = false;
 
             console.log(
                 `[WorldController] Orbital meshes hidden for moon FPV (globe=${!!globe}, sun=${!!sunMesh}, moons=${moonMeshes.length})`,
@@ -790,8 +790,8 @@
             }
 
             // Show starfield mesh
-            const starfield = scene.getMeshByName("starSphere");
-            if (starfield) starfield.isVisible = true;
+            const starfieldMesh = scene.getMeshByName("starfield");
+            if (starfieldMesh) starfieldMesh.isVisible = true;
 
             console.log("[WorldController] Orbital meshes restored");
         }

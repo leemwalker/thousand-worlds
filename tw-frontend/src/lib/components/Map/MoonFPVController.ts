@@ -324,11 +324,12 @@ export class MoonFPVController implements IPlayerController {
             // Update celestial body positions based on longitude
             this.updateCelestialBodies();
 
-            // Safety: prevent falling through terrain
-            if (pos.y < -20) {
-                pos.y = this.eyeHeight + 2;
-                this.camera.position = pos;
-            }
+            // Lock camera Y to eye height above terrain (terrain has curvature)
+            const distFromCenter = Math.sqrt(pos.x * pos.x + pos.z * pos.z);
+            const curvatureDrop = (distFromCenter * distFromCenter) / (2 * this.moonRadiusM);
+            const targetY = -curvatureDrop + this.eyeHeight;
+            pos.y = targetY;
+            this.camera.position = pos;
         });
 
         console.log(`[MoonFPV] Position wrapping enabled with celestial tracking`);
