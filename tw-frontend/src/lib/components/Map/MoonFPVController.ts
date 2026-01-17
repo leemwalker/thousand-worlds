@@ -68,19 +68,24 @@ export class MoonFPVController implements IPlayerController {
     private planetDiameterKm: number = 12742; // Default Earth diameter
     private moonDistanceKm: number = 384400; // Default Moon distance
 
-    // Flat terrain properties
-    private terrainSize: number = 500; // Size of flat terrain
+    // Terrain properties
+    private terrainSize: number = 500; // Size of terrain
     private wrapObserver: any = null; // Observer for position wrapping
+    private moonRadiusM: number = 1737000; // Moon radius in meters for curvature
+    private playerLongitude: number = 0; // Player longitude on moon surface
 
     constructor(scene: Scene, moon: MoonData, options: MoonFPVOptions = {}) {
         this.scene = scene;
         this.moon = moon;
         this.moonParams = getMoonFPVParams(moon);
-        this.eyeHeight = options.eyeHeight ?? 1.7;
+        this.eyeHeight = options.eyeHeight ?? 1.778; // 5'10" in meters
         this.planetDiameterKm = options.planetDiameterKm ?? 12742;
         // Use passed km distance, or convert from meters if not provided
         // moon.distance is in meters, divide by 1e6 to get km
         this.moonDistanceKm = options.moonDistanceKm ?? (moon.distance / 1e6);
+
+        // Calculate moon radius for terrain curvature
+        this.moonRadiusM = moon.radius * 1000; // moon.radius is in km
 
         // Start position on flat terrain (y = eye height above ground)
         const startPos = new Vector3(0, this.eyeHeight + 2, 0);
@@ -184,11 +189,20 @@ export class MoonFPVController implements IPlayerController {
             });
         }
 
-        // Apply crater deformations
+        // Apply curvature and crater deformations
         for (let i = 0; i < positions.length; i += 3) {
             const x = positions[i] ?? 0;
             const z = positions[i + 2] ?? 0;
+
+            // Calculate distance from terrain center
+            const distFromCenter = Math.sqrt(x * x + z * z);
+
+            // Apply curvature: drop = R - sqrt(R² - d²)
+            // For large R, this approximates d²/(2R)
             let y = 0;
+            if (distFromCenter < this.moonRadiusM) {
+                y = -(distFromCenter * distFromCenter) / (2 * this.moonRadiusM);
+            }
 
             for (const crater of craters) {
                 const dx = x - crater.x;
@@ -215,27 +229,29 @@ export class MoonFPVController implements IPlayerController {
     }
 
     /**
-     * Create starfield sphere surrounding the terrain.
+     * Create skybox for star background.
      */
     private createStarfield(): void {
-        // Create large sphere for starfield (sky dome)
-        const starfieldRadius = this.terrainSize * 2;
-        this.starfieldMesh = MeshBuilder.CreateSphere("fpvStarfield", {
-            diameter: starfieldRadius * 2,
-            segments: 32,
-            sideOrientation: 1 // BACKSIDE - we're inside
+        // Create skybox (large box that follows camera)
+        const skyboxSize = this.terrainSize * 4;
+        this.starfieldMesh = MeshBuilder.CreateBox("skybox", {
+            size: skyboxSize
         }, this.scene);
 
-        // Simple dark material with emissive stars
-        const starMat = new StandardMaterial("starfieldMat", this.scene);
-        starMat.diffuseColor = new Color3(0, 0, 0);
-        starMat.emissiveColor = new Color3(0.02, 0.02, 0.05);
-        starMat.specularColor = new Color3(0, 0, 0);
-        starMat.backFaceCulling = false;
-        this.starfieldMesh.material = starMat;
+        // Skybox material - dark with subtle stars
+        const skyboxMat = new StandardMaterial("skyboxMat", this.scene);
+        skyboxMat.backFaceCulling = false;
+        skyboxMat.diffuseColor = new Color3(0, 0, 0);
+        skyboxMat.emissiveColor = new Color3(0.01, 0.01, 0.02);
+        skyboxMat.specularColor = new Color3(0, 0, 0);
+        skyboxMat.disableLighting = true;
+        this.starfieldMesh.material = skyboxMat;
+
+        // Skybox stays centered on camera at infinite distance
+        this.starfieldMesh.infiniteDistance = true;
         this.starfieldMesh.checkCollisions = false;
 
-        console.log(`[MoonFPV] Created starfield, radius=${starfieldRadius}`);
+        console.log(`[MoonFPV] Created skybox, size=${skyboxSize}`);
     }
 
     /**
@@ -264,11 +280,13 @@ export class MoonFPVController implements IPlayerController {
     }
 
     /**
-     * Setup position wrapping for circumnavigation.
+     * Setup position wrapping for circumnavigation and celestial body updates.
      */
     private setupPositionWrapping(): void {
         const halfSize = this.terrainSize / 2;
         const wrapBuffer = 10;
+        // moonRadiusM circumference / terrainSize = how many terrain widths = 360°
+        const degreesPerMeter = 360 / (2 * Math.PI * this.moonRadiusM);
 
         this.wrapObserver = this.scene.onBeforeRenderObservable.add(() => {
             if (this.disposed || !this.camera) return;
@@ -276,7 +294,7 @@ export class MoonFPVController implements IPlayerController {
             const pos = this.camera.position;
             let wrapped = false;
 
-            // Wrap X position
+            // Wrap X position (represents longitude)
             if (pos.x > halfSize - wrapBuffer) {
                 pos.x = -halfSize + wrapBuffer * 2;
                 wrapped = true;
@@ -285,7 +303,7 @@ export class MoonFPVController implements IPlayerController {
                 wrapped = true;
             }
 
-            // Wrap Z position
+            // Wrap Z position  
             if (pos.z > halfSize - wrapBuffer) {
                 pos.z = -halfSize + wrapBuffer * 2;
                 wrapped = true;
@@ -298,6 +316,14 @@ export class MoonFPVController implements IPlayerController {
                 this.camera.position = pos;
             }
 
+            // Track player longitude (x position maps to longitude)
+            // Terrain center (x=0) = directly facing planet (lon=0)
+            // For real circumference: lon = x * degreesPerMeter, but we scale to terrainSize
+            this.playerLongitude = (pos.x / halfSize) * 90; // -90 to +90 degrees
+
+            // Update celestial body positions based on longitude
+            this.updateCelestialBodies();
+
             // Safety: prevent falling through terrain
             if (pos.y < -20) {
                 pos.y = this.eyeHeight + 2;
@@ -305,7 +331,49 @@ export class MoonFPVController implements IPlayerController {
             }
         });
 
-        console.log(`[MoonFPV] Position wrapping enabled`);
+        console.log(`[MoonFPV] Position wrapping enabled with celestial tracking`);
+    }
+
+    /**
+     * Update sun and planet positions based on player's position on moon.
+     */
+    private updateCelestialBodies(): void {
+        if (!this.planetMesh || !this.sunMesh) return;
+
+        const skyDistance = this.terrainSize * 1.5;
+
+        // Planet altitude: 90° when at lon=0 (directly facing planet), 0° at lon=±90° (horizon)
+        // Below horizon when abs(lon) > 90°
+        const planetAltitude = 90 - Math.abs(this.playerLongitude);
+
+        if (planetAltitude > 0) {
+            // Planet is above horizon
+            this.planetMesh.setEnabled(true);
+            const altRad = (planetAltitude / 180) * Math.PI;
+            // Position planet in sky based on altitude
+            this.planetMesh.position = new Vector3(
+                skyDistance * Math.cos(altRad) * 0.8,
+                skyDistance * Math.sin(altRad),
+                0
+            );
+        } else {
+            // Planet is below horizon - on the far side
+            this.planetMesh.setEnabled(false);
+        }
+
+        // Sun position (roughly opposite to planet side, but with orbital mechanics)
+        // For simplicity: sun orbits around the sky as player walks
+        const sunAngle = (this.playerLongitude / 180) * Math.PI;
+        this.sunMesh.position = new Vector3(
+            skyDistance * Math.cos(sunAngle),
+            skyDistance * 0.6 + skyDistance * 0.3 * Math.sin(sunAngle * 2),
+            skyDistance * Math.sin(sunAngle) * 0.5
+        );
+
+        // Update sun light position
+        if (this.sunLight) {
+            this.sunLight.position = this.sunMesh.position.clone();
+        }
     }
 
     /**
