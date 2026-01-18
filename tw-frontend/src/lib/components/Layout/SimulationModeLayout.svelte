@@ -108,12 +108,22 @@
         }
 
         // If we're in the lobby, transition to the lobby scene
-        if (get(gameStore).gameLocation === "LOBBY") {
+        const location = get(gameStore).gameLocation;
+        if (location === "LOBBY") {
             console.log("[SimulationModeLayout] Transitioning to LOBBY scene");
             sceneManager.transitionTo("LOBBY").then(() => {
                 activeScene = sceneManager.getActiveScene();
                 console.log(
                     "[SimulationModeLayout] LOBBY scene ready",
+                    activeScene,
+                );
+            });
+        } else if (location === "WORLD") {
+            console.log("[SimulationModeLayout] Transitioning to WORLD scene");
+            sceneManager.transitionTo("WORLD").then(() => {
+                activeScene = sceneManager.getActiveScene();
+                console.log(
+                    "[SimulationModeLayout] WORLD scene ready",
                     activeScene,
                 );
             });

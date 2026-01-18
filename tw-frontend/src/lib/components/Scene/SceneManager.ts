@@ -39,8 +39,10 @@ export class SceneManager {
      */
     initialize(canvas: HTMLCanvasElement): void {
         if (this.engine) {
-            console.warn('[SceneManager] Already initialized');
-            return;
+            console.warn('[SceneManager] Already initialized, disposing old engine to attach to new canvas');
+            this.dispose();
+            // Re-bind resize handler as dispose removes it
+            window.addEventListener('resize', this.handleResize);
         }
 
         this.canvas = canvas;
