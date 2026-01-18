@@ -709,6 +709,11 @@
             });
             moonFpvController.activate();
 
+            // Pass current planet texture to moon FPV for sky rendering
+            if (globeTextureBlob) {
+                moonFpvController.updatePlanetTexture(globeTextureBlob);
+            }
+
             isOnMoon = true;
             activeMoon = moonData;
             fpsMode = true;
@@ -914,6 +919,11 @@
         );
         lastAppliedBlobSize = globeTextureBlob.size;
         updateTexture(globeTextureBlob);
+
+        // Also update moon FPV planet texture if we're on a moon
+        if (isOnMoon && moonFpvController) {
+            moonFpvController.updatePlanetTexture(globeTextureBlob);
+        }
     }
 
     // Watch for heightmap blob changes

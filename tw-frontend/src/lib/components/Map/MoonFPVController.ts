@@ -16,6 +16,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import type { IPlayerController } from './interfaces';
@@ -73,6 +74,8 @@ export class MoonFPVController implements IPlayerController {
     private wrapObserver: any = null; // Observer for position wrapping
     private moonRadiusM: number = 1737000; // Moon radius in meters for curvature
     private playerLongitude: number = 0; // Player longitude on moon surface
+    private planetMaterial: StandardMaterial | null = null; // For texture updates
+    private planetTextureUrl: string | null = null; // Current texture blob URL
 
     constructor(scene: Scene, moon: MoonData, options: MoonFPVOptions = {}) {
         this.scene = scene;
@@ -387,35 +390,66 @@ export class MoonFPVController implements IPlayerController {
      */
     private createPlanetInSky(): void {
         // Calculate angular size of planet as seen from moon
+        // For reference: Earth from Moon is about 2° (4x larger than Moon from Earth)
         const planetRadiusKm = this.planetDiameterKm / 2;
         const distanceKm = this.moonDistanceKm;
         const angularSizeRad = 2 * Math.atan(planetRadiusKm / distanceKm);
         const angularSizeDeg = angularSizeRad * (180 / Math.PI);
 
-        // Place planet in sky dome
+        // Place planet in sky - skyDistance is where we render sky objects
         const skyDistance = this.terrainSize * 1.5;
-        const planetSceneRadius = skyDistance * Math.tan(angularSizeRad / 2);
-        const planetSceneDiameter = Math.max(planetSceneRadius * 2, 50);
+        // Planet angular size determines its rendered diameter at skyDistance
+        // diameter = 2 * skyDistance * tan(angularSize/2)
+        const planetSceneDiameter = 2 * skyDistance * Math.tan(angularSizeRad / 2);
+        // Ensure minimum size for visibility
+        const finalDiameter = Math.max(planetSceneDiameter, 30);
 
-        console.log(`[MoonFPV] Planet in sky: angularSize=${angularSizeDeg.toFixed(1)}°, diam=${planetSceneDiameter.toFixed(1)}`);
+        console.log(`[MoonFPV] Planet: ${this.planetDiameterKm}km @ ${distanceKm}km = ${angularSizeDeg.toFixed(2)}°, sceneDiam=${finalDiameter.toFixed(1)}`);
 
         // Create planet sphere
         this.planetMesh = MeshBuilder.CreateSphere("moonFPVPlanet", {
-            diameter: planetSceneDiameter,
+            diameter: finalDiameter,
             segments: 32
         }, this.scene);
 
-        // Position planet above horizon
-        this.planetMesh.position = new Vector3(skyDistance * 0.5, skyDistance * 0.7, skyDistance * 0.5);
+        // Position planet above horizon initially
+        this.planetMesh.position = new Vector3(0, skyDistance * 0.8, skyDistance * 0.5);
 
-        // Earth-like planet material - emissive so it glows in sky
-        const planetMat = new StandardMaterial("moonFPVPlanetMat", this.scene);
-        planetMat.diffuseColor = new Color3(0.2, 0.4, 0.6);
-        planetMat.emissiveColor = new Color3(0.15, 0.25, 0.4); // Brighter emissive to be visible
-        planetMat.specularColor = new Color3(0.1, 0.1, 0.1);
-        this.planetMesh.material = planetMat;
+        // Planet material - will be textured with simulation data
+        this.planetMaterial = new StandardMaterial("moonFPVPlanetMat", this.scene);
+        this.planetMaterial.diffuseColor = new Color3(0.3, 0.5, 0.7); // Earth-like blue
+        this.planetMaterial.emissiveColor = new Color3(0.1, 0.15, 0.2); // Slight glow
+        this.planetMaterial.specularColor = new Color3(0.1, 0.1, 0.1);
+        this.planetMesh.material = this.planetMaterial;
 
-        console.log(`[MoonFPV] Planet mesh created: ${this.planetMesh.name}, enabled=${this.planetMesh.isEnabled()}, pos=${this.planetMesh.position}`);
+        console.log(`[MoonFPV] Planet mesh created: enabled=${this.planetMesh.isEnabled()}, pos=${this.planetMesh.position}`);
+    }
+
+    /**
+     * Update planet texture from simulation blob.
+     * Call this when new render data arrives via websocket.
+     */
+    updatePlanetTexture(blob: Blob): void {
+        if (!this.planetMaterial || !this.scene) {
+            console.warn("[MoonFPV] Cannot update planet texture - material not ready");
+            return;
+        }
+
+        // Revoke previous URL to prevent memory leak
+        if (this.planetTextureUrl) {
+            URL.revokeObjectURL(this.planetTextureUrl);
+        }
+
+        // Create new texture from blob
+        this.planetTextureUrl = URL.createObjectURL(blob);
+        const texture = new Texture(this.planetTextureUrl, this.scene);
+        texture.hasAlpha = false;
+
+        // Apply to planet material
+        this.planetMaterial.diffuseTexture = texture;
+        this.planetMaterial.emissiveColor = new Color3(0.05, 0.05, 0.05); // Reduce emissive when textured
+
+        console.log(`[MoonFPV] Planet texture updated from blob, size=${blob.size}`);
     }
 
     /**
