@@ -403,7 +403,7 @@ export class MoonFPVController implements IPlayerController {
                 this.planetMesh.rotation.y = -this.orbitalPhase;
 
                 // Force rendering on top of skybox
-                this.planetMesh.renderingGroupId = 1;
+                this.planetMesh.renderingGroupId = 0; // Background layer (behind terrain)
             } else {
                 // Far side of moon - planet below horizon
                 this.planetMesh.setEnabled(false);
@@ -437,7 +437,7 @@ export class MoonFPVController implements IPlayerController {
             this.sunMesh.position = sunPos;
 
             // Force rendering on top of skybox
-            this.sunMesh.renderingGroupId = 1;
+            this.sunMesh.renderingGroupId = 0; // Background layer
 
             // Update directional light direction
             if (this.sunLight) {
@@ -516,7 +516,7 @@ export class MoonFPVController implements IPlayerController {
         (this.planetMesh as any).orbitDistance = centerDistance;
 
         this.planetMesh.position = new Vector3(0, centerDistance * 0.8, centerDistance * 0.5);
-        this.planetMesh.renderingGroupId = 1; // Render on top of skybox (group 0)
+        this.planetMesh.renderingGroupId = 0; // Background layer
 
         // Planet material - will be textured with simulation data
         this.planetMaterial = new StandardMaterial("moonFPVPlanetMat", this.scene);
