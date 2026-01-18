@@ -113,6 +113,7 @@ export class MoonFPVController implements IPlayerController {
 
         // Set camera speed based on moon gravity
         this.camera.speed = this.moonParams.moveSpeed;
+        this.camera.maxZ = 50000; // Ensure we can see distant sky objects
 
         // Movement keys
         this.camera.keysUp = [87]; // W
@@ -146,6 +147,12 @@ export class MoonFPVController implements IPlayerController {
         this.startTime = performance.now();
 
         console.log(`[MoonFPV] Created flat terrain for ${moon.name}: terrainSize=${this.terrainSize}, gravity=${this.moonParams.gravity.toFixed(3)} m/s²`);
+
+        // Debug logger
+        setInterval(() => {
+            if (this.disposed || !this.planetMesh) return;
+            console.log(`[MoonFPV] Status: Lat=${this.playerLongitude.toFixed(1)}, PlanetEnabled=${this.planetMesh.isEnabled()}, PlanetPos=${this.planetMesh.position.toString()}`);
+        }, 2000);
     }
 
     /**
@@ -259,6 +266,7 @@ export class MoonFPVController implements IPlayerController {
         skyboxMat.specularColor = new Color3(0, 0, 0);
         skyboxMat.disableLighting = true;
         this.starfieldMesh.material = skyboxMat;
+        this.starfieldMesh.renderingGroupId = 0; // Background layer
 
         // Skybox stays centered on camera at infinite distance
         this.starfieldMesh.infiniteDistance = true;
@@ -370,20 +378,29 @@ export class MoonFPVController implements IPlayerController {
             // lon=0: planet overhead, lon=±90: planet at horizon, beyond: below horizon
             const planetAltitude = 90 - Math.abs(this.playerLongitude);
 
-            if (planetAltitude > 0) {
+            if (planetAltitude > -5) { // Allow slightly below horizon for atmospheric glow if added
                 this.planetMesh.setEnabled(true);
                 const altRad = (planetAltitude / 90) * (Math.PI / 2);
 
-                // Planet stays at fixed position based on player's location
-                this.planetMesh.position = new Vector3(
+                // Position relative to CAMERA to simulate infinite distance (no parallax)
+                const cameraPos = this.camera.position;
+
+                // Calculate position on the sky sphere
+                // Note: We use Z for North/South alignment here simplistically
+                const skyPos = new Vector3(
                     0,
                     skyDistance * Math.sin(altRad),
                     skyDistance * Math.cos(altRad)
                 );
 
+                this.planetMesh.position = cameraPos.add(skyPos);
+
                 // Rotate planet on Y axis to show moon orbiting around it
                 // Negative rotation because we're viewing from moon's perspective
                 this.planetMesh.rotation.y = -this.orbitalPhase;
+
+                // Force rendering on top of skybox
+                this.planetMesh.renderingGroupId = 1;
             } else {
                 // Far side of moon - planet below horizon
                 this.planetMesh.setEnabled(false);
@@ -397,24 +414,29 @@ export class MoonFPVController implements IPlayerController {
             const sunAngle = this.orbitalPhase;
 
             // Sun traces a great circle across the sky
-            // At phase=0: sun at horizon (east)
-            // At phase=π/2: sun overhead
-            // At phase=π: sun at horizon (west)
-            // At phase>π: sun below horizon (lunar night)
             const sunAltitude = Math.sin(sunAngle);
             const sunAzimuth = Math.cos(sunAngle);
 
-            const sunPos = new Vector3(
+            // Position relative to CAMERA
+            const cameraPos = this.camera.position;
+
+            const sunOffset = new Vector3(
                 skyDistance * sunAzimuth,          // East-West
                 skyDistance * Math.max(sunAltitude, -0.3), // Altitude (clamp for visibility)
                 0                                   // North-South
             );
+
+            const sunPos = cameraPos.add(sunOffset);
             this.sunMesh.position = sunPos;
+
+            // Force rendering on top of skybox
+            this.sunMesh.renderingGroupId = 1;
 
             // Update directional light direction
             if (this.sunLight) {
-                // Light direction points FROM sun toward origin
-                this.sunLight.direction = sunPos.negate().normalize();
+                // Light direction points FROM sun toward origin (camera)
+                // We use the offset direction
+                this.sunLight.direction = sunOffset.negate().normalize();
 
                 // Dim light when sun is below horizon (lunar night)
                 this.sunLight.intensity = sunAltitude > 0 ? 1.5 : 0.1;
@@ -450,8 +472,9 @@ export class MoonFPVController implements IPlayerController {
             segments: 32
         }, this.scene);
 
-        // Position planet above horizon initially
+        // Position planet above horizon initially (will be updated by updateCelestialBodies)
         this.planetMesh.position = new Vector3(0, skyDistance * 0.8, skyDistance * 0.5);
+        this.planetMesh.renderingGroupId = 1; // Render on top of skybox (group 0)
 
         // Planet material - will be textured with simulation data
         this.planetMaterial = new StandardMaterial("moonFPVPlanetMat", this.scene);
