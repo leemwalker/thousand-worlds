@@ -279,7 +279,7 @@ export class MoonFPVController implements IPlayerController {
      * Create sun visual in the sky.
      */
     private createSun(): void {
-        const sunDistance = this.terrainSize * 1.5;
+        const sunDistance = this.terrainSize * 1.5 * 5; // Match updateCelestialBodies (skyDistance * 5)
         const sunSize = 30;
 
         this.sunMesh = MeshBuilder.CreateSphere("fpvSun", {
@@ -423,10 +423,14 @@ export class MoonFPVController implements IPlayerController {
             // Position relative to CAMERA
             const cameraPos = this.camera.position;
 
+            // Sun distance needs to be significantly further than planet surface (skyDistance)
+            // to avoid Z-fighting and ensure planet occludes sun
+            const sunDistance = skyDistance * 5;
+
             const sunOffset = new Vector3(
-                skyDistance * sunAzimuth,          // East-West
-                skyDistance * Math.max(sunAltitude, -0.3), // Altitude (clamp for visibility)
-                0                                   // North-South
+                sunDistance * sunAzimuth,          // East-West
+                sunDistance * Math.max(sunAltitude, -0.3), // Altitude (clamp for visibility)
+                0                                  // North-South
             );
 
             const sunPos = cameraPos.add(sunOffset);
