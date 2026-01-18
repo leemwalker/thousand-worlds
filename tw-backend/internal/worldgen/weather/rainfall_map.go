@@ -97,7 +97,7 @@ func GenerateRainfallMap(
 
 				// Get wind vector from pressure gradients (Phase 1.2 verification)
 				// This replaces the simple latitude-based wind model
-				windVec := CalculatePressureGradientWind(coord, topology, pressureMap)
+				windVec := CalculatePressureGradientWind(coord, topology, pressureMap, res)
 
 				// Apply Coriolis Effect to deflect wind (create zonal flow)
 				// Northern Hemisphere: Deflect Right (Clockwise)

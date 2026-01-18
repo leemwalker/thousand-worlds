@@ -196,13 +196,17 @@ func CalculateSurfacePressure(isLand bool, temp float64) float64 {
 func CalculatePressureGradientWind(
 	coord spatial.Coordinate,
 	topology spatial.Topology,
-	pressureMap map[spatial.Coordinate]float64,
+	pressureMap []float64,
+	res int,
 ) spatial.Vector3D {
-	// Get pressure at current location
-	centerPressure, hasCenterPressure := pressureMap[coord]
-	if !hasCenterPressure {
-		centerPressure = baselinePressure
+	// Helper to convert coord to index
+	resSq := res * res
+	toIdx := func(c spatial.Coordinate) int {
+		return c.Face*resSq + c.Y*res + c.X
 	}
+
+	// Get pressure at current location
+	centerPressure := pressureMap[toIdx(coord)]
 
 	// Calculate gradient by checking neighbors in all 4 cardinal directions
 	directions := []spatial.Direction{
@@ -215,10 +219,11 @@ func CalculatePressureGradientWind(
 
 	for _, dir := range directions {
 		neighbor := topology.GetNeighbor(coord, dir)
-		neighborPressure, hasNeighbor := pressureMap[neighbor]
-		if !hasNeighbor {
+		neighborIdx := toIdx(neighbor)
+		if neighborIdx < 0 || neighborIdx >= len(pressureMap) {
 			continue
 		}
+		neighborPressure := pressureMap[neighborIdx]
 
 		// Get 3D positions on the sphere
 		cx, cy, cz := topology.ToSphere(coord)
@@ -239,10 +244,8 @@ func CalculatePressureGradientWind(
 		dz /= dist
 
 		// Pressure gradient component in this direction
-		// Positive means neighbor has higher pressure
 		pressureDiff := neighborPressure - centerPressure
 
-		// Add contribution to gradient
 		// Wind blows FROM high TO low, so we use -pressureDiff
 		gradientX += -pressureDiff * dx
 		gradientY += -pressureDiff * dy
@@ -258,7 +261,6 @@ func CalculatePressureGradientWind(
 	}
 
 	// Scale factor: convert pressure gradient to wind speed
-	// Roughly 1 m/s per 0.1 mb gradient
 	windScale := 10.0
 
 	return spatial.Vector3D{

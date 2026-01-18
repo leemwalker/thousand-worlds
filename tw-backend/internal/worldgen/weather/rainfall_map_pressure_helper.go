@@ -11,13 +11,16 @@ import (
 // generateSimplifiedPressureMap creates a transient pressure map for rainfall generation.
 // It estimates temperature based on latitude and elevation without full climate simulation.
 // Parallelized by face for performance.
+// Returns a flat slice indexed by [face*res*res + y*res + x].
 func generateSimplifiedPressureMap(
 	sphereMap *geography.SphereHeightmap,
 	topology spatial.Topology,
 	seaLevel float64,
 	season Season,
-) map[spatial.Coordinate]float64 {
+) []float64 {
 	res := sphereMap.Resolution()
+	totalCells := 6 * res * res
+	resSq := res * res
 
 	// Get day of year for the season (approximate)
 	dayOfYear := 80 // Spring
@@ -31,19 +34,22 @@ func generateSimplifiedPressureMap(
 	declination_Land := CalculateThermalDeclination(dayOfYear, true)
 	declination_Ocean := CalculateThermalDeclination(dayOfYear, false)
 
-	// Process each face in parallel, collect results per-face
-	faceResults := make([]map[spatial.Coordinate]float64, 6)
+	// Pre-allocate output slice
+	pressureMap := make([]float64, totalCells)
+
+	// Process each face in parallel
 	var wg sync.WaitGroup
 	wg.Add(6)
 
 	for face := 0; face < 6; face++ {
 		go func(f int) {
 			defer wg.Done()
-			local := make(map[spatial.Coordinate]float64, res*res)
+			faceStart := f * resSq
 
 			for y := 0; y < res; y++ {
 				for x := 0; x < res; x++ {
 					coord := spatial.Coordinate{Face: f, X: x, Y: y}
+					idx := faceStart + y*res + x
 					elevation := sphereMap.Get(coord)
 					isLand := elevation > seaLevel
 
@@ -98,21 +104,12 @@ func generateSimplifiedPressureMap(
 					}
 
 					pressure += latPressureMod
-					local[coord] = pressure
+					pressureMap[idx] = pressure
 				}
 			}
-			faceResults[f] = local
 		}(face)
 	}
 	wg.Wait()
-
-	// Merge results from all faces
-	pressureMap := make(map[spatial.Coordinate]float64, 6*res*res)
-	for _, fm := range faceResults {
-		for coord, pressure := range fm {
-			pressureMap[coord] = pressure
-		}
-	}
 
 	return pressureMap
 }

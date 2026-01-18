@@ -154,20 +154,30 @@ func TestMonsoonWindDirection(t *testing.T) {
 		// Wind should flow from high to low pressure (Ocean -> Land)
 
 		// Create a minimal test topology
-		topology := spatial.NewCubeSphereTopology(16)
+		res := 16
+		topology := spatial.NewCubeSphereTopology(res)
+		resSq := res * res
+		totalCells := 6 * resSq
 
 		// Land cell in center of face 0
 		landCoord := spatial.Coordinate{Face: 0, X: 8, Y: 8}
 		// Ocean cell to the east
 		oceanCoord := spatial.Coordinate{Face: 0, X: 9, Y: 8}
 
-		// Summer scenario: Land hotter than ocean
-		pressureMap := map[spatial.Coordinate]float64{
-			landCoord:  1000.0, // Low pressure (hot land)
-			oceanCoord: 1020.0, // High pressure (cooler ocean)
+		// Create flat slice pressure map
+		pressureMap := make([]float64, totalCells)
+		// Initialize all with baseline
+		for i := range pressureMap {
+			pressureMap[i] = 1013.0
 		}
 
-		windVec := CalculatePressureGradientWind(landCoord, topology, pressureMap)
+		// Summer scenario: Land hotter than ocean
+		landIdx := landCoord.Face*resSq + landCoord.Y*res + landCoord.X
+		oceanIdx := oceanCoord.Face*resSq + oceanCoord.Y*res + oceanCoord.X
+		pressureMap[landIdx] = 1000.0  // Low pressure (hot land)
+		pressureMap[oceanIdx] = 1020.0 // High pressure (cooler ocean)
+
+		windVec := CalculatePressureGradientWind(landCoord, topology, pressureMap, res)
 
 		// Wind should have positive X component (blowing from east/ocean toward land)
 		require.NotNil(t, windVec)
