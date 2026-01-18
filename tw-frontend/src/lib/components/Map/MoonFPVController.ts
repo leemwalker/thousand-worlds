@@ -95,8 +95,10 @@ export class MoonFPVController implements IPlayerController {
         // Calculate moon radius for terrain curvature
         this.moonRadiusM = moon.radius * 1000; // moon.radius is in km
 
-        // Start position on flat terrain (y = eye height above ground)
-        const startPos = new Vector3(0, this.eyeHeight + 2, 0);
+        // Start position: longitude 70 degrees (planet at 20 degrees altitude)
+        // Terrain half-size is 250 (500/2). 70/90 * 250 ≈ 194
+        const startX = 194;
+        const startPos = new Vector3(startX, this.eyeHeight + 2, 0);
 
         // Create FPS camera
         this.camera = new UniversalCamera("moonFPSCamera", startPos, scene);
