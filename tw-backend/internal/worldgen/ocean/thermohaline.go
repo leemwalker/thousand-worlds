@@ -8,128 +8,137 @@ import (
 )
 
 // InitializeTemperature sets baseline water temperature from latitude.
-// Uses similar physics to climate_generator but for ocean surface water.
 func (s *System) InitializeTemperature() {
-	resolution := s.topology.Resolution()
+	res := s.topology.Resolution()
 
 	for face := 0; face < 6; face++ {
-		for y := 0; y < resolution; y++ {
-			for x := 0; x < resolution; x++ {
+		for y := 0; y < res; y++ {
+			for x := 0; x < res; x++ {
 				coord := spatial.Coordinate{Face: face, X: x, Y: y}
+				idx := y*res + x
 
-				// Skip land cells
-				if !s.IsOcean(coord) {
+				// Populate static isOcean membership
+				isOcean := s.geo.Get(coord) <= s.seaLevel
+				s.isOcean[face][idx] = isOcean
+
+				if !isOcean {
+					s.WaterTemperature[face][idx] = 0 // Default for land
 					continue
 				}
 
 				latitude := weather.GetLatitudeFromCoord(s.topology, coord)
-
-				// Ocean surface temperature model:
-				// Equator: ~28°C
-				// Poles: ~0°C (can go slightly negative due to salinity)
-				// Uses cosine for smooth transition
 				latRad := latitude * math.Pi / 180.0
 				temp := 28.0*math.Cos(latRad) - 2.0*math.Pow(math.Sin(latRad), 2)
 
-				// Clamp to realistic ocean surface temps
 				if temp < -2.0 {
-					temp = -2.0 // Freezing point of seawater
+					temp = -2.0
 				}
 				if temp > 30.0 {
 					temp = 30.0
 				}
 
-				s.WaterTemperature[coord] = temp
+				s.WaterTemperature[face][idx] = temp
 			}
 		}
 	}
 }
 
 // SimulateThermodynamics runs heat advection simulation.
-// Uses double-buffering to prevent order-dependent artifacts.
-//
-// Physics: Heat moves in the direction of ocean currents.
-// Algorithm: Temp[target] = lerp(Temp[target], Temp[source], currentSpeed * dt)
 func (s *System) SimulateThermodynamics(iterations int) {
-	// Pre-compute ocean cells for efficiency
-	oceanCells := make([]spatial.Coordinate, 0)
-	for coord := range s.WaterTemperature {
-		oceanCells = append(oceanCells, coord)
-	}
-
-	// Double buffer for proper physics
-	current := s.WaterTemperature
-	next := make(map[spatial.Coordinate]float64, len(current))
-
-	// Time step factor: larger = faster convergence, smaller = more stable
-	// 0.15 is balanced for ~50 iterations to achieve Gulf Stream effect
+	res := s.topology.Resolution()
+	totalCells := res * res
 	dt := 0.15
 
-	for iter := 0; iter < iterations; iter++ {
-		// Copy current state to next buffer
-		for coord, temp := range current {
-			next[coord] = temp
-		}
-
-		// Apply advection from each cell
-		for _, sourceCoord := range oceanCells {
-			currentVec, hasCurrent := s.CurrentMap[sourceCoord]
-			if !hasCurrent {
-				continue
-			}
-
-			sourceTemp := current[sourceCoord]
-
-			// Get the direction the current is flowing
-			speed := currentVec.Length()
-			if speed < 0.01 {
-				continue // No significant current
-			}
-
-			// Normalize speed influence (cap at reasonable value)
-			speedFactor := math.Min(speed/10.0, 1.0) * dt
-
-			// Find target cell in current direction
-			dir := weather.WindToLocalDirection(s.topology, sourceCoord, currentVec)
-			targetCoord := s.topology.GetNeighbor(sourceCoord, dir)
-
-			// Only advect to ocean cells
-			if _, isOcean := current[targetCoord]; !isOcean {
-				continue
-			}
-
-			// Lerp: target temperature approaches source temperature
-			targetTemp := current[targetCoord]
-			newTargetTemp := targetTemp + (sourceTemp-targetTemp)*speedFactor
-
-			// Write to next buffer (accumulate if multiple sources)
-			// Use weighted average to handle multiple contributions
-			existingTemp := next[targetCoord]
-			next[targetCoord] = existingTemp*0.5 + newTargetTemp*0.5
-		}
-
-		// Swap buffers
-		current, next = next, current
+	// Double buffer using pre-allocated slices to avoid map allocations
+	current := s.WaterTemperature
+	next := [6][]float64{}
+	for i := 0; i < 6; i++ {
+		next[i] = make([]float64, totalCells)
 	}
 
-	// Store final result
+	// Pre-identify ocean cells and their advection targets once per simulation run
+	type oceanRef struct {
+		face, idx int
+		speedFact float64
+		targetF   int
+		targetIdx int
+	}
+	oceanRefs := make([]oceanRef, 0)
+
+	for face := 0; face < 6; face++ {
+		for idx := 0; idx < totalCells; idx++ {
+			if !s.isOcean[face][idx] {
+				continue
+			}
+
+			coord := spatial.Coordinate{Face: face, X: idx % res, Y: idx / res}
+			currentVec := s.CurrentMap[face][idx]
+			speed := currentVec.Length()
+			if speed < 0.01 {
+				continue
+			}
+
+			speedFactor := math.Min(speed/10.0, 1.0) * dt
+			dir := weather.WindToLocalDirection(s.topology, coord, currentVec)
+			targetCoord := s.topology.GetNeighbor(coord, dir)
+
+			// Target must also be a pre-initialized ocean cell
+			targetIdx := targetCoord.Y*res + targetCoord.X
+			if !s.isOcean[targetCoord.Face][targetIdx] {
+				continue
+			}
+
+			oceanRefs = append(oceanRefs, oceanRef{
+				face:      face,
+				idx:       idx,
+				speedFact: speedFactor,
+				targetF:   targetCoord.Face,
+				targetIdx: targetIdx,
+			})
+		}
+	}
+
+	for iter := 0; iter < iterations; iter++ {
+		// 1. Copy current to next
+		for f := 0; f < 6; f++ {
+			copy(next[f], current[f])
+		}
+
+		// 2. Apply advection from pre-computed refs
+		for _, ref := range oceanRefs {
+			sourceTemp := current[ref.face][ref.idx]
+			targetTemp := current[ref.targetF][ref.targetIdx]
+
+			newTargetTemp := targetTemp + (sourceTemp-targetTemp)*ref.speedFact
+
+			// Accumulate contribs (weighted average handles multiple sources)
+			next[ref.targetF][ref.targetIdx] = next[ref.targetF][ref.targetIdx]*0.5 + newTargetTemp*0.5
+		}
+
+		// 3. Swap buffers for next iteration
+		for f := 0; f < 6; f++ {
+			current[f], next[f] = next[f], current[f]
+		}
+	}
+
 	s.WaterTemperature = current
 }
 
 // GetAverageOceanTemp returns the average temperature of neighboring ocean cells.
-// Used for coastal land temperature moderation.
 func (s *System) GetAverageOceanTemp(coord spatial.Coordinate) (float64, bool) {
+	res := s.topology.Resolution()
 	directions := []spatial.Direction{
 		spatial.North, spatial.South, spatial.East, spatial.West,
 	}
 
-	var sum float64
-	var count int
+	sum := 0.0
+	count := 0
 
 	for _, dir := range directions {
 		neighbor := s.topology.GetNeighbor(coord, dir)
-		if temp, isOcean := s.WaterTemperature[neighbor]; isOcean {
-			sum += temp
+		if s.IsOcean(neighbor) {
+			idx := neighbor.Y*res + neighbor.X
+			sum += s.WaterTemperature[neighbor.Face][idx]
 			count++
 		}
 	}

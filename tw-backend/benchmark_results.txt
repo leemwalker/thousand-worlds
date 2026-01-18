@@ -1,0 +1,111 @@
+=== RUN   TestCarbonCycle_Initialization
+--- PASS: TestCarbonCycle_Initialization (0.00s)
+=== RUN   TestCarbonCycle_Thermostat
+--- PASS: TestCarbonCycle_Thermostat (0.00s)
+=== RUN   TestCarbonCycle_GreenhouseScale
+--- PASS: TestCarbonCycle_GreenhouseScale (0.00s)
+=== RUN   TestCarbonCycleIntegration
+Creating fresh population simulator for world d23281e0-67c0-4c86-92e7-270460ed9971
+2026/01/17 21:42:59 [GEO PROFILE] Year 100000 | Tectonic: 3.028µs (0%) | Ocean: 0s (0%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 3.738647ms (100%) | Bio: 0s
+    carbon_integration_test.go:62: Carbon Cycle might not have updated yet (Geology nil or no tectonic tick)
+    carbon_integration_test.go:78: ClimateDriver Offset (0.00) != CarbonCycle Warming (26.42). Update loop might be skipped.
+--- PASS: TestCarbonCycleIntegration (108.55s)
+=== RUN   TestNewCheckpointManager
+=== RUN   TestNewCheckpointManager/creates_manager_with_defaults
+=== RUN   TestNewCheckpointManager/uses_custom_frequency
+--- PASS: TestNewCheckpointManager (0.00s)
+    --- PASS: TestNewCheckpointManager/creates_manager_with_defaults (0.00s)
+    --- PASS: TestNewCheckpointManager/uses_custom_frequency (0.00s)
+=== RUN   TestCheckpointManager_ShouldCreateFullCheckpoint
+--- PASS: TestCheckpointManager_ShouldCreateFullCheckpoint (0.00s)
+=== RUN   TestCheckpointManager_Compression
+=== RUN   TestCheckpointManager_Compression/compress_and_decompress
+    checkpoint_test.go:85: Warning: compressed size 72 >= original size 61 (may be expected for small data)
+--- PASS: TestCheckpointManager_Compression (0.00s)
+    --- PASS: TestCheckpointManager_Compression/compress_and_decompress (0.00s)
+=== RUN   TestCheckpointManager_Serialization
+=== RUN   TestCheckpointManager_Serialization/serialize_and_deserialize_state
+--- PASS: TestCheckpointManager_Serialization (0.01s)
+    --- PASS: TestCheckpointManager_Serialization/serialize_and_deserialize_state (0.01s)
+=== RUN   TestCheckpointManager_CreateCheckpoint
+=== RUN   TestCheckpointManager_CreateCheckpoint/creates_checkpoint_without_store
+=== RUN   TestCheckpointManager_CreateCheckpoint/creates_delta_after_full
+--- PASS: TestCheckpointManager_CreateCheckpoint (0.01s)
+    --- PASS: TestCheckpointManager_CreateCheckpoint/creates_checkpoint_without_store (0.00s)
+    --- PASS: TestCheckpointManager_CreateCheckpoint/creates_delta_after_full (0.01s)
+=== RUN   TestCheckpointManager_RestoreCheckpoint
+--- PASS: TestCheckpointManager_RestoreCheckpoint (0.00s)
+=== RUN   TestClimateDriver_Initialization
+--- PASS: TestClimateDriver_Initialization (0.00s)
+=== RUN   TestClimateDriver_IceAgeTrigger
+--- PASS: TestClimateDriver_IceAgeTrigger (0.00s)
+=== RUN   TestClimateDriver_IceAgeRecovery
+--- PASS: TestClimateDriver_IceAgeRecovery (0.00s)
+=== RUN   TestClimateDriver_Hysteresis
+--- PASS: TestClimateDriver_Hysteresis (0.00s)
+=== RUN   TestClimateDriver_GetObliquity
+--- PASS: TestClimateDriver_GetObliquity (0.00s)
+=== RUN   TestClimateDriver_Determinism
+--- PASS: TestClimateDriver_Determinism (0.00s)
+=== RUN   TestClimateDriver_NilEventManager
+--- PASS: TestClimateDriver_NilEventManager (0.00s)
+=== RUN   TestDeadLetterQueue_RecordFailure
+--- PASS: TestDeadLetterQueue_RecordFailure (0.00s)
+=== RUN   TestDeadLetterQueue_RecordPanic
+[DLQ] PANIC recorded: world=2379dfcb-3411-42a8-a894-6444f62285cc year=5000 type=evolution error=nil pointer dereference
+--- PASS: TestDeadLetterQueue_RecordPanic (0.00s)
+=== RUN   TestDeadLetterQueue_MaxSize
+--- PASS: TestDeadLetterQueue_MaxSize (0.00s)
+=== RUN   TestDeadLetterQueue_FilterByWorld
+--- PASS: TestDeadLetterQueue_FilterByWorld (0.00s)
+=== RUN   TestDeadLetterQueue_RecoverableEvents
+--- PASS: TestDeadLetterQueue_RecoverableEvents (0.00s)
+=== RUN   TestDeadLetterQueue_RetryTracking
+--- PASS: TestDeadLetterQueue_RetryTracking (0.00s)
+=== RUN   TestDeadLetterQueue_RemoveEvent
+--- PASS: TestDeadLetterQueue_RemoveEvent (0.00s)
+=== RUN   TestDeadLetterQueue_FileLogging
+[DLQ] PANIC recorded: world=f7654fe4-b653-4b7b-a47c-c77672f71566 year=2000 type=evolution error=panic!
+--- PASS: TestDeadLetterQueue_FileLogging (0.03s)
+=== RUN   TestDeadLetterQueue_Clear
+--- PASS: TestDeadLetterQueue_Clear (0.00s)
+=== RUN   TestMoonShielding_ReducesAsteroidProbability
+    events_test.go:44: Impacts with no shielding: 501
+    events_test.go:45: Impacts with 20% shielding: 388
+    events_test.go:54: Actual reduction: 22.6%
+--- PASS: TestMoonShielding_ReducesAsteroidProbability (3.54s)
+=== RUN   TestMoonShielding_ZeroShielding
+--- PASS: TestMoonShielding_ZeroShielding (0.00s)
+=== RUN   TestMoonShielding_MaxShielding
+--- PASS: TestMoonShielding_MaxShielding (0.00s)
+=== RUN   TestEvolutionManager_Reproduce
+--- PASS: TestEvolutionManager_Reproduce (0.00s)
+=== RUN   TestEvolutionManager_Mutation
+--- PASS: TestEvolutionManager_Mutation (0.00s)
+=== RUN   TestVariableTimeStepEquivalence
+2026/01/17 21:43:03 [GEO PROFILE] Year 1 | Tectonic: 147ns (2%) | Ocean: 0s (0%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 7.153µs (98%) | Bio: 0s
+2026/01/17 21:43:05 [GEO PROFILE] Year 1000 | Tectonic: 194ns (3%) | Ocean: 0s (0%) | Eros: 0s (0%) | Mag: 0s (0%) | Cave: 0s (0%) | Stats: 7.496µs (97%) | Bio: 0s
+    geology_equivalence_test.go:65: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/tw-backend/internal/ecosystem/geology_equivalence_test.go:65
+        	Error:      	"3.748852203777157e+07" is not less than "68791.63155941809"
+        	Test:       	TestVariableTimeStepEquivalence
+        	Messages:   	Variable time steps should produce equivalent results. Diff: 3.748852203777157e+07
+    geology_equivalence_test.go:68: 
+        	Error Trace:	/Users/walker/git/thousand-worlds/tw-backend/internal/ecosystem/geology_equivalence_test.go:68
+        	Error:      	Max difference between 766.5935185107683 and 769.6159288920094 allowed is 1, but difference was -3.022410381241116
+        	Test:       	TestVariableTimeStepEquivalence
+        	Messages:   	Sea Levels should be consistent
+--- FAIL: TestVariableTimeStepEquivalence (2.97s)
+=== RUN   TestGetPlanetaryHeat_EarlyEarth
+--- PASS: TestGetPlanetaryHeat_EarlyEarth (0.00s)
+=== RUN   TestGetPlanetaryHeat_HadeanTransition
+--- PASS: TestGetPlanetaryHeat_HadeanTransition (0.00s)
+=== RUN   TestGetPlanetaryHeat_ModernEarth
+--- PASS: TestGetPlanetaryHeat_ModernEarth (0.00s)
+=== RUN   TestGetPlanetaryHeat_MonotonicDecay
+--- PASS: TestGetPlanetaryHeat_MonotonicDecay (0.00s)
+=== RUN   TestGetPlanetaryHeat_HadeanLinearRegime
+--- PASS: TestGetPlanetaryHeat_HadeanLinearRegime (0.00s)
+=== RUN   TestGetPlanetaryHeat_ExponentialRegime
+--- PASS: TestGetPlanetaryHeat_ExponentialRegime (0.00s)
+=== RUN   TestTectonicScaling_EarlyVsLate

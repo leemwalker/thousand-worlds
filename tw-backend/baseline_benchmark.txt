@@ -1,0 +1,24 @@
+goos: darwin
+goarch: amd64
+pkg: tw-backend/internal/ecosystem
+cpu: Intel(R) Core(TM) i5-6267U CPU @ 2.90GHz
+BenchmarkLongSimulationRun_UltraRes
+2026/01/17 21:54:23 [MAGMA PROFILE] Chambers: 345 | Boundaries: 24560 | Erupted: 0 | NewTubes: 345 | Cache: 1.32877ms | Grid: 2.736424ms | Sim: 168.442709ms | Total: 182.607413ms
+2026/01/17 21:54:25 [GEO PROFILE] Year 4510000000 | Tectonic: 2.993113147s (78%) | Ocean: 8.368684ms (0%) | Eros: 613.354818ms (16%) | Mag: 182.986058ms (5%) | Cave: 22.831603ms (1%) | Stats: 2.790197ms (0%) | Bio: 0s
+BenchmarkLongSimulationRun_UltraRes-4   	       1	19131957349 ns/op	843787328 B/op	  823986 allocs/op
+PASS
+ok  	tw-backend/internal/ecosystem	54.538s
+PASS
+ok  	tw-backend/internal/ecosystem/atmosphere	1.080s
+PASS
+ok  	tw-backend/internal/ecosystem/geography	1.212s
+PASS
+ok  	tw-backend/internal/ecosystem/pathogen	1.752s
+PASS
+ok  	tw-backend/internal/ecosystem/population	1.413s
+PASS
+ok  	tw-backend/internal/ecosystem/sapience	1.258s
+PASS
+ok  	tw-backend/internal/ecosystem/simulation	1.243s
+PASS
+ok  	tw-backend/internal/ecosystem/state	1.217s

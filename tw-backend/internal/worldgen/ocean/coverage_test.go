@@ -58,23 +58,33 @@ func TestWindToVector3D_PoleHandling(t *testing.T) {
 func TestGetAverageOceanTemp(t *testing.T) {
 	topo := spatial.NewCubeSphereTopology(4)
 	geo := geography.NewSphereHeightmap(topo)
+	res := 4
+
+	// Set everything to land FIRST
+	for face := 0; face < 6; face++ {
+		for i := 0; i < res*res; i++ {
+			geo.Set(spatial.Coordinate{Face: face, X: i % res, Y: i / res}, 100.0)
+		}
+	}
+
 	sys := NewSystem(topo, geo, 0.0)
 
-	// Default is 0, false (no ocean neighbors if empty? or just returns 0?)
-	// GetAverageOceanTemp checks neighbors.
-	// If all neighbors are empty (not in map), count is 0, returns false.
 	coord := spatial.Coordinate{Face: 0, X: 1, Y: 1}
 	avg, found := sys.GetAverageOceanTemp(coord)
-	assert.False(t, found)
-	assert.Equal(t, 0.0, avg)
+	assert.False(t, found) // No ocean neighbors yet
 
-	// Add neighbor temps
-	// Neighbors for (0,1,1) in 4x4 topology: (0,1,0), (0,1,2), (0,2,1), (0,0,1)
+	// Add neighbor temps and make them ocean
 	n1 := spatial.Coordinate{Face: 0, X: 1, Y: 0}
 	n2 := spatial.Coordinate{Face: 0, X: 1, Y: 2}
 
-	sys.WaterTemperature[n1] = 10.0
-	sys.WaterTemperature[n2] = 20.0
+	geo.Set(n1, -10.0) // Ocean
+	geo.Set(n2, -10.0) // Ocean
+
+	// Initialize to populate isOcean bits
+	sys.InitializeTemperature()
+
+	sys.WaterTemperature[0][n1.Y*res+n1.X] = 10.0
+	sys.WaterTemperature[0][n2.Y*res+n2.X] = 20.0
 
 	// (10+20) / 2 = 15
 	avg, found = sys.GetAverageOceanTemp(coord)
