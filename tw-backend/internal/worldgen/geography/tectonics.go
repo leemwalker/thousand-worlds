@@ -422,11 +422,7 @@ func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology, see
 
 	// Initialize queue with all plate centroids
 	for i, p := range plates {
-		heap.Push(pq, &borderItem{
-			coord:    p.Centroid,
-			plateIdx: i,
-			cost:     0,
-		})
+		heap.Push(pq, acquireBorderItem(p.Centroid, i, 0))
 	}
 
 	// Cardinal directions for neighbor traversal
@@ -440,6 +436,7 @@ func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology, see
 
 		// If already assigned (by a shorter/better path), skip
 		if assigned[currentIdx] >= 0 {
+			releaseBorderItem(current)
 			continue
 		}
 
@@ -456,13 +453,12 @@ func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology, see
 				// Use pre-computed noise cost
 				newCost := current.cost + noiseCosts[neighborIdx]
 
-				heap.Push(pq, &borderItem{
-					coord:    neighbor,
-					plateIdx: current.plateIdx,
-					cost:     newCost,
-				})
+				heap.Push(pq, acquireBorderItem(neighbor, current.plateIdx, newCost))
 			}
 		}
+
+		// Done with this item
+		releaseBorderItem(current)
 	}
 
 	// 4. Rebuild Region maps from assigned slice (backward compatibility for GetTectonicMap)

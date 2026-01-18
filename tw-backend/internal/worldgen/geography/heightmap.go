@@ -1,6 +1,7 @@
 package geography
 
 import (
+	"sync"
 	"tw-backend/internal/spatial"
 )
 
@@ -91,34 +92,41 @@ func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereH
 
 	// 3. Apply FBM/Ridge Noise for natural terrain variation
 	// Use standard FBM for mid-levels, Ridge noise for extremes (ocean floor/peaks)
+	// OPTIMIZED: Parallelized by face
+	var wg sync.WaitGroup
+	wg.Add(6)
 	for face := 0; face < 6; face++ {
-		for y := 0; y < resolution; y++ {
-			for x := 0; x < resolution; x++ {
-				coord := spatial.Coordinate{Face: face, X: x, Y: y}
+		go func(f int) {
+			defer wg.Done()
+			for y := 0; y < resolution; y++ {
+				for x := 0; x < resolution; x++ {
+					coord := spatial.Coordinate{Face: f, X: x, Y: y}
 
-				// Get sphere position for 3D noise sampling
-				sx, sy, sz := topology.ToSphere(coord)
+					// Get sphere position for 3D noise sampling
+					sx, sy, sz := topology.ToSphere(coord)
 
-				current := heightmap.Get(coord)
+					current := heightmap.Get(coord)
 
-				// Use Ridge Noise for deep ocean (< -2000m) and high peaks (> 2000m)
-				// Creates sharp ridges/valleys instead of smooth rolling terrain
-				var variation float64
-				if current < -2000.0 || current > 2000.0 {
-					// Ridge noise: creates sharp mid-ocean ridges and rugged peaks
-					// Range [0,1] * 800 - 400 gives [-400, +400] variation
-					ridgeNoise := fbm.RidgeFBM3D(sx, sy, sz)
-					variation = (ridgeNoise * 800.0) - 400.0
-				} else {
-					// Standard FBM for coastal/mid-level terrain
-					// 600m variation provides natural hills/valleys without overwhelming tectonics
-					variation = fbm.FBM3D(sx, sy, sz) * 600.0
+					// Use Ridge Noise for deep ocean (< -2000m) and high peaks (> 2000m)
+					// Creates sharp ridges/valleys instead of smooth rolling terrain
+					var variation float64
+					if current < -2000.0 || current > 2000.0 {
+						// Ridge noise: creates sharp mid-ocean ridges and rugged peaks
+						// Range [0,1] * 800 - 400 gives [-400, +400] variation
+						ridgeNoise := fbm.RidgeFBM3D(sx, sy, sz)
+						variation = (ridgeNoise * 800.0) - 400.0
+					} else {
+						// Standard FBM for coastal/mid-level terrain
+						// 600m variation provides natural hills/valleys without overwhelming tectonics
+						variation = fbm.FBM3D(sx, sy, sz) * 600.0
+					}
+
+					heightmap.Set(coord, current+variation)
 				}
-
-				heightmap.Set(coord, current+variation)
 			}
-		}
+		}(face)
 	}
+	wg.Wait()
 
 	// 4. Thermal Erosion (slope stabilization)
 	if resolution > 32 {
@@ -154,16 +162,22 @@ func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereH
 
 	// 8. Apply Hypsometric Curve for continental shelf flattening
 	// Sea level is at 0 (the boundary between positive/negative elevations)
+	// OPTIMIZED: Parallelized by face
+	wg.Add(6)
 	for face := 0; face < 6; face++ {
-		for y := 0; y < resolution; y++ {
-			for x := 0; x < resolution; x++ {
-				coord := spatial.Coordinate{Face: face, X: x, Y: y}
-				current := heightmap.Get(coord)
-				remapped := ApplyHypsometricCurve(current, 0.0) // Sea level at 0
-				heightmap.Set(coord, remapped)
+		go func(f int) {
+			defer wg.Done()
+			for y := 0; y < resolution; y++ {
+				for x := 0; x < resolution; x++ {
+					coord := spatial.Coordinate{Face: f, X: x, Y: y}
+					current := heightmap.Get(coord)
+					remapped := ApplyHypsometricCurve(current, 0.0) // Sea level at 0
+					heightmap.Set(coord, remapped)
+				}
 			}
-		}
+		}(face)
 	}
+	wg.Wait()
 
 	// 9. Add Micro-Roughness for land texture
 	// High-frequency noise only on land (>0) to add small hills, bumps
@@ -176,22 +190,28 @@ func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereH
 			Persistence:  0.5,
 			WarpStrength: 0.1,
 		})
+		// OPTIMIZED: Parallelized by face
+		wg.Add(6)
 		for face := 0; face < 6; face++ {
-			for y := 0; y < resolution; y++ {
-				for x := 0; x < resolution; x++ {
-					coord := spatial.Coordinate{Face: face, X: x, Y: y}
-					current := heightmap.Get(coord)
+			go func(f int) {
+				defer wg.Done()
+				for y := 0; y < resolution; y++ {
+					for x := 0; x < resolution; x++ {
+						coord := spatial.Coordinate{Face: f, X: x, Y: y}
+						current := heightmap.Get(coord)
 
-					// Only add micro-roughness to land (> 0)
-					if current > 0 {
-						sx, sy, sz := topology.ToSphere(coord)
-						// Small amplitude (50m) detail noise
-						microNoise := microFbm.FBM3D(sx*50, sy*50, sz*50) * 50.0
-						heightmap.Set(coord, current+microNoise)
+						// Only add micro-roughness to land (> 0)
+						if current > 0 {
+							sx, sy, sz := topology.ToSphere(coord)
+							// Small amplitude (50m) detail noise
+							microNoise := microFbm.FBM3D(sx*50, sy*50, sz*50) * 50.0
+							heightmap.Set(coord, current+microNoise)
+						}
 					}
 				}
-			}
+			}(face)
 		}
+		wg.Wait()
 	}
 
 	// Update Min/Max
@@ -201,42 +221,55 @@ func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereH
 }
 
 // SmoothSpherical applies a box blur to the sphere heightmap
+// OPTIMIZED: Uses fast slice copying instead of map-based buffering.
 func SmoothSpherical(hm *SphereHeightmap, topology spatial.Topology) {
 	resolution := topology.Resolution()
 	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
 
-	// Create a copy of current values
-	original := make(map[spatial.Coordinate]float64)
-	for face := 0; face < 6; face++ {
+	// Create a fast copy of current values using slices
+	// original[face][index]
+	original := make([][]float64, 6)
+	for f := 0; f < 6; f++ {
+		original[f] = make([]float64, resolution*resolution)
+		// Access underlying face data if possible, or copy manually if private
+		// Since we are in the same package (geography), we can rely on Get/Set for now,
+		// but let's copy efficiently.
 		for y := 0; y < resolution; y++ {
 			for x := 0; x < resolution; x++ {
-				coord := spatial.Coordinate{Face: face, X: x, Y: y}
-				original[coord] = hm.Get(coord)
+				original[f][y*resolution+x] = hm.Get(spatial.Coordinate{Face: f, X: x, Y: y})
 			}
 		}
 	}
 
-	// Apply smoothing
+	// Apply smoothing (Parallelized by face)
+	var wg sync.WaitGroup
+	wg.Add(6)
 	for face := 0; face < 6; face++ {
-		for y := 0; y < resolution; y++ {
-			for x := 0; x < resolution; x++ {
-				coord := spatial.Coordinate{Face: face, X: x, Y: y}
+		go func(f int) {
+			defer wg.Done()
+			for y := 0; y < resolution; y++ {
+				for x := 0; x < resolution; x++ {
+					coord := spatial.Coordinate{Face: f, X: x, Y: y}
+					idx := y*resolution + x
 
-				sum := original[coord]
-				count := 1.0
+					sum := original[f][idx]
+					count := 1.0
 
-				for _, dir := range directions {
-					neighbor := topology.GetNeighbor(coord, dir)
-					if val, exists := original[neighbor]; exists {
-						sum += val
+					for _, dir := range directions {
+						neighbor := topology.GetNeighbor(coord, dir)
+
+						// Fast lookup from original slice
+						nVal := original[neighbor.Face][neighbor.Y*resolution+neighbor.X]
+						sum += nVal
 						count++
 					}
-				}
 
-				hm.Set(coord, sum/count)
+					hm.Set(coord, sum/count)
+				}
 			}
-		}
+		}(face)
 	}
+	wg.Wait()
 }
 
 // ApplyHydraulicErosionSpherical simulates water erosion on a sphere

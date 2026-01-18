@@ -1,6 +1,7 @@
 package geography
 
 import (
+	"sync"
 	"tw-backend/internal/spatial"
 )
 
@@ -10,6 +11,26 @@ type borderItem struct {
 	plateIdx int
 	cost     float64
 	index    int
+}
+
+// borderItemPool reduces heap allocations during heavy Dijkstra operations
+var borderItemPool = sync.Pool{
+	New: func() interface{} {
+		return &borderItem{}
+	},
+}
+
+func acquireBorderItem(coord spatial.Coordinate, plateIdx int, cost float64) *borderItem {
+	item := borderItemPool.Get().(*borderItem)
+	item.coord = coord
+	item.plateIdx = plateIdx
+	item.cost = cost
+	item.index = -1
+	return item
+}
+
+func releaseBorderItem(item *borderItem) {
+	borderItemPool.Put(item)
 }
 
 // borderPQ implements heap.Interface for borderItem
