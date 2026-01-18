@@ -16,7 +16,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
-import { PointLight } from "@babylonjs/core/Lights/pointLight";
+import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import type { IPlayerController } from './interfaces';
 import type { MoonData, MoonFPVParams } from "$lib/types/moon";
@@ -60,7 +60,7 @@ export class MoonFPVController implements IPlayerController {
 
     // Moon-specific
     private moon: MoonData;
-    private sunLight: PointLight | null = null;
+    private sunLight: DirectionalLight | null = null;
     private ambientLight: HemisphericLight | null = null;
     private planetMesh: Mesh | null = null;
     private starfieldMesh: Mesh | null = null;
@@ -367,15 +367,16 @@ export class MoonFPVController implements IPlayerController {
         if (this.sunMesh) {
             // Sun angle based on player longitude (full orbit = 360° of walking)
             const sunAngle = (this.playerLongitude / 90) * Math.PI; // -π to π
-            this.sunMesh.position = new Vector3(
+            const sunPos = new Vector3(
                 skyDistance * Math.sin(sunAngle),
                 skyDistance * (0.4 + 0.4 * Math.cos(sunAngle)), // Arc across sky
                 -skyDistance * Math.cos(sunAngle)
             );
+            this.sunMesh.position = sunPos;
 
-            // Update sun light position
+            // Update directional light direction (points FROM the sun toward origin)
             if (this.sunLight) {
-                this.sunLight.position = this.sunMesh.position.clone();
+                this.sunLight.direction = sunPos.negate().normalize();
             }
         }
     }
@@ -407,29 +408,33 @@ export class MoonFPVController implements IPlayerController {
         // Position planet above horizon
         this.planetMesh.position = new Vector3(skyDistance * 0.5, skyDistance * 0.7, skyDistance * 0.5);
 
-        // Earth-like planet material
+        // Earth-like planet material - emissive so it glows in sky
         const planetMat = new StandardMaterial("moonFPVPlanetMat", this.scene);
         planetMat.diffuseColor = new Color3(0.2, 0.4, 0.6);
-        planetMat.emissiveColor = new Color3(0.1, 0.15, 0.2);
+        planetMat.emissiveColor = new Color3(0.15, 0.25, 0.4); // Brighter emissive to be visible
         planetMat.specularColor = new Color3(0.1, 0.1, 0.1);
         this.planetMesh.material = planetMat;
+
+        console.log(`[MoonFPV] Planet mesh created: ${this.planetMesh.name}, enabled=${this.planetMesh.isEnabled()}, pos=${this.planetMesh.position}`);
     }
 
     /**
      * Setup lighting for moon surface.
      */
     private setupLighting(): void {
-        // Ambient light (very dim - space)
+        // Very dim ambient light (space has minimal reflected light)
         this.ambientLight = new HemisphericLight("moonAmbient", new Vector3(0, 1, 0), this.scene);
-        this.ambientLight.intensity = 0.15;
-        this.ambientLight.groundColor = new Color3(0.02, 0.02, 0.02);
+        this.ambientLight.intensity = 0.03; // Very dim - only slight visibility in shadow
+        this.ambientLight.groundColor = new Color3(0.01, 0.01, 0.01);
 
-        // Sun light - positioned at same location as sun mesh
+        // Directional sun light - direction points FROM the sun
         const sunDistance = this.terrainSize * 1.5;
-        this.sunLight = new PointLight("moonSun", new Vector3(sunDistance, sunDistance * 0.7, 0), this.scene);
-        this.sunLight.intensity = 2.0;
+        const sunDir = new Vector3(-sunDistance, -sunDistance * 0.7, 0).normalize();
+        this.sunLight = new DirectionalLight("moonSun", sunDir, this.scene);
+        this.sunLight.intensity = 1.5;
         this.sunLight.diffuse = new Color3(1.0, 0.98, 0.9); // Slightly warm
-        this.sunLight.range = sunDistance * 3;
+
+        console.log(`[MoonFPV] Lighting setup: ambient=0.03, sun dir=${sunDir.toString()}`);
     }
 
     /**
