@@ -376,34 +376,52 @@ type bfsItem struct {
 // ReassignPlateRegions uses Multi-Source Dijkstra to assign every cell to the nearest plate
 // with added noise to create organic, non-linear boundaries.
 // Can be called after plate movement to update regions.
+// OPTIMIZED: Uses flat slice for assignment tracking and pre-computed noise costs.
 func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology, seed int64) {
 	resolution := topology.Resolution()
-	totalCells := 6 * resolution * resolution
+	resSq := resolution * resolution
+	totalCells := 6 * resSq
 
-	// IMPORTANT: Clear existing regions before reassignment to prevent memory leak
-	// Also re-init plate grid if passed? Actually we usually rely on plates.Region map.
-	for i := range plates {
-		plates[i].Region = make(map[spatial.Coordinate]struct{})
+	// Helper for coordinate to index conversion
+	toIdx := func(c spatial.Coordinate) int {
+		return c.Face*resSq + c.Y*resolution + c.X
 	}
 
-	// Track which cells are assigned
-	assigned := make(map[spatial.Coordinate]int, totalCells)
+	// Helper for index to coordinate conversion
+	toCoord := func(idx int) spatial.Coordinate {
+		face := idx / resSq
+		rem := idx % resSq
+		return spatial.Coordinate{Face: face, X: rem % resolution, Y: rem / resolution}
+	}
 
-	// Initialize noise generator for organic borders
-	// Higher frequency + more octaves = finer-grained boundary irregularity
+	// 1. Pre-compute noise costs for all cells (eliminates FBM3D from hot loop)
 	noiseConfig := DefaultTerrainFBMConfig()
-	noiseConfig.Frequency = 6.0    // High frequency for cell-level variation on unit sphere
-	noiseConfig.Octaves = 4        // Multiple scales for natural fractal coastlines
-	noiseConfig.WarpStrength = 0.3 // Moderate warping to break diamond patterns
+	noiseConfig.Frequency = 6.0
+	noiseConfig.Octaves = 4
+	noiseConfig.WarpStrength = 0.3
 	gen := NewFBMGenerator(seed, noiseConfig)
 
-	// Priority Queue for Dijkstra
+	noiseCosts := make([]float64, totalCells)
+	for idx := 0; idx < totalCells; idx++ {
+		coord := toCoord(idx)
+		sx, sy, sz := topology.ToSphere(coord)
+		noiseVal := gen.FBM3D(sx, sy, sz) // -1 to 1
+		noiseCosts[idx] = 1.0 + (noiseVal+1.0)*8.0
+	}
+
+	// 2. Slice-based assignment tracking (replaces map)
+	// -1 = unassigned, otherwise plate index
+	assigned := make([]int, totalCells)
+	for i := range assigned {
+		assigned[i] = -1
+	}
+
+	// 3. Priority Queue for Dijkstra
 	pq := &borderPQ{}
 	heap.Init(pq)
 
 	// Initialize queue with all plate centroids
 	for i, p := range plates {
-		// Centroids start with cost 0
 		heap.Push(pq, &borderItem{
 			coord:    p.Centroid,
 			plateIdx: i,
@@ -413,35 +431,30 @@ func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology, see
 
 	// Cardinal directions for neighbor traversal
 	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+	assignedCount := 0
 
 	// Dijkstra expansion
 	for pq.Len() > 0 {
 		current := heap.Pop(pq).(*borderItem)
+		currentIdx := toIdx(current.coord)
 
 		// If already assigned (by a shorter/better path), skip
-		if _, exists := assigned[current.coord]; exists {
+		if assigned[currentIdx] >= 0 {
 			continue
 		}
 
 		// Assign cell to plate
-		assigned[current.coord] = current.plateIdx
-		plates[current.plateIdx].Region[current.coord] = struct{}{}
+		assigned[currentIdx] = current.plateIdx
+		assignedCount++
 
 		// Check neighbors
 		for _, dir := range directions {
 			neighbor := topology.GetNeighbor(current.coord, dir)
+			neighborIdx := toIdx(neighbor)
 
-			if _, exists := assigned[neighbor]; !exists {
-				// Calculate dynamic cost for organic plate boundaries
-				// Base cost = 1.0 (Distance)
-				// Noise cost = adds "resistance" that distorts Voronoi cells into organic shapes
-				sx, sy, sz := topology.ToSphere(neighbor)
-				noiseVal := gen.FBM3D(sx, sy, sz) // -1 to 1
-
-				// Cost variation: 1.0 to 17.0 (increased from 1-9 for more organic shapes)
-				// Higher range creates more irregular boundaries resembling natural coastlines
-				costModifier := 1.0 + (noiseVal+1.0)*8.0
-				newCost := current.cost + costModifier
+			if assigned[neighborIdx] < 0 {
+				// Use pre-computed noise cost
+				newCost := current.cost + noiseCosts[neighborIdx]
 
 				heap.Push(pq, &borderItem{
 					coord:    neighbor,
@@ -451,8 +464,20 @@ func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology, see
 			}
 		}
 	}
-	if len(assigned) != totalCells {
-		fmt.Printf("ReassignPlateRegions WARNING: Only assigned %d/%d cells!\n", len(assigned), totalCells)
+
+	// 4. Rebuild Region maps from assigned slice (backward compatibility for GetTectonicMap)
+	for i := range plates {
+		plates[i].Region = make(map[spatial.Coordinate]struct{})
+	}
+	for idx, plateIdx := range assigned {
+		if plateIdx >= 0 && plateIdx < len(plates) {
+			coord := toCoord(idx)
+			plates[plateIdx].Region[coord] = struct{}{}
+		}
+	}
+
+	if assignedCount != totalCells {
+		fmt.Printf("ReassignPlateRegions WARNING: Only assigned %d/%d cells!\n", assignedCount, totalCells)
 	}
 }
 

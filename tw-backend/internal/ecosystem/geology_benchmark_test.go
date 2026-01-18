@@ -145,3 +145,25 @@ func BenchmarkLongSimulationRun_UltraRes(b *testing.B) {
 		geology.SimulateGeology(dt, globalTempMod)
 	}
 }
+
+// BenchmarkLongSimulationRun_ExtremeRes simulates a single 10M year step at 2048 res (25M cells).
+// This confirms bottlenecks at extreme resolution.
+func BenchmarkLongSimulationRun_ExtremeRes(b *testing.B) {
+	worldID := uuid.New()
+	seed := int64(12345)
+	circumference := 40_000_000.0
+
+	geology := NewWorldGeology(worldID, seed, circumference)
+	geology.InitializeGeology(2048) // 6 * 2048 * 2048 = 25,165,824 cells
+	dt := int64(10_000_000)
+	geology.TotalYearsSimulated = 4_500_000_000
+
+	globalTempMod := 0.0
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		geology.SimulateGeology(dt, globalTempMod)
+	}
+}
