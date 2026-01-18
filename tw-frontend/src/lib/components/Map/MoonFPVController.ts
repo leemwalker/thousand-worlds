@@ -77,6 +77,11 @@ export class MoonFPVController implements IPlayerController {
     private planetMaterial: StandardMaterial | null = null; // For texture updates
     private planetTextureUrl: string | null = null; // Current texture blob URL
 
+    // Time-based orbital mechanics
+    private startTime: number = 0; // Time when FPV started (ms)
+    private lunarDaySeconds: number = 60; // How long a "lunar day" lasts in real seconds (accelerated)
+    private orbitalPhase: number = 0; // Current orbital phase (0 to 2π)
+
     constructor(scene: Scene, moon: MoonData, options: MoonFPVOptions = {}) {
         this.scene = scene;
         this.moon = moon;
@@ -134,6 +139,9 @@ export class MoonFPVController implements IPlayerController {
 
         // Setup position wrapping for circumnavigation
         this.setupPositionWrapping();
+
+        // Initialize time for orbital mechanics
+        this.startTime = performance.now();
 
         console.log(`[MoonFPV] Created flat terrain for ${moon.name}: terrainSize=${this.terrainSize}, gravity=${this.moonParams.gravity.toFixed(3)} m/s²`);
     }
@@ -339,47 +347,75 @@ export class MoonFPVController implements IPlayerController {
     }
 
     /**
-     * Update sun and planet positions based on player's position on moon.
+     * Update sun and planet positions based on time and player position.
+     * 
+     * Tidal locking mechanics:
+     * - Planet stays at fixed position in sky (always facing the moon's near side)
+     * - Planet rotates slowly (simulating moon orbiting around it)
+     * - Sun moves across sky based on orbital phase (lunar day = orbital period)
+     * - Walking to far side makes planet disappear below horizon
      */
     private updateCelestialBodies(): void {
         const skyDistance = this.terrainSize * 1.5;
 
-        // Update planet position based on player longitude
-        // At lon=0: planet overhead, at lon=±90: planet at horizon, beyond: below horizon
+        // Calculate orbital phase based on elapsed time
+        const elapsedSeconds = (performance.now() - this.startTime) / 1000;
+        this.orbitalPhase = (elapsedSeconds / this.lunarDaySeconds) * 2 * Math.PI;
+
+        // === PLANET (tidally locked - fixed position, but rotates) ===
         if (this.planetMesh) {
+            // Planet altitude based on player longitude (near side vs far side)
+            // lon=0: planet overhead, lon=±90: planet at horizon, beyond: below horizon
             const planetAltitude = 90 - Math.abs(this.playerLongitude);
 
             if (planetAltitude > 0) {
-                // Planet is above horizon
                 this.planetMesh.setEnabled(true);
-                const altRad = (planetAltitude / 90) * (Math.PI / 2); // 0 to 90° maps to 0 to π/2
-                // Position planet in sky based on altitude
+                const altRad = (planetAltitude / 90) * (Math.PI / 2);
+
+                // Planet stays at fixed position based on player's location
                 this.planetMesh.position = new Vector3(
-                    0, // Directly in front
+                    0,
                     skyDistance * Math.sin(altRad),
                     skyDistance * Math.cos(altRad)
                 );
+
+                // Rotate planet on Y axis to show moon orbiting around it
+                // Negative rotation because we're viewing from moon's perspective
+                this.planetMesh.rotation.y = -this.orbitalPhase;
             } else {
-                // Planet is below horizon - on the far side
+                // Far side of moon - planet below horizon
                 this.planetMesh.setEnabled(false);
             }
         }
 
-        // Sun position - moves as player walks (simulating moon's orbit around planet)
-        // Sun should appear to orbit across the sky over a lunar day
+        // === SUN (moves across sky based on orbital phase) ===
         if (this.sunMesh) {
-            // Sun angle based on player longitude (full orbit = 360° of walking)
-            const sunAngle = (this.playerLongitude / 90) * Math.PI; // -π to π
+            // Sun position based on orbital phase (time-based, not walk-based)
+            // Sun rises in east, sets in west over the course of a lunar day
+            const sunAngle = this.orbitalPhase;
+
+            // Sun traces a great circle across the sky
+            // At phase=0: sun at horizon (east)
+            // At phase=π/2: sun overhead
+            // At phase=π: sun at horizon (west)
+            // At phase>π: sun below horizon (lunar night)
+            const sunAltitude = Math.sin(sunAngle);
+            const sunAzimuth = Math.cos(sunAngle);
+
             const sunPos = new Vector3(
-                skyDistance * Math.sin(sunAngle),
-                skyDistance * (0.4 + 0.4 * Math.cos(sunAngle)), // Arc across sky
-                -skyDistance * Math.cos(sunAngle)
+                skyDistance * sunAzimuth,          // East-West
+                skyDistance * Math.max(sunAltitude, -0.3), // Altitude (clamp for visibility)
+                0                                   // North-South
             );
             this.sunMesh.position = sunPos;
 
-            // Update directional light direction (points FROM the sun toward origin)
+            // Update directional light direction
             if (this.sunLight) {
+                // Light direction points FROM sun toward origin
                 this.sunLight.direction = sunPos.negate().normalize();
+
+                // Dim light when sun is below horizon (lunar night)
+                this.sunLight.intensity = sunAltitude > 0 ? 1.5 : 0.1;
             }
         }
     }
