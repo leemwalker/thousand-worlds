@@ -664,7 +664,7 @@
                     } else {
                         focusTarget = "moon";
                         focusedMoonIndex = moonIndex;
-                        updateCameraForSunAlignment("moon", moonIndex);
+                        // updateCameraForSunAlignment("moon", moonIndex); // Removed per user request
                         console.log(
                             `[WorldController] Focus: Moon ${moonIndex}`,
                         );
