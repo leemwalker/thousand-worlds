@@ -15,8 +15,7 @@ spec:
     - "10.0.0.17"
     secretName: nginx-certs
   rules:
-  - host: "10.0.0.17"
-    http:
+  - http:
       paths:
       - path: /test
         pathType: Prefix
