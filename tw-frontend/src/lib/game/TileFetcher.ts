@@ -2,7 +2,7 @@ import lz4 from 'lz4js';
 
 export interface TileData {
     face: number;
-    lod: number;
+    level: number;
     x: number;
     y: number;
     width: number;
@@ -137,7 +137,7 @@ export class TileFetcher {
 
         return {
             face: meta.f,
-            lod: meta.l,
+            level: meta.l,
             x: meta.x,
             y: meta.y,
             width: meta.w,

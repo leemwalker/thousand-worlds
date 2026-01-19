@@ -13,10 +13,14 @@ import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { TileManager } from './TileManager';
 import { TileProvider } from './TileProvider';
 import { TileMesh } from './TileMesh';
+import { GPUTileMesh } from './GPUTileMesh';
+import type { TerrainComputeShader } from './TerrainComputeShader';
 import { CubeFace, type TileCoord, type ITileProvider } from './interfaces';
 
+type TileMeshType = TileMesh | GPUTileMesh;
+
 interface ActiveTile {
-    mesh: TileMesh;
+    mesh: TileMeshType;
     lastUsed: number;
 }
 
@@ -24,6 +28,7 @@ export interface TileGlobeManagerOptions {
     maxLevel?: number;
     tileSize?: number;
     maxActiveTiles?: number;
+    computeShader?: TerrainComputeShader;
 }
 
 /**
@@ -34,6 +39,7 @@ export class TileGlobeManager {
     private parentNode: TransformNode;
     private tileManager: TileManager;
     private tileProvider: TileProvider;
+    private computeShader?: TerrainComputeShader;
     private activeTiles: Map<string, ActiveTile> = new Map();
     private loadingTiles: Set<string> = new Set();
     private maxActiveTiles: number;
@@ -49,6 +55,7 @@ export class TileGlobeManager {
         this.scene = scene;
         this.parentNode = parentNode;
         this.maxActiveTiles = options.maxActiveTiles ?? 50;
+        this.computeShader = options.computeShader;
 
         // Initialize tile provider with WebSocket command sender
         this.tileProvider = new TileProvider(scene, sendCommand);
@@ -133,17 +140,27 @@ export class TileGlobeManager {
                 return;
             }
 
-            // Create tile mesh with the loaded textures
-            const tileMesh = new TileMesh(
-                this.scene,
-                coord,
-                tileData.texture,
-                tileData.heightmap,
-                { displacementScale: 0.05 }
-            );
+            // Create tile mesh
+            let tileMesh: TileMeshType;
 
-            // Parent to globe
-            tileMesh.getMesh().parent = this.parentNode;
+            if (this.computeShader) {
+                tileMesh = new GPUTileMesh(
+                    this.scene,
+                    tileData.raw,
+                    this.computeShader
+                );
+            } else {
+                tileMesh = new TileMesh(
+                    this.scene,
+                    coord,
+                    tileData.texture,
+                    tileData.heightmap,
+                    { displacementScale: 0.05 }
+                );
+            }
+
+            // Access inner mesh for parenting
+            tileMesh.mesh.parent = this.parentNode;
 
             // Track active tile
             this.activeTiles.set(key, {
@@ -165,6 +182,7 @@ export class TileGlobeManager {
     private cleanupOldTiles(cutoffTime: number): void {
         for (const [key, tile] of this.activeTiles.entries()) {
             if (tile.lastUsed < cutoffTime) {
+                // Both implementation have dispose method
                 tile.mesh.dispose();
                 this.activeTiles.delete(key);
                 console.log(`[TileGlobeManager] Disposed tile ${key}`);
@@ -186,22 +204,6 @@ export class TileGlobeManager {
     /**
      * Handle incoming tile response from WebSocket.
      */
-    handleTileResponse(
-        metadata: {
-            face: number;
-            level: number;
-            x: number;
-            y: number;
-            width: number;
-            height: number;
-            imageSize: number;
-            heightmapSize: number;
-        },
-        imageData: Uint8Array,
-        heightmapData: Uint8Array
-    ): void {
-        this.tileProvider.handleTileResponse(metadata, imageData, heightmapData);
-    }
 
     /**
      * Get current LOD level.

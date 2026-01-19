@@ -86,7 +86,7 @@ export interface TileCoord {
  */
 export interface ITileProvider {
     /** Get tile texture and heightmap */
-    getTile(coord: TileCoord): Promise<{ texture: Texture; heightmap: Texture }>;
+    getTile(coord: TileCoord): Promise<any>;
 
     /** Preload tiles for smooth transitions */
     preloadTiles(coords: TileCoord[]): void;

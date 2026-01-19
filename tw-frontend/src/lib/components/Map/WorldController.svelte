@@ -35,6 +35,8 @@
     import { AsteroidManager } from "./AsteroidManager";
     import { MoltenPlanetShader } from "./MoltenPlanetShader";
     import { DisplacementShader } from "./DisplacementShader";
+    import { WebGPUEngine } from "@babylonjs/core/Engines/webgpuEngine";
+    import { TerrainComputeShader } from "./TerrainComputeShader";
     import { TileGlobeManager } from "./TileGlobeManager";
     import { FPSTransitionController } from "./FPSTransitionController";
     import { FPSMovementController } from "./FPSMovementController";
@@ -124,6 +126,7 @@
 
     // Tile system for high-resolution streaming
     let tileGlobeManager: TileGlobeManager | null = null;
+    let terrainComputeShader: TerrainComputeShader | null = null;
     // sendTileCommand already declared as reactive statement above
 
     // View Mode Manager
@@ -480,16 +483,35 @@
         // Create starfield background
         createStarfield(scene);
 
-        // Initialize tile streaming system (if command callback is provided)
-        tileGlobeManager = new TileGlobeManager(
-            scene,
-            planetNode,
-            sendTileCommand,
-            {
-                maxLevel: 4,
-                maxActiveTiles: 50,
-            },
-        );
+        // Initialize Compute Shader if WebGPU
+        const engine = scene.getEngine();
+        if (engine instanceof WebGPUEngine) {
+            console.log(
+                "[WorldController] WebGPU detected - Initializing TerrainComputeShader",
+            );
+            try {
+                terrainComputeShader = new TerrainComputeShader(engine, 256); // 256x256 grid
+            } catch (e) {
+                console.error(
+                    "[WorldController] Failed to init compute shader:",
+                    e,
+                );
+            }
+        }
+
+        // Initialize TileGlobeManager
+        if (onSendCommand && planetNode) {
+            tileGlobeManager = new TileGlobeManager(
+                scene,
+                planetNode,
+                onSendCommand,
+                {
+                    maxLevel: 4,
+                    maxActiveTiles: 50,
+                    computeShader: terrainComputeShader ?? undefined,
+                },
+            );
+        }
         console.log("[BabylonGlobe] Tile system initialized");
 
         // ===========================================
