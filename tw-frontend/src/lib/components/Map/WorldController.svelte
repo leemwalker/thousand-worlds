@@ -702,7 +702,7 @@
 
             // Create new moon FPV controller with planet diameter for sky display
             const planetDiameterKm = (planetRadius * 2) / 1000; // Convert meters to km
-            const moonDistanceKm = sat.distance / 1e6; // Convert meters to km (divided by 1 million)
+            const moonDistanceKm = sat.distance / 1000; // Convert meters to km
 
             // Convert all satellites to MoonData for sibling rendering
             const allMoons: MoonData[] = satellites.map((s) => ({

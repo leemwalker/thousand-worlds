@@ -546,6 +546,12 @@ export class MoonFPVController implements IPlayerController {
         // Angular radius (alpha)
         let angularRadiusRad = Math.asin(planetRadiusKm / distanceKm);
 
+        // Visual Scale Factor (Cinematic View)
+        // Real earth-moon size is ~1.9 degrees (too small for game feel)
+        // 15x scale makes it ~28 degrees (Cinematic, fills nice portion of sky)
+        const PLANET_ANGULAR_SCALE = 15.0;
+        angularRadiusRad *= PLANET_ANGULAR_SCALE;
+
         // Clamp to prevent rendering glitches (max 140 degrees total size = 70 deg radius)
         const maxRad = (70 * Math.PI) / 180;
         if (angularRadiusRad > maxRad) angularRadiusRad = maxRad;
