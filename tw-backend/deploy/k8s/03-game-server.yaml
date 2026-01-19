@@ -60,11 +60,10 @@ metadata:
   name: game-server
   namespace: mud-world
 spec:
-  type: NodePort
+  type: ClusterIP
   ports:
   - port: 8080
     targetPort: 8080
-    nodePort: 30001
     name: http
   selector:
     app: game-server

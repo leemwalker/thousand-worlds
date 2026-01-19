@@ -4,14 +4,10 @@ metadata:
   name: mud-world-ingress
   namespace: mud-world
   annotations:
-    # Tell Traefik to use this ingress
-    traefik.ingress.kubernetes.io/router.entrypoints: websecure
-    traefik.ingress.kubernetes.io/router.tls: "true"
-    # Force backend communication to be HTTP (prevent auto-https logic)
-    traefik.ingress.kubernetes.io/service.serversscheme: http
-    # Upstream might reject "10.0.0.17" host header, so send internal service name
-    traefik.ingress.kubernetes.io/service.passhostheader: "false"
+    # Nginx-specific annotations if needed, usually default is fine.
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
+  ingressClassName: nginx
   tls:
   - hosts:
     # K8s Ingress formally requires DNS names, but many controllers handle IPs or loose matching.

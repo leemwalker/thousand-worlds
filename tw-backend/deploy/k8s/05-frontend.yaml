@@ -49,11 +49,10 @@ metadata:
   name: frontend
   namespace: mud-world
 spec:
-  type: NodePort
+  type: ClusterIP
   ports:
   - port: 3000
     targetPort: 3000
-    nodePort: 30000
     name: http
   selector:
     app: frontend
