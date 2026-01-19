@@ -9,6 +9,8 @@ metadata:
     traefik.ingress.kubernetes.io/router.tls: "true"
     # Force backend communication to be HTTP (prevent auto-https logic)
     traefik.ingress.kubernetes.io/service.serversscheme: http
+    # Upstream might reject "10.0.0.17" host header, so send internal service name
+    traefik.ingress.kubernetes.io/service.passhostheader: "false"
 spec:
   tls:
   - hosts:
