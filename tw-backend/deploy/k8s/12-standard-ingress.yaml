@@ -7,6 +7,8 @@ metadata:
     # Tell Traefik to use this ingress
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
+    # Force backend communication to be HTTP (prevent auto-https logic)
+    traefik.ingress.kubernetes.io/service.serversscheme: http
 spec:
   tls:
   - hosts:
