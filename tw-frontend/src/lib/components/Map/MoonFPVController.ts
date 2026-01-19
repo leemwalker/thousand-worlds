@@ -253,7 +253,9 @@ export class MoonFPVController implements IPlayerController {
      */
     private createStarfield(): void {
         // Create skybox (large box that follows camera)
-        const skyboxSize = this.terrainSize * 4;
+        // Must be larger than planet/sun to prevent clipping interaction
+        // Planet far side can be ~26000 units away. Camera maxZ is 50000.
+        const skyboxSize = 45000;
         this.starfieldMesh = MeshBuilder.CreateBox("skybox", {
             size: skyboxSize
         }, this.scene);
