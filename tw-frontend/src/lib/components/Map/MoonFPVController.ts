@@ -17,6 +17,7 @@ import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture";
+import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import type { IPlayerController } from './interfaces';
@@ -37,6 +38,8 @@ export interface MoonFPVOptions {
     planetDiameterKm?: number;
     /** Moon orbital distance in km for angular size calculation */
     moonDistanceKm?: number;
+    /** List of all moons for sibling rendering */
+    siblingMoons?: MoonData[];
 }
 
 interface Position {
@@ -61,6 +64,8 @@ export class MoonFPVController implements IPlayerController {
 
     // Moon-specific
     private moon: MoonData;
+    private siblingMoons: MoonData[] = [];
+    private siblingMeshes: Mesh[] = [];
     private sunLight: DirectionalLight | null = null;
     private ambientLight: HemisphericLight | null = null;
     private planetMesh: Mesh | null = null;
@@ -91,6 +96,7 @@ export class MoonFPVController implements IPlayerController {
         // Use passed km distance, or convert from meters if not provided
         // moon.distance is in meters, divide by 1e6 to get km
         this.moonDistanceKm = options.moonDistanceKm ?? (moon.distance / 1e6);
+        this.siblingMoons = options.siblingMoons ?? [];
 
         // Calculate moon radius for terrain curvature
         this.moonRadiusM = moon.radius * 1000; // moon.radius is in km
@@ -136,6 +142,9 @@ export class MoonFPVController implements IPlayerController {
 
         // Create planet in the sky
         this.createPlanetInSky();
+
+        // Create sibling moons in the sky
+        this.createSiblingMoons();
 
         // Setup lighting
         this.setupLighting();
@@ -249,24 +258,91 @@ export class MoonFPVController implements IPlayerController {
     }
 
     /**
-     * Create skybox for star background.
+     * Create skybox for star background with photorealistic stars.
      */
     private createStarfield(): void {
         // Create skybox (large box that follows camera)
-        // Must be larger than planet/sun to prevent clipping interaction
-        // Planet far side can be ~26000 units away. Camera maxZ is 50000.
         const skyboxSize = 45000;
         this.starfieldMesh = MeshBuilder.CreateBox("skybox", {
             size: skyboxSize
         }, this.scene);
 
-        // Skybox material - dark with subtle stars
+        // Create high-res dynamic texture for stars
+        // 4096 resolution for crisp stars on large displays
+        const textureSize = 4096;
+        const starTexture = new DynamicTexture("starTexture", { width: textureSize, height: textureSize }, this.scene, false);
+        const ctx = starTexture.getContext();
+
+        // 1. Black space background
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(0, 0, textureSize, textureSize);
+
+        // 2. Generate Nebula/Galaxy Dust (Subtle noise)
+        // Simple procedural noise simulation using semi-transparent gradients
+        for (let i = 0; i < 20; i++) {
+            const x = Math.random() * textureSize;
+            const y = Math.random() * textureSize;
+            const radius = 400 + Math.random() * 600;
+
+            const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+            const hue = 200 + Math.random() * 60; // Blues and Purples
+            gradient.addColorStop(0, `hsla(${hue}, 60%, 10%, 0.04)`);
+            gradient.addColorStop(0.5, `hsla(${hue}, 60%, 5%, 0.02)`);
+            gradient.addColorStop(1, "transparent");
+
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // 3. Generate Stars
+        const numStars = 6000;
+        for (let i = 0; i < numStars; i++) {
+            const x = Math.random() * textureSize;
+            const y = Math.random() * textureSize;
+            const r = Math.random();
+
+            let size = 0.5; // Tiny specks (defaults)
+            let opacity = Math.random() * 0.8 + 0.2;
+            let color = "#FFFFFF";
+
+            // Star distribution
+            if (r > 0.99) {
+                // Bright stars (0.1%)
+                size = Math.random() * 2.0 + 1.5;
+                opacity = 1.0;
+                // Tint slightly blue or yellow
+                color = Math.random() > 0.5 ? "#DDEEFF" : "#FFF8DD";
+            } else if (r > 0.9) {
+                // Medium stars (10%)
+                size = Math.random() * 1.2 + 0.8;
+                opacity = 0.8;
+            } else {
+                // Dim/Distant stars (90%)
+                size = Math.random() * 0.8 + 0.2;
+                opacity = Math.random() * 0.5 + 0.1;
+            }
+
+            // Draw star
+            ctx.fillStyle = color;
+            ctx.globalAlpha = opacity;
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.globalAlpha = 1.0; // Reset
+        starTexture.update();
+
+        // Skybox material
         const skyboxMat = new StandardMaterial("skyboxMat", this.scene);
         skyboxMat.backFaceCulling = false;
         skyboxMat.diffuseColor = new Color3(0, 0, 0);
-        skyboxMat.emissiveColor = new Color3(0.01, 0.01, 0.02);
         skyboxMat.specularColor = new Color3(0, 0, 0);
+        skyboxMat.emissiveTexture = starTexture;
         skyboxMat.disableLighting = true;
+
         this.starfieldMesh.material = skyboxMat;
         this.starfieldMesh.renderingGroupId = 0; // Background layer
 
@@ -274,7 +350,7 @@ export class MoonFPVController implements IPlayerController {
         this.starfieldMesh.infiniteDistance = true;
         this.starfieldMesh.checkCollisions = false;
 
-        console.log(`[MoonFPV] Created skybox, size=${skyboxSize}`);
+        console.log(`[MoonFPV] Created photorealistic skybox, size=${skyboxSize}, resolution=${textureSize}`);
     }
 
     /**
@@ -406,6 +482,11 @@ export class MoonFPVController implements IPlayerController {
 
                 // Force rendering on top of skybox
                 this.planetMesh.renderingGroupId = 0; // Background layer (behind terrain)
+
+                // Update sibling moons relative to planet
+                if (this.siblingMeshes.length > 0) {
+                    this.updateSiblingMoons(skyPos, dist);
+                }
             } else {
                 // Far side of moon - planet below horizon
                 this.planetMesh.setEnabled(false);
@@ -531,9 +612,143 @@ export class MoonFPVController implements IPlayerController {
     }
 
     /**
-     * Update planet texture from simulation blob.
-     * Call this when new render data arrives via websocket.
+     * Create visual meshes for other moons in the system.
      */
+    private createSiblingMoons(): void {
+        this.siblingMoons.forEach((sibling, index) => {
+            // Skip the current moon (we are standing on it)
+            if (sibling.id === this.moon.id || sibling.name === this.moon.name) return;
+
+            // Simplified visuals for siblings - just spheres for now
+            // In future could use actual textures if available
+            const siblingMesh = MeshBuilder.CreateSphere(`sibling_${sibling.name}`, {
+                diameter: 1, // Will be scaled by distance
+                segments: 32
+            }, this.scene);
+
+            // Create material
+            const material = new StandardMaterial(`siblingMat_${sibling.name}`, this.scene);
+
+            // Parse color hex
+            const colorHex = sibling.color || "#AAAAAA";
+            const r = parseInt(colorHex.slice(1, 3), 16) / 255;
+            const g = parseInt(colorHex.slice(3, 5), 16) / 255;
+            const b = parseInt(colorHex.slice(5, 7), 16) / 255;
+
+            material.diffuseColor = new Color3(r, g, b);
+            material.specularColor = new Color3(0.1, 0.1, 0.1);
+            material.emissiveColor = new Color3(r * 0.2, g * 0.2, b * 0.2); // Slight glow
+
+            siblingMesh.material = material;
+            siblingMesh.renderingGroupId = 0; // Same as planet/sun
+
+            // Store reference with data
+            (siblingMesh as any).moonData = sibling;
+            this.siblingMeshes.push(siblingMesh);
+
+            console.log(`[MoonFPV] Created sibling moon mesh: ${sibling.name}`);
+        });
+    }
+
+    /**
+     * Update positions of sibling moons in the sky.
+     * Calculated relative to planet position and our own orbit.
+     */
+    private updateSiblingMoons(planetSkyPos: Vector3, skyDistance: number): void {
+        // Center position of the system (Planet) in camera space
+        const centerPos = planetSkyPos;
+        const cameraPos = this.camera.position;
+
+        this.siblingMeshes.forEach(mesh => {
+            const sibling = (mesh as any).moonData as MoonData;
+
+            // Calculate orbital phase for sibling (different period)
+            // Use same time basis as our own orbit
+            const elapsedSeconds = (performance.now() - this.startTime) / 1000;
+            const siblingPeriod = sibling.period > 0 ? sibling.period : 100; // fallback
+            // Scale period relative to our lunar day for visualization
+            // Real physics: T^2 prop a^3. 
+            // We use relative speed: rate = (MyPeriod / SiblingPeriod) * MyRate
+            // But here we rely on the passed period from backend if available, or just distance scaling?
+            // Backend provides Period in seconds. our 'lunarDaySeconds' is a visual acceleration.
+            // Let's assume 'lunarDaySeconds' represents 'period' of THIS moon.
+            // Sibling Phase = time * (1/SiblingPeriod) * (AccelerationFactor)
+            // AccelerationFactor = MyPeriod / lunarDaySeconds
+
+            const myPeriod = this.moon.period || 100;
+            const acceleration = myPeriod / this.lunarDaySeconds;
+            // Actually, simplified:
+            // SiblingAngle = (elapsed / SiblingPeriod) * 2PI * acceleration
+            // OR simpler: assume periods are relative.
+
+            // Let's just use simple Kepler scaling if period missing, or relative period
+            const periodRatio = this.moon.period / sibling.period;
+            const siblingPhase = this.orbitalPhase * periodRatio; // If I'm at phase X, sibling is at phase X * ratio
+
+            // Offset angle (randomize start for variety based on ID/index)
+            const seed = sibling.name.charCodeAt(sibling.name.length - 1);
+            const offset = (seed % 10) * (Math.PI / 5);
+
+            // Calculate position in orbit relative to planet
+            // We are at Angle = 0 relative to planet in Sky View (Planet is fixed)
+            // Actually, Planet fixed means WE are fixed. Sibling moves relative to US.
+
+            // Vector to Sibling = VectorToPlanet + VectorPlanetToSibling
+            // In Sky view:
+            // Planet is at 'planetSkyPos'.
+            // Sibling orbits Planet.
+            // Visual Scale: We need to scale the physical orbit to the sky view.
+            // Sky Distance = d to Planet.
+            // Sibling physical distance = sibling.distance.
+            // Our physical distance = this.moonDistanceKm * 1000.
+
+            // Angular separation approx = (SiblingOrbitPos - MyOrbitPos) / DistToPlanet
+            // Just project Sibling Orbit onto the sky plane at Planet Distance.
+
+            const siblingDistM = sibling.distance;
+            const myDistM = this.moonDistanceKm * 1000;
+
+            // Relative radius in Sky Units
+            // If planet is at 'skyDistance', then a moon at 'myDistM' would be at observer.
+            // Scale factor = skyDistance / myDistM.
+            const scale = skyDistance / myDistM;
+            const siblingOrbitRadiusSky = siblingDistM * scale;
+
+            // 3D Orbit orientation
+            // Simplified: All orbit in X-Z plane (horizontal in sky if z-up?)
+            // In Babylon Y is Up. Planet is at some altitude.
+            // We'll align orbit plane with Planet's 'equator' roughly.
+
+            // Sibling position relative to Planet Center
+            // X = cos(angle), Z = sin(angle) (assuming Y-up is normal to orbit)
+            const sx = Math.sin(siblingPhase + offset) * siblingOrbitRadiusSky;
+            const sy = Math.sin((siblingPhase + offset) * 3) * (siblingOrbitRadiusSky * 0.1); // Slight inclination wobble
+            const sz = Math.cos(siblingPhase + offset) * siblingOrbitRadiusSky;
+
+            // Billboard/Face camera?
+            // Position relative to Planet Surface Center?
+            // Planet Mesh is at 'planetSkyPos'.
+            const siblingPos = planetSkyPos.add(new Vector3(sx, sy, sz));
+
+            // Apply to mesh (absolute world pos = camera + relative)
+            mesh.position = cameraPos.add(siblingPos);
+
+            // Scale mesh based on angular size
+            // Real radius / Distance from observer approximately
+            // Check distance from us to sibling?
+            // Approx dist = skyDistance (since they are near planet)
+            // Angular size = 2 * atan(R / D)
+            // Visual size = 2 * R * (skyDistance / D_physical) ... 
+            // Simplified: Mesh Size = (SiblingRadius * 2) * scale
+            const siblingDiameterM = sibling.radius * 2;
+            const visualDiameter = siblingDiameterM * scale;
+
+            mesh.scaling = new Vector3(visualDiameter, visualDiameter, visualDiameter);
+
+            // Look at camera
+            mesh.lookAt(cameraPos);
+        });
+    }
     updatePlanetTexture(blob: Blob): void {
         if (!this.planetMaterial || !this.scene) {
             console.warn("[MoonFPV] Cannot update planet texture - material not ready");

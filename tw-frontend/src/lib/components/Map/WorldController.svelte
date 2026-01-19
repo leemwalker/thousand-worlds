@@ -703,9 +703,24 @@
             // Create new moon FPV controller with planet diameter for sky display
             const planetDiameterKm = (planetRadius * 2) / 1000; // Convert meters to km
             const moonDistanceKm = sat.distance / 1e6; // Convert meters to km (divided by 1 million)
+
+            // Convert all satellites to MoonData for sibling rendering
+            const allMoons: MoonData[] = satellites.map((s) => ({
+                id: s.name,
+                name: s.name,
+                mass: s.mass,
+                radius: (s as any).radius || 1e6,
+                distance: s.distance,
+                period: (s as any).period || 0,
+                color: "#AAAAAA", // Default or use real color if available
+                density: (s as any).density || 3000,
+                destroyed: false,
+            }));
+
             moonFpvController = new MoonFPVController(scene, moonData, {
                 planetDiameterKm,
                 moonDistanceKm, // Pass km for accurate angular size calc
+                siblingMoons: allMoons,
             });
             moonFpvController.activate();
 
