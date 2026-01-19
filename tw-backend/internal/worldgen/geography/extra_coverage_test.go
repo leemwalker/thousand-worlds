@@ -174,9 +174,9 @@ func TestErosion_StreamPower(t *testing.T) {
 	hydro.FlowDirection[idx2] = idx3
 	hydro.FlowDirection[idx3] = -1
 
-	hydro.Flux[idx1] = 10.0
-	hydro.Flux[idx2] = 20.0
-	hydro.Flux[idx3] = 30.0
+	hydro.Flux[idx1] = 10000.0
+	hydro.Flux[idx2] = 20000.0
+	hydro.Flux[idx3] = 30000.0
 
 	ApplyStreamPowerErosion(shm, hydro, nil, 1.0, 0.0)
 

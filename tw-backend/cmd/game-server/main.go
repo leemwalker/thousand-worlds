@@ -36,6 +36,7 @@ import (
 	"tw-backend/internal/game/services/interaction"
 	"tw-backend/internal/game/services/inventory"
 	"tw-backend/internal/game/services/look"
+	gamemap "tw-backend/internal/game/services/map"
 	"tw-backend/internal/metrics"
 	"tw-backend/internal/player"
 	"tw-backend/internal/repository"
@@ -230,6 +231,9 @@ func main() {
 		defer natsPub.Close()
 	}
 
+	// Initialize Map Service (WebGPU Offload Support)
+	mapService := gamemap.NewService(worldRepo, skillsRepo, entityService, lookService, worldEntityService, ecosystemService)
+
 	// Initialize game processor
 	gameProcessor := processor.NewGameProcessor(
 		authRepo,
@@ -251,6 +255,7 @@ func main() {
 		runnerStateRepo,
 		eventPublisher,
 		ollamaClient,
+		mapService,
 	)
 
 	// Create and start the Hub
@@ -422,6 +427,10 @@ func main() {
 
 			// Skills
 			r.Get("/game/skills", skillsHandler.HandleGetSkills)
+
+			// WebGPU Map Tiles
+			mapHandler := api.NewMapHandler(worldRepo, mapService)
+			r.Get("/v1/world/tiles/{face}/{lod}/{x}/{y}", mapHandler.GetTile)
 
 			// WebSocket endpoint
 			r.Get("/game/ws", wsHandler.ServeHTTP)

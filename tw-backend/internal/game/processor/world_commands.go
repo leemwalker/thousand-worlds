@@ -326,10 +326,10 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		client.SendGameMessage("system", "Geology initialized with tectonic plates and terrain.", nil)
 
 		// Spawn initial creatures based on generated biomes
-		if len(geology.Biomes) > 0 && simulateLife {
+		if len(geology.BiomeIDs) > 0 && simulateLife {
 			client.SendGameMessage("system", "Spawning initial life forms...", nil)
-			p.ecosystemService.SpawnBiomes(char.WorldID, geology.Biomes)
-			client.SendGameMessage("system", fmt.Sprintf("Spawned %d entities across %d biomes.", len(p.ecosystemService.Entities), len(geology.Biomes)), nil)
+			p.ecosystemService.SpawnBiomes(char.WorldID, geology.BiomeIDs)
+			client.SendGameMessage("system", fmt.Sprintf("Spawned %d entities.", len(p.ecosystemService.Entities)), nil)
 		}
 	}
 
@@ -389,7 +389,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 		geology.SeaLevel = newSeaLevel
 		// Regenerate dynamic features immediately
 		geology.Rivers = geography.GenerateRivers(geology.Heightmap, geology.SeaLevel, geology.Seed)
-		geology.Biomes = geography.AssignBiomes(geology.Heightmap, geology.SeaLevel, geology.Seed, 0.0)
+		geology.BiomeIDs, geology.Temperatures, geology.Precipitations = geography.AssignBiomes(geology.Heightmap, geology.SeaLevel, geology.Seed, 0.0)
 		client.SendGameMessage("system", fmt.Sprintf("🌊 Water level set to %.0fm (%s)", newSeaLevel, waterLevelFlag), nil)
 	}
 
@@ -425,37 +425,36 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 
 	// Initialize population simulator only if life is enabled
 	var popSim *population.PopulationSimulator
-	var biomesByType map[geography.BiomeType][]*geography.Biome
+	// Change: Instead of full struct pointers, we track which biome TYPES exist
+	// to spawn populations for them.
+	existingBiomeTypes := make(map[geography.BiomeType]bool)
 
 	if enableLife {
 		popSim = population.NewPopulationSimulator(char.WorldID, seed)
 		_ = evolutionGoal // Will be used in the evolution loop below
 
 		// Assign biomes (part of life system)
-		if len(geology.Biomes) == 0 {
-			geology.Biomes = geography.AssignBiomes(geology.Heightmap, geology.SeaLevel, geology.Seed, 0.0)
+		if len(geology.BiomeIDs) == 0 {
+			geology.BiomeIDs, geology.Temperatures, geology.Precipitations = geography.AssignBiomes(geology.Heightmap, geology.SeaLevel, geology.Seed, 0.0)
 		}
 
-		// Group biomes by type to ensure diversity
-		biomesByType = make(map[geography.BiomeType][]*geography.Biome)
-		for i := range geology.Biomes {
-			biome := &geology.Biomes[i]
-			biomesByType[biome.Type] = append(biomesByType[biome.Type], biome)
+		// Identify which biome types exist in the world
+		// Sampling to avoid iterating 16M cells?
+		// Iterating 65536 is fine, even 1M is fast in Go.
+		// If 16M (4096^2), iteration takes ~10-50ms. Acceptable once.
+		for _, id := range geology.BiomeIDs {
+			t := geography.BiomeTypeMap[id]
+			existingBiomeTypes[t] = true
 		}
-	} else {
-		// For geology-only, we still need biomesByType for event processing
-		biomesByType = make(map[geography.BiomeType][]*geography.Biome)
 	}
 
 	// Create populations for each biome type (sample up to 2 per type)
 	// Only runs when life simulation is enabled
 	if enableLife && popSim != nil {
-		for biomeType, biomes := range biomesByType {
-			// Take up to 2 biomes of each type
+		for biomeType := range existingBiomeTypes {
+			// We no longer have distinct biome instances, so we just create 1 or 2 populations per TYPE
+			// This simplifies the logic but maintains diversity (desert population, ocean population, etc)
 			count := 2
-			if len(biomes) < count {
-				count = len(biomes)
-			}
 
 			for i := 0; i < count; i++ {
 				bp := population.NewBiomePopulation(uuid.New(), biomeType)
@@ -548,7 +547,7 @@ func (p *GameProcessor) handleWorldSimulate(ctx context.Context, client websocke
 			}
 		}
 
-		client.SendGameMessage("system", fmt.Sprintf("Simulating %d biome types with %d total biome instances...", len(biomesByType), len(popSim.Biomes)), nil)
+		client.SendGameMessage("system", fmt.Sprintf("Simulating %d biome types with %d total biome instances...", len(existingBiomeTypes), len(popSim.Biomes)), nil)
 	}
 
 	// Initialize geographic systems for regional isolation tracking (life only)

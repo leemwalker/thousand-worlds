@@ -240,17 +240,17 @@ func TestServiceGetMapData_Occlusion(t *testing.T) {
 	hm := &geography.Heightmap{
 		Width:      10,
 		Height:     10,
-		Elevations: make([]float64, 100),
+		Elevations: make([]float32, 100),
 	}
 	// Set the Hill at grid position (7, 5) - corresponds to world (7, 5)
 	hm.Set(7, 5, 50.0)
 
 	geo := &ecosystem.WorldGeology{
 		Heightmap: hm,
-		Biomes:    make([]geography.Biome, 100),
+		BiomeIDs:  make([]geography.BiomeID, 100),
 	}
-	for i := range geo.Biomes {
-		geo.Biomes[i] = geography.Biome{Type: "plains"}
+	for i := range geo.BiomeIDs {
+		geo.BiomeIDs[i] = 1 // Plains or default
 	}
 	svc.SetWorldGeology(worldID, geo)
 

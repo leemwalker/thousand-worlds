@@ -178,7 +178,7 @@ func TestSphereHeightmap_ToFlatHeightmap_SamplesAllFaces(t *testing.T) {
 	for _, elev := range flat.Elevations {
 		for face, expected := range faceElevations {
 			// Use tolerance for floating point comparison
-			if elev >= expected-0.1 && elev <= expected+0.1 {
+			if float64(elev) >= expected-0.1 && float64(elev) <= expected+0.1 {
 				facesFound[face] = true
 			}
 		}

@@ -369,7 +369,7 @@ func (s *InterviewService) finalizeInterview(ctx context.Context, session *Inter
 		fmt.Printf("[DEBUG] World generation completed in %v\n", generated.Metadata.GenerationTime)
 		fmt.Printf("[DEBUG] Generated: %d plates, %d biomes, sea level: %.2f\n",
 			len(generated.Geography.Plates),
-			len(generated.Geography.Biomes),
+			len(generated.Geography.BiomeIDs),
 			generated.Metadata.SeaLevel)
 
 		// Store generation metadata in world metadata

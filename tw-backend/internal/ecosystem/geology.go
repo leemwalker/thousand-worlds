@@ -42,6 +42,7 @@ type WorldGeology struct {
 	SeaLevel      float64                        // meters (0 = baseline, positive = higher sea level)
 	Topology      spatial.Topology               // Spherical topology for plate operations
 	BoundaryCache *geography.BoundaryCache       // Cached plate boundary cells for fast tectonic processing
+	ActiveCells   *geography.ActiveCellGrid      // Sparse tracker for active cells (Phase 2 Optimization)
 	Ocean         *ocean.System                  // Ocean currents and thermodynamics (Phase 2)
 
 	// Underground data (Phase 3)
@@ -53,15 +54,18 @@ type WorldGeology struct {
 	MagmaGCCounter        int64                       // Counter for periodic GC
 
 	// Dynamic geographic features
-	Hotspots   []geography.Point // Fixed mantle plume locations
-	Rivers     [][]geography.Point
-	Biomes     []geography.Biome
-	Satellites []astronomy.Satellite       // Natural satellites
-	Rings      *astronomy.RingSystem       // Planetary ring system
-	Rainfall   []float64                   // Per-cell rainfall (Phase 7: Dynamic Weather)
-	Hydrology  *geography.HydrologyLayer   // Flow field for stream power erosion
-	IceSheet   *geography.IceSheet         // Glacial ice dynamics (Phase 10)
-	POIs       []geography.PointOfInterest // Points of Interest (Peaks, Trenches, etc.)
+	Hotspots []geography.Point // Fixed mantle plume locations
+	Rivers   [][]geography.Point
+	// Biomes     []geography.Biome // DEPRECATED: Replaced by compact arrays below
+	BiomeIDs       []geography.BiomeID
+	Temperatures   []int16                     // Centi-Celsius
+	Precipitations []uint16                    // mm/year
+	Satellites     []astronomy.Satellite       // Natural satellites
+	Rings          *astronomy.RingSystem       // Planetary ring system
+	Rainfall       []float64                   // Per-cell rainfall (Phase 7: Dynamic Weather)
+	Hydrology      *geography.HydrologyLayer   // Flow field for stream power erosion
+	IceSheet       *geography.IceSheet         // Glacial ice dynamics (Phase 10)
+	POIs           []geography.PointOfInterest // Points of Interest (Peaks, Trenches, etc.)
 
 	// River path cache (avoid regenerating every cycle)
 	sphericalRivers      []geography.SphericalRiverPath // Cached river paths
@@ -351,9 +355,9 @@ func (g *WorldGeology) InitializeGeology(resolutionOverride int) {
 
 		// Target: ~10 km per pixel for reasonable detail
 		// For Earth-like (40,000 km), this gives 4000x2000
-		// Updated: Cap at 2048x1024 per user request for high fidelity
-		maxWidth := 2048
-		maxHeight := 1024
+		// Updated: Cap at 4096x2048 per user request for high fidelity
+		maxWidth := 4096
+		maxHeight := 2048
 
 		// width = circumference, height = circumference/2 (latitude)
 		width = int(circumKm / 10)  // 10km per pixel
@@ -400,14 +404,15 @@ func (g *WorldGeology) InitializeGeology(resolutionOverride int) {
 
 	// Phase 5: Generate geological provinces within continental plates
 	// This creates Cratons (hard, flat), Orogens (folded, medium), and Basins (soft, low)
-	// Phase 5: Generate geological provinces within continental plates
-	// This creates Cratons (hard, flat), Orogens (folded, medium), and Basins (soft, low)
-	// We run this at all resolutions to detect Craton/Mineral potential
-	g.Provinces = geography.GenerateProvinces(g.Plates, g.Topology, g.Seed)
-	// This creates Cratons (hard, flat), Orogens (folded, medium), and Basins (soft, low)
 	// We run this at all resolutions to detect Craton/Mineral potential
 	g.Provinces = geography.GenerateProvinces(g.Plates, g.Topology, g.Seed)
 	geography.InitializeProvinceHardness(g.SphereHeightmap, g.Plates, g.Provinces, g.Topology, g.Seed)
+
+	// Initialize Sparse Active-Cell Tracker
+	// Bucket size 32 is a reasonable default for 128-1024 resolutions
+	g.ActiveCells = geography.NewActiveCellGrid(g.SphereHeightmap.Resolution(), 32)
+	// Mark all cells active initially to ensure full settlement
+	g.ActiveCells.InitializeFullScan(g.SphereHeightmap.Resolution(), func(c spatial.Coordinate) bool { return true })
 
 	// Initialize hotspots (2-5 fixed mantle plume locations)
 	numHotspots := 2 + g.rng.Intn(4)
@@ -428,7 +433,6 @@ func (g *WorldGeology) InitializeGeology(resolutionOverride int) {
 		g.SeaLevel = 0.0
 	}
 
-	// Generate initial rivers and hydrology
 	// Generate initial rivers and hydrology
 	if g.Topology.Resolution() > 32 {
 		if g.SphereHeightmap != nil {
@@ -474,7 +478,8 @@ func (g *WorldGeology) InitializeGeology(resolutionOverride int) {
 		}
 
 		// Initialize biomes using Weather→Biome pipeline (no latitude coupling)
-		g.Biomes = g.UpdateBiomes(0.0) // No global temp modifier initially
+		// Initialize biomes using Weather→Biome pipeline (no latitude coupling)
+		g.BiomeIDs, g.Temperatures, g.Precipitations = g.UpdateBiomes(0.0) // No global temp modifier initially
 
 		// Initialize underground column grid (Phase 3)
 		g.initializeColumns(width, height)
@@ -616,10 +621,11 @@ func (g *WorldGeology) simulateCaveFormation(yearsElapsed int64) {
 	}
 
 	// Build rainfall array from biomes (moisture affects dissolution)
-	rainfall := make([]float64, len(g.Biomes))
-	for i, biome := range g.Biomes {
+	rainfall := make([]float64, len(g.BiomeIDs))
+	for i, id := range g.BiomeIDs {
 		// Estimate rainfall from biome type
-		switch biome.Type {
+		bType := geography.BiomeTypeMap[id]
+		switch bType {
 		case "rainforest", "swamp":
 			rainfall[i] = 1.0
 		case "grassland", "savanna":
@@ -896,9 +902,11 @@ func (g *WorldGeology) simulateDepositEvolution(yearsElapsed int64) {
 	}
 
 	// Build rainfall map from biomes for sedimentation calculation
-	rainfall := make([]float64, len(g.Biomes))
-	for i, biome := range g.Biomes {
-		switch biome.Type {
+	rainfall := make([]float64, len(g.BiomeIDs))
+	for i, id := range g.BiomeIDs {
+		// Estimate rainfall from biome type
+		bType := geography.BiomeTypeMap[id]
+		switch bType {
 		case "rainforest", "swamp":
 			rainfall[i] = 1.0
 		case "grassland", "savanna":
@@ -1057,7 +1065,7 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 				// Apply plate movement & collisions
 				// We use SimulateTectonicsWithCache for performance if cache exists
 				if g.BoundaryCache != nil {
-					g.SphereHeightmap = geography.SimulateTectonicsWithCache(g.Plates, g.SphereHeightmap, g.BoundaryCache, g.Topology, scaleFactor, g.Seed+g.TotalYearsSimulated, g.Core.GetMaxElevation())
+					g.SphereHeightmap = geography.SimulateTectonicsWithCache(g.Plates, g.SphereHeightmap, g.BoundaryCache, g.ActiveCells, g.Topology, scaleFactor, g.Seed+g.TotalYearsSimulated, g.Core.GetMaxElevation())
 				} else {
 					// Fallback (slow)
 					g.SphereHeightmap = geography.SimulateTectonics(g.Plates, g.SphereHeightmap, g.Topology, scaleFactor, g.Core.GetMaxElevation())
@@ -1066,7 +1074,7 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 				// Apply Boundary Decay to passive margins
 				// This handles the transition from active boundary to passive interior
 				if g.BoundaryCache != nil {
-					geography.ApplyBoundaryDecay(g.Plates, g.SphereHeightmap, g.BoundaryCache, g.Topology, scaleFactor, g.Seed+g.TotalYearsSimulated, g.Core.GetMaxElevation())
+					geography.ApplyBoundaryDecay(g.Plates, g.SphereHeightmap, g.BoundaryCache, g.ActiveCells, g.Topology, scaleFactor, g.Seed+g.TotalYearsSimulated, g.Core.GetMaxElevation())
 				}
 				g.markSphereNeedsSync()
 
@@ -1107,8 +1115,14 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 			}
 
 			// Thermal erosion: Limited iterations to prevent lag
+			// OPTIMIZATION: For extreme resolutions, 1 pass is sufficient
+			thermalIterations := 3
+			if g.Topology != nil && g.Topology.Resolution() >= 2048 {
+				thermalIterations = 1
+			}
+
 			if g.SphereHeightmap != nil && g.Topology != nil {
-				geography.ApplyThermalErosionSpherical(g.SphereHeightmap, g.Topology, 3, g.Seed+g.TotalYearsSimulated)
+				geography.ApplyThermalErosionSpherical(g.SphereHeightmap, g.Topology, thermalIterations, g.Seed+g.TotalYearsSimulated)
 				g.markSphereNeedsSync()
 			} else {
 				geography.ApplyThermalErosion(g.Heightmap, 3, g.Seed+g.TotalYearsSimulated)
@@ -1144,7 +1158,15 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 
 				resolution := g.Topology.Resolution()
 				totalCells := 6 * resolution * resolution
-				numDrops := totalCells / 20 // ~5% of cells per erosion cycle
+
+				// OPTIMIZATION: Scale drop count down for extreme resolutions
+				// 5% is too many for 100M cells (5M drops). 1% (1M drops) is sufficient.
+				divisor := 20 // 5%
+				if resolution >= 2048 {
+					divisor = 100 // 1%
+				}
+
+				numDrops := totalCells / divisor
 				if numDrops < 500 {
 					numDrops = 500
 				}
@@ -1328,8 +1350,8 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 		subsidenceRate := 1e-8 * accumulatedTime
 		for i, elev := range g.Heightmap.Elevations {
 			if elev > 8000 {
-				excess := elev - 8000
-				g.Heightmap.Elevations[i] -= excess * subsidenceRate
+				excess := float64(elev) - 8000
+				g.Heightmap.Elevations[i] -= float32(excess * subsidenceRate)
 			}
 		}
 
@@ -1338,11 +1360,13 @@ func (g *WorldGeology) SimulateGeology(dt int64, globalTempMod float64) *PhaseTr
 			g.SphereHeightmap.ClampElevations(geography.MinElevation, g.Core.GetMaxElevation())
 			g.markSphereNeedsSync()
 		} else {
+			maxElev := float32(g.Core.GetMaxElevation())
+			minElev := float32(geography.MinElevation)
 			for i, elev := range g.Heightmap.Elevations {
-				if elev > g.Core.GetMaxElevation() {
-					g.Heightmap.Elevations[i] = g.Core.GetMaxElevation()
-				} else if elev < geography.MinElevation {
-					g.Heightmap.Elevations[i] = geography.MinElevation
+				if elev > maxElev {
+					g.Heightmap.Elevations[i] = maxElev
+				} else if elev < minElev {
+					g.Heightmap.Elevations[i] = minElev
 				}
 			}
 		}
@@ -1844,12 +1868,15 @@ func (g *WorldGeology) applyContinentalDrift(severity float64) {
 		if uplift > 50 {
 			uplift = 50
 		}
+		uplift32 := float32(uplift)
+		maxElev32 := float32(g.Core.GetMaxElevation())
+		seaLevel32 := float32(g.SeaLevel)
 		for i := range g.Heightmap.Elevations {
-			if g.Heightmap.Elevations[i] > g.SeaLevel {
-				g.Heightmap.Elevations[i] += uplift
+			if g.Heightmap.Elevations[i] > seaLevel32 {
+				g.Heightmap.Elevations[i] += uplift32
 				// Apply cap
-				if g.Heightmap.Elevations[i] > g.Core.GetMaxElevation() {
-					g.Heightmap.Elevations[i] = g.Core.GetMaxElevation()
+				if g.Heightmap.Elevations[i] > maxElev32 {
+					g.Heightmap.Elevations[i] = maxElev32
 				}
 			}
 		}
@@ -1962,7 +1989,7 @@ func (g *WorldGeology) applyFloodBasalt(severity float64) {
 
 // updateHeightmapStats recalculates min/max elevation
 func (g *WorldGeology) updateHeightmapStats() {
-	minElev, maxElev := math.MaxFloat64, -math.MaxFloat64
+	minElev, maxElev := float32(math.MaxFloat32), float32(-math.MaxFloat32)
 	for _, val := range g.Heightmap.Elevations {
 		if val < minElev {
 			minElev = val
@@ -1971,8 +1998,8 @@ func (g *WorldGeology) updateHeightmapStats() {
 			maxElev = val
 		}
 	}
-	g.Heightmap.MinElev = minElev
-	g.Heightmap.MaxElev = maxElev
+	g.Heightmap.MinElev = float64(minElev)
+	g.Heightmap.MaxElev = float64(maxElev)
 }
 
 // calculateAverageSurfaceTemp estimates global average surface temperature
@@ -1991,13 +2018,14 @@ func (g *WorldGeology) calculateAverageSurfaceTemp(globalTempMod float64) float6
 	}
 
 	// Calculate average from biomes if available
+	// Calculate average from biomes if available
 	avgBiomeTemp := 15.0 // Default baseline (Earth-like)
-	if len(g.Biomes) > 0 {
+	if len(g.Temperatures) > 0 {
 		totalTemp := 0.0
-		for _, b := range g.Biomes {
-			totalTemp += b.Temperature
+		for _, t := range g.Temperatures {
+			totalTemp += geography.Int16TempToFloat(t)
 		}
-		avgBiomeTemp = totalTemp / float64(len(g.Biomes))
+		avgBiomeTemp = totalTemp / float64(len(g.Temperatures))
 	}
 
 	// Combine all temperature factors
@@ -2015,7 +2043,7 @@ func (g *WorldGeology) GetStats() GeologyStats {
 	plateCount = len(g.Plates)
 	hotspotCount = len(g.Hotspots)
 	riverCount = len(g.Rivers)
-	biomeCount = len(g.Biomes)
+	biomeCount = len(g.BiomeIDs)
 
 	// Prefer SphereHeightmap (primary data source) over flat Heightmap
 	if g.SphereHeightmap != nil {
@@ -2044,8 +2072,8 @@ func (g *WorldGeology) GetStats() GeologyStats {
 		sum := 0.0
 		landCount := 0
 		for _, elev := range g.Heightmap.Elevations {
-			sum += elev
-			if elev > g.SeaLevel {
+			sum += float64(elev)
+			if float64(elev) > g.SeaLevel {
 				landCount++
 			}
 		}
@@ -2058,13 +2086,14 @@ func (g *WorldGeology) GetStats() GeologyStats {
 	}
 
 	// Calculate average temperature from biomes
+	// Calculate average temperature from biomes
 	avgTemp := 0.0
-	if len(g.Biomes) > 0 {
+	if len(g.Temperatures) > 0 {
 		totalTemp := 0.0
-		for _, b := range g.Biomes {
-			totalTemp += b.Temperature
+		for _, t := range g.Temperatures {
+			totalTemp += geography.Int16TempToFloat(t)
 		}
-		avgTemp = totalTemp / float64(len(g.Biomes))
+		avgTemp = totalTemp / float64(len(g.Temperatures))
 	}
 
 	return GeologyStats{
@@ -2158,8 +2187,9 @@ func (g *WorldGeology) ShiftTemperature(shift float64) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	for i := range g.Biomes {
-		g.Biomes[i].Temperature += shift
+	for i := range g.Temperatures {
+		// Add shift to compact value (shift is in Celsius, so *100)
+		g.Temperatures[i] += int16(shift * 100)
 	}
 }
 
@@ -2169,7 +2199,7 @@ func (g *WorldGeology) ShiftTemperature(shift float64) {
 // UpdateBiomes updates the biomes based on the current heightmap and climate.
 // This is now decoupled from SimulateGeology loop to prevent excessive memory allocations.
 // Should be called periodically by the simulation orchestrator if life is enabled.
-func (g *WorldGeology) UpdateBiomes(globalTempMod float64) []geography.Biome {
+func (g *WorldGeology) UpdateBiomes(globalTempMod float64) ([]geography.BiomeID, []int16, []uint16) {
 	seed := g.Seed + g.TotalYearsSimulated
 
 	// 1. Generate climate data
@@ -2209,15 +2239,18 @@ func (g *WorldGeology) UpdateBiomes(globalTempMod float64) []geography.Biome {
 		climateDataFlat = weather.GenerateInitialClimate(g.Heightmap, g.SeaLevel, seed, globalTempMod)
 	}
 
-	// 2. Classify biomes using climate data
-	biomes := make([]geography.Biome, g.Heightmap.Width*g.Heightmap.Height)
+	// 2. Classify biomes
+	count := g.Heightmap.Width * g.Heightmap.Height
+	biomeIDs := make([]geography.BiomeID, count)
+	temps := make([]int16, count)
+	precips := make([]uint16, count)
+
 	for y := 0; y < g.Heightmap.Height; y++ {
 		for x := 0; x < g.Heightmap.Width; x++ {
 			idx := y*g.Heightmap.Width + x
 			elev := g.Heightmap.Get(x, y)
 
 			var climate weather.ClimateData
-
 			if useSpherical {
 				// Map flat coordinates to spherical
 				lon := (float64(x) / float64(g.Heightmap.Width)) * 2 * math.Pi
@@ -2239,7 +2272,7 @@ func (g *WorldGeology) UpdateBiomes(globalTempMod float64) []geography.Biome {
 			var isLake bool
 
 			if g.Topology != nil && g.SphereHeightmap != nil {
-				// Map flat coordinates to spherical (Equirectangular)
+				// Re-map to spherical for cell data (redundant calc but safe)
 				lon := (float64(x) / float64(g.Heightmap.Width)) * 2 * math.Pi
 				lat := (0.5 - float64(y)/float64(g.Heightmap.Height)) * math.Pi
 
@@ -2249,9 +2282,6 @@ func (g *WorldGeology) UpdateBiomes(globalTempMod float64) []geography.Biome {
 
 				coord := g.Topology.FromVector(sphereX, sphereY, sphereZ)
 				cellData := g.SphereHeightmap.GetCellData(coord)
-				// If we already calculated coord above, we could reuse it, but this logic block
-				// was conditional on SphereHeightmap existing anyway.
-				// The redundant calculation is negligible.
 				flux = cellData.Flux
 				isLake = cellData.IsLake
 			}
@@ -2266,17 +2296,18 @@ func (g *WorldGeology) UpdateBiomes(globalTempMod float64) []geography.Biome {
 				isLake,
 			)
 
-			biomes[idx] = geography.Biome{
-				BiomeID:       uuid.New(),
-				Name:          string(biomeType),
-				Type:          biomeType,
-				Temperature:   climate.Temperature,
-				Precipitation: climate.AnnualRainfall,
+			// Store in compact arrays
+			if id, ok := geography.BiomeIDMap[biomeType]; ok {
+				biomeIDs[idx] = id
+			} else {
+				biomeIDs[idx] = geography.IDBiomeOcean
 			}
+			temps[idx] = geography.FloatTempToInt16(climate.Temperature)
+			precips[idx] = uint16(climate.AnnualRainfall)
 		}
 	}
 
-	return biomes
+	return biomeIDs, temps, precips
 }
 
 // GetTectonicMap returns a flat map of tectonic plate IDs and metadata for visualization.

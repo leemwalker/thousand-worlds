@@ -16,6 +16,7 @@ import (
 	"tw-backend/internal/repository"
 	"tw-backend/internal/skills"
 	"tw-backend/internal/worldentity"
+	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/orchestrator"
 
 	"github.com/google/uuid"
@@ -102,7 +103,7 @@ func (s *Service) SetWorldGeology(worldID uuid.UUID, geo *ecosystem.WorldGeology
 
 	if geo != nil && geo.IsInitialized() {
 		log.Printf("[MAP] SetWorldGeology: Registered geology for world %s with %d biomes, heightmap %dx%d, sea level %.0fm",
-			worldID, len(geo.Biomes), geo.Heightmap.Width, geo.Heightmap.Height, geo.SeaLevel)
+			worldID, len(geo.BiomeIDs), geo.Heightmap.Width, geo.Heightmap.Height, geo.SeaLevel)
 	} else if geo == nil {
 		log.Printf("[MAP] SetWorldGeology: Cleared geology for world %s", worldID)
 	}
@@ -253,7 +254,7 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 		char.WorldID, hasWorldData, hasGeology, quality)
 	if hasGeology && geo.Heightmap != nil {
 		log.Printf("[MAP] GetMapData: geology has %d biomes, heightmap %dx%d",
-			len(geo.Biomes), geo.Heightmap.Width, geo.Heightmap.Height)
+			len(geo.BiomeIDs), geo.Heightmap.Width, geo.Heightmap.Height)
 	}
 
 	// Get world bounds for boundary checking
@@ -353,8 +354,9 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 
 				// Get biome
 				idx := gridY*hm.Width + gridX
-				if idx >= 0 && idx < len(worldData.Geography.Biomes) {
-					tile.Biome = string(worldData.Geography.Biomes[idx].Type)
+				if idx >= 0 && idx < len(worldData.Geography.BiomeIDs) {
+					id := worldData.Geography.BiomeIDs[idx]
+					tile.Biome = string(geography.BiomeTypeMap[id])
 				}
 			} else if hasGeology {
 				// Fallback: use worldGeology data from async runner or world simulate
@@ -367,8 +369,9 @@ func (s *Service) GetMapData(ctx context.Context, char *auth.Character) (*MapDat
 
 					// Get biome from geology
 					idx := gridY*hm.Width + gridX
-					if idx >= 0 && idx < len(geo.Biomes) {
-						tile.Biome = string(geo.Biomes[idx].Type)
+					if idx >= 0 && idx < len(geo.BiomeIDs) {
+						id := geo.BiomeIDs[idx]
+						tile.Biome = string(geography.BiomeTypeMap[id])
 					}
 				}
 			}
@@ -680,8 +683,9 @@ func (s *Service) GetWorldMapData(ctx context.Context, char *auth.Character, gri
 						} else {
 							// Direct lookup for 1:1 or zoomed in
 							idx := hmY*hm.Width + hmX
-							if idx >= 0 && idx < len(geo.Biomes) {
-								biome = string(geo.Biomes[idx].Type)
+							if idx >= 0 && idx < len(geo.BiomeIDs) {
+								id := geo.BiomeIDs[idx]
+								biome = string(geography.BiomeTypeMap[id])
 							}
 						}
 					}
@@ -734,16 +738,17 @@ func (s *Service) GetWorldMapData(ctx context.Context, char *auth.Character, gri
 				// Fallback scan
 				first := true
 				for _, elev := range geo.Heightmap.Elevations {
+					val := float64(elev)
 					if first {
-						maxElev = elev
-						minElev = elev
+						maxElev = val
+						minElev = val
 						first = false
 					} else {
-						if elev > maxElev {
-							maxElev = elev
+						if val > maxElev {
+							maxElev = val
 						}
-						if elev < minElev {
-							minElev = elev
+						if val < minElev {
+							minElev = val
 						}
 					}
 				}
@@ -762,7 +767,7 @@ func (s *Service) GetWorldMapData(ctx context.Context, char *auth.Character, gri
 			landCount := 0
 			totalCells := len(geo.Heightmap.Elevations)
 			for _, elev := range geo.Heightmap.Elevations {
-				if elev > geo.SeaLevel {
+				if float64(elev) > geo.SeaLevel {
 					landCount++
 				}
 			}
@@ -802,12 +807,13 @@ func (s *Service) GetWorldMapData(ctx context.Context, char *auth.Character, gri
 		}
 
 		// Calculate average temperature from biomes, or estimate from heightmap
-		if len(geo.Biomes) > 0 {
-			tempSum := 0.0
-			for _, biome := range geo.Biomes {
-				tempSum += biome.Temperature
+		// Calculate average temperature
+		if len(geo.Temperatures) > 0 {
+			sum := 0.0
+			for _, t := range geo.Temperatures {
+				sum += float64(t) / 100.0 // centi-celsius
 			}
-			result.AvgTemperature = tempSum / float64(len(geo.Biomes))
+			result.AvgTemperature = sum / float64(len(geo.Temperatures))
 		} else if geo.Heightmap != nil {
 			// Fallback: estimate from latitude and elevation (for geology-only simulations)
 			// Base temperature at equator sea level: ~27°C
@@ -878,8 +884,9 @@ func aggregateRegionBiome(geo *ecosystem.WorldGeology, hmX, hmY, sampleRadius in
 			}
 
 			idx := y*hm.Width + x
-			if idx >= 0 && idx < len(geo.Biomes) {
-				biome := string(geo.Biomes[idx].Type)
+			if idx >= 0 && idx < len(geo.BiomeIDs) {
+				id := geo.BiomeIDs[idx]
+				biome := string(geography.BiomeTypeMap[id])
 
 				// Water biomes get 1.5x weight to preserve coastlines
 				// Use case-insensitive comparison for biome type matching
@@ -941,8 +948,9 @@ func (s *Service) BuildBinaryGrid(geo *ecosystem.WorldGeology, gridWidth, gridHe
 
 			// Get biome
 			idx := srcY*srcWidth + srcX
-			if idx >= 0 && idx < len(geo.Biomes) {
-				biomeStr := string(geo.Biomes[idx].Type)
+			if idx >= 0 && idx < len(geo.BiomeIDs) {
+				id := geo.BiomeIDs[idx]
+				biomeStr := string(geography.BiomeTypeMap[id])
 				grid.SetBiome(gx, gy, BiomeStringToID(biomeStr))
 			}
 		}

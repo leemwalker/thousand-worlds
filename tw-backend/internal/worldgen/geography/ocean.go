@@ -9,8 +9,11 @@ import (
 // AssignOceanLand determines the sea level and classifies terrain
 func AssignOceanLand(hm *Heightmap, targetLandRatio float64) float64 {
 	// 1. Flatten and sort elevations to find percentile
+	// 1. Flatten and sort elevations to find percentile
 	elevations := make([]float64, len(hm.Elevations))
-	copy(elevations, hm.Elevations)
+	for i, v := range hm.Elevations {
+		elevations[i] = float64(v)
+	}
 	sort.Float64s(elevations)
 
 	// 2. Find index for sea level

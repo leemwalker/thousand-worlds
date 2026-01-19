@@ -50,7 +50,7 @@ func TestGeographicRealism(t *testing.T) {
 	// Check actual ratio
 	landCount := 0
 	for _, elev := range hm.Elevations {
-		if elev > seaLevel {
+		if float64(elev) > seaLevel {
 			landCount++
 		}
 	}

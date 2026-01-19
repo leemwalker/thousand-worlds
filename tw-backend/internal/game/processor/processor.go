@@ -115,10 +115,8 @@ func NewGameProcessor(
 	runnerStateRepo *ecosystem.RunnerStateRepository,
 	eventPublisher events.Publisher,
 	ollamaClient *ollama.OllamaClient,
+	mapService MapService,
 ) *GameProcessor {
-	// Create map service with available dependencies
-	mapSvc := gamemap.NewService(worldRepo, skillsRepo, entityService, lookService, worldEntityService, ecosystemService)
-
 	// Default to NoOp publisher if nil
 	if eventPublisher == nil {
 		eventPublisher = events.NewNoOpPublisher()
@@ -133,7 +131,7 @@ func NewGameProcessor(
 		interviewService:   interviewService,
 		spatialService:     spatialService,
 		weatherService:     weatherService,
-		mapService:         mapSvc,
+		mapService:         mapService,
 		skillsRepo:         skillsRepo,
 		worldEntityService: worldEntityService,
 		ecosystemService:   ecosystemService,

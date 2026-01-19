@@ -113,10 +113,12 @@ func NewBoundaryCache() *BoundaryCache {
 }
 
 // Heightmap represents the elevation grid of the world
+// Elevations are stored as float32 for memory efficiency (50% savings)
+// while maintaining sub-millimeter precision at all elevation ranges.
 type Heightmap struct {
 	Width      int
 	Height     int
-	Elevations []float64 // 1D array mapped to 2D grid
+	Elevations []float32 // 1D array mapped to 2D grid (float32 for memory efficiency)
 	MinElev    float64
 	MaxElev    float64
 }
@@ -126,22 +128,22 @@ func NewHeightmap(width, height int) *Heightmap {
 	return &Heightmap{
 		Width:      width,
 		Height:     height,
-		Elevations: make([]float64, width*height),
+		Elevations: make([]float32, width*height),
 	}
 }
 
-// Get returns elevation at x,y
+// Get returns elevation at x,y (converted to float64 for API compatibility)
 func (h *Heightmap) Get(x, y int) float64 {
 	if x < 0 || x >= h.Width || y < 0 || y >= h.Height {
 		return 0
 	}
-	return h.Elevations[y*h.Width+x]
+	return float64(h.Elevations[y*h.Width+x])
 }
 
-// Set sets elevation at x,y
+// Set sets elevation at x,y (stored as float32 internally)
 func (h *Heightmap) Set(x, y int, val float64) {
 	if x >= 0 && x < h.Width && y >= 0 && y < h.Height {
-		h.Elevations[y*h.Width+x] = val
+		h.Elevations[y*h.Width+x] = float32(val)
 	}
 }
 
@@ -165,6 +167,63 @@ const (
 	BiomeWetland         BiomeType = "Wetland"
 )
 
+// BiomeID is a compact uint8 representation of a biome type
+// Used for efficient memory storage in WorldMap (approx 100x savings over struct)
+type BiomeID uint8
+
+const (
+	IDBiomeOcean           BiomeID = 1
+	IDBiomeLowland         BiomeID = 2
+	IDBiomeHighland        BiomeID = 3
+	IDBiomeMountain        BiomeID = 4
+	IDBiomeHighMountain    BiomeID = 5
+	IDBiomeRainforest      BiomeID = 6
+	IDBiomeDesert          BiomeID = 7
+	IDBiomeGrassland       BiomeID = 8
+	IDBiomeDeciduousForest BiomeID = 9
+	IDBiomeTaiga           BiomeID = 10
+	IDBiomeTundra          BiomeID = 11
+	IDBiomeAlpine          BiomeID = 12
+	IDBiomeLake            BiomeID = 13
+	IDBiomeWetland         BiomeID = 14
+)
+
+// BiomeIDMap maps string types to uint8 IDs
+var BiomeIDMap = map[BiomeType]BiomeID{
+	BiomeOcean:           IDBiomeOcean,
+	BiomeLowland:         IDBiomeLowland,
+	BiomeHighland:        IDBiomeHighland,
+	BiomeMountain:        IDBiomeMountain,
+	BiomeHighMountain:    IDBiomeHighMountain,
+	BiomeRainforest:      IDBiomeRainforest,
+	BiomeDesert:          IDBiomeDesert,
+	BiomeGrassland:       IDBiomeGrassland,
+	BiomeDeciduousForest: IDBiomeDeciduousForest,
+	BiomeTaiga:           IDBiomeTaiga,
+	BiomeTundra:          IDBiomeTundra,
+	BiomeAlpine:          IDBiomeAlpine,
+	BiomeLake:            IDBiomeLake,
+	BiomeWetland:         IDBiomeWetland,
+}
+
+// BiomeTypeMap maps uint8 IDs back to string types
+var BiomeTypeMap = map[BiomeID]BiomeType{
+	IDBiomeOcean:           BiomeOcean,
+	IDBiomeLowland:         BiomeLowland,
+	IDBiomeHighland:        BiomeHighland,
+	IDBiomeMountain:        BiomeMountain,
+	IDBiomeHighMountain:    BiomeHighMountain,
+	IDBiomeRainforest:      BiomeRainforest,
+	IDBiomeDesert:          BiomeDesert,
+	IDBiomeGrassland:       BiomeGrassland,
+	IDBiomeDeciduousForest: BiomeDeciduousForest,
+	IDBiomeTaiga:           BiomeTaiga,
+	IDBiomeTundra:          BiomeTundra,
+	IDBiomeAlpine:          BiomeAlpine,
+	IDBiomeLake:            BiomeLake,
+	IDBiomeWetland:         BiomeWetland,
+}
+
 // Biome represents a specific ecological region
 type Biome struct {
 	BiomeID       uuid.UUID
@@ -181,8 +240,12 @@ type Biome struct {
 type WorldMap struct {
 	Heightmap *Heightmap
 	Plates    []TectonicPlate
-	Biomes    []Biome
-	Rivers    [][]Point // List of river paths
+	// Biomes    []Biome // DEPRECATED: Replaced by compact arrays below
+	BiomeIDs       []BiomeID // Compact uint8 IDs (65M array vs 65M structs)
+	Temperatures   []int16   // Centi-Celsius (-32768 to 32767)
+	Precipitations []uint16  // mm/year (0-65535)
+
+	Rivers [][]Point // List of river paths
 }
 
 // -----------------------------------------------------------------------------

@@ -110,7 +110,7 @@ func createTestGeologyForHeightmap(t *testing.T) *ecosystem.WorldGeology {
 	hm := &geography.Heightmap{
 		Width:      hmSize,
 		Height:     hmSize,
-		Elevations: make([]float64, hmSize*hmSize),
+		Elevations: make([]float32, hmSize*hmSize),
 	}
 
 	// Add elevation variation: gradient from -5000 to +5000
@@ -119,7 +119,7 @@ func createTestGeologyForHeightmap(t *testing.T) *ecosystem.WorldGeology {
 			idx := y*hmSize + x
 			// Create gradient: bottom-left is low, top-right is high
 			elev := float64(x+y)/float64(2*hmSize)*10000 - 5000
-			hm.Elevations[idx] = elev
+			hm.Elevations[idx] = float32(elev)
 		}
 	}
 

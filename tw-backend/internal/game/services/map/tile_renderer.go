@@ -268,3 +268,79 @@ func (r *TileRenderer) placeholderColor(face CubeFace, u, v, elevation float64) 
 
 	return base
 }
+
+// RenderRawTile generates a single tile's raw data for WebGPU rendering.
+// Returns heightmap and biome data as flat arrays.
+func (r *TileRenderer) RenderRawTile(ctx context.Context, req TileRequest, worldGeo *ecosystem.WorldGeology) (*RawTileData, error) {
+	// Validate tile coordinates
+	if err := r.validateRequest(req); err != nil {
+		return nil, err
+	}
+
+	size := req.Size
+	if size <= 0 {
+		return nil, fmt.Errorf("invalid size %d", size)
+	}
+
+	// Prepare data arrays
+	heightmap := make([]float32, size*size)
+	biomes := make([]uint8, size*size)
+	water := make([]float32, size*size)
+
+	tilesPerSide := TilesPerSide(req.Level)
+	tileSize := 1.0 / float64(tilesPerSide)
+
+	// UV bounds for this tile within the cube face
+	uMin := float64(req.X) * tileSize
+	vMin := float64(req.Y) * tileSize
+
+	for py := 0; py < size; py++ {
+		for px := 0; px < size; px++ {
+			// Map pixel to UV within tile (0-1)
+			u := uMin + (float64(px)+0.5)/float64(size)*tileSize
+			v := vMin + (float64(py)+0.5)/float64(size)*tileSize
+
+			// Convert cube UV to spherical lat/lon
+			// lat, lon := CubeToSphere(req.Face, u, v)
+
+			// Get elevation and data from world geology
+			var elevation float64
+			var biomeID uint8
+			var waterLevel float64
+
+			if worldGeo != nil && worldGeo.SphereHeightmap != nil {
+				elevation = r.sampleElevation(worldGeo, req.Face, u, v)
+				waterLevel = worldGeo.SeaLevel
+				// Sample biome
+				// Note: accessing Biomes via sphere mapping would need a helper
+				// For now, we'll placeholder biome ID based on elevation/lat/lon if map is missing
+				// TODO: Add direct biome sampling to WorldGeology
+				biomeID = 0 // Default
+			} else {
+				// Placeholder
+				elevation = 0
+				waterLevel = 0
+			}
+
+			// Flatten index: row-major (y * width + x)
+			idx := py*size + px
+			heightmap[idx] = float32(elevation)
+			biomes[idx] = biomeID
+			water[idx] = float32(waterLevel)
+		}
+	}
+
+	return &RawTileData{
+		Coord: TileCoord{
+			Face:  req.Face,
+			Level: req.Level,
+			X:     req.X,
+			Y:     req.Y,
+		},
+		Heightmap: heightmap,
+		Biomes:    biomes,
+		Water:     water,
+		Width:     size,
+		Height:    size,
+	}, nil
+}

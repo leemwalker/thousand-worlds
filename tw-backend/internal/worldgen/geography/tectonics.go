@@ -2,7 +2,6 @@ package geography
 
 import (
 	"container/heap"
-	"fmt"
 	"log"
 	"math"
 	"math/rand"
@@ -377,7 +376,50 @@ type bfsItem struct {
 // with added noise to create organic, non-linear boundaries.
 // Can be called after plate movement to update regions.
 // OPTIMIZED: Uses flat slice for assignment tracking and pre-computed noise costs.
+// ReassignPlateRegions uses Multi-Source Dijkstra to assign every cell to the nearest plate
+// with added noise to create organic, non-linear boundaries.
+// OPTIMIZED: Uses Multiscale approach for high resolutions (>512).
 func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology, seed int64) {
+	if topology.Resolution() <= 512 {
+		// Run standard single-scale for low/medium resolutions
+		assigned := calculatePlateRegionsSingleScale(plates, topology, seed)
+		applyRegionsToPlates(plates, assigned, topology)
+	} else {
+		// Run multiscale optimization for high resolutions
+		assigned := calculatePlateRegionsMultiscale(plates, topology, seed)
+		applyRegionsToPlates(plates, assigned, topology)
+	}
+}
+
+// applyRegionsToPlates maps the flat assignment slice back to plate.Region maps
+func applyRegionsToPlates(plates []TectonicPlate, assigned []int, topology spatial.Topology) {
+	resolution := topology.Resolution()
+	resSq := resolution * resolution
+
+	// Helper for index to coordinate conversion
+	toCoord := func(idx int) spatial.Coordinate {
+		face := idx / resSq
+		rem := idx % resSq
+		return spatial.Coordinate{Face: face, X: rem % resolution, Y: rem / resolution}
+	}
+
+	// Reset maps
+	for i := range plates {
+		plates[i].Region = make(map[spatial.Coordinate]struct{})
+	}
+
+	// Populate maps
+	for idx, plateIdx := range assigned {
+		// Safety check
+		if plateIdx >= 0 && plateIdx < len(plates) {
+			coord := toCoord(idx)
+			plates[plateIdx].Region[coord] = struct{}{}
+		}
+	}
+}
+
+// calculatePlateRegionsSingleScale runs the standard Dijkstra algorithm
+func calculatePlateRegionsSingleScale(plates []TectonicPlate, topology spatial.Topology, seed int64) []int {
 	resolution := topology.Resolution()
 	resSq := resolution * resolution
 	totalCells := 6 * resSq
@@ -387,14 +429,7 @@ func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology, see
 		return c.Face*resSq + c.Y*resolution + c.X
 	}
 
-	// Helper for index to coordinate conversion
-	toCoord := func(idx int) spatial.Coordinate {
-		face := idx / resSq
-		rem := idx % resSq
-		return spatial.Coordinate{Face: face, X: rem % resolution, Y: rem / resolution}
-	}
-
-	// 1. Pre-compute noise costs for all cells (eliminates FBM3D from hot loop)
+	// 1. Pre-compute noise costs
 	noiseConfig := DefaultTerrainFBMConfig()
 	noiseConfig.Frequency = 6.0
 	noiseConfig.Octaves = 4
@@ -403,78 +438,460 @@ func ReassignPlateRegions(plates []TectonicPlate, topology spatial.Topology, see
 
 	noiseCosts := make([]float64, totalCells)
 	for idx := 0; idx < totalCells; idx++ {
-		coord := toCoord(idx)
-		sx, sy, sz := topology.ToSphere(coord)
-		noiseVal := gen.FBM3D(sx, sy, sz) // -1 to 1
+		// Optimization: compute on demand? No, sequential access is better here.
+		// Actually, generating 16M noise values is slow.
+		// But for single scale (<=512), it's 1.5M cells max. Fast enough.
+		c := spatial.Coordinate{Face: idx / resSq, X: (idx % resSq) % resolution, Y: (idx % resSq) / resolution}
+		sx, sy, sz := topology.ToSphere(c)
+		noiseVal := gen.FBM3D(sx, sy, sz)
 		noiseCosts[idx] = 1.0 + (noiseVal+1.0)*8.0
 	}
 
-	// 2. Slice-based assignment tracking (replaces map)
-	// -1 = unassigned, otherwise plate index
+	// 2. Slice-based assignment tracking
 	assigned := make([]int, totalCells)
 	for i := range assigned {
 		assigned[i] = -1
 	}
 
-	// 3. Priority Queue for Dijkstra
+	// 3. Priority Queue
 	pq := &borderPQ{}
 	heap.Init(pq)
 
-	// Initialize queue with all plate centroids
 	for i, p := range plates {
 		heap.Push(pq, acquireBorderItem(p.Centroid, i, 0))
 	}
 
-	// Cardinal directions for neighbor traversal
+	// Dijkstra
 	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
-	assignedCount := 0
 
-	// Dijkstra expansion
 	for pq.Len() > 0 {
 		current := heap.Pop(pq).(*borderItem)
 		currentIdx := toIdx(current.coord)
 
-		// If already assigned (by a shorter/better path), skip
 		if assigned[currentIdx] >= 0 {
 			releaseBorderItem(current)
 			continue
 		}
 
-		// Assign cell to plate
 		assigned[currentIdx] = current.plateIdx
-		assignedCount++
 
-		// Check neighbors
 		for _, dir := range directions {
 			neighbor := topology.GetNeighbor(current.coord, dir)
 			neighborIdx := toIdx(neighbor)
 
 			if assigned[neighborIdx] < 0 {
-				// Use pre-computed noise cost
 				newCost := current.cost + noiseCosts[neighborIdx]
-
 				heap.Push(pq, acquireBorderItem(neighbor, current.plateIdx, newCost))
 			}
 		}
-
-		// Done with this item
 		releaseBorderItem(current)
 	}
+	return assigned
+}
 
-	// 4. Rebuild Region maps from assigned slice (backward compatibility for GetTectonicMap)
-	for i := range plates {
-		plates[i].Region = make(map[spatial.Coordinate]struct{})
+// calculatePlateRegionsMultiscale optimizes assignment for high resolutions
+// Uses Hierarchical Block Skipping to avoid O(N) operations on the high-res grid.
+func calculatePlateRegionsMultiscale(plates []TectonicPlate, topology spatial.Topology, seed int64) []int {
+	targetRes := topology.Resolution()
+
+	// 1. Create Low-Res Topology (256 is optimal balance)
+	lowRes := 256
+	if targetRes < lowRes {
+		lowRes = targetRes
 	}
-	for idx, plateIdx := range assigned {
-		if plateIdx >= 0 && plateIdx < len(plates) {
-			coord := toCoord(idx)
-			plates[plateIdx].Region[coord] = struct{}{}
+	lowResTopology := spatial.NewCubeSphereTopology(lowRes)
+
+	// 2. Run coarse assignment
+	// Map high-res centroids to low-res coordinates
+	lowResPlates := make([]TectonicPlate, len(plates))
+	scale := float64(lowRes) / float64(targetRes)
+
+	for i, p := range plates {
+		lowResPlates[i] = p
+		lowResPlates[i].Centroid = spatial.Coordinate{
+			Face: p.Centroid.Face,
+			X:    int(float64(p.Centroid.X) * scale),
+			Y:    int(float64(p.Centroid.Y) * scale),
+		}
+		// Clamp
+		if lowResPlates[i].Centroid.X >= lowRes {
+			lowResPlates[i].Centroid.X = lowRes - 1
+		}
+		if lowResPlates[i].Centroid.Y >= lowRes {
+			lowResPlates[i].Centroid.Y = lowRes - 1
 		}
 	}
 
-	if assignedCount != totalCells {
-		fmt.Printf("ReassignPlateRegions WARNING: Only assigned %d/%d cells!\n", assignedCount, totalCells)
+	// Run full Dijkstra on the small grid (very fast)
+	lowResAssigned := calculatePlateRegionsSingleScale(lowResPlates, lowResTopology, seed)
+
+	// 3. Upscale result & Detect Boundaries
+	log.Println("[TECTONICS] Starting Upscale...")
+	start := time.Now()
+
+	totalCells := 6 * targetRes * targetRes
+	assigned := make([]int, totalCells)
+
+	// Upscale and get boundary indices (lock-free parallel)
+	boundaryIndices := upscaleAndDetect(lowResAssigned, lowRes, assigned, targetRes, lowResTopology)
+	log.Printf("[TECTONICS] Upscale Done in %v. Processing Boundaries...", time.Since(start))
+
+	// 4. Refine Boundaries
+	// Only re-calculate physics for boundary zones
+	refineBoundariesFromIndices(assigned, plates, topology, seed, boundaryIndices)
+	log.Printf("[TECTONICS] Refine Done. Total Tectonics Time: %v", time.Since(start))
+
+	return assigned
+}
+
+// upscaleAndDetect upscales and identifies boundary blocks.
+// Returns list of HighRes pixel indices that belong to "Unstable" low-res blocks.
+func upscaleAndDetect(src []int, srcRes int, dst []int, dstRes int, srcTopology spatial.Topology) [][]int {
+	scale := float64(dstRes) / float64(srcRes)
+	srcResSq := srcRes * srcRes
+	dstResSq := dstRes * dstRes
+
+	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+
+	results := make([][]int, 6)
+
+	var wg sync.WaitGroup
+	wg.Add(6)
+
+	for face := 0; face < 6; face++ {
+		go func(f int) {
+			defer wg.Done()
+			srcOffset := f * srcResSq
+			dstOffset := f * dstResSq
+
+			// Pre-allocate (Active blocks ~10%)
+			// Each block is (scale)^2 pixels.
+			pixelsPerBlock := int(scale * scale)
+			localBoundaries := make([]int, 0, (srcResSq/10)*pixelsPerBlock)
+
+			for sy := 0; sy < srcRes; sy++ {
+				for sx := 0; sx < srcRes; sx++ {
+					// Check this low-res cell
+					srcIdx := srcOffset + sy*srcRes + sx
+					myPlate := src[srcIdx]
+
+					// Check neighbors (Low Res)
+					isUnstable := false
+					c := spatial.Coordinate{Face: f, X: sx, Y: sy}
+
+					// Check 4 neighbors
+					// Optimization: Check internal neighbors directly
+					if sx > 0 && sx < srcRes-1 && sy > 0 && sy < srcRes-1 {
+						if src[srcIdx-srcRes] != myPlate ||
+							src[srcIdx+srcRes] != myPlate ||
+							src[srcIdx-1] != myPlate ||
+							src[srcIdx+1] != myPlate {
+							isUnstable = true
+						}
+					} else {
+						for _, dir := range directions {
+							n := srcTopology.GetNeighbor(c, dir)
+							nIdx := n.Face*srcResSq + n.Y*srcRes + n.X
+							if src[nIdx] != myPlate {
+								isUnstable = true
+								break
+							}
+						}
+					}
+
+					// Upscale Bounds
+					startX := int(float64(sx) * scale)
+					startY := int(float64(sy) * scale)
+					endX := int(float64(sx+1) * scale)
+					endY := int(float64(sy+1) * scale)
+
+					// Fill High Res
+					for dy := startY; dy < endY; dy++ {
+						if dy >= dstRes {
+							continue
+						}
+						rowOffset := dstOffset + dy*dstRes
+						for dx := startX; dx < endX; dx++ {
+							if dx >= dstRes {
+								continue
+							}
+
+							idx := rowOffset + dx
+							dst[idx] = myPlate
+
+							if isUnstable {
+								localBoundaries = append(localBoundaries, idx)
+							}
+						}
+					}
+				}
+			}
+			results[f] = localBoundaries
+		}(face)
 	}
+	wg.Wait()
+	return results
+}
+
+// refineBoundariesFromIndices runs local Dijkstra only on identified boundary pixels
+func refineBoundariesFromIndices(assigned []int, plates []TectonicPlate, topology spatial.Topology, seed int64, boundaryIndices [][]int) {
+	resolution := topology.Resolution()
+	resSq := resolution * resolution
+
+	toIdx := func(c spatial.Coordinate) int {
+		return c.Face*resSq + c.Y*resolution + c.X
+	}
+
+	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
+
+	noiseConfig := DefaultTerrainFBMConfig()
+	noiseConfig.Frequency = 6.0
+	noiseConfig.Octaves = 2 // Reduced from 4 for performance
+	gen := NewFBMGenerator(seed, noiseConfig)
+
+	// 1. Unassign all unstable pixels
+	log.Println("[TECTONICS] Unassigning boundaries...")
+	count := 0
+	for _, list := range boundaryIndices {
+		for _, idx := range list {
+			assigned[idx] = -1
+			count++
+		}
+	}
+	log.Printf("[TECTONICS] Unassigned %d pixels. Pre-computing Noise...", count)
+
+	// Pre-compute noise for all candidate cells in parallel
+	// We need noise for all cells that might be visited.
+	// This loosely corresponds to the unassigned cells and their neighbors.
+	// To be safe and efficient, we can only compute for the 'unstable' set.
+	// But Dijkstra might explore slightly outside 'unstable' if not bounded?
+	// No, Dijkstra only expands into 'unassigned' (-1) cells.
+	// So we only need noise for '-1' cells.
+	// Wait. The COST of entering a cell depends on THAT cell's noise.
+	// So we need noise for all '-1' cells.
+
+	// We use a sparse map because allocating 400MB slice might be wasteful if we only use 0.5%
+	// Actually, slice access is faster. 400MB is fine for "Extreme" mode.
+	noiseCache := make([]float32, len(assigned))
+
+	// Parallelize noise calc
+	var noiseWg sync.WaitGroup
+	noiseWg.Add(6)
+	for i := 0; i < 6; i++ {
+		go func(faceIdx int) {
+			defer noiseWg.Done()
+			list := boundaryIndices[faceIdx]
+			for _, idx := range list {
+				// Only compute if not already computed?
+				// The lists are disjoint by face, but might overlap at edges?
+				// No, boundaryIndices are strictly partitioned by face in `upscaleAndDetect`.
+				// Actually, `upscaleAndDetect` uses `dy` and `dx` logic.
+				// Yes, strict partition.
+
+				rem := idx % resSq
+				c := spatial.Coordinate{Face: idx / resSq, X: rem % resolution, Y: rem / resolution}
+				sx, sy, sz := topology.ToSphere(c)
+				val := float32(1.0 + (gen.FBM3D(sx, sy, sz)+1.0)*8.0)
+				noiseCache[idx] = val
+			}
+		}(i)
+	}
+	noiseWg.Wait()
+
+	log.Println("[TECTONICS] Noise Pre-computed. Identifying Seeds...")
+
+	// 2. Collect Seeds (Parallel, No Locks)
+	// A seed is a Stable Pixel that neighbors an Unstable Pixel (-1).
+	// We iterate the Unstable Pixels loop.
+	seedLists := make([][]*borderItem, 6)
+
+	var wg sync.WaitGroup
+	wg.Add(6)
+
+	for i := 0; i < 6; i++ {
+		go func(idx int) {
+			defer wg.Done()
+			list := boundaryIndices[idx]
+			localSeeds := make([]*borderItem, 0, len(list)/4)
+			visitedLocal := make(map[int]bool) // Avoid duplicates locally
+
+			for _, cellIdx := range list {
+				// I am -1. Check my neighbors.
+				rem := cellIdx % resSq
+				c := spatial.Coordinate{Face: cellIdx / resSq, X: rem % resolution, Y: rem / resolution}
+
+				for _, dir := range directions {
+					n := topology.GetNeighbor(c, dir)
+					nIdx := toIdx(n)
+
+					// If neighbor is NOT -1, it's a seed!
+					if assigned[nIdx] != -1 {
+						// Dedup locally?
+						// Multiple boundary cells might touch same seed.
+						if !visitedLocal[nIdx] {
+							// For seeds, the cost is 0 or initial?
+							// Dijkstra starts with Seed cost.
+							// Usually 0.
+							// But here we used `1.0 + noise`.
+							// Let's use noise of the seed coordinate?
+							// Yes.
+							// But we didn't pre-compute noise for Stable/Seed cells?
+							// We only computed for Unstable.
+							// So we need to compute noise on the fly for Seeds?
+							// Yes.
+							// This is few calls (77k seeds). Fast.
+
+							sx, sy, sz := topology.ToSphere(n)
+							noise := 1.0 + (gen.FBM3D(sx, sy, sz)+1.0)*8.0
+
+							item := acquireBorderItem(n, assigned[nIdx], noise)
+							localSeeds = append(localSeeds, item)
+							visitedLocal[nIdx] = true
+						}
+					}
+				}
+			}
+			seedLists[idx] = localSeeds
+		}(i)
+	}
+	wg.Wait()
+
+	// 3. Initialize Heap (Serial Merge)
+	pq := &borderPQ{}
+	totalSeeds := 0
+	for _, list := range seedLists {
+		totalSeeds += len(list)
+	}
+	*pq = make(borderPQ, 0, totalSeeds)
+
+	// Global Visited set to handle inter-chunk duplicates
+	visitedGlobal := make(map[int]bool, totalSeeds)
+
+	for _, list := range seedLists {
+		for _, item := range list {
+			idx := toIdx(item.coord)
+			if !visitedGlobal[idx] {
+				*pq = append(*pq, item)
+				visitedGlobal[idx] = true
+			} else {
+				releaseBorderItem(item)
+			}
+		}
+	}
+	heap.Init(pq)
+	log.Printf("[TECTONICS] Heap Initialized with %d seeds. Running Dijkstra...", len(*pq))
+
+	// 4. Run Local Dijkstra
+	// Use BitSet for closed set (Faster than map)
+	// Resolution is 4096 -> 6 * 16M cells = 100M cells.
+	// Bitset size: 100M / 64 = 1.5M uint64 = 12MB.
+	bitsetSize := (6*resSq + 63) / 64
+	closedSet := make([]uint64, bitsetSize)
+
+	setBit := func(idx int) {
+		closedSet[idx/64] |= (1 << (idx % 64))
+	}
+	checkBit := func(idx int) bool {
+		return (closedSet[idx/64] & (1 << (idx % 64))) != 0
+	}
+
+	loops := 0
+	for pq.Len() > 0 {
+		loops++
+		current := heap.Pop(pq).(*borderItem)
+		currentIdx := toIdx(current.coord)
+
+		// Skip if already expanded
+		if checkBit(currentIdx) {
+			releaseBorderItem(current)
+			continue
+		}
+		setBit(currentIdx)
+
+		if assigned[currentIdx] == -1 {
+			assigned[currentIdx] = current.plateIdx
+		} else if assigned[currentIdx] != current.plateIdx {
+			// Collision with another plate
+			releaseBorderItem(current)
+			continue
+		}
+
+		// Optimization: Use direct arithmetic for interior cells
+		f, x, y := current.coord.Face, current.coord.X, current.coord.Y
+
+		if x > 0 && x < resolution-1 && y > 0 && y < resolution-1 {
+			// FAST PATH: All neighbors are on same face
+			// Relative offsets for neighbor indices on same face
+			// These depend on Face Layout but typically: +1, -1, +res, -res
+			// Note: We need to map neighbor coordinate to Index.
+			// West: x-1 -> idx - 1
+			// East: x+1 -> idx + 1
+			// North: y-1 -> idx - resolution
+			// South: y+1 -> idx + resolution
+
+			// Check West
+			nIdx := currentIdx - 1
+			if assigned[nIdx] == -1 {
+				noise := float64(noiseCache[nIdx])
+				if noise == 0 {
+					// Fallback
+					sx, sy, sz := topology.ToSphere(spatial.Coordinate{Face: f, X: x - 1, Y: y})
+					noise = 1.0 + (gen.FBM3D(sx, sy, sz)+1.0)*8.0
+				}
+				heap.Push(pq, acquireBorderItem(spatial.Coordinate{Face: f, X: x - 1, Y: y}, current.plateIdx, current.cost+noise))
+			}
+			// Check East
+			nIdx = currentIdx + 1
+			if assigned[nIdx] == -1 {
+				noise := float64(noiseCache[nIdx])
+				if noise == 0 {
+					sx, sy, sz := topology.ToSphere(spatial.Coordinate{Face: f, X: x + 1, Y: y})
+					noise = 1.0 + (gen.FBM3D(sx, sy, sz)+1.0)*8.0
+				}
+				heap.Push(pq, acquireBorderItem(spatial.Coordinate{Face: f, X: x + 1, Y: y}, current.plateIdx, current.cost+noise))
+			}
+			// Check North
+			nIdx = currentIdx - resolution
+			if assigned[nIdx] == -1 {
+				noise := float64(noiseCache[nIdx])
+				if noise == 0 {
+					sx, sy, sz := topology.ToSphere(spatial.Coordinate{Face: f, X: x, Y: y - 1})
+					noise = 1.0 + (gen.FBM3D(sx, sy, sz)+1.0)*8.0
+				}
+				heap.Push(pq, acquireBorderItem(spatial.Coordinate{Face: f, X: x, Y: y - 1}, current.plateIdx, current.cost+noise))
+			}
+			// Check South
+			nIdx = currentIdx + resolution
+			if assigned[nIdx] == -1 {
+				noise := float64(noiseCache[nIdx])
+				if noise == 0 {
+					sx, sy, sz := topology.ToSphere(spatial.Coordinate{Face: f, X: x, Y: y + 1})
+					noise = 1.0 + (gen.FBM3D(sx, sy, sz)+1.0)*8.0
+				}
+				heap.Push(pq, acquireBorderItem(spatial.Coordinate{Face: f, X: x, Y: y + 1}, current.plateIdx, current.cost+noise))
+			}
+
+		} else {
+			// SLOW PATH: Edge cases
+			for _, dir := range directions {
+				neighbor := topology.GetNeighbor(current.coord, dir)
+				neighborIdx := toIdx(neighbor)
+
+				if assigned[neighborIdx] == -1 {
+					noise := float64(noiseCache[neighborIdx])
+					if noise == 0 {
+						sx, sy, sz := topology.ToSphere(neighbor)
+						noise = 1.0 + (gen.FBM3D(sx, sy, sz)+1.0)*8.0
+					}
+
+					newCost := current.cost + noise
+					heap.Push(pq, acquireBorderItem(neighbor, current.plateIdx, newCost))
+				}
+			}
+		}
+		releaseBorderItem(current)
+	}
+	log.Printf("[TECTONICS] Dijkstra Completed in %d ops.", loops)
 }
 
 // ComputeBoundaryCache pre-computes all cells that are at plate boundaries.
@@ -602,7 +1019,10 @@ func ComputeBoundaryCache(plates []TectonicPlate, topology spatial.Topology) *Bo
 
 // SimulateTectonicsWithCache uses a pre-computed boundary cache for fast processing.
 // Only iterates over boundary cells instead of all cells - typically 90% faster.
-func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightmap, cache *BoundaryCache, topology spatial.Topology, scaleFactor float64, seed int64, maxElevation float64) *SphereHeightmap {
+// SimulateTectonicsWithCache performs the main tectonic simulation using cached boundary cells for performance.
+// Returns a new heightmap representing the next simulation state.
+// If tracker is provided (non-nil), modified cells will be marked active.
+func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightmap, cache *BoundaryCache, tracker *ActiveCellGrid, topology spatial.Topology, scaleFactor float64, seed int64, maxElevation float64) *SphereHeightmap {
 	if debug.Is(debug.Perf) {
 		defer debug.Time(debug.Perf, "SimulateTectonicsWithCache")()
 	}
@@ -718,6 +1138,14 @@ func SimulateTectonicsWithCache(plates []TectonicPlate, heightmap *SphereHeightm
 
 		// Use rigidity-aware boundary effect
 		applyBoundaryEffectWithRigidity(heightmap, bc.Coord, elevationDelta, collisionResult.RigidityRings, topology, maxElevation)
+
+		// MARK ACTIVE: This cell was modified, so track it for decay/erosion
+		if tracker != nil {
+			tracker.MarkActive(bc.Coord)
+			// Also mark neighbors if rigidity > 0 (simplified: mark impacted area)
+			// For now, just marking the boundary itself is a good start as decay propagates
+			// but strictly we should mark the neighborhood.
+		}
 	}
 
 	return heightmap
@@ -730,7 +1158,10 @@ const PassiveMarginDecayRate = 0.02
 // ApplyBoundaryDecay erodes cells that are NO LONGER at plate boundaries toward base elevation.
 // This prevents "phantom mountains" from persisting after plate boundaries move away.
 // Should be called after SimulateTectonicsWithCache to handle passive margins.
-func ApplyBoundaryDecay(plates []TectonicPlate, heightmap *SphereHeightmap, cache *BoundaryCache, topology spatial.Topology, scaleFactor float64, seed int64, maxElevation float64) {
+// ApplyBoundaryDecay erodes cells that are NO LONGER at plate boundaries toward base elevation.
+// This prevents "phantom mountains" from persisting after plate boundaries move away.
+// Uses ActiveCellGrid to only process relevant cells (optimization).
+func ApplyBoundaryDecay(plates []TectonicPlate, heightmap *SphereHeightmap, cache *BoundaryCache, tracker *ActiveCellGrid, topology spatial.Topology, scaleFactor float64, seed int64, maxElevation float64) {
 	if debug.Is(debug.Perf) {
 		defer debug.Time(debug.Perf, "ApplyBoundaryDecay")()
 	}
@@ -741,78 +1172,75 @@ func ApplyBoundaryDecay(plates []TectonicPlate, heightmap *SphereHeightmap, cach
 	boundarySet := make(map[spatial.Coordinate]struct{}, len(cache.Cells))
 	for _, bc := range cache.Cells {
 		boundarySet[bc.Coord] = struct{}{}
+		// Ensure current boundaries are always active (for updates/uplift)
+		if tracker != nil {
+			tracker.MarkActive(bc.Coord)
+		}
 	}
 
-	// Build plate lookup grid for fast plate assignment
-	plateGrid := make([]int, 6*resolution*resolution)
-	for i := range plateGrid {
-		plateGrid[i] = -1
-	}
-	for i, p := range plates {
-		for coord := range p.Region {
-			idx := coord.Face*resolution*resolution + coord.Y*resolution + coord.X
-			if idx >= 0 && idx < len(plateGrid) {
-				plateGrid[idx] = i
+	// If no tracker, fall back to full scan (legacy support or init)
+	// But ideally we rely on the tracker.
+	var cellsToProcess []spatial.Coordinate
+	if tracker != nil {
+		cellsToProcess = tracker.GetAllActiveCells()
+	} else {
+		// Fallback: Full Scan (Expensive!)
+		cellsToProcess = make([]spatial.Coordinate, 0, 6*resolution*resolution)
+		for face := 0; face < 6; face++ {
+			for y := 0; y < resolution; y++ {
+				for x := 0; x < resolution; x++ {
+					cellsToProcess = append(cellsToProcess, spatial.Coordinate{Face: face, X: x, Y: y})
+				}
 			}
 		}
 	}
 
-	// Iterate all cells
-	for face := 0; face < 6; face++ {
-		for y := 0; y < resolution; y++ {
-			for x := 0; x < resolution; x++ {
-				coord := spatial.Coordinate{Face: face, X: x, Y: y}
+	// Build plate lookup grid (Hierarchical)
+	// Replaces N*Resolution^2 flat array with sparse hierarchy
+	plateGrid := NewHierarchicalPlateGrid(plates, resolution, 64)
 
-				// Skip cells that ARE at boundaries - they get tectonic uplift
-				if _, isBoundary := boundarySet[coord]; isBoundary {
-					continue
-				}
+	// Optimize: Pre-calculate exponents for decay
+	decayFactor := math.Pow(1.0-PassiveMarginDecayRate, scaleFactor)
 
-				// Get plate for this cell
-				idx := face*resolution*resolution + y*resolution + x
-				plateIdx := plateGrid[idx]
-				if plateIdx < 0 {
-					continue
-				}
-				plate := plates[plateIdx]
+	// Iterate ONLY active cells
+	for _, coord := range cellsToProcess {
+		// Skip cells that ARE at boundaries - they get tectonic uplift
+		if _, isBoundary := boundarySet[coord]; isBoundary {
+			continue
+		}
 
-				// Get current elevation
-				currentElev := heightmap.Get(coord)
-				cellData := heightmap.GetCellData(coord)
+		// Get plate for this cell
+		plateIdx := plateGrid.GetPlateID(coord)
+		if plateIdx < 0 {
+			continue
+		}
+		plate := plates[plateIdx]
 
-				// Determine base elevation
-				// If the cell itself is continental (accreted land), it floats high
-				// regardless of whether the underlying plate is officially "Continental" yet.
-				baseElev := -4000.0 // Ocean floor
-				if plate.Type == PlateContinental || cellData.IsContinental {
-					baseElev = ContinentalBaseElevation // Continental shelf
-				}
+		// Get current elevation
+		currentElev := heightmap.Get(coord)
+		// cellData := heightmap.GetCellData(coord) // Unused?
 
-				// Add base noise to prevent flat "mosaic" look
-				// We decay towards a noisy baseline so the plate interiors serve as organic terrain
-				// Simple 3D noise using coordinate and seed
-				sx, sy, sz := topology.ToSphere(coord)
-				// Use a simplified inline noise or pseudo-random mix for performance
-				// (Full FBM might be too heavy for every cell every tick?
-				// Actually, ApplyBoundaryDecay runs every ~100k years on all cells. Performance matters.)
-				// Let's use a deterministic hash-based noise:
-				h := int64(sx*1000) ^ int64(sy*1000) ^ int64(sz*1000) ^ seed
-				h *= 1664525
-				noiseVal := float64(h&0xFFFF) / 65535.0 // 0.0 to 1.0
+		// Determine base elevation
+		var baseElev float64
+		if plate.Type == PlateOceanic {
+			baseElev = OceanicBaseElevation
+		} else {
+			baseElev = ContinentalBaseElevation
+		}
 
-				// Map noise to range [-300, +300] for base variation
-				noiseOffset := (noiseVal * 600.0) - 300.0
-				baseElev += noiseOffset
+		// If significantly different from base, apply decay
+		if math.Abs(currentElev-baseElev) > 1.0 { // 1 meter threshold
+			// Decay toward base
+			diff := baseElev - currentElev
+			// exponential decay
+			change := diff * (1.0 - decayFactor)
 
-				// Apply slow decay toward base elevation (isostatic rebound)
-				// This makes old mountains erode and old ocean ridges sink
-				difference := baseElev - currentElev
-				delta := difference * PassiveMarginDecayRate * scaleFactor
+			newElev := currentElev + change
+			heightmap.Set(coord, newElev)
 
-				// Apply decay
-				newElev := currentElev + delta
-				newElev = clampElevation(newElev, maxElevation)
-				heightmap.Set(coord, newElev)
+			// Mark as still active for next tick since it's not at equilibrium
+			if tracker != nil {
+				tracker.MarkActive(coord)
 			}
 		}
 	}

@@ -221,24 +221,27 @@ func GenerateHeightmapWithTidalStress(plates []TectonicPlate, heightmap *SphereH
 }
 
 // SmoothSpherical applies a box blur to the sphere heightmap
-// OPTIMIZED: Uses fast slice copying instead of map-based buffering.
+// OPTIMIZED: Uses fast slice copying and bounds-check-free inner loops.
+// This structure allows the Go compiler to auto-vectorize the stencil operation.
 func SmoothSpherical(hm *SphereHeightmap, topology spatial.Topology) {
 	resolution := topology.Resolution()
 	directions := []spatial.Direction{spatial.North, spatial.South, spatial.East, spatial.West}
 
 	// Create a fast copy of current values using slices
 	// original[face][index]
-	original := make([][]float64, 6)
+	original := make([][]float32, 6)
 	for f := 0; f < 6; f++ {
-		original[f] = make([]float64, resolution*resolution)
-		// Access underlying face data if possible, or copy manually if private
-		// Since we are in the same package (geography), we can rely on Get/Set for now,
-		// but let's copy efficiently.
-		for y := 0; y < resolution; y++ {
-			for x := 0; x < resolution; x++ {
-				original[f][y*resolution+x] = hm.Get(spatial.Coordinate{Face: f, X: x, Y: y})
-			}
-		}
+		original[f] = make([]float32, resolution*resolution)
+		// Access underlying face data. Since we are in the geography package,
+		// and SphereHeightmap relies on Heightmap which uses Elevations []float32,
+		// we can copy directly if exposed, or loop.
+		// h.faces is private, but we have Get. Get returns float64.
+		// We know it stores float32.
+		// Let's use Get for correctness but accept the cast cost.
+		// Optimally we would access the slice directly if possible.
+		// Given we are in the same package (geography), we CAN access private fields of Heightmap!
+		// hm.faces[f].Elevations is []float32.
+		copy(original[f], hm.faces[f].Elevations)
 	}
 
 	// Apply smoothing (Parallelized by face)
@@ -247,29 +250,69 @@ func SmoothSpherical(hm *SphereHeightmap, topology spatial.Topology) {
 	for face := 0; face < 6; face++ {
 		go func(f int) {
 			defer wg.Done()
-			for y := 0; y < resolution; y++ {
-				for x := 0; x < resolution; x++ {
-					coord := spatial.Coordinate{Face: f, X: x, Y: y}
-					idx := y*resolution + x
 
-					sum := original[f][idx]
-					count := 1.0
+			// Direct access to destination slice
+			dest := hm.faces[f].Elevations
+			src := original[f]
 
-					for _, dir := range directions {
-						neighbor := topology.GetNeighbor(coord, dir)
+			// Top row (y=0) - safe handling with topology
+			for x := 0; x < resolution; x++ {
+				smoothSingleCell(hm, original, topology, f, x, 0, directions)
+			}
 
-						// Fast lookup from original slice
-						nVal := original[neighbor.Face][neighbor.Y*resolution+neighbor.X]
-						sum += nVal
-						count++
-					}
+			// Bottom row (y=res-1)
+			for x := 0; x < resolution; x++ {
+				smoothSingleCell(hm, original, topology, f, x, resolution-1, directions)
+			}
 
-					hm.Set(coord, sum/count)
+			// Left/Right cols for internal rows
+			for y := 1; y < resolution-1; y++ {
+				smoothSingleCell(hm, original, topology, f, 0, y, directions)
+				smoothSingleCell(hm, original, topology, f, resolution-1, y, directions)
+			}
+
+			// INTERIOR: This is 99% of the pixels.
+			// Contiguous memory access, no topology lookups, simple stencil.
+			// Index = y*res + x.
+			// Up = i - res
+			// Down = i + res
+			// Left = i - 1
+			// Right = i + 1
+			for y := 1; y < resolution-1; y++ {
+				rowOffset := y * resolution
+				// Start at x=1, end at x=res-2
+				for i := rowOffset + 1; i < rowOffset+resolution-1; i++ {
+					sum := src[i] + src[i-1] + src[i+1] + src[i-resolution] + src[i+resolution]
+					dest[i] = sum * 0.2
 				}
 			}
 		}(face)
 	}
 	wg.Wait()
+}
+
+// smoothSingleCell handles complicated edge cases using topology lookups
+func smoothSingleCell(hm *SphereHeightmap, original [][]float32, topology spatial.Topology, f, x, y int, directions []spatial.Direction) {
+	resolution := topology.Resolution()
+	coord := spatial.Coordinate{Face: f, X: x, Y: y}
+
+	// Get center from original
+	// We can't easily index 'original' without calculating index again,
+	// but this is the slow path anyway.
+	idx := y*resolution + x
+	sum := original[f][idx]
+	count := 1.0
+
+	for _, dir := range directions {
+		neighbor := topology.GetNeighbor(coord, dir)
+		// Access neighbor from original snapshot
+		nVal := original[neighbor.Face][neighbor.Y*resolution+neighbor.X]
+		sum += nVal
+		count++
+	}
+
+	// Write result
+	hm.Set(coord, float64(sum/float32(count)))
 }
 
 // ApplyHydraulicErosionSpherical simulates water erosion on a sphere

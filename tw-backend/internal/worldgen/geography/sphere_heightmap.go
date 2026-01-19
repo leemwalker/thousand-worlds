@@ -343,8 +343,8 @@ func (s *SphereHeightmap) UpdateMinMax() {
 					maxE = elev
 				}
 			}
-			faceMin[face] = minE
-			faceMax[face] = maxE
+			faceMin[face] = float64(minE)
+			faceMax[face] = float64(maxE)
 		}(f)
 	}
 	wg.Wait()
@@ -556,12 +556,13 @@ func sineApprox(x float64) float64 {
 // ClampElevations constrains all elevation values to be within [minElev, maxElev].
 // This prevents runaway elevation accumulation over geological time.
 func (s *SphereHeightmap) ClampElevations(minElev, maxElev float64) {
+	minE32, maxE32 := float32(minElev), float32(maxElev)
 	for _, face := range s.faces {
 		for i, elev := range face.Elevations {
-			if elev > maxElev {
-				face.Elevations[i] = maxElev
-			} else if elev < minElev {
-				face.Elevations[i] = minElev
+			if elev > maxE32 {
+				face.Elevations[i] = maxE32
+			} else if elev < minE32 {
+				face.Elevations[i] = minE32
 			}
 		}
 	}

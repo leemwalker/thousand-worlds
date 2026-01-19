@@ -1,0 +1,572 @@
+=== RUN   TestAccretionCreatesRuggedTerrain
+    accretion_test.go:91: Accretion happened at tick 1. Elevation: 297.78
+--- PASS: TestAccretionCreatesRuggedTerrain (0.00s)
+=== RUN   TestAssignBiomes
+--- PASS: TestAssignBiomes (0.00s)
+=== RUN   TestClassifyBiome_PureClassification
+=== RUN   TestClassifyBiome_PureClassification/tropical_rainforest
+=== RUN   TestClassifyBiome_PureClassification/tropical_desert
+=== RUN   TestClassifyBiome_PureClassification/tropical_grassland
+=== RUN   TestClassifyBiome_PureClassification/temperate_deciduous
+=== RUN   TestClassifyBiome_PureClassification/temperate_grassland
+=== RUN   TestClassifyBiome_PureClassification/boreal_taiga
+=== RUN   TestClassifyBiome_PureClassification/arctic_tundra
+=== RUN   TestClassifyBiome_PureClassification/high_mountain_alpine
+=== RUN   TestClassifyBiome_PureClassification/ocean
+=== RUN   TestClassifyBiome_PureClassification/lake
+=== RUN   TestClassifyBiome_PureClassification/wetland_flux
+--- PASS: TestClassifyBiome_PureClassification (0.00s)
+    --- PASS: TestClassifyBiome_PureClassification/tropical_rainforest (0.00s)
+    --- PASS: TestClassifyBiome_PureClassification/tropical_desert (0.00s)
+    --- PASS: TestClassifyBiome_PureClassification/tropical_grassland (0.00s)
+    --- PASS: TestClassifyBiome_PureClassification/temperate_deciduous (0.00s)
+    --- PASS: TestClassifyBiome_PureClassification/temperate_grassland (0.00s)
+    --- PASS: TestClassifyBiome_PureClassification/boreal_taiga (0.00s)
+    --- PASS: TestClassifyBiome_PureClassification/arctic_tundra (0.00s)
+    --- PASS: TestClassifyBiome_PureClassification/high_mountain_alpine (0.00s)
+    --- PASS: TestClassifyBiome_PureClassification/ocean (0.00s)
+    --- PASS: TestClassifyBiome_PureClassification/lake (0.00s)
+    --- PASS: TestClassifyBiome_PureClassification/wetland_flux (0.00s)
+=== RUN   TestClassifyBiome_NoLatitudeDependency
+--- PASS: TestClassifyBiome_NoLatitudeDependency (0.00s)
+=== RUN   TestClassifyBiome_TemperatureShiftChangesResult
+--- PASS: TestClassifyBiome_TemperatureShiftChangesResult (0.00s)
+=== RUN   TestCalculateVolcanicEmissions
+=== RUN   TestCalculateVolcanicEmissions/Basaltic_Low_Magnitude
+=== RUN   TestCalculateVolcanicEmissions/Andesitic_High_Magnitude
+=== RUN   TestCalculateVolcanicEmissions/Default_(Unknown_Type)
+--- PASS: TestCalculateVolcanicEmissions (0.00s)
+    --- PASS: TestCalculateVolcanicEmissions/Basaltic_Low_Magnitude (0.00s)
+    --- PASS: TestCalculateVolcanicEmissions/Andesitic_High_Magnitude (0.00s)
+    --- PASS: TestCalculateVolcanicEmissions/Default_(Unknown_Type) (0.00s)
+=== RUN   TestSphereHeightmap_DeltaTracking
+--- PASS: TestSphereHeightmap_DeltaTracking (0.00s)
+=== RUN   TestGetTargetElevation
+=== RUN   TestGetTargetElevation/Div_Ocean-Ocean
+=== RUN   TestGetTargetElevation/Div_Cont-Cont
+=== RUN   TestGetTargetElevation/Div_Mixed
+=== RUN   TestGetTargetElevation/Conv_Ocean-Ocean
+=== RUN   TestGetTargetElevation/Conv_Cont-Cont
+=== RUN   TestGetTargetElevation/Conv_Mixed
+=== RUN   TestGetTargetElevation/Transform
+--- PASS: TestGetTargetElevation (0.00s)
+    --- PASS: TestGetTargetElevation/Div_Ocean-Ocean (0.00s)
+    --- PASS: TestGetTargetElevation/Div_Cont-Cont (0.00s)
+    --- PASS: TestGetTargetElevation/Div_Mixed (0.00s)
+    --- PASS: TestGetTargetElevation/Conv_Ocean-Ocean (0.00s)
+    --- PASS: TestGetTargetElevation/Conv_Cont-Cont (0.00s)
+    --- PASS: TestGetTargetElevation/Conv_Mixed (0.00s)
+    --- PASS: TestGetTargetElevation/Transform (0.00s)
+=== RUN   TestGenerateSubCellSeed
+--- PASS: TestGenerateSubCellSeed (0.00s)
+=== RUN   TestNewBoundaryCache
+--- PASS: TestNewBoundaryCache (0.00s)
+=== RUN   TestCalculateElevationChange_Deprecated
+--- PASS: TestCalculateElevationChange_Deprecated (0.00s)
+=== RUN   TestApplyBoundaryDecay
+--- PASS: TestApplyBoundaryDecay (0.00s)
+=== RUN   TestSimulateGeologicalAge
+--- PASS: TestSimulateGeologicalAge (0.00s)
+=== RUN   TestSimulateWilsonCycle
+--- PASS: TestSimulateWilsonCycle (0.00s)
+=== RUN   TestSimulateContinentalRift
+--- PASS: TestSimulateContinentalRift (0.00s)
+=== RUN   TestCalculateSupercontinentEffects
+--- PASS: TestCalculateSupercontinentEffects (0.00s)
+=== RUN   TestVolcanismEdgeCases
+--- PASS: TestVolcanismEdgeCases (0.00s)
+=== RUN   TestHydrology_LayerMethods
+--- PASS: TestHydrology_LayerMethods (0.00s)
+=== RUN   TestCalculateGlobalFlux
+--- PASS: TestCalculateGlobalFlux (0.00s)
+=== RUN   TestHydrology_FlowField_IsSink
+--- PASS: TestHydrology_FlowField_IsSink (0.00s)
+=== RUN   TestGeneratePOIs_Peak
+--- PASS: TestGeneratePOIs_Peak (0.00s)
+=== RUN   TestGeneratePOIs_DeepOcean
+--- PASS: TestGeneratePOIs_DeepOcean (0.00s)
+=== RUN   TestRouteFluxThroughLakes
+--- PASS: TestRouteFluxThroughLakes (0.00s)
+=== RUN   TestWorldShapes
+--- PASS: TestWorldShapes (0.00s)
+=== RUN   TestCalculateIsostaticHeight
+=== RUN   TestCalculateIsostaticHeight/Standard_Oceanic_Crust_(7km_basalt)
+=== RUN   TestCalculateIsostaticHeight/Thin_Oceanic_Crust_(6km_basalt)
+=== RUN   TestCalculateIsostaticHeight/Standard_Continental_Crust_(35km_granite)
+=== RUN   TestCalculateIsostaticHeight/Thin_Continental_Crust_(30km_granite)
+=== RUN   TestCalculateIsostaticHeight/Thick_Mountain_Root_(60km_granite_-_Himalayas)
+=== RUN   TestCalculateIsostaticHeight/Andes-style_Coastal_Mountains_(45km_granite)
+=== RUN   TestCalculateIsostaticHeight/Island_Arc_(12km_basalt)
+--- PASS: TestCalculateIsostaticHeight (0.00s)
+    --- PASS: TestCalculateIsostaticHeight/Standard_Oceanic_Crust_(7km_basalt) (0.00s)
+    --- PASS: TestCalculateIsostaticHeight/Thin_Oceanic_Crust_(6km_basalt) (0.00s)
+    --- PASS: TestCalculateIsostaticHeight/Standard_Continental_Crust_(35km_granite) (0.00s)
+    --- PASS: TestCalculateIsostaticHeight/Thin_Continental_Crust_(30km_granite) (0.00s)
+    --- PASS: TestCalculateIsostaticHeight/Thick_Mountain_Root_(60km_granite_-_Himalayas) (0.00s)
+    --- PASS: TestCalculateIsostaticHeight/Andes-style_Coastal_Mountains_(45km_granite) (0.00s)
+    --- PASS: TestCalculateIsostaticHeight/Island_Arc_(12km_basalt) (0.00s)
+=== RUN   TestIsostaticHeight_PhysicsConsistency
+--- PASS: TestIsostaticHeight_PhysicsConsistency (0.00s)
+=== RUN   TestHadeanDrift
+    drift_test.go:52: Initial Distance: 1.4135
+    drift_test.go:66: Final Distance: 1.3609
+--- PASS: TestHadeanDrift (0.00s)
+=== RUN   TestAccretion
+    drift_test.go:161: Computed 32 boundary cells
+    drift_test.go:177: Plate 1 Accreted Mass: 1.6000
+    drift_test.go:193: Formed 7 Continental Cells on Plate 1
+--- PASS: TestAccretion (0.00s)
+=== RUN   TestApplyThermalErosion_Spike
+--- PASS: TestApplyThermalErosion_Spike (0.00s)
+=== RUN   TestApplyHydraulicErosion_Slope
+--- PASS: TestApplyHydraulicErosion_Slope (0.00s)
+=== RUN   TestApplyDifferentialErosion_HardnessAffectsRate
+--- PASS: TestApplyDifferentialErosion_HardnessAffectsRate (0.06s)
+=== RUN   TestApplyDifferentialErosion_SedimentDeposition
+    erosion_test.go:184: Sediment deposited in flat area: true
+--- PASS: TestApplyDifferentialErosion_SedimentDeposition (0.02s)
+=== RUN   TestApplyDifferentialErosion_CoastalShelfFormation
+    erosion_test.go:228: Total coastal sediment deposited: 1136.6m
+--- PASS: TestApplyDifferentialErosion_CoastalShelfFormation (0.06s)
+=== RUN   TestApplyStreamPowerErosion_SedimentTransport
+    erosion_test.go:293: Top Elev: 1000.00 (Start 1000)
+    erosion_test.go:294: Bot Sediment: 0.00
+--- PASS: TestApplyStreamPowerErosion_SedimentTransport (0.00s)
+=== RUN   TestClampFloat
+--- PASS: TestClampFloat (0.00s)
+=== RUN   TestSimulateSoilFertility
+--- PASS: TestSimulateSoilFertility (0.00s)
+=== RUN   TestSimulateAtollFormation
+--- PASS: TestSimulateAtollFormation (0.00s)
+=== RUN   TestSimulateExtension
+--- PASS: TestSimulateExtension (0.00s)
+=== RUN   TestSimulateTerraneAccretion
+--- PASS: TestSimulateTerraneAccretion (0.00s)
+=== RUN   TestCalculateFragmentationEffects
+--- PASS: TestCalculateFragmentationEffects (0.00s)
+=== RUN   TestGenerateHeightmapWithTidalStress
+--- PASS: TestGenerateHeightmapWithTidalStress (0.01s)
+=== RUN   TestIsSinkAndGetFlux
+--- PASS: TestIsSinkAndGetFlux (0.00s)
+=== RUN   TestSphereHeightmap_Bounds
+--- PASS: TestSphereHeightmap_Bounds (0.00s)
+=== RUN   TestBiomes_Classify
+--- PASS: TestBiomes_Classify (0.00s)
+=== RUN   TestErosion_StreamPower
+--- PASS: TestErosion_StreamPower (0.00s)
+=== RUN   TestErosion_Differential
+--- PASS: TestErosion_Differential (0.00s)
+=== RUN   TestCatastrophes
+--- PASS: TestCatastrophes (0.00s)
+=== RUN   TestCoastal_Simulation
+--- PASS: TestCoastal_Simulation (0.00s)
+=== RUN   TestCoastal_Features
+--- PASS: TestCoastal_Features (0.00s)
+=== RUN   TestCoastal_Spits
+--- PASS: TestCoastal_Spits (0.00s)
+=== RUN   TestFloat32PrecisionAtMaxElevation
+    float32_precision_test.go:44: At elevation 15000m: float32 precision = 0.001953m (1.953mm)
+--- PASS: TestFloat32PrecisionAtMaxElevation (0.00s)
+=== RUN   TestFloat32PrecisionAtSealevel
+    float32_precision_test.go:64: At sea level: float32 precision = 0.001000000m
+--- PASS: TestFloat32PrecisionAtSealevel (0.00s)
+=== RUN   TestFloat32PrecisionAtMinElevation
+    float32_precision_test.go:77: At elevation -12000m: float32 precision = 0.001953m (1.953mm)
+--- PASS: TestFloat32PrecisionAtMinElevation (0.00s)
+=== RUN   TestFloat32ConversionRoundtrip
+    float32_precision_test.go:113: Maximum conversion error across test values: 0.000000m (0.000mm)
+--- PASS: TestFloat32ConversionRoundtrip (0.00s)
+=== RUN   TestFloat32HeightmapMemorySavings
+    float32_precision_test.go:127: Resolution 1024: 6291456 cells, float64=48MB, float32=24MB, savings=24MB (50%)
+    float32_precision_test.go:127: Resolution 2048: 25165824 cells, float64=192MB, float32=96MB, savings=96MB (50%)
+    float32_precision_test.go:127: Resolution 4096: 100663296 cells, float64=768MB, float32=384MB, savings=384MB (50%)
+    float32_precision_test.go:127: Resolution 8096: 393271296 cells, float64=3000MB, float32=1500MB, savings=1500MB (50%)
+--- PASS: TestFloat32HeightmapMemorySavings (0.00s)
+=== RUN   TestScandinaviaSimulation
+    glacial_integration_test.go:53: === Phase 1: Ice Age (Building ice sheet) ===
+    glacial_integration_test.go:60: After 50,000 years: Ice volume=190659982407.65 km³, Max thickness=60390530 m, Area=34550000 km²
+    glacial_integration_test.go:72: Total erosion during glaciation: 281941370593485079834265649152.00 m
+    glacial_integration_test.go:74: === Phase 2: Deglaciation (Warming) ===
+    glacial_integration_test.go:98: After deglaciation: Ice volume=186761667014.48 km³, Max thickness=218447977 m
+    glacial_integration_test.go:101: === Phase 3: Feature Detection ===
+    glacial_integration_test.go:126: Detected features: U-valleys=0, Fjords=991, Moraines=991
+    glacial_integration_test.go:135: Potential glacial lake locations: 622
+--- PASS: TestScandinaviaSimulation (0.03s)
+=== RUN   TestGreatLakesSimulation
+    glacial_integration_test.go:179: === Building ice over basin ===
+    glacial_integration_test.go:194: Ice coverage: 6144 cells, Volume=552960000000.00 km³
+    glacial_integration_test.go:201: === Retreat and deposit moraines ===
+    glacial_integration_test.go:227: Moraines: 2193, Potential lakes: 1271
+    glacial_integration_test.go:230: Moraine deposits created - could dam meltwater to form lakes
+--- PASS: TestGreatLakesSimulation (0.04s)
+=== RUN   TestErosionBalance
+    glacial_integration_test.go:263: Glacial erosion: 600.0000 m, Typical river erosion: 0.0500 m
+    glacial_integration_test.go:267: ✓ Glacial erosion (600.0000) > River erosion (0.0500) - physically realistic
+--- PASS: TestErosionBalance (0.00s)
+=== RUN   TestHadeanGrowth
+    hadean_test.go:26: Initialized Hadean Earth: 10 Oceanic Plates
+    hadean_test.go:76: Tick 0: Total Accreted Mass = 7.10
+    hadean_test.go:76: Tick 10: Total Accreted Mass = 89.80
+    hadean_test.go:76: Tick 20: Total Accreted Mass = 185.70
+    hadean_test.go:76: Tick 30: Total Accreted Mass = 305.00
+    hadean_test.go:76: Tick 40: Total Accreted Mass = 442.40
+    hadean_test.go:97: Final State: 432 Continental Cells (28.12% coverage)
+--- PASS: TestHadeanGrowth (0.13s)
+=== RUN   TestGenerateHeightmap
+    heightmap_test.go:55: Stats: Ocean=true Land=true Mtn=true Trench=true
+    heightmap_test.go:56: Min: -5628.511719 Max: 17556.837891
+    heightmap_test.go:73: Counts: OceanCells=437 LandCells=998 Total=1536
+--- PASS: TestGenerateHeightmap (0.01s)
+=== RUN   TestHypsometricCurve_FlattensShelf
+--- PASS: TestHypsometricCurve_FlattensShelf (0.00s)
+=== RUN   TestHypsometricCurve_PreservesExtremes
+=== RUN   TestHypsometricCurve_PreservesExtremes/Deep_ocean
+=== RUN   TestHypsometricCurve_PreservesExtremes/Abyss
+=== RUN   TestHypsometricCurve_PreservesExtremes/Mountain
+=== RUN   TestHypsometricCurve_PreservesExtremes/High_peak
+--- PASS: TestHypsometricCurve_PreservesExtremes (0.00s)
+    --- PASS: TestHypsometricCurve_PreservesExtremes/Deep_ocean (0.00s)
+    --- PASS: TestHypsometricCurve_PreservesExtremes/Abyss (0.00s)
+    --- PASS: TestHypsometricCurve_PreservesExtremes/Mountain (0.00s)
+    --- PASS: TestHypsometricCurve_PreservesExtremes/High_peak (0.00s)
+=== RUN   TestHierarchicalPlateGrid
+--- PASS: TestHierarchicalPlateGrid (0.00s)
+=== RUN   TestCalculateFlowField_SteepestDescent
+--- PASS: TestCalculateFlowField_SteepestDescent (0.00s)
+=== RUN   TestCalculateFlowField_FluxAccumulation
+--- PASS: TestCalculateFlowField_FluxAccumulation (0.00s)
+=== RUN   TestCalculateFlowField_IdentifiesSinks
+--- PASS: TestCalculateFlowField_IdentifiesSinks (0.00s)
+=== RUN   TestRiverContinuity_PeakToOcean
+--- PASS: TestRiverContinuity_PeakToOcean (0.00s)
+=== RUN   TestErosionRebound_LessThanEroded
+--- PASS: TestErosionRebound_LessThanEroded (0.00s)
+=== RUN   TestCalculateFlowAccumulation_Slope
+--- PASS: TestCalculateFlowAccumulation_Slope (0.00s)
+=== RUN   TestCalculateFlowAccumulation_Valley
+--- PASS: TestCalculateFlowAccumulation_Valley (0.00s)
+=== RUN   TestIceSheet_Accumulation
+    ice_sheet_test.go:63: Note: 188 equator cells have ice (may flow there before ablating)
+    ice_sheet_test.go:66: Polar cells with ice: 2048, Total ice volume: 5120000000.00 km³
+--- PASS: TestIceSheet_Accumulation (0.00s)
+=== RUN   TestIceSheet_Flow
+    ice_sheet_test.go:114: Center ice: 3000 -> 1500 m, Spread to 1 cells
+--- PASS: TestIceSheet_Flow (0.00s)
+=== RUN   TestIceSheet_Ablation
+--- PASS: TestIceSheet_Ablation (0.00s)
+=== RUN   TestIceSheet_Erosion
+    ice_sheet_test.go:190: Erosion: 200.00 m total, Elevation: 1000 -> 800 m
+--- PASS: TestIceSheet_Erosion (0.00s)
+=== RUN   TestFillDepressions_Bowl
+--- PASS: TestFillDepressions_Bowl (0.00s)
+=== RUN   TestIdentifySinks
+--- PASS: TestIdentifySinks (0.00s)
+=== RUN   TestReassignPlateRegions_OrganicBoundaries
+    organic_boundary_test.go:87: Boundary analysis: total=2039 peninsulas=5 corners=606 straight=33 (30.0% organic)
+--- PASS: TestReassignPlateRegions_OrganicBoundaries (0.04s)
+=== RUN   TestReassignPlateRegions_DifferentSeeds_DifferentBoundaries
+--- PASS: TestReassignPlateRegions_DifferentSeeds_DifferentBoundaries (0.01s)
+=== RUN   TestIslandArc_DistributionNotUniform
+    organic_boundary_test.go:144: Found 222 oceanic-oceanic convergent boundary cells
+--- PASS: TestIslandArc_DistributionNotUniform (0.00s)
+=== RUN   TestPlateGrowth_HadeanToArchean
+    organic_boundary_test.go:266: Continental growth: 0 -> 1743 cells
+--- PASS: TestPlateGrowth_HadeanToArchean (0.46s)
+=== RUN   TestGeographicRealism
+--- PASS: TestGeographicRealism (0.02s)
+=== RUN   TestVariation
+--- PASS: TestVariation (0.01s)
+=== RUN   TestGenerateRivers
+--- PASS: TestGenerateRivers (0.01s)
+=== RUN   TestGenerateRiversSpherical
+--- PASS: TestGenerateRiversSpherical (0.01s)
+=== RUN   TestConvertSphericalRiversToFlat
+--- PASS: TestConvertSphericalRiversToFlat (0.00s)
+=== RUN   TestCellData_SedimentMinerals
+--- PASS: TestCellData_SedimentMinerals (0.00s)
+=== RUN   TestAddSedimentWithMinerals
+--- PASS: TestAddSedimentWithMinerals (0.00s)
+=== RUN   TestErode_ExtractsMinerals
+--- PASS: TestErode_ExtractsMinerals (0.00s)
+=== RUN   TestDeltaDeposition_CreatesMineralDeposits
+    sediment_minerals_test.go:99: Integration test - requires full delta simulation setup
+--- SKIP: TestDeltaDeposition_CreatesMineralDeposits (0.00s)
+=== RUN   TestMineralDensitySorting
+--- PASS: TestMineralDensitySorting (0.00s)
+=== RUN   TestBoundedShape
+--- PASS: TestBoundedShape (0.00s)
+=== RUN   TestSphericalShape
+--- PASS: TestSphericalShape (0.00s)
+=== RUN   TestNewSphereHeightmap
+--- PASS: TestNewSphereHeightmap (0.00s)
+=== RUN   TestSphereHeightmap_GetSet
+=== RUN   TestSphereHeightmap_GetSet/face_0_center
+=== RUN   TestSphereHeightmap_GetSet/face_1_corner
+=== RUN   TestSphereHeightmap_GetSet/face_4_top_center
+=== RUN   TestSphereHeightmap_GetSet/face_5_bottom
+--- PASS: TestSphereHeightmap_GetSet (0.00s)
+    --- PASS: TestSphereHeightmap_GetSet/face_0_center (0.00s)
+    --- PASS: TestSphereHeightmap_GetSet/face_1_corner (0.00s)
+    --- PASS: TestSphereHeightmap_GetSet/face_4_top_center (0.00s)
+    --- PASS: TestSphereHeightmap_GetSet/face_5_bottom (0.00s)
+=== RUN   TestSphereHeightmap_GetDefault
+--- PASS: TestSphereHeightmap_GetDefault (0.00s)
+=== RUN   TestSphereHeightmap_GetNeighborElevation_WithinFace
+--- PASS: TestSphereHeightmap_GetNeighborElevation_WithinFace (0.00s)
+=== RUN   TestSphereHeightmap_GetNeighborElevation_CrossFace
+--- PASS: TestSphereHeightmap_GetNeighborElevation_CrossFace (0.00s)
+=== RUN   TestSphereHeightmap_AllFacesIndependent
+--- PASS: TestSphereHeightmap_AllFacesIndependent (0.00s)
+=== RUN   TestSphereHeightmap_MinMaxElev
+--- PASS: TestSphereHeightmap_MinMaxElev (0.00s)
+=== RUN   TestSphereHeightmap_ToFlatHeightmap_SamplesAllFaces
+    sphere_heightmap_test.go:196: Faces found in flat output: map[0:true 1:true 2:true 3:true 4:true 5:true]
+--- PASS: TestSphereHeightmap_ToFlatHeightmap_SamplesAllFaces (0.00s)
+=== RUN   TestSphereHeightmap_CellDataInitialization
+--- PASS: TestSphereHeightmap_CellDataInitialization (0.00s)
+=== RUN   TestSphereHeightmap_SetCellData
+--- PASS: TestSphereHeightmap_SetCellData (0.00s)
+=== RUN   TestSphereHeightmap_GetRockHardness
+--- PASS: TestSphereHeightmap_GetRockHardness (0.00s)
+=== RUN   TestSphereHeightmap_AddSediment
+--- PASS: TestSphereHeightmap_AddSediment (0.00s)
+=== RUN   TestSphereHeightmap_Erode_SedimentFirst
+--- PASS: TestSphereHeightmap_Erode_SedimentFirst (0.00s)
+=== RUN   TestSphereHeightmap_Erode_ThenBedrock
+--- PASS: TestSphereHeightmap_Erode_ThenBedrock (0.00s)
+=== RUN   TestSphereHeightmap_Erode_NoSediment
+--- PASS: TestSphereHeightmap_Erode_NoSediment (0.00s)
+=== RUN   TestSphereHeightmap_CellData_AllFacesIndependent
+--- PASS: TestSphereHeightmap_CellData_AllFacesIndependent (0.00s)
+=== RUN   TestPlateGeneration_Spherical
+--- PASS: TestPlateGeneration_Spherical (0.00s)
+=== RUN   TestPlateGeneration_CrossFaceBoundary
+--- PASS: TestPlateGeneration_CrossFaceBoundary (0.00s)
+=== RUN   TestCalculateBoundaryType
+=== RUN   TestCalculateBoundaryType/Convergent_-_plates_moving_toward_each_other
+=== RUN   TestCalculateBoundaryType/Divergent_-_plates_moving_apart
+=== RUN   TestCalculateBoundaryType/Transform_-_plates_sliding_past
+--- PASS: TestCalculateBoundaryType (0.00s)
+    --- PASS: TestCalculateBoundaryType/Convergent_-_plates_moving_toward_each_other (0.00s)
+    --- PASS: TestCalculateBoundaryType/Divergent_-_plates_moving_apart (0.00s)
+    --- PASS: TestCalculateBoundaryType/Transform_-_plates_sliding_past (0.00s)
+=== RUN   TestSphericalVoronoi_AllCellsCovered
+--- PASS: TestSphericalVoronoi_AllCellsCovered (0.00s)
+=== RUN   TestSimulateTectonics_Spherical
+--- PASS: TestSimulateTectonics_Spherical (0.00s)
+=== RUN   TestGeneratePlates
+--- PASS: TestGeneratePlates (0.00s)
+=== RUN   TestGravityScaling
+    tectonics_test.go:85: Low Gravity (0.35g) Max Elev: 34608.38m (Limit: 34608.38)
+    tectonics_test.go:86: High Gravity (2.88g) Max Elev: 4160.84m (Limit: 4160.84)
+--- PASS: TestGravityScaling (0.00s)
+=== RUN   TestSimulateTectonics
+--- PASS: TestSimulateTectonics (0.00s)
+=== RUN   TestGenerateProvinces_OnlyContinentalPlates
+--- PASS: TestGenerateProvinces_OnlyContinentalPlates (0.00s)
+=== RUN   TestGenerateProvinces_HardnessValues
+--- PASS: TestGenerateProvinces_HardnessValues (0.00s)
+=== RUN   TestGenerateProvinces_3to5PerPlate
+--- PASS: TestGenerateProvinces_3to5PerPlate (0.00s)
+=== RUN   TestInitializeProvinceHardness_SetsAllContinentalCells
+--- PASS: TestInitializeProvinceHardness_SetsAllContinentalCells (0.00s)
+=== RUN   TestActiveCellGrid
+--- PASS: TestActiveCellGrid (0.00s)
+=== RUN   TestFBM_Determinism
+--- PASS: TestFBM_Determinism (0.00s)
+=== RUN   TestFBM_OutputRange
+--- PASS: TestFBM_OutputRange (0.04s)
+=== RUN   TestFBM_ConfigAffectsOutput
+--- PASS: TestFBM_ConfigAffectsOutput (0.00s)
+=== RUN   TestFBM_DomainWarpingBreaksSymmetry
+    noise_test.go:156: No-warp variance: 0.000776, Warped variance: 0.011176
+--- PASS: TestFBM_DomainWarpingBreaksSymmetry (0.00s)
+=== RUN   TestFBM_2DWorks
+--- PASS: TestFBM_2DWorks (0.00s)
+=== RUN   TestFBM_DifferentSeeds
+--- PASS: TestFBM_DifferentSeeds (0.00s)
+=== RUN   TestRidgeFBM_OutputRange
+--- PASS: TestRidgeFBM_OutputRange (0.01s)
+=== RUN   TestRidgeFBM_CreatesSharpPeaks
+    noise_test.go:275: Peak ratio (>0.7): 23.89% (2212/9261)
+--- PASS: TestRidgeFBM_CreatesSharpPeaks (0.01s)
+=== RUN   TestRidgeFBM_Determinism
+--- PASS: TestRidgeFBM_Determinism (0.00s)
+=== RUN   TestNormalizeLandRatio_AchievesTarget
+--- PASS: TestNormalizeLandRatio_AchievesTarget (0.00s)
+=== RUN   TestNormalizeLandRatio_StabilizesAcrossSeeds
+=== RUN   TestNormalizeLandRatio_StabilizesAcrossSeeds/seed_\x01
+=== RUN   TestNormalizeLandRatio_StabilizesAcrossSeeds/seed_*
+=== RUN   TestNormalizeLandRatio_StabilizesAcrossSeeds/seed_{
+=== RUN   TestNormalizeLandRatio_StabilizesAcrossSeeds/seed_ϧ
+=== RUN   TestNormalizeLandRatio_StabilizesAcrossSeeds/seed_〹
+--- PASS: TestNormalizeLandRatio_StabilizesAcrossSeeds (0.01s)
+    --- PASS: TestNormalizeLandRatio_StabilizesAcrossSeeds/seed_\x01 (0.00s)
+    --- PASS: TestNormalizeLandRatio_StabilizesAcrossSeeds/seed_* (0.00s)
+    --- PASS: TestNormalizeLandRatio_StabilizesAcrossSeeds/seed_{ (0.00s)
+    --- PASS: TestNormalizeLandRatio_StabilizesAcrossSeeds/seed_ϧ (0.00s)
+    --- PASS: TestNormalizeLandRatio_StabilizesAcrossSeeds/seed_〹 (0.00s)
+=== RUN   TestBDD_Tectonics_PlateGeneration
+=== RUN   TestBDD_Tectonics_PlateGeneration/Small_world_-_3_plates
+=== RUN   TestBDD_Tectonics_PlateGeneration/Medium_world_-_5_plates
+=== RUN   TestBDD_Tectonics_PlateGeneration/Large_world_-_8_plates
+--- PASS: TestBDD_Tectonics_PlateGeneration (0.00s)
+    --- PASS: TestBDD_Tectonics_PlateGeneration/Small_world_-_3_plates (0.00s)
+    --- PASS: TestBDD_Tectonics_PlateGeneration/Medium_world_-_5_plates (0.00s)
+    --- PASS: TestBDD_Tectonics_PlateGeneration/Large_world_-_8_plates (0.00s)
+=== RUN   TestBDD_Tectonics_PlateTypeDistribution
+--- PASS: TestBDD_Tectonics_PlateTypeDistribution (0.00s)
+=== RUN   TestBDD_Tectonics_HeightmapGeneration
+--- PASS: TestBDD_Tectonics_HeightmapGeneration (0.00s)
+=== RUN   TestBDD_Hadean_NoStableCrust
+--- PASS: TestBDD_Hadean_NoStableCrust (0.00s)
+=== RUN   TestBDD_Archean_FirstCratons
+--- PASS: TestBDD_Archean_FirstCratons (0.00s)
+=== RUN   TestBDD_Pangaea_SupercontinentFormation
+--- PASS: TestBDD_Pangaea_SupercontinentFormation (0.00s)
+=== RUN   TestBDD_Atlantic_ContinentalRift
+--- PASS: TestBDD_Atlantic_ContinentalRift (0.00s)
+=== RUN   TestBDD_Fragmentation_SpeciationRate
+--- PASS: TestBDD_Fragmentation_SpeciationRate (0.00s)
+=== RUN   TestBDD_ContinentalCrust_Layers
+--- PASS: TestBDD_ContinentalCrust_Layers (0.00s)
+=== RUN   TestBDD_OceanicCrust_Layers
+--- PASS: TestBDD_OceanicCrust_Layers (0.00s)
+=== RUN   TestBDD_Tectonics_SeismicProfiles
+--- PASS: TestBDD_Tectonics_SeismicProfiles (0.00s)
+=== RUN   TestBDD_Tsunami_Generation
+--- PASS: TestBDD_Tsunami_Generation (0.00s)
+=== RUN   TestBDD_Tectonics_Isostasy
+--- PASS: TestBDD_Tectonics_Isostasy (0.00s)
+=== RUN   TestBDD_Tectonics_TerraneAccretion
+--- PASS: TestBDD_Tectonics_TerraneAccretion (0.00s)
+=== RUN   TestBDD_Tectonics_Extension
+--- PASS: TestBDD_Tectonics_Extension (0.00s)
+=== RUN   TestBDD_Tectonics_WilsonCycle
+--- PASS: TestBDD_Tectonics_WilsonCycle (0.00s)
+=== RUN   TestBDD_Tectonics_MountainLimits
+--- PASS: TestBDD_Tectonics_MountainLimits (0.00s)
+=== RUN   TestBDD_Tectonics_Determinism
+--- PASS: TestBDD_Tectonics_Determinism (0.00s)
+=== RUN   TestBDD_Tectonics_FullCellCoverage
+--- PASS: TestBDD_Tectonics_FullCellCoverage (0.00s)
+=== RUN   TestBDD_Tectonics_CrossFacePlates
+--- PASS: TestBDD_Tectonics_CrossFacePlates (0.00s)
+=== RUN   TestBDD_Collision_OceanOcean
+--- PASS: TestBDD_Collision_OceanOcean (0.00s)
+=== RUN   TestBDD_Collision_OceanContinent
+--- PASS: TestBDD_Collision_OceanContinent (0.00s)
+=== RUN   TestBDD_Collision_ContinentContinent
+--- PASS: TestBDD_Collision_ContinentContinent (0.00s)
+=== RUN   TestBDD_Collision_CrustalRigidity
+--- PASS: TestBDD_Collision_CrustalRigidity (0.00s)
+=== RUN   TestBDD_Collision_PlateDensity
+--- PASS: TestBDD_Collision_PlateDensity (0.00s)
+=== RUN   TestBDD_Volcanism_ConeFormation
+--- PASS: TestBDD_Volcanism_ConeFormation (0.00s)
+=== RUN   TestBDD_Hotspots_ChainCreation
+--- PASS: TestBDD_Hotspots_ChainCreation (0.00s)
+=== RUN   TestBDD_Hotspots_Determinism
+--- PASS: TestBDD_Hotspots_Determinism (0.00s)
+=== RUN   TestBDD_Volcanism_AdditiveElevation
+--- PASS: TestBDD_Volcanism_AdditiveElevation (0.00s)
+=== RUN   TestBDD_Volcanism_EruptionStyle
+--- PASS: TestBDD_Volcanism_EruptionStyle (0.00s)
+=== RUN   TestBDD_Hotspot_IslandChain
+--- PASS: TestBDD_Hotspot_IslandChain (0.00s)
+=== RUN   TestBDD_FloodBasalt_DeccanTraps
+--- PASS: TestBDD_FloodBasalt_DeccanTraps (0.00s)
+=== RUN   TestBDD_LavaTube_Formation
+--- PASS: TestBDD_LavaTube_Formation (0.00s)
+=== RUN   TestBDD_MagmaChamber_PressureEruption
+--- PASS: TestBDD_MagmaChamber_PressureEruption (0.00s)
+=== RUN   TestBDD_VolcanicWorld_FrequentEruptions
+--- PASS: TestBDD_VolcanicWorld_FrequentEruptions (0.00s)
+=== RUN   TestBDD_Volcanism_SoilFertility
+--- PASS: TestBDD_Volcanism_SoilFertility (0.00s)
+=== RUN   TestBDD_Volcanism_CalderaCollapse
+--- PASS: TestBDD_Volcanism_CalderaCollapse (0.00s)
+=== RUN   TestBDD_Volcanism_TerrainBurial
+--- PASS: TestBDD_Volcanism_TerrainBurial (0.00s)
+=== RUN   TestBDD_Volcanism_AtollFormation
+--- PASS: TestBDD_Volcanism_AtollFormation (0.00s)
+=== RUN   TestBDD_Volcanism_ClimateFeedback
+--- PASS: TestBDD_Volcanism_ClimateFeedback (0.00s)
+=== RUN   TestBDD_Volcanism_MultipleVolcanoes
+--- PASS: TestBDD_Volcanism_MultipleVolcanoes (0.00s)
+=== RUN   TestBDD_Volcanism_EdgeBoundary
+--- PASS: TestBDD_Volcanism_EdgeBoundary (0.00s)
+=== RUN   TestBDD_TidalHeatingEffect
+    volcanism_bdd_test.go:501: Total volcanic elevation - No moons: 213098, Earth-Moon: 2148937, High stress: 5112213
+    volcanism_bdd_test.go:530: Max volcanic peak - No moons: 2618, Earth-Moon: 9386, High stress: 15018
+--- PASS: TestBDD_TidalHeatingEffect (0.01s)
+=== RUN   TestZoom_LatLonToSphere
+=== RUN   TestZoom_LatLonToSphere/North_Pole
+=== RUN   TestZoom_LatLonToSphere/South_Pole
+=== RUN   TestZoom_LatLonToSphere/Equator_at_0°
+=== RUN   TestZoom_LatLonToSphere/Equator_at_90°E
+--- PASS: TestZoom_LatLonToSphere (0.00s)
+    --- PASS: TestZoom_LatLonToSphere/North_Pole (0.00s)
+    --- PASS: TestZoom_LatLonToSphere/South_Pole (0.00s)
+    --- PASS: TestZoom_LatLonToSphere/Equator_at_0° (0.00s)
+    --- PASS: TestZoom_LatLonToSphere/Equator_at_90°E (0.00s)
+=== RUN   TestZoom_LatLonRoundtrip
+=== RUN   TestZoom_LatLonRoundtrip/#00
+=== RUN   TestZoom_LatLonRoundtrip/#01
+=== RUN   TestZoom_LatLonRoundtrip/#02
+=== RUN   TestZoom_LatLonRoundtrip/#03
+=== RUN   TestZoom_LatLonRoundtrip/#04
+=== RUN   TestZoom_LatLonRoundtrip/#05
+--- PASS: TestZoom_LatLonRoundtrip (0.00s)
+    --- PASS: TestZoom_LatLonRoundtrip/#00 (0.00s)
+    --- PASS: TestZoom_LatLonRoundtrip/#01 (0.00s)
+    --- PASS: TestZoom_LatLonRoundtrip/#02 (0.00s)
+    --- PASS: TestZoom_LatLonRoundtrip/#03 (0.00s)
+    --- PASS: TestZoom_LatLonRoundtrip/#04 (0.00s)
+    --- PASS: TestZoom_LatLonRoundtrip/#05 (0.00s)
+=== RUN   TestZoom_GlobalToMacro
+=== RUN   TestZoom_GlobalToMacro/Equator_0°
+=== RUN   TestZoom_GlobalToMacro/Equator_90°E
+=== RUN   TestZoom_GlobalToMacro/North_Pole_Region
+=== RUN   TestZoom_GlobalToMacro/South_Pole_Region
+=== RUN   TestZoom_GlobalToMacro/Mid-latitude
+--- PASS: TestZoom_GlobalToMacro (0.00s)
+    --- PASS: TestZoom_GlobalToMacro/Equator_0° (0.00s)
+    --- PASS: TestZoom_GlobalToMacro/Equator_90°E (0.00s)
+    --- PASS: TestZoom_GlobalToMacro/North_Pole_Region (0.00s)
+    --- PASS: TestZoom_GlobalToMacro/South_Pole_Region (0.00s)
+    --- PASS: TestZoom_GlobalToMacro/Mid-latitude (0.00s)
+=== RUN   TestZoom_SeedDeterminism
+--- PASS: TestZoom_SeedDeterminism (0.00s)
+=== RUN   TestZoom_SeedUniqueness
+--- PASS: TestZoom_SeedUniqueness (0.00s)
+=== RUN   TestZoom_DifferentGlobalSeeds
+--- PASS: TestZoom_DifferentGlobalSeeds (0.00s)
+=== RUN   TestZoom_MicroNoiseConfigs
+=== RUN   TestZoom_MicroNoiseConfigs/Ocean
+=== RUN   TestZoom_MicroNoiseConfigs/Mountain
+=== RUN   TestZoom_MicroNoiseConfigs/Grassland
+=== RUN   TestZoom_MicroNoiseConfigs/Desert
+=== RUN   TestZoom_MicroNoiseConfigs/Rainforest
+=== RUN   TestZoom_MicroNoiseConfigs/Tundra
+--- PASS: TestZoom_MicroNoiseConfigs (0.00s)
+    --- PASS: TestZoom_MicroNoiseConfigs/Ocean (0.00s)
+    --- PASS: TestZoom_MicroNoiseConfigs/Mountain (0.00s)
+    --- PASS: TestZoom_MicroNoiseConfigs/Grassland (0.00s)
+    --- PASS: TestZoom_MicroNoiseConfigs/Desert (0.00s)
+    --- PASS: TestZoom_MicroNoiseConfigs/Rainforest (0.00s)
+    --- PASS: TestZoom_MicroNoiseConfigs/Tundra (0.00s)
+=== RUN   TestZoom_BiomeRoughnessComparison
+--- PASS: TestZoom_BiomeRoughnessComparison (0.00s)
+=== RUN   TestZoom_MicroTerrainBounded
+--- PASS: TestZoom_MicroTerrainBounded (0.01s)
+=== RUN   TestZoom_MacroLocationRoundtrip
+=== RUN   TestZoom_MacroLocationRoundtrip/#00
+=== RUN   TestZoom_MacroLocationRoundtrip/#01
+=== RUN   TestZoom_MacroLocationRoundtrip/#02
+--- PASS: TestZoom_MacroLocationRoundtrip (0.00s)
+    --- PASS: TestZoom_MacroLocationRoundtrip/#00 (0.00s)
+    --- PASS: TestZoom_MacroLocationRoundtrip/#01 (0.00s)
+    --- PASS: TestZoom_MacroLocationRoundtrip/#02 (0.00s)
+PASS
+ok  	tw-backend/internal/worldgen/geography	1.617s

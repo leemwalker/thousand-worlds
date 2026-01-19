@@ -44,7 +44,9 @@ func (s *Service) GetEvolutionManager() *EvolutionManager {
 
 // SpawnBiomes populates the world based on biomes
 // This would be called by WorldGen or a periodic spawner
-func (s *Service) SpawnBiomes(worldID uuid.UUID, biomes []geography.Biome) {
+// SpawnBiomes populates the world based on biomes
+// This would be called by WorldGen or a periodic spawner
+func (s *Service) SpawnBiomes(worldID uuid.UUID, biomeIDs []geography.BiomeID) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -52,28 +54,30 @@ func (s *Service) SpawnBiomes(worldID uuid.UUID, biomes []geography.Biome) {
 	const maxEntities = 1000
 
 	// If we have many biomes, sample them rather than spawning for all
-	biomesToProcess := biomes
-	if len(biomes) > 200 {
+	idsToProcess := biomeIDs
+	if len(biomeIDs) > 200 {
 		// Sample ~200 biomes randomly
-		sampled := make([]geography.Biome, 200)
-		step := len(biomes) / 200
+		sampled := make([]geography.BiomeID, 200)
+		step := len(biomeIDs) / 200
 		for i := 0; i < 200; i++ {
-			sampled[i] = biomes[i*step]
+			sampled[i] = biomeIDs[i*step]
 		}
-		biomesToProcess = sampled
+		idsToProcess = sampled
 	}
 
-	for _, b := range biomesToProcess {
+	for _, bID := range idsToProcess {
 		if len(s.Entities) >= maxEntities {
 			break // Cap reached
 		}
 
+		bType := geography.BiomeTypeMap[bID]
+
 		// Calculate density based on biome type
 		count := 5 // default
-		if b.Type == geography.BiomeDesert {
+		if bType == geography.BiomeDesert {
 			count = 2
 		}
-		if b.Type == geography.BiomeRainforest {
+		if bType == geography.BiomeRainforest {
 			count = 10
 		}
 
@@ -83,7 +87,7 @@ func (s *Service) SpawnBiomes(worldID uuid.UUID, biomes []geography.Biome) {
 			count = remaining
 		}
 
-		newEntities := s.Spawner.SpawnEntitiesForBiome(b.Type, count)
+		newEntities := s.Spawner.SpawnEntitiesForBiome(bType, count)
 		for _, e := range newEntities {
 			e.WorldID = worldID
 			s.Entities[e.EntityID] = e

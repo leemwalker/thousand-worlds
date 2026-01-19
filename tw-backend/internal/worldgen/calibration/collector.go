@@ -76,7 +76,8 @@ func collectHypsometry(geo *ecosystem.WorldGeology, stats *SimulationStats) {
 	} else if geo.Heightmap != nil {
 		totalCells = len(geo.Heightmap.Elevations)
 
-		for _, elev := range geo.Heightmap.Elevations {
+		for _, e := range geo.Heightmap.Elevations {
+			elev := float64(e)
 			if elev < minElev {
 				minElev = elev
 			}
@@ -149,7 +150,8 @@ func buildElevationHistogram(geo *ecosystem.WorldGeology, stats *SimulationStats
 			}
 		}
 	} else if geo.Heightmap != nil {
-		for _, elev := range geo.Heightmap.Elevations {
+		for _, e := range geo.Heightmap.Elevations {
+			elev := float64(e)
 			bin := int((elev - minElev) / binSize)
 			if bin >= numBins {
 				bin = numBins - 1
@@ -166,7 +168,7 @@ func buildElevationHistogram(geo *ecosystem.WorldGeology, stats *SimulationStats
 
 // collectClimate calculates temperature and rainfall statistics.
 func collectClimate(geo *ecosystem.WorldGeology, stats *SimulationStats) {
-	if len(geo.Biomes) == 0 {
+	if len(geo.BiomeIDs) == 0 {
 		return
 	}
 
@@ -179,8 +181,9 @@ func collectClimate(geo *ecosystem.WorldGeology, stats *SimulationStats) {
 
 	height := geo.Heightmap.Height
 
-	for i, biome := range geo.Biomes {
-		temp := biome.Temperature
+	for i, id := range geo.BiomeIDs {
+		// Convert compact temp (int16) to float
+		temp := geography.Int16TempToFloat(geo.Temperatures[i])
 		sumTemp += temp
 		if temp < minTemp {
 			minTemp = temp
@@ -189,8 +192,16 @@ func collectClimate(geo *ecosystem.WorldGeology, stats *SimulationStats) {
 			maxTemp = temp
 		}
 
-		// Estimate rainfall from biome type (since we may not have direct data)
-		rainfall := estimateRainfallFromBiome(string(biome.Type))
+		// Estimate rainfall from biome type OR use Precipitations array if available
+		var rainfall float64
+		if len(geo.Precipitations) > i {
+			rainfall = float64(geo.Precipitations[i])
+		} else {
+			// Fallback to estimation from type
+			bType := geography.BiomeTypeMap[id]
+			rainfall = estimateRainfallFromBiome(string(bType))
+		}
+
 		sumRainfall += rainfall
 		if rainfall > maxRainfall {
 			maxRainfall = rainfall
@@ -210,7 +221,7 @@ func collectClimate(geo *ecosystem.WorldGeology, stats *SimulationStats) {
 		}
 	}
 
-	count := len(geo.Biomes)
+	count := len(geo.BiomeIDs)
 	stats.GlobalMeanTempC = sumTemp / float64(count)
 	stats.MinTempC = minTemp
 	stats.MaxTempC = maxTemp
@@ -287,8 +298,8 @@ func collectHydrology(geo *ecosystem.WorldGeology, stats *SimulationStats) {
 	}
 
 	// Count lakes from biomes
-	for _, biome := range geo.Biomes {
-		if biome.Type == "lake" {
+	for _, id := range geo.BiomeIDs {
+		if id == geography.IDBiomeLake {
 			stats.LakeCount++
 		}
 	}

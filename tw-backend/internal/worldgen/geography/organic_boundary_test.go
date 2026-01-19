@@ -253,7 +253,7 @@ func TestPlateGrowth_HadeanToArchean(t *testing.T) {
 		UpdatePlatePositions(plates, 1.0, topology)
 		ReassignPlateRegions(plates, topology, seed+int64(i))
 		cache := ComputeBoundaryCache(plates, topology)
-		hm = SimulateTectonicsWithCache(plates, hm, cache, topology, 1.0, seed, 15000.0)
+		hm = SimulateTectonicsWithCache(plates, hm, cache, nil, topology, 1.0, int64(i), 10000.0)
 	}
 
 	// Count final continental cells

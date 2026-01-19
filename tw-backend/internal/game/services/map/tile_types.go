@@ -62,3 +62,13 @@ func TotalTiles(level int) int {
 	n := TilesPerSide(level)
 	return n * n
 }
+
+// RawTileData contains the raw float/byte data for a tile, before serialization/compression.
+type RawTileData struct {
+	Coord     TileCoord
+	Heightmap []float32 // Row-major height values
+	Biomes    []uint8   // Row-major biome IDs
+	Water     []float32 // Row-major water levels (optional, can be inferred if uniform)
+	Width     int
+	Height    int
+}

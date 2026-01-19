@@ -183,15 +183,16 @@ func (s *GeneratorService) mapToGeographyCells(geoMap *geography.WorldMap, param
 		for x := 0; x < width; x++ {
 			idx := y*width + x
 			elev := geoMap.Heightmap.Get(x, y)
-			biome := geoMap.Biomes[idx]
+			biomeID := geoMap.BiomeIDs[idx]
+			temp := geography.Int16TempToFloat(geoMap.Temperatures[idx])
 
 			cells[idx] = &weather.GeographyCell{
 				CellID:      uuid.New(),
 				Location:    geography.Point{X: float64(x), Y: float64(y)},
 				Elevation:   elev,
-				IsOcean:     biome.Type == geography.BiomeOcean,
+				IsOcean:     biomeID == geography.IDBiomeOcean,
 				RiverWidth:  riverMap[idx],
-				Temperature: biome.Temperature,
+				Temperature: temp,
 			}
 		}
 	}
@@ -265,8 +266,10 @@ func (s *GeneratorService) generateMinerals(params *GenerationParams, geoMap *ge
 func (s *GeneratorService) generateSpecies(params *GenerationParams, geoMap *geography.WorldMap) ([]*evolution.Species, error) {
 	// Collect unique biome names
 	biomeSet := make(map[string]bool)
-	for _, biome := range geoMap.Biomes {
-		biomeSet[string(biome.Type)] = true
+	for _, id := range geoMap.BiomeIDs {
+		if bType, ok := geography.BiomeTypeMap[id]; ok {
+			biomeSet[string(bType)] = true
+		}
 	}
 
 	biomes := []string{}

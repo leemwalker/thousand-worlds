@@ -35,7 +35,7 @@ func TestApplyBoundaryDecay(t *testing.T) {
 
 	// Ensure nonBoundary is NOT in cache
 
-	ApplyBoundaryDecay(plates, hm, cache, topo, 1.0, 123, 10000.0)
+	ApplyBoundaryDecay(plates, hm, cache, nil, topo, 1.0, 12345, 10000.0)
 
 	// Boundary cell should be untouched
 	boundaryElev := hm.Get(coord)

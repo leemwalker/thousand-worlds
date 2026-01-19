@@ -80,7 +80,7 @@ func BenchmarkSimulateGeology_ModernEarth(b *testing.B) {
 }
 
 // BenchmarkSimulateGeology_HighRes profiles high resolution simulation.
-// Tests performance at 256 resolution (6 * 256 * 256 = 393,216 cells).
+// Tests performance at 4096 resolution (6 * 4096 * 4096 = 100,663,296 cells).
 func BenchmarkSimulateGeology_HighRes(b *testing.B) {
 	worldID := uuid.New()
 	seed := int64(12345)
@@ -154,7 +154,7 @@ func BenchmarkLongSimulationRun_ExtremeRes(b *testing.B) {
 	circumference := 40_000_000.0
 
 	geology := NewWorldGeology(worldID, seed, circumference)
-	geology.InitializeGeology(2048) // 6 * 2048 * 2048 = 25,165,824 cells
+	geology.InitializeGeology(4096) // 6 * 4096 * 4096 = 100M cells
 	dt := int64(10_000_000)
 	geology.TotalYearsSimulated = 4_500_000_000
 

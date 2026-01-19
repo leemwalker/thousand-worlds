@@ -6,8 +6,6 @@ import (
 	"tw-backend/internal/worldgen/geography"
 	"tw-backend/internal/worldgen/ocean"
 	"tw-backend/internal/worldgen/weather"
-
-	"github.com/google/uuid"
 )
 
 // =============================================================================
@@ -74,13 +72,15 @@ func (g *DefaultGeographyGenerator) GenerateGeography(params *GenerationParams, 
 	climateData := convertSphereClimateToFlat(sphereClimate, topology, params.Width, params.Height)
 
 	// 8. Assign biomes using climate data
-	biomes := assignBiomesFromClimate(heightmap, sphereHeightmap, topology, seaLevel, climateData)
+	biomeIDs, temps, precips := assignBiomesFromClimate(heightmap, sphereHeightmap, topology, seaLevel, climateData)
 
 	worldMap := &geography.WorldMap{
-		Heightmap: heightmap,
-		Plates:    plates,
-		Biomes:    biomes,
-		Rivers:    rivers,
+		Heightmap:      heightmap,
+		Plates:         plates,
+		BiomeIDs:       biomeIDs,
+		Temperatures:   temps,
+		Precipitations: precips,
+		Rivers:         rivers,
 	}
 
 	return worldMap, seaLevel, nil
@@ -154,8 +154,11 @@ func sinApprox(x float64) float64 {
 }
 
 // assignBiomesFromClimate creates biomes using pre-computed climate data.
-func assignBiomesFromClimate(hm *geography.Heightmap, sphereHeightmap *geography.SphereHeightmap, topology spatial.Topology, seaLevel float64, climateData []weather.ClimateData) []geography.Biome {
-	biomes := make([]geography.Biome, hm.Width*hm.Height)
+func assignBiomesFromClimate(hm *geography.Heightmap, sphereHeightmap *geography.SphereHeightmap, topology spatial.Topology, seaLevel float64, climateData []weather.ClimateData) ([]geography.BiomeID, []int16, []uint16) {
+	count := hm.Width * hm.Height
+	biomeIDs := make([]geography.BiomeID, count)
+	temps := make([]int16, count)
+	precips := make([]uint16, count)
 
 	for y := 0; y < hm.Height; y++ {
 		for x := 0; x < hm.Width; x++ {
@@ -188,15 +191,16 @@ func assignBiomesFromClimate(hm *geography.Heightmap, sphereHeightmap *geography
 				cellData.IsLake,
 			)
 
-			biomes[idx] = geography.Biome{
-				BiomeID:       uuid.New(),
-				Name:          string(biomeType),
-				Type:          biomeType,
-				Temperature:   climate.Temperature,
-				Precipitation: climate.AnnualRainfall,
+			// Store in compact arrays
+			if id, ok := geography.BiomeIDMap[biomeType]; ok {
+				biomeIDs[idx] = id
+			} else {
+				biomeIDs[idx] = geography.IDBiomeOcean // Default fallback
 			}
+			temps[idx] = geography.FloatTempToInt16(climate.Temperature)
+			precips[idx] = uint16(climate.AnnualRainfall)
 		}
 	}
 
-	return biomes
+	return biomeIDs, temps, precips
 }

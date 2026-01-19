@@ -187,7 +187,9 @@ func mapGeneratedToGeology(gen *orchestrator.GeneratedWorld) *ecosystem.WorldGeo
 	// Copy geography data
 	if gen.Geography != nil {
 		geo.Heightmap = gen.Geography.Heightmap
-		geo.Biomes = gen.Geography.Biomes
+		geo.BiomeIDs = gen.Geography.BiomeIDs
+		geo.Temperatures = gen.Geography.Temperatures
+		geo.Precipitations = gen.Geography.Precipitations
 		geo.Rivers = gen.Geography.Rivers
 		geo.Plates = gen.Geography.Plates
 		geo.SeaLevel = gen.Metadata.SeaLevel

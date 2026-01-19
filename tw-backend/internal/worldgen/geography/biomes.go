@@ -2,8 +2,6 @@ package geography
 
 import (
 	"math"
-
-	"github.com/google/uuid"
 )
 
 // ClassifyBiome determines biome type from climate and elevation data.
@@ -115,15 +113,19 @@ func classifyByClimate(tempC, moisture float64) BiomeType {
 }
 
 // AssignBiomes determines the biome for each cell
-// Deprecated: This function calculates temperature internally using latitude.
-// New code should use ClassifyBiome with temperature from the Weather service.
-func AssignBiomes(hm *Heightmap, seaLevel float64, seed int64, globalTempMod float64) []Biome {
-	biomes := make([]Biome, hm.Width*hm.Height)
+// Returns component arrays for efficient storage
+func AssignBiomes(hm *Heightmap, seaLevel float64, seed int64, globalTempMod float64) ([]BiomeID, []int16, []uint16) {
+	count := hm.Width * hm.Height
+	biomeIDs := make([]BiomeID, count)
+	temps := make([]int16, count)
+	precips := make([]uint16, count)
+
 	noise := NewPerlinGenerator(seed)
 
 	for y := 0; y < hm.Height; y++ {
 		for x := 0; x < hm.Width; x++ {
 			elev := hm.Get(x, y)
+			idx := y*hm.Width + x
 
 			// 1. Determine base type by elevation
 			var bType BiomeType
@@ -153,19 +155,20 @@ func AssignBiomes(hm *Heightmap, seaLevel float64, seed int64, globalTempMod flo
 			temp := calculateTemperature(latitude, elev, seaLevel, globalTempMod)
 
 			// 5. Combine
-			finalBiome := resolveBiome(bType, temp, moisture)
+			finalBiomeType := resolveBiome(bType, temp, moisture)
 
-			biomes[y*hm.Width+x] = Biome{
-				BiomeID:       uuid.New(),
-				Name:          string(finalBiome),
-				Type:          finalBiome,
-				Temperature:   temp,
-				Precipitation: moisture * 2000, // mm/year
+			// Store
+			id, ok := BiomeIDMap[finalBiomeType]
+			if !ok {
+				id = IDBiomeGrassland // Fallback
 			}
+			biomeIDs[idx] = id
+			temps[idx] = FloatTempToInt16(temp)
+			precips[idx] = uint16(moisture * 2000)
 		}
 	}
 
-	return biomes
+	return biomeIDs, temps, precips
 }
 
 func resolveBiome(elevType BiomeType, temp float64, moisture float64) BiomeType {
@@ -237,4 +240,22 @@ func calculateTemperature(lat float64, elev float64, seaLevel float64, mood floa
 	temp += mood
 
 	return temp
+}
+
+// FloatTempToInt16 converts a float Celsius temp to int16 (centi-celsius)
+// Range: -327.68°C to +327.67°C (covers all Earth temps)
+func FloatTempToInt16(tempC float64) int16 {
+	val := tempC * 100
+	if val > 32767 {
+		return 32767
+	}
+	if val < -32768 {
+		return -32768
+	}
+	return int16(val)
+}
+
+// Int16TempToFloat converts int16 (centi-celsius) back to float Celsius
+func Int16TempToFloat(temp int16) float64 {
+	return float64(temp) / 100.0
 }

@@ -65,7 +65,7 @@ func TestHadeanGrowth(t *testing.T) {
 
 		// D. Simulate Tectonics (Accretion happens here)
 		// scaleFactor represents time duration for flux
-		_ = SimulateTectonicsWithCache(plates, shm, cache, topology, dt, 12345, 15000.0)
+		shm = SimulateTectonicsWithCache(plates, shm, cache, nil, topology, 1.0, 12345, 10000.0)
 
 		// Optional: Log progress every 10 ticks
 		if i%10 == 0 {

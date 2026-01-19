@@ -166,13 +166,14 @@ func (r *Renderer) RenderHeightmapPNG(ctx context.Context, worldID string, geo *
 	} else if geo.Heightmap != nil {
 		// Fallback to flat heightmap
 		hm := geo.Heightmap
-		minElev, maxElev = hm.Elevations[0], hm.Elevations[0]
+		minElev, maxElev = float64(hm.Elevations[0]), float64(hm.Elevations[0])
 		for _, e := range hm.Elevations {
-			if e < minElev {
-				minElev = e
+			val := float64(e)
+			if val < minElev {
+				minElev = val
 			}
-			if e > maxElev {
-				maxElev = e
+			if val > maxElev {
+				maxElev = val
 			}
 		}
 		getHeight = func(x, y int) float64 {
@@ -185,7 +186,7 @@ func (r *Renderer) RenderHeightmapPNG(ctx context.Context, worldID string, geo *
 			if hmY >= hm.Height {
 				hmY = hm.Height - 1
 			}
-			return hm.Elevations[hmY*hm.Width+hmX]
+			return float64(hm.Elevations[hmY*hm.Width+hmX])
 		}
 	} else {
 		return nil, ErrWorldNotInitialized

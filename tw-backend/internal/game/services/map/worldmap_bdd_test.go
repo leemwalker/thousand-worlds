@@ -100,16 +100,16 @@ func TestBDD_WorldMap_RegionAggregation(t *testing.T) {
 	hm := &geography.Heightmap{
 		Width:      10,
 		Height:     10,
-		Elevations: make([]float64, 100),
+		Elevations: make([]float32, 100),
 	}
-	biomes := make([]geography.Biome, 100)
-	for i := range biomes {
-		biomes[i] = geography.Biome{Type: geography.BiomeGrassland}
+	biomeIDs := make([]geography.BiomeID, 100)
+	for i := range biomeIDs {
+		biomeIDs[i] = geography.IDBiomeGrassland
 	}
 
 	geo := &ecosystem.WorldGeology{
 		Heightmap: hm,
-		Biomes:    biomes,
+		BiomeIDs:  biomeIDs,
 	}
 	svc.SetWorldGeology(worldID, geo)
 
@@ -142,15 +142,15 @@ func TestBDD_WorldMap_Caching(t *testing.T) {
 	hm := &geography.Heightmap{
 		Width:      64,
 		Height:     64,
-		Elevations: make([]float64, 64*64),
+		Elevations: make([]float32, 64*64),
 	}
-	biomes := make([]geography.Biome, 64*64)
-	for i := range biomes {
-		biomes[i] = geography.Biome{Type: geography.BiomeOcean}
+	biomeIDs := make([]geography.BiomeID, 64*64)
+	for i := range biomeIDs {
+		biomeIDs[i] = geography.IDBiomeOcean
 	}
 	geo := &ecosystem.WorldGeology{
 		Heightmap: hm,
-		Biomes:    biomes,
+		BiomeIDs:  biomeIDs,
 	}
 	svc.SetWorldGeology(worldID, geo)
 
@@ -255,26 +255,26 @@ func TestBDD_WorldMap_BiomeWeighting(t *testing.T) {
 	hm := &geography.Heightmap{
 		Width:      hmSize,
 		Height:     hmSize,
-		Elevations: make([]float64, hmSize*hmSize),
+		Elevations: make([]float32, hmSize*hmSize),
 	}
 
-	biomes := make([]geography.Biome, hmSize*hmSize)
-	for i := range biomes {
+	biomeIDs := make([]geography.BiomeID, hmSize*hmSize)
+	for i := range biomeIDs {
 		y := i / hmSize
 		// Top half is ocean, bottom half is grassland
 		// But we'll create a coastal strip in the middle row
 		if y < hmSize/2 {
-			biomes[i] = geography.Biome{Type: geography.BiomeOcean}
+			biomeIDs[i] = geography.IDBiomeOcean
 			hm.Elevations[i] = -100
 		} else {
-			biomes[i] = geography.Biome{Type: geography.BiomeGrassland}
+			biomeIDs[i] = geography.IDBiomeGrassland
 			hm.Elevations[i] = 100
 		}
 	}
 
 	geo := &ecosystem.WorldGeology{
 		Heightmap: hm,
-		Biomes:    biomes,
+		BiomeIDs:  biomeIDs,
 	}
 	svc.SetWorldGeology(worldID, geo)
 
@@ -393,15 +393,15 @@ func TestBDD_WorldMap_FullDisplay(t *testing.T) {
 	hm := &geography.Heightmap{
 		Width:      128,
 		Height:     128,
-		Elevations: make([]float64, 128*128),
+		Elevations: make([]float32, 128*128),
 	}
-	biomes := make([]geography.Biome, 128*128)
-	for i := range biomes {
-		biomes[i] = geography.Biome{Type: geography.BiomeGrassland}
+	biomeIDs := make([]geography.BiomeID, 128*128)
+	for i := range biomeIDs {
+		biomeIDs[i] = geography.IDBiomeGrassland
 	}
 	geo := &ecosystem.WorldGeology{
 		Heightmap: hm,
-		Biomes:    biomes,
+		BiomeIDs:  biomeIDs,
 	}
 	svc.SetWorldGeology(worldID, geo)
 
