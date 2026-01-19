@@ -65,6 +65,8 @@ export class SceneManager {
                 await webgpu.initAsync();
                 this.engine = webgpu;
                 console.log('[SceneManager] WebGPU Engine initialized');
+            } else {
+                console.log('[SceneManager] WebGPU not supported by browser.');
             }
         } catch (e) {
             console.warn('[SceneManager] WebGPU initialization failed or not supported:', e);
