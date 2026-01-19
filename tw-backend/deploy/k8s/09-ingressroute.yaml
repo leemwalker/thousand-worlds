@@ -7,12 +7,12 @@ spec:
   entryPoints:
     - web
   routes:
-  - match: PathPrefix(`/api`)
+  - match: Host(`10.0.0.17`) && PathPrefix(`/api`)
     kind: Rule
     services:
     - name: game-server
       port: 8080
-  - match: PathPrefix(`/`)
+  - match: Host(`10.0.0.17`) && PathPrefix(`/`)
     kind: Rule
     services:
     - name: frontend
@@ -27,12 +27,12 @@ spec:
   entryPoints:
     - websecure
   routes:
-  - match: PathPrefix(`/api`)
+  - match: Host(`10.0.0.17`) && PathPrefix(`/api`)
     kind: Rule
     services:
     - name: game-server
       port: 8080
-  - match: PathPrefix(`/`)
+  - match: Host(`10.0.0.17`) && PathPrefix(`/`)
     kind: Rule
     services:
     - name: frontend
