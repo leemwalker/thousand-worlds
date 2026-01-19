@@ -90,12 +90,12 @@
         lobbyScene = null;
     });
 
-    function handleCanvasReady(event: CustomEvent) {
+    async function handleCanvasReady(event: CustomEvent) {
         const canvas = event.detail;
         console.log("[SimulationModeLayout] Canvas Ready", canvas);
 
         // Initialize the Babylon.js engine with the canvas
-        sceneManager.initialize(canvas);
+        await sceneManager.initialize(canvas);
 
         // Instantiate LobbyScene and register BEFORE transitioning
         if (!lobbyScene) {

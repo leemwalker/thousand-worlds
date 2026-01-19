@@ -4,7 +4,7 @@ export interface WorldCreationParams {
     size: 'small' | 'medium' | 'large' | 'huge';
     diameter: number;     // Planet diameter in km (1737 Moon to 142984 Jupiter)
     gravity: number;      // Surface gravity multiplier (0.1x to 10x Earth)
-    resolution: 256 | 512 | 1024 | 2048;
+    resolution: 256 | 512 | 1024 | 2048 | 4096;
     coreType: 'continental' | 'volcanic' | 'oceanic' | 'ancient';
     waterLevel: 'low' | 'medium' | 'high' | string;
     moonCount: number;

@@ -22,8 +22,13 @@ interface SceneFactory {
 /**
  * Manages the Babylon.js engine and coordinates scene switching.
  */
+import type { WebGPUEngine } from "@babylonjs/core/Engines/webgpuEngine";
+
+/**
+ * Manages the Babylon.js engine and coordinates scene switching.
+ */
 export class SceneManager {
-    private engine: Engine | null = null;
+    private engine: Engine | WebGPUEngine | null = null;
     private canvas: HTMLCanvasElement | null = null;
     private scenes: Map<GameLocation, Scene> = new Map();
     private sceneFactories: Map<GameLocation, SceneFactory> = new Map();
@@ -36,8 +41,9 @@ export class SceneManager {
 
     /**
      * Initialize the engine with a canvas element.
+     * Tries to use WebGPU, falls back to WebGL2.
      */
-    initialize(canvas: HTMLCanvasElement): void {
+    async initialize(canvas: HTMLCanvasElement): Promise<void> {
         if (this.engine) {
             console.warn('[SceneManager] Already initialized, disposing old engine to attach to new canvas');
             this.dispose();
@@ -47,18 +53,43 @@ export class SceneManager {
 
         this.canvas = canvas;
 
-        // Create engine with performance options
-        this.engine = new Engine(canvas, true, {
-            stencil: true,
-            preserveDrawingBuffer: true,
-            antialias: true,
-            powerPreference: 'high-performance'
-        });
+        // Try WebGPU first
+        const isWebGPUSupported = await (window as any).WebGPUEngine?.isSupportedAsync;
+
+        if (isWebGPUSupported) {
+            console.log('[SceneManager] Initializing WebGPU Engine...');
+            try {
+                // Dynamically import to avoid load-time errors if not available? 
+                // Using global Babaylon or imported type?
+                // We need to import WebGPUEngine.
+                const { WebGPUEngine } = await import("@babylonjs/core/Engines/webgpuEngine");
+                const webgpu = new WebGPUEngine(canvas, {
+                    stencil: true,
+                    antialias: true,
+                    // WebGPU specific options
+                });
+                await webgpu.initAsync();
+                this.engine = webgpu;
+                console.log('[SceneManager] WebGPU Engine initialized');
+            } catch (e) {
+                console.error('[SceneManager] WebGPU initialization failed, falling back to WebGL:', e);
+            }
+        }
+
+        // Fallback to WebGL if WebGPU failed or not supported
+        if (!this.engine) {
+            console.log('[SceneManager] Initializing WebGL Engine...');
+            this.engine = new Engine(canvas, true, {
+                stencil: true,
+                preserveDrawingBuffer: true,
+                antialias: true,
+                powerPreference: 'high-performance'
+            });
+            console.log('[SceneManager] WebGL Engine initialized');
+        }
 
         // Handle window resize
         window.addEventListener('resize', this.handleResize);
-
-        console.log('[SceneManager] Engine initialized');
     }
 
     /**
@@ -168,7 +199,7 @@ export class SceneManager {
     /**
      * Get the Babylon.js engine.
      */
-    getEngine(): Engine | null {
+    getEngine(): Engine | WebGPUEngine | null {
         return this.engine;
     }
 

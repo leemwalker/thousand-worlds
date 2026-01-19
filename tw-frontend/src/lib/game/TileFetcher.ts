@@ -12,7 +12,7 @@ export interface TileData {
     water: Float32Array;
 }
 
-export class TileManager {
+export class TileFetcher {
     // Magic '0xWT', Version 0x01
     private static readonly MAGIC = "WT";
     private static readonly VERSION = 1;
@@ -59,13 +59,13 @@ export class TileManager {
         // 1. Verify Header
         const magic = String.fromCharCode(view.getUint8(offset), view.getUint8(offset + 1));
         offset += 2;
-        if (magic !== TileManager.MAGIC) {
+        if (magic !== TileFetcher.MAGIC) {
             throw new Error(`Invalid magic bytes: ${magic}`);
         }
 
         const version = view.getUint8(offset);
         offset += 1;
-        if (version !== TileManager.VERSION) {
+        if (version !== TileFetcher.VERSION) {
             throw new Error(`Unsupported version: ${version}`);
         }
 
