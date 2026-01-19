@@ -17,6 +17,10 @@ const EXCLUDED_HEADERS = new Set([
 ]);
 
 export const handle: Handle = async ({ event, resolve }) => {
+    // Debug logging for troubleshooting 502s
+    console.log(`[REQUEST] ${event.request.method} ${event.url.pathname}${event.url.search}`);
+    console.log(`[HEADERS] Host: ${event.request.headers.get('host')}, X-Forwarded-Proto: ${event.request.headers.get('x-forwarded-proto')}`);
+
     // Proxy /api requests to the backend
     if (event.url.pathname.startsWith('/api')) {
         const backendPath = event.url.pathname;
