@@ -38,7 +38,14 @@ export class GameWebSocket {
         // Build WebSocket URL - with Ingress/nginx, use same host
         // The proxy handles routing /api/game/ws to game-server
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsHost = import.meta.env.VITE_WS_URL || window.location.host;
+        let wsHost = import.meta.env.VITE_WS_URL || window.location.host;
+
+        // EMERGENCY BYPASS FIX: If running on NodePort 30000 (Frontend),
+        // redirect WebSocket to NodePort 30001 (Game Server) because SvelteKit proxying fails.
+        if (wsHost.includes(':30000')) {
+            wsHost = wsHost.replace(':30000', ':30001');
+            console.log('[WebSocket] Detected NodePort bypass, switching to Game Server port 30001');
+        }
 
         let wsUrl = `${protocol}//${wsHost}/api/game/ws`;
 
