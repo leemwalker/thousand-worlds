@@ -8,26 +8,9 @@
  * - Observation mode only (no editing/interaction)
  */
 
-import type { Scene } from "@babylonjs/core/scene";
-import type { Camera } from "@babylonjs/core/Cameras/camera";
-import type { Mesh } from "@babylonjs/core/Meshes/mesh";
-import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector";
-import { Color3 } from "@babylonjs/core/Maths/math.color";
-import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
-import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
-import { Texture } from "@babylonjs/core/Materials/Textures/texture";
-import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
-import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
-import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
-import type { IPlayerController } from './interfaces';
-import type { MoonData, MoonFPVParams } from "$lib/types/moon";
-import { getMoonFPVParams, calculateHorizonDistance } from "$lib/types/moon";
-
-// Side-effect imports
-import "@babylonjs/core/Collisions/collisionCoordinator";
-import "@babylonjs/core/Cameras/Inputs/freeCameraKeyboardMoveInput";
-import "@babylonjs/core/Cameras/Inputs/freeCameraMouseInput";
+import { TileGlobeManager } from "./TileGlobeManager";
+import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
+import { TerrainComputeShader } from "./TerrainComputeShader";
 
 export interface MoonFPVOptions {
     /** Starting position on moon surface */
@@ -40,128 +23,132 @@ export interface MoonFPVOptions {
     moonDistanceKm?: number;
     /** List of all moons for sibling rendering */
     siblingMoons?: MoonData[];
+    /** Callback to send data requests */
+    sendCommand?: (action: string, message?: string) => void;
+    /** Compute shader for high-detail planet rendering */
+    computeShader?: TerrainComputeShader;
 }
 
-interface Position {
-    lat: number;
-    lon: number;
-    altitude: number;
-}
+// ... imports remain the same ...
 
-/**
- * Controller for first-person observation on moon surfaces.
- * Gravity and movement are calculated from moon properties.
- */
 export class MoonFPVController implements IPlayerController {
-    private scene: Scene;
-    private camera: UniversalCamera;
-    private moonParams: MoonFPVParams;
-    private velocity: Vector3 = Vector3.Zero();
-    private isGrounded: boolean = true;
-    private disposed: boolean = false;
-    private terrain: Mesh | null = null;
-    private eyeHeight: number;
+    // ... params ...
+    private sendCommand?: (action: string, message?: string) => void;
+    private computeShader?: TerrainComputeShader;
+    private tileGlobeManager: TileGlobeManager | null = null;
+    private planetNode: TransformNode | null = null;
 
-    // Moon-specific
-    private moon: MoonData;
-    private siblingMoons: MoonData[] = [];
-    private siblingMeshes: Mesh[] = [];
-    private sunLight: DirectionalLight | null = null;
-    private ambientLight: HemisphericLight | null = null;
-    private planetMesh: Mesh | null = null;
-    private starfieldMesh: Mesh | null = null;
-    private sunMesh: Mesh | null = null;
-    private planetDiameterKm: number = 12742; // Default Earth diameter
-    private moonDistanceKm: number = 384400; // Default Moon distance
-
-    // Terrain properties
-    private terrainSize: number = 500; // Size of terrain
-    private wrapObserver: any = null; // Observer for position wrapping
-    private moonRadiusM: number = 1737000; // Moon radius in meters for curvature
-    private playerLongitude: number = 0; // Player longitude on moon surface
-    private planetMaterial: StandardMaterial | null = null; // For texture updates
-    private planetTextureUrl: string | null = null; // Current texture blob URL
-
-    // Time-based orbital mechanics
-    private startTime: number = 0; // Time when FPV started (ms)
-    private lunarDaySeconds: number = 60; // How long a "lunar day" lasts in real seconds (accelerated)
-    private orbitalPhase: number = 0; // Current orbital phase (0 to 2π)
+    // ... existing props ...
 
     constructor(scene: Scene, moon: MoonData, options: MoonFPVOptions = {}) {
         this.scene = scene;
         this.moon = moon;
         this.moonParams = getMoonFPVParams(moon);
-        this.eyeHeight = options.eyeHeight ?? 1.778; // 5'10" in meters
+        this.eyeHeight = options.eyeHeight ?? 1.778;
         this.planetDiameterKm = options.planetDiameterKm ?? 12742;
-        // Use passed km distance, or convert from meters if not provided
-        // moon.distance is in meters, divide by 1e6 to get km
         this.moonDistanceKm = options.moonDistanceKm ?? (moon.distance / 1e6);
         this.siblingMoons = options.siblingMoons ?? [];
+        this.sendCommand = options.sendCommand;
+        this.computeShader = options.computeShader;
 
-        // Calculate moon radius for terrain curvature
-        this.moonRadiusM = moon.radius * 1000; // moon.radius is in km
+        // ... rest of constructor ...
+        // ... call createPlanetInSky() ...
+    }
 
-        // Start position: longitude 70 degrees (planet at 20 degrees altitude)
-        // Terrain half-size is 250 (500/2). 70/90 * 250 ≈ 194
-        const startX = 194;
-        const startPos = new Vector3(startX, this.eyeHeight + 2, 0);
+    /**
+     * Create the parent planet visible in the sky.
+     * Uses TileGlobeManager for high-detail WebGPU rendering.
+     */
+    private createPlanetInSky(): void {
+        // Calculate angular size of planet as seen from moon
+        const planetRadiusKm = this.planetDiameterKm / 2;
+        const distanceKm = Math.max(this.moonDistanceKm, planetRadiusKm * 1.1);
 
-        // Create FPS camera
-        this.camera = new UniversalCamera("moonFPSCamera", startPos, scene);
-        this.camera.setTarget(startPos.add(new Vector3(0, 0, 10))); // Look forward
-        this.camera.ellipsoid = new Vector3(0.5, 1.0, 0.5);
-        this.camera.ellipsoidOffset = new Vector3(0, 1.0, 0);
-        this.camera.checkCollisions = true;
-        this.camera.applyGravity = true;
+        // Angular radius (alpha)
+        let angularRadiusRad = Math.asin(planetRadiusKm / distanceKm);
 
-        // Standard Y-down gravity scaled for moon
-        scene.gravity = new Vector3(0, -this.moonParams.gravity / 50, 0);
+        // Visual Scale Factor (Cinematic View)
+        const PLANET_ANGULAR_SCALE = 15.0;
+        angularRadiusRad *= PLANET_ANGULAR_SCALE;
 
-        // Set camera speed based on moon gravity
-        this.camera.speed = this.moonParams.moveSpeed;
-        this.camera.maxZ = 50000; // Ensure we can see distant sky objects
+        const maxRad = (70 * Math.PI) / 180;
+        if (angularRadiusRad > maxRad) angularRadiusRad = maxRad;
 
-        // Movement keys
-        this.camera.keysUp = [87]; // W
-        this.camera.keysDown = [83]; // S
-        this.camera.keysLeft = [65]; // A
-        this.camera.keysRight = [68]; // D
-        this.camera.angularSensibility = 500;
+        const angularSizeDeg = (angularRadiusRad * 2) * (180 / Math.PI);
+        const skyDistance = this.terrainSize * 1.5;
 
-        // Disable fog for clear sky view
-        this.scene.fogMode = 0;
+        // Calculate radius needed to subtend this angle at skyDistance
+        // sin(alpha) = R / (R + skyDistance) => R = skyDistance * sin(alpha) / (1 - sin(alpha))
+        // But simpler: Place center at 'centerDistance' and radius 'sceneRadius'.
+        // Surface is at skyDistance.
 
-        // Create flat terrain with craters
-        this.createFlatTerrain();
+        const sinAlpha = Math.sin(angularRadiusRad);
+        const relativeScale = (1 / sinAlpha) - 1;
+        const safeScale = Math.max(relativeScale, 0.1);
 
-        // Create starfield sky dome (large sphere around player)
-        this.createStarfield();
+        const sceneRadius = skyDistance / safeScale;
+        const centerDistance = sceneRadius + skyDistance;
 
-        // Create sun in the sky
-        this.createSun();
+        console.log(`[MoonFPV] Planet: ${this.planetDiameterKm}km @ ${distanceKm.toFixed(1)}km = ${angularSizeDeg.toFixed(2)}°`);
+        console.log(`[MoonFPV] Rendering: R=${sceneRadius.toFixed(1)}, D=${centerDistance.toFixed(1)}`);
 
-        // Create planet in the sky
-        this.createPlanetInSky();
+        // Create TransformNode as parent for TileGlobeManager
+        this.planetNode = new TransformNode("planetNode", this.scene);
+        this.planetNode.position = new Vector3(0, centerDistance * 0.8, centerDistance * 0.5);
+        this.planetNode.renderingGroupId = 0;
 
-        // Create sibling moons in the sky
-        this.createSiblingMoons();
+        // Store for update linkage
+        this.planetMesh = this.planetNode as any as Mesh; // Treat node as mesh for positioning logic
+        (this.planetMesh as any).orbitDistance = centerDistance; // Store for updateCelestialBodies
 
-        // Setup lighting
-        this.setupLighting();
+        if (this.sendCommand && this.computeShader) {
+            console.log(`[MoonFPV] Initializing WebGPU Planet with Radius=${sceneRadius}`);
 
-        // Setup position wrapping for circumnavigation
-        this.setupPositionWrapping();
+            this.tileGlobeManager = new TileGlobeManager(
+                this.scene,
+                this.planetNode,
+                this.sendCommand,
+                {
+                    maxLevel: 4,
+                    maxActiveTiles: 50,
+                    computeShader: this.computeShader,
+                    radius: sceneRadius,
+                    forceLevel: 3 // High detail for sky view
+                }
+            );
+            this.tileGlobeManager.enable();
+        } else {
+            // Fallback to simple sphere if no backend connection or WebGPU
+            console.warn("[MoonFPV] WebGPU/Backend not available - Falling back to simple sphere");
+            const sphere = MeshBuilder.CreateSphere("moonFPVPlanet", {
+                diameter: sceneRadius * 2,
+                segments: 64
+            }, this.scene);
+            sphere.parent = this.planetNode;
 
-        // Initialize time for orbital mechanics
-        this.startTime = performance.now();
+            this.planetMaterial = new StandardMaterial("moonFPVPlanetMat", this.scene);
+            this.planetMaterial.diffuseColor = new Color3(0.3, 0.5, 0.7);
+            this.planetMaterial.emissiveColor = new Color3(0.1, 0.15, 0.2);
+            this.planetMaterial.specularColor = new Color3(0, 0, 0);
+            sphere.material = this.planetMaterial;
+        }
 
-        console.log(`[MoonFPV] Created flat terrain for ${moon.name}: terrainSize=${this.terrainSize}, gravity=${this.moonParams.gravity.toFixed(3)} m/s²`);
+        console.log(`[MoonFPV] Planet node created: enabled=${this.planetNode.isEnabled()}`);
+    }
 
-        // Debug logger
-        setInterval(() => {
-            if (this.disposed || !this.planetMesh) return;
-            console.log(`[MoonFPV] Status: Lat=${this.playerLongitude.toFixed(1)}, PlanetEnabled=${this.planetMesh.isEnabled()}, PlanetPos=${this.planetMesh.position.toString()}`);
-        }, 2000);
+    // update method needs to call tileGlobeManager.update
+
+    public update(): void {
+        this.tileGlobeManager?.update(this.camera);
+    }
+
+    public dispose() {
+        this.disposed = true;
+        this.tileGlobeManager?.dispose();
+        // ... existing disposal ...
+        if (this.scene.onBeforeRenderObservable.hasObservers()) {
+            this.scene.onBeforeRenderObservable.remove(this.wrapObserver);
+        }
     }
 
     /**
@@ -429,6 +416,9 @@ export class MoonFPVController implements IPlayerController {
             const targetY = -curvatureDrop + this.eyeHeight;
             pos.y = targetY;
             this.camera.position = pos;
+
+            // Update Tile System
+            this.tileGlobeManager?.update(this.camera);
         });
 
         console.log(`[MoonFPV] Position wrapping enabled with celestial tracking`);

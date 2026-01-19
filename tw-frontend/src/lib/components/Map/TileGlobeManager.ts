@@ -29,6 +29,8 @@ export interface TileGlobeManagerOptions {
     tileSize?: number;
     maxActiveTiles?: number;
     computeShader?: TerrainComputeShader;
+    radius?: number;
+    forceLevel?: number;
 }
 
 /**
@@ -45,6 +47,8 @@ export class TileGlobeManager {
     private maxActiveTiles: number;
     private enabled: boolean = false;
     private currentLevel: number = 0;
+    private radius: number;
+    private forceLevel?: number;
 
     constructor(
         scene: Scene,
@@ -56,6 +60,8 @@ export class TileGlobeManager {
         this.parentNode = parentNode;
         this.maxActiveTiles = options.maxActiveTiles ?? 50;
         this.computeShader = options.computeShader;
+        this.radius = options.radius ?? 6371000.0;
+        this.forceLevel = options.forceLevel;
 
         // Initialize tile provider with WebSocket command sender
         this.tileProvider = new TileProvider(scene, sendCommand);
@@ -99,9 +105,16 @@ export class TileGlobeManager {
         if (!this.enabled) return;
 
         // Calculate appropriate LOD level based on camera distance
-        this.currentLevel = this.tileManager.calculateLevel(camera);
+        if (this.forceLevel !== undefined) {
+            this.currentLevel = this.forceLevel;
+        } else {
+            this.currentLevel = this.tileManager.calculateLevel(camera);
+        }
 
         // Get priority queue of visible tiles
+        // Note: TileManager logic currently assumes standard globe (radius=1?). 
+        // If forceLevel is set, we assume the camera is "visible" to these tiles.
+        // For FPV sky, the planet is distant. TileManager's simple frustum check works if we set up the context right.
         const priorityQueue = this.tileManager.getPriorityQueue(camera, this.currentLevel);
 
         // Mark all tiles as potentially unused
@@ -147,7 +160,8 @@ export class TileGlobeManager {
                 tileMesh = new GPUTileMesh(
                     this.scene,
                     tileData.raw,
-                    this.computeShader
+                    this.computeShader,
+                    this.radius
                 );
             } else {
                 tileMesh = new TileMesh(

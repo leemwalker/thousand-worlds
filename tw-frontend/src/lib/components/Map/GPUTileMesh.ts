@@ -23,7 +23,8 @@ export class GPUTileMesh {
     constructor(
         private scene: Scene,
         private data: TileData,
-        private compute: TerrainComputeShader // Shared compute shader instance
+        private compute: TerrainComputeShader, // Shared compute shader instance
+        private radius: number = 6371000.0 // Default Earth radius
     ) {
         this.computeShader = compute;
         this.mesh = new Mesh(`tile_${data.face}_${data.level}_${data.x}_${data.y}`, scene);
@@ -49,15 +50,13 @@ export class GPUTileMesh {
     private generateGeometry() {
         // Dispatch Compute Shader
         // Params: gridSize, face, dispScale, planetRadius
-        // TODO: Get real radius and scale from somewhere
-        const radius = 6371000.0; // Earth radius approx
         const scale = 1.0;
 
         this.computeShader.dispatch(
             this.data.width, // Assuming square grid for now
             this.data.face,
             scale,
-            radius,
+            this.radius,
             this.heightmapBuffer,
             this.positionBuffer,
             this.normalBuffer
@@ -80,9 +79,10 @@ export class GPUTileMesh {
                 3, // stride
                 false, // instanced
                 0, // offset
+                3, // size (3 floats per vertex)
+                undefined, // type (float)
                 false, // normalized
-                false // useBytes (false = stride/offset in floats if buffer is float) 
-                // BUT buffer is GPUBuffer.
+                true // useBytes (StorageBuffer is bytes)
             )
         );
 

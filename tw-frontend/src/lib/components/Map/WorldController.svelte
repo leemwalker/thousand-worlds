@@ -743,6 +743,8 @@
                 planetDiameterKm,
                 moonDistanceKm, // Pass km for accurate angular size calc
                 siblingMoons: allMoons,
+                sendCommand: onSendCommand || undefined,
+                computeShader: terrainComputeShader || undefined,
             });
             moonFpvController.activate();
 
