@@ -86,7 +86,6 @@ kubectl apply -f tw-backend/deploy/k8s/
 echo "Restarting deployments to pick up new images..."
 kubectl -n mud-world rollout restart deployment/game-server
 kubectl -n mud-world rollout restart deployment/frontend
-kubectl -n mud-world rollout restart deployment/nginx-gateway
 
 # 4. Status
 echo "Deployment applied. Waiting for rollouts..."
