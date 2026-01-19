@@ -22,9 +22,22 @@ data:
         server game-server:8080;
       }
 
+      # Redirect HTTP to HTTPS
       server {
         listen 80;
         server_name _;
+        return 301 https://$host$request_uri;
+      }
+
+      # HTTPS Server
+      server {
+        listen 443 ssl;
+        server_name _;
+
+        ssl_certificate /etc/nginx/certs/server.crt;
+        ssl_certificate_key /etc/nginx/certs/server.key;
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers HIGH:!aNULL:!MD5;
 
         # Frontend
         location / {
@@ -39,7 +52,6 @@ data:
         }
 
         # Backend API
-        # Note: game-server routes are mounted at /api, so we pass /api as is.
         location /api/ {
           proxy_pass http://backend;
           proxy_http_version 1.1;
@@ -73,12 +85,20 @@ spec:
         image: nginx:alpine
         ports:
         - containerPort: 80
-          hostPort: 8080  # Bind directly to node port 8080
+          hostPort: 8080  # Maintain 8080 mapping for HTTP (which now redirects)
+        - containerPort: 443
+          hostPort: 443   # Bind 443 for HTTPS
         volumeMounts:
         - name: config-volume
           mountPath: /etc/nginx/nginx.conf
           subPath: nginx.conf
+        - name: certs-volume
+          mountPath: /etc/nginx/certs
+          readOnly: true
       volumes:
       - name: config-volume
         configMap:
           name: nginx-gateway-config
+      - name: certs-volume
+        secret:
+          secretName: nginx-certs
