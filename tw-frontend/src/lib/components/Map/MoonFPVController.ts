@@ -609,9 +609,9 @@ export class MoonFPVController implements IPlayerController {
 
         // Planet material - will be textured with simulation data
         this.planetMaterial = new StandardMaterial("moonFPVPlanetMat", this.scene);
-        this.planetMaterial.diffuseColor = new Color3(0.3, 0.5, 0.7); // Earth-like blue
+        this.planetMaterial.diffuseColor = new Color3(0.3, 0.5, 0.7); // Earth-like blue (placeholder)
         this.planetMaterial.emissiveColor = new Color3(0.1, 0.15, 0.2); // Slight glow
-        this.planetMaterial.specularColor = new Color3(0.1, 0.1, 0.1);
+        this.planetMaterial.specularColor = new Color3(0, 0, 0); // Matte surface - no plastic shine
         this.planetMesh.material = this.planetMaterial;
 
         console.log(`[MoonFPV] Planet mesh created: enabled=${this.planetMesh.isEnabled()}, pos=${this.planetMesh.position}`);
@@ -773,7 +773,9 @@ export class MoonFPVController implements IPlayerController {
 
         // Apply to planet material
         this.planetMaterial.diffuseTexture = texture;
-        this.planetMaterial.emissiveColor = new Color3(0.05, 0.05, 0.05); // Reduce emissive when textured
+        this.planetMaterial.diffuseColor = new Color3(1, 1, 1); // Reset to white so texture isn't tinted
+        this.planetMaterial.emissiveColor = new Color3(0.1, 0.1, 0.1); // Moderate glow for visibility
+        this.planetMaterial.specularColor = new Color3(0, 0, 0); // No plastic shine
 
         console.log(`[MoonFPV] Planet texture updated from blob, size=${blob.size}`);
     }
