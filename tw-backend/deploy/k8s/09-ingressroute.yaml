@@ -31,7 +31,7 @@ spec:
     kind: Rule
     services:
     - name: whoami
-      port: 3000
+      port: 80
   - match: Host(`10.0.0.17`) && PathPrefix(`/api`)
     kind: Rule
     services:
