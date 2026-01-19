@@ -62,6 +62,19 @@ echo "Applying Kubernetes Manifests..."
 # Create Namespace if it doesn't exist
 kubectl create namespace mud-world --dry-run=client -o yaml | kubectl apply -f -
 
+# 2a. Generate SSL Certificates if missing
+if ! kubectl -n mud-world get secret nginx-certs > /dev/null 2>&1; then
+    echo "SSL Certificate Secret (nginx-certs) not found. Generating..."
+    if [[ -f "./generate_certs.sh" ]]; then
+        chmod +x ./generate_certs.sh
+        ./generate_certs.sh
+    else
+        echo "WARNING: ./generate_certs.sh not found. Skipping certificate generation."
+    fi
+else
+    echo "SSL Certificate Secret (nginx-certs) exists. Skipping generation."
+fi
+
 # Note: K3s comes with Traefik Ingress Controller pre-installed on port 80/443
 # No need to install nginx-ingress separately
 

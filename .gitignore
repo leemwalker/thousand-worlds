@@ -18,6 +18,12 @@ Thumbs.db
 logs/
 server.log*
 
+# SSL Certificates
+server.key
+server.crt
+server.csr
+extfile.cnf
+
 # Build artifacts
 bin/
 dist/
