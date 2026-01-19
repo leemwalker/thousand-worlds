@@ -54,26 +54,20 @@ export class SceneManager {
         this.canvas = canvas;
 
         // Try WebGPU first
-        const isWebGPUSupported = await (window as any).WebGPUEngine?.isSupportedAsync;
-
-        if (isWebGPUSupported) {
-            console.log('[SceneManager] Initializing WebGPU Engine...');
-            try {
-                // Dynamically import to avoid load-time errors if not available? 
-                // Using global Babaylon or imported type?
-                // We need to import WebGPUEngine.
-                const { WebGPUEngine } = await import("@babylonjs/core/Engines/webgpuEngine");
+        try {
+            const { WebGPUEngine } = await import("@babylonjs/core/Engines/webgpuEngine");
+            if (await WebGPUEngine.IsSupportedAsync) {
+                console.log('[SceneManager] Initializing WebGPU Engine...');
                 const webgpu = new WebGPUEngine(canvas, {
                     stencil: true,
-                    antialias: true,
-                    // WebGPU specific options
+                    antialias: true
                 });
                 await webgpu.initAsync();
                 this.engine = webgpu;
                 console.log('[SceneManager] WebGPU Engine initialized');
-            } catch (e) {
-                console.error('[SceneManager] WebGPU initialization failed, falling back to WebGL:', e);
             }
+        } catch (e) {
+            console.warn('[SceneManager] WebGPU initialization failed or not supported:', e);
         }
 
         // Fallback to WebGL if WebGPU failed or not supported
