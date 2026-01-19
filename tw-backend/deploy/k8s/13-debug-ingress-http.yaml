@@ -5,6 +5,7 @@ metadata:
   namespace: mud-world
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/service.serversscheme: http
 spec:
   rules:
   - http:
