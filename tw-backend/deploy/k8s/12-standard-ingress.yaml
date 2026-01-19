@@ -1,0 +1,41 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mud-world-ingress
+  namespace: mud-world
+  annotations:
+    # Tell Traefik to use this ingress
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  tls:
+  - hosts:
+    # K8s Ingress formally requires DNS names, but many controllers handle IPs or loose matching.
+    # If explicit host matching fails, we can omit 'rules[].host' to match all.
+    - "10.0.0.17"
+    secretName: nginx-certs
+  rules:
+  - host: "10.0.0.17"
+    http:
+      paths:
+      - path: /test
+        pathType: Prefix
+        backend:
+          service:
+            name: whoami
+            port:
+              number: 80
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: game-server
+            port:
+              number: 8080
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 3000
