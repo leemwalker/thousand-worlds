@@ -74,6 +74,8 @@ metadata:
   namespace: mud-world
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: nginx-gateway
