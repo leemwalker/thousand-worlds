@@ -113,7 +113,7 @@ kubectl -n tw-world get fleet world-simulation-fleet
 kubectl -n tw-world rollout status deployment/game-server --timeout=60s || echo "Game Server rollout pending..."
 
 echo "=== Deployment Complete ==="
-echo "Frontend available at: http://10.0.0.17:8080 (via Nginx Gateway)"
+echo "Frontend available at: https://10.0.0.17 (via Nginx Ingress)"
 echo "Check pods: kubectl -n tw-world get pods"
 echo "Check ingress: kubectl -n tw-world get ingress"
 
