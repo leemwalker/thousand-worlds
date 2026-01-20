@@ -1,5 +1,5 @@
 # Use Debian-based image for building (Node 20 for ESM/CJS compatibility)
-FROM node:20-slim AS builder
+FROM node:20-bullseye-slim AS builder
 
 # Install build dependencies for canvas
 RUN apt-get update && apt-get install -y --no-install-recommends \

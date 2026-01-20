@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/rs/zerolog/log"
+
 	"tw-backend/internal/auth"
 	"tw-backend/internal/errors"
 	"tw-backend/internal/validation"
@@ -71,6 +73,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// Create user
 	user, err := h.authService.Register(r.Context(), req.Email, req.Username, req.Password)
 	if err != nil {
+		log.Error().Err(err).Str("email", req.Email).Msg("Registration failed in service")
 		if err == auth.ErrUserExists {
 			errors.RespondWithError(w, errors.Wrap(errors.ErrConflict,
 				"User already exists", err))
