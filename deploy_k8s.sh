@@ -75,8 +75,27 @@ else
     echo "SSL Certificate Secret (nginx-certs) exists. Skipping generation."
 fi
 
-# Note: K3s comes with Traefik Ingress Controller pre-installed on port 80/443
-# No need to install nginx-ingress separately
+# 2b. Apply Patches to Resolve Port Conflicts (CRITICAL)
+echo "Applying System Patches..."
+
+# 1. Agones Allocator Conflict: Moves Agones from 443 to 4443
+# This allows Nginx Ingress to bind to 443.
+if kubectl -n agones-system get svc agones-allocator > /dev/null 2>&1; then
+    echo "Patching Agones Allocator port to 4443..."
+    kubectl -n agones-system patch service agones-allocator --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/port", "value": 4443}]' || true
+fi
+
+# 2. Traefik Conflict: K3s restores Traefik on restart. We move it to 81/444.
+# This prevents it from fighting Nginx for 80/443.
+if kubectl -n kube-system get svc traefik > /dev/null 2>&1; then
+    echo "Patching K3s Traefik ports to 81/444..."
+    kubectl -n kube-system patch service traefik --type='json' -p='[{"op": "replace", "path": "/spec/ports/0/port", "value": 81}, {"op": "replace", "path": "/spec/ports/1/port", "value": 444}]' || true
+fi
+
+# 3. Restart Nginx LB Pod if it was stuck pending
+# This ensures it retries binding if it failed earlier.
+kubectl -n kube-system delete pod -l app=svclb-ingress-nginx-controller --ignore-not-found > /dev/null 2>&1 || true
+
 
 # Apply all manifests in order (00-10)
 echo "Applying manifests from tw-backend/deploy/k8s/..."
