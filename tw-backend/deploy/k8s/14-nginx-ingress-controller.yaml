@@ -24,6 +24,7 @@ rules:
       - secrets
       - namespaces
     verbs:
+      - get
       - list
       - watch
   - apiGroups:
