@@ -160,12 +160,14 @@ spec:
             - --ingress-class=nginx
             - --publish-service=$(POD_NAMESPACE)/ingress-nginx-controller
             - --configmap=$(POD_NAMESPACE)/ingress-nginx-controller
+            - --http-port=8080
+            - --https-port=8443
           ports:
             - name: http
-              containerPort: 80
+              containerPort: 8080
               protocol: TCP
             - name: https
-              containerPort: 443
+              containerPort: 8443
               protocol: TCP
           env:
             - name: POD_NAME
@@ -192,10 +194,10 @@ spec:
   ports:
     - name: http
       port: 80
-      targetPort: 80
+      targetPort: 8080
     - name: https
       port: 443
-      targetPort: 443
+      targetPort: 8443
   selector:
     app.kubernetes.io/name: ingress-nginx
 ---
