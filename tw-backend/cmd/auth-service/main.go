@@ -19,10 +19,16 @@ func main() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
-	// Configuration (Env vars would go here)
+	// Configuration
 	natsURL := os.Getenv("NATS_URL")
 	if natsURL == "" {
 		natsURL = nats.DefaultURL
+	}
+
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		log.Warn().Msg("DATABASE_URL not set, using default")
+		dbURL = "postgresql://admin:password@localhost:5432/tw_core?sslmode=disable"
 	}
 
 	// Connect to NATS
@@ -44,37 +50,35 @@ func main() {
 	})
 	defer redisClient.Close()
 
-	// Initialize Auth Components
-	// Keys should come from env vars
+	// Connect to Database
+	db, err := auth.ConnectDB(dbURL)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to connect to database")
+	}
+	defer db.Close()
+	log.Info().Msg("Connected to Database")
+
+	// Initialize Components
+	repo := auth.NewPostgresRepository(db)
+
 	signingKey := []byte(os.Getenv("JWT_SIGNING_KEY"))
 	if len(signingKey) == 0 {
 		signingKey = []byte("default-signing-key-do-not-use-in-prod")
 	}
-	encryptionKey := []byte(os.Getenv("JWT_ENCRYPTION_KEY"))
-	if len(encryptionKey) != 32 {
-		// Fallback for dev/test if not set or invalid length
-		// In prod, this should be a fatal error
-		encryptionKey = []byte("01234567890123456789012345678901")
+
+	authConfig := &auth.Config{
+		SecretKey:       signingKey,
+		TokenExpiration: 24 * time.Hour, // Could be env var
 	}
 
-	tokenManager, err := auth.NewTokenManager(signingKey, encryptionKey)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to create TokenManager")
-	}
-
-	passwordHasher := auth.NewPasswordHasher()
-	sessionManager := auth.NewSessionManager(redisClient)
+	authService := auth.NewService(authConfig, repo)
 	rateLimiter := auth.NewRateLimiter(redisClient)
 
 	// Initialize Handler
-	// Explicitly cast to interfaces to ensure compliance, though Go does this implicitly
-	handler := NewAuthHandler(nc, tokenManager, passwordHasher, sessionManager, rateLimiter)
+	handler := NewAuthHandler(nc, authService, rateLimiter)
 
 	// Subscribe to Login
 	_, err = nc.Subscribe("auth.login", func(msg *nats.Msg) {
-		// Handle in a goroutine or directly?
-		// For high throughput, maybe a worker pool, but for now direct.
-		// We need a context, maybe with timeout.
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
@@ -84,6 +88,19 @@ func main() {
 	})
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to subscribe to auth.login")
+	}
+
+	// Subscribe to Register
+	_, err = nc.Subscribe("auth.register", func(msg *nats.Msg) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := handler.HandleRegister(ctx, msg); err != nil {
+			log.Error().Err(err).Msg("Failed to handle register")
+		}
+	})
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to subscribe to auth.register")
 	}
 
 	log.Info().Msg("Auth Service Started")
