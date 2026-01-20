@@ -45,7 +45,7 @@ func (s *MobileSDKIntegrationSuite) SetupSuite() {
 	testutil.RunMigrations(s.T(), s.db)
 
 	// Create pgxpool
-	dbURL := "postgres://admin:test_password_123456@localhost:5432/mud_core?sslmode=disable"
+	dbURL := "postgres://admin:test_password_123456@localhost:5432/tw_core?sslmode=disable"
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	s.Require().NoError(err)
 	s.pool = pool

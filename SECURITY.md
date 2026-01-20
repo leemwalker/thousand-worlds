@@ -29,7 +29,7 @@ This document explains how to configure credentials and secrets for the Thousand
 
 4. **Validate your configuration:**
    ```bash
-   cd mud-platform-backend
+   cd tw-platform-backend
    ./scripts/validate-env.sh
    ```
 
@@ -56,7 +56,7 @@ These MUST be set for the application to start:
 |----------|---------|-------------|
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Comma-separated list of allowed origins |
 | `POSTGRES_USER` | `admin` | PostgreSQL username |
-| `POSTGRES_DB` | `mud_core` | PostgreSQL database name |
+| `POSTGRES_DB` | `tw_core` | PostgreSQL database name |
 | `PORT` | `8080` | Backend server port |
 | `REDIS_ADDR` | `localhost:6379` | Redis connection address |
 
@@ -102,7 +102,7 @@ Before deploying to production:
 
 1. Run the validation script:
    ```bash
-   ./mud-platform-backend/scripts/validate-env.sh
+   ./tw-platform-backend/scripts/validate-env.sh
    ```
 
 2. Verify no hardcoded credentials:
@@ -130,7 +130,7 @@ Before deploying to production:
 - Try running with explicit export: `export JWT_SECRET=...`
 
 ### Docker Compose fails with environment variable errors
-- Make sure `.env` file is in the project root or `mud-platform-backend/` directory
+- Make sure `.env` file is in the project root or `tw-platform-backend/` directory
 - Verify no syntax errors in `.env` (no spaces around `=`)
 - Check Docker Compose version supports variable substitution
 

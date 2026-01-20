@@ -1,11 +1,11 @@
 <script lang="ts">
   /**
    * GameContainer.svelte
-   * Main container that switches between MUD and Simulation layouts based on InterfaceMode.
+   * Main container that switches between TXT and Simulation layouts based on InterfaceMode.
    */
   import { onMount } from "svelte";
   import { interfaceMode, setScreenWidth } from "$lib/stores/ui";
-  import MUDModeLayout from "./MUDModeLayout.svelte";
+  import TXTModeLayout from "./TXTModeLayout.svelte";
   import SimulationModeLayout from "./SimulationModeLayout.svelte";
 
   onMount(() => {
@@ -27,7 +27,7 @@
   data-mode={$interfaceMode}
 >
   {#if $interfaceMode === "TEXT"}
-    <MUDModeLayout>
+    <TXTModeLayout>
       <slot name="status-bar" slot="status-bar" />
       <slot name="main-display" slot="main-display" />
       <slot name="command-input" slot="command-input" />
@@ -35,7 +35,7 @@
       <slot name="right-panel" slot="right-panel" />
       <slot name="controls" slot="controls" />
       <slot name="mode-toggle" slot="mode-toggle" />
-    </MUDModeLayout>
+    </TXTModeLayout>
   {:else}
     <SimulationModeLayout>
       <slot name="canvas" slot="canvas" />

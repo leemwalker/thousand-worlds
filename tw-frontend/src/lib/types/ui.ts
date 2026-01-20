@@ -2,7 +2,7 @@ export type LayoutMode = 'mobile' | 'desktop';
 
 /**
  * Interface mode controls which view layer is active.
- * TEXT = MUD-style text-only interface (default for mobile)
+ * TEXT = TXT-style text-only interface (default for mobile)
  * VISUAL = 3D Babylon.js interface with text input overlay (default for desktop)
  */
 export type InterfaceMode = 'TEXT' | 'VISUAL';

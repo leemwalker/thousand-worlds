@@ -50,7 +50,7 @@ func (s *APIIntegrationSuite) SetupSuite() {
 	// Create pgxpool for WorldRepository
 	dbURL := os.Getenv("TEST_DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgres://admin:test_password_123456@localhost:5432/mud_core?sslmode=disable"
+		dbURL = "postgres://admin:test_password_123456@localhost:5432/tw_core?sslmode=disable"
 	}
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	s.Require().NoError(err, "Failed to create pgxpool")

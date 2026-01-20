@@ -81,7 +81,7 @@ func (m *MockEventStore) GetAllEvents(ctx context.Context, from time.Time, limit
 // Note: This requires a real DB connection, so we might skip if TEST_DB_URL is not set.
 // For now, we'll just define it and let it fail or skip if env not set.
 func BenchmarkSpatialQuery(b *testing.B) {
-	dbURL := "postgres://user:password@localhost:5432/mud_test?sslmode=disable" // Default or env
+	dbURL := "postgres://user:password@localhost:5432/tw_test?sslmode=disable" // Default or env
 	// In a real benchmark, we'd use the env var or a setup function.
 	// For this exercise, we'll skip if we can't connect.
 	ctx := context.Background()

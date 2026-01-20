@@ -81,7 +81,7 @@ export const isMobile = derived(uiState, ($ui) => $ui.layoutMode === 'mobile');
 /** Current interface mode (TEXT or VISUAL) */
 export const interfaceMode = derived(uiState, ($ui) => $ui.interfaceMode);
 
-/** Whether we're in TEXT/MUD mode */
+/** Whether we're in TEXT/TXT mode */
 export const isTextMode = derived(uiState, ($ui) => $ui.interfaceMode === 'TEXT');
 
 /** Whether we're in VISUAL/3D mode */

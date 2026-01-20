@@ -111,5 +111,5 @@ dev-deps:
 	@echo "Development dependencies started"
 
 pull-model:
-	docker exec mud_ollama ollama pull llama3.2:3b
+	docker exec tw_ollama ollama pull llama3.2:3b
 	@echo "LLM model pulled"

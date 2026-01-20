@@ -1,14 +1,14 @@
 <script lang="ts">
     /**
-     * MUDModeLayout.svelte
-     * Text-based MUD interface layout optimized for narrative gameplay.
+     * TXTModeLayout.svelte
+     * Text-based TXT interface layout optimized for narrative gameplay.
      * Default for mobile devices. Focus on rich typography and command input.
      */
     import { isMobile } from "$lib/stores/ui";
 </script>
 
 <div
-    class="mud-layout flex flex-col h-screen bg-gray-950 text-gray-100 overflow-hidden"
+    class="txt-layout flex flex-col h-screen bg-gray-950 text-gray-100 overflow-hidden"
 >
     <!-- Status Bar (Fixed Top) -->
     <header
@@ -94,15 +94,15 @@
 </div>
 
 <style>
-    .mud-layout {
+    .txt-layout {
         /* Rich typography for MUD feel */
         font-family: "Georgia", "Times New Roman", Times, serif;
     }
 
     /* Use mono for command input areas */
-    :global(.mud-layout input),
-    :global(.mud-layout code),
-    :global(.mud-layout pre) {
+    :global(.txt-layout input),
+    :global(.txt-layout code),
+    :global(.txt-layout pre) {
         font-family: "SF Mono", "Monaco", "Inconsolata", "Fira Code",
             "Fira Mono", "Source Code Pro", monospace;
     }

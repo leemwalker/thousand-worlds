@@ -20,7 +20,7 @@ func setupTestDB(t *testing.T) *PostgresRepository {
 	// For now, we'll create a pool here.
 
 	// Get connection string from env or default
-	dbURL := "postgres://admin:password123@localhost:5432/mud_core?sslmode=disable"
+	dbURL := "postgres://admin:password123@localhost:5432/tw_core?sslmode=disable"
 
 	pool, err := pgxpool.New(context.Background(), dbURL)
 	require.NoError(t, err)

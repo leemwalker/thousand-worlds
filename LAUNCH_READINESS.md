@@ -195,13 +195,13 @@ Monitoring: Prometheus + Grafana (ready)
 
 ### 1. Start Services
 ```bash
-cd mud-platform-backend
+cd tw-platform-backend
 ./scripts/deploy.sh
 ```
 
 ### 2. Pull LLM Model
 ```bash
-docker exec mud_ollama ollama pull llama3.1:8b
+docker exec tw_ollama ollama pull llama3.1:8b
 ```
 
 ### 3. Verify Health
@@ -353,8 +353,8 @@ All critical features are implemented, tested, and documented. The deployment in
 ## Contact & Resources
 
 - **Repository:** `/Users/walker/git/thousand-worlds`
-- **Backend:** `mud-platform-backend/`
-- **Frontend:** `mud-platform-client/`
+- **Backend:** `tw-platform-backend/`
+- **Frontend:** `tw-platform-client/`
 - **Deployment:** `./scripts/deploy.sh`
 - **Documentation:** `DEPLOYMENT.md`
 

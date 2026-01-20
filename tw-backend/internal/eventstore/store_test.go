@@ -16,7 +16,7 @@ import (
 func setupTestDB(t *testing.T) *pgxpool.Pool {
 	// Assume DB is running via docker-compose on localhost:5432
 	// Default credentials from docker-compose.yml
-	connString := "postgres://admin:password123@localhost:5432/mud_core?sslmode=disable"
+	connString := "postgres://admin:password123@localhost:5432/tw_core?sslmode=disable"
 
 	// Allow overriding via env var
 	if env := os.Getenv("TEST_DB_URL"); env != "" {

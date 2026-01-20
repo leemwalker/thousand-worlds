@@ -149,7 +149,7 @@ ${BOLD}EXAMPLES:${RESET}
     ./verify_coverage.sh --unit-only --html
 
     # Test specific package
-    ./verify_coverage.sh --packages ./mud-platform-backend/internal/auth
+    ./verify_coverage.sh --packages ./tw-backend/internal/auth
 
     # Generate JSON output for CI/CD
     ./verify_coverage.sh --json > coverage-report.json

@@ -28,7 +28,7 @@ fi
 
 echo "3. Creating a test world in database..."
 # Insert a test world directly into the database
-docker exec mud_postgis psql -U admin -d mud_core -c "INSERT INTO worlds (id, name, shape, created_at) VALUES ('00000000-0000-0000-0000-000000000001', 'Test World', 'sphere', NOW()) ON CONFLICT (id) DO NOTHING;" > /dev/null 2>&1
+docker exec tw_postgis psql -U admin -d tw_core -c "INSERT INTO worlds (id, name, shape, created_at) VALUES ('00000000-0000-0000-0000-000000000001', 'Test World', 'sphere', NOW()) ON CONFLICT (id) DO NOTHING;" > /dev/null 2>&1
 echo "Test world created (or already exists)"
 WORLD_ID="00000000-0000-0000-0000-000000000001"
 echo ""

@@ -124,7 +124,7 @@ type Config struct {
 func loadConfig() Config {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgres://admin:password123@localhost:5432/mud_core?sslmode=disable"
+		dbURL = "postgres://admin:password123@localhost:5432/tw_core?sslmode=disable"
 	}
 
 	natsURL := os.Getenv("NATS_URL")
@@ -154,5 +154,5 @@ func (b *NATSAreaBroadcaster) BroadcastToArea(center spatial.Position, radius fl
 
 func maskPassword(dbURL string) string {
 	// Simple masking - in production use proper URL parsing
-	return "postgres://admin:****@localhost:5432/mud_core"
+	return "postgres://admin:****@localhost:5432/tw_core"
 }

@@ -166,13 +166,13 @@ docker-compose -f docker-compose.prod.yml up -d postgis mongo nats redis
 go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 
 # Run migrations
-migrate -path migrations/postgres -database "postgresql://admin:password123@localhost:5432/mud_core?sslmode=disable" up
+migrate -path migrations/postgres -database "postgresql://admin:password123@localhost:5432/tw_core?sslmode=disable" up
 ```
 
 ### 3. Set Environment Variables
 
 ```bash
-export DATABASE_URL="postgresql://admin:password123@localhost:5432/mud_core?sslmode=disable"
+export DATABASE_URL="postgresql://admin:password123@localhost:5432/tw_core?sslmode=disable"
 export REDIS_ADDR="localhost:6379"
 export NATS_URL="nats://localhost:4222"
 export OLLAMA_HOST="http://localhost:11434"
@@ -339,7 +339,7 @@ docker-compose -f docker-compose.prod.yml up -d
 
 ### Pull LLM Model
 ```bash
-docker exec mud_ollama ollama pull llama3.1:8b
+docker exec tw_ollama ollama pull llama3.1:8b
 ```
 
 ---

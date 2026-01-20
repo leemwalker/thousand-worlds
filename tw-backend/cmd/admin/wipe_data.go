@@ -14,7 +14,7 @@ func main() {
 	// Database connection string - assume local default or env
 	connStr := os.Getenv("DATABASE_URL")
 	if connStr == "" {
-		connStr = "postgres://admin:test_password_123456@127.0.0.1:5432/mud_core?sslmode=disable"
+		connStr = "postgres://admin:test_password_123456@127.0.0.1:5432/tw_core?sslmode=disable"
 	}
 
 	db, err := sql.Open("postgres", connStr)

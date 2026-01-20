@@ -10,7 +10,7 @@
 ### 1. Start Infrastructure Services
 
 ```bash
-cd mud-platform-backend/deploy
+cd tw-platform-backend/deploy
 docker-compose up -d
 ```
 
@@ -24,7 +24,7 @@ This starts:
 ### 2. Run Database Migrations
 
 ```bash
-cd mud-platform-backend
+cd tw-platform-backend
 go run cmd/migrate/main.go
 ```
 
@@ -43,7 +43,7 @@ docker-compose -f docker-compose.prod.yml up game-server
 ### 4. Pull LLM Model
 
 ```bash
-docker exec mud_ollama ollama pull llama3.1:8b
+docker exec tw_ollama ollama pull llama3.1:8b
 ```
 
 ---
@@ -56,7 +56,7 @@ Create a `.env` file:
 
 ```bash
 # Database
-DATABASE_URL=postgres://user:password@host:5432/mud_core?sslmode=require
+DATABASE_URL=postgres://user:password@host:5432/tw_core?sslmode=require
 
 # Redis
 REDIS_ADDR=redis-host:6379
@@ -121,12 +121,12 @@ curl http://localhost:8080/health
 
 ### PostgreSQL
 ```bash
-docker exec mud_postgis pg_isready -U admin
+docker exec tw_postgis pg_isready -U admin
 ```
 
 ### Redis
 ```bash
-docker exec mud_redis redis-cli ping
+docker exec tw_redis redis-cli ping
 ```
 
 ### NATS
@@ -151,12 +151,12 @@ Available at: `http://localhost:9090/metrics`
 
 ### Database Backup
 ```bash
-docker exec mud_postgis pg_dump -U admin mud_core > backup.sql
+docker exec tw_postgis pg_dump -U admin tw_core > backup.sql
 ```
 
 ### Database Restore
 ```bash
-docker exec -i mud_postgis psql -U admin mud_core < backup.sql
+docker exec -i tw_postgis psql -U admin tw_core < backup.sql
 ```
 
 ### Volume Backup
@@ -202,22 +202,22 @@ kill -9 <PID>
 **Database Connection:**
 ```bash
 # Test connection
-docker exec mud_postgis psql -U admin -d mud_core -c "SELECT 1;"
+docker exec tw_postgis psql -U admin -d tw_core -c "SELECT 1;"
 ```
 
 **Redis Connection:**
 ```bash
 # Test connection
-docker exec mud_redis redis-cli ping
+docker exec tw_redis redis-cli ping
 ```
 
 **Ollama Model Missing:**
 ```bash
 # List models
-docker exec mud_ollama ollama list
+docker exec tw_ollama ollama list
 
 # Pull model
-docker exec mud_ollama ollama pull llama3.1:8b
+docker exec tw_ollama ollama pull llama3.1:8b
 ```
 
 ---
@@ -270,7 +270,7 @@ maxmemory-policy allkeys-lru
 
 ### Update LLM Model
 ```bash
-docker exec mud_ollama ollama pull llama3.1:8b
+docker exec tw_ollama ollama pull llama3.1:8b
 ```
 
 ### Database Migrations
@@ -280,16 +280,16 @@ go run cmd/migrate/main.go
 
 ### Clear Redis Cache
 ```bash
-docker exec mud_redis redis-cli FLUSHDB
+docker exec tw_redis redis-cli FLUSHDB
 ```
 
 ### View Logs
 ```bash
 # Game server
-docker logs -f mud_game_server
+docker logs -f tw_game_server
 
 # PostgreSQL
-docker logs -f mud_postgis
+docker logs -f tw_postgis
 
 # All services
 docker-compose logs -f

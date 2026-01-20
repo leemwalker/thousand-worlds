@@ -18,7 +18,7 @@ BEGIN
 END $$;
 
 INSERT INTO users (user_id, email, password_hash, username)
-VALUES ('00000000-0000-0000-0000-000000000001', 'system@mud.com', 'system_hash_placeholder', 'system')
+VALUES ('00000000-0000-0000-0000-000000000001', 'system@tw.local', 'system_hash_placeholder', 'system')
 ON CONFLICT (user_id) DO NOTHING;
 
 INSERT INTO worlds (id, name, shape, metadata, owner_id) VALUES

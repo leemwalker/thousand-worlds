@@ -142,7 +142,7 @@ func (tm *TokenManager) ValidateToken(tokenString string) (*Claims, error) {
 		Username: sensitiveData.Username,
 		Roles:    sensitiveData.Roles,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    "mud-platform",
+			Issuer:    "tw-platform",
 			Subject:   sub,
 			ExpiresAt: jwt.NewNumericDate(time.Unix(int64(exp), 0)),
 			IssuedAt:  jwt.NewNumericDate(time.Unix(int64(iat), 0)),

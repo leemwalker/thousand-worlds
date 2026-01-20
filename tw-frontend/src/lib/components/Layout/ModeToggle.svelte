@@ -21,7 +21,7 @@
         : "Switch to Text Mode"}
     aria-label={$interfaceMode === "TEXT"
         ? "Switch to 3D simulation view"
-        : "Switch to text-based MUD view"}
+        : "Switch to text-based TXT view"}
 >
     {#if $interfaceMode === "TEXT"}
         <!-- Currently in TEXT mode, show icon to switch to VISUAL -->

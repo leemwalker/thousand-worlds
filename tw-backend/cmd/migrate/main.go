@@ -14,7 +14,7 @@ import (
 func main() {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgres://admin:password123@localhost:5432/mud_core?sslmode=disable"
+		dbURL = "postgres://admin:password123@localhost:5432/tw_core?sslmode=disable"
 	}
 
 	log.Printf("Connecting to database: %s", dbURL)

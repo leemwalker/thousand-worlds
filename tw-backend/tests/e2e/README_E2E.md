@@ -13,7 +13,7 @@ This directory contains end-to-end (E2E) tests for the Thousand Worlds platform.
 To run the mobile user journey test:
 
 ```bash
-# From mud-platform-backend directory
+# From tw-platform-backend directory
 go test -v ./tests/e2e/mobile_user_journey_test.go
 ```
 
@@ -25,7 +25,7 @@ You can configure the test environment using environment variables:
 |----------|---------|-------------|
 | `TEST_BASE_URL` | `http://localhost:8080` | Backend API URL |
 | `TEST_WS_URL` | `ws://localhost:8080` | Backend WebSocket URL |
-| `TEST_DB_DSN` | `postgres://admin:password123@localhost:5432/mud_core?sslmode=disable` | Database connection string |
+| `TEST_DB_DSN` | `postgres://admin:password123@localhost:5432/tw_core?sslmode=disable` | Database connection string |
 
 ## Test Scenarios
 
