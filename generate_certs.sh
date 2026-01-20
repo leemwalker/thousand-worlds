@@ -16,16 +16,16 @@ echo "subjectAltName=IP:10.0.0.17" > extfile.cnf
 openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt -extfile extfile.cnf
 
 echo "Creating Kubernetes Secret..."
-# Create the mud-world namespace if it doesn't exist (to prevent errors)
-kubectl create namespace mud-world --dry-run=client -o yaml | kubectl apply -f -
+# Create the tw-world namespace if it doesn't exist (to prevent errors)
+kubectl create namespace tw-world --dry-run=client -o yaml | kubectl apply -f -
 
 # delete existing secret if any
-kubectl -n mud-world delete secret nginx-certs --ignore-not-found
+kubectl -n tw-world delete secret nginx-certs --ignore-not-found
 
 # Create tls secret
-kubectl -n mud-world create secret tls nginx-certs --key server.key --cert server.crt
+kubectl -n tw-world create secret tls nginx-certs --key server.key --cert server.crt
 
 echo "Cleaning up local files..."
 rm server.key server.csr server.crt extfile.cnf
 
-echo "Done! Secret 'nginx-certs' created in 'mud-world' namespace."
+echo "Done! Secret 'nginx-certs' created in 'tw-world' namespace."

@@ -8,4 +8,4 @@ Apply database migrations to PostgreSQL.
 2. Navigate to backend: `cd tw-backend`
 // turbo
 3. Run `make migrate` to apply all pending migrations
-4. Verify with: `psql -h localhost -U admin -d mud_core -c '\dt'`
+4. Verify with: `psql -h localhost -U admin -d tw_core -c '\dt'`

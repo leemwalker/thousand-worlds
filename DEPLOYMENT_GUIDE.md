@@ -29,13 +29,13 @@ This script runs on the **server**. Use this if you want to deploy exactly what 
 If you find that old database state is causing issues, do **not** verify by clearing build cache. Instead, use the game's reset commands:
 ```bash
 # Reset world state
-kubectl -n mud-world exec -it deployment/game-server -- ./game-server reset
+kubectl -n tw-world exec -it deployment/game-server -- ./game-server reset
 # Or via the API/URL
 curl http://10.0.0.17:8080/api/reset
 ```
 Or manually restart specific infrastructure containers with volume clearing if absolutely necessary (destructive):
 ```bash
 # K8s equivalent would be deleting the PVCs and restarting statefulsets/deployments
-kubectl -n mud-world delete pvc --all
-kubectl -n mud-world delete pods --all
+kubectl -n tw-world delete pvc --all
+kubectl -n tw-world delete pods --all
 ```

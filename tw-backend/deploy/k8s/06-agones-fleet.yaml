@@ -14,7 +14,7 @@ apiVersion: "agones.dev/v1"
 kind: Fleet
 metadata:
   name: world-simulation-fleet
-  namespace: mud-world
+  namespace: tw-world
 spec:
   # Number of warm GameServers to keep ready for instant allocation
   replicas: 2
@@ -123,7 +123,7 @@ apiVersion: "allocation.agones.dev/v1"
 kind: GameServerAllocation
 metadata:
   name: allocate-world-simulation
-  namespace: mud-world
+  namespace: tw-world
 spec:
   # Select from our fleet
   selectors:
@@ -144,7 +144,7 @@ apiVersion: "autoscaling.agones.dev/v1"
 kind: FleetAutoscaler
 metadata:
   name: world-simulation-autoscaler
-  namespace: mud-world
+  namespace: tw-world
 spec:
   fleetName: world-simulation-fleet
   policy:
