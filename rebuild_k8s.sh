@@ -51,15 +51,40 @@ echo "Deleting application namespaces (this may take a minute)..."
 kubectl delete namespace tw-world --ignore-not-found --timeout=60s || true
 kubectl delete namespace tw-ingress --ignore-not-found --timeout=60s || true
 
-echo "Waiting for namespace deletion..."
-while kubectl get namespace tw-world &>/dev/null 2>&1; do
-    echo "  Waiting for tw-world namespace to terminate..."
+echo "Waiting for namespace deletion (max 60 seconds)..."
+WAIT_COUNT=0
+MAX_WAIT=30  # 30 iterations * 2 seconds = 60 seconds max
+
+while kubectl get namespace tw-world &>/dev/null 2>&1 && [[ $WAIT_COUNT -lt $MAX_WAIT ]]; do
+    echo "  Waiting for tw-world namespace to terminate... ($((WAIT_COUNT * 2))s)"
     sleep 2
+    WAIT_COUNT=$((WAIT_COUNT + 1))
 done
-while kubectl get namespace tw-ingress &>/dev/null 2>&1; do
-    echo "  Waiting for tw-ingress namespace to terminate..."
+
+# Force delete if still stuck
+if kubectl get namespace tw-world &>/dev/null 2>&1; then
+    echo "  Namespace stuck in Terminating. Force removing finalizers..."
+    kubectl get namespace tw-world -o json | \
+        sed 's/"kubernetes"//g' | \
+        kubectl replace --raw "/api/v1/namespaces/tw-world/finalize" -f - || true
     sleep 2
+fi
+
+WAIT_COUNT=0
+while kubectl get namespace tw-ingress &>/dev/null 2>&1 && [[ $WAIT_COUNT -lt $MAX_WAIT ]]; do
+    echo "  Waiting for tw-ingress namespace to terminate... ($((WAIT_COUNT * 2))s)"
+    sleep 2
+    WAIT_COUNT=$((WAIT_COUNT + 1))
 done
+
+# Force delete if still stuck
+if kubectl get namespace tw-ingress &>/dev/null 2>&1; then
+    echo "  Namespace stuck in Terminating. Force removing finalizers..."
+    kubectl get namespace tw-ingress -o json | \
+        sed 's/"kubernetes"//g' | \
+        kubectl replace --raw "/api/v1/namespaces/tw-ingress/finalize" -f - || true
+    sleep 2
+fi
 
 echo "✓ Namespaces deleted"
 
