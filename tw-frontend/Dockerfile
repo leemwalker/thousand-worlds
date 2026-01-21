@@ -10,6 +10,7 @@ COPY package.json package-lock.json ./
 
 COPY . .
 RUN npm run build
+RUN npm config set strict-ssl false
 RUN npm prune --production
 
 # Use Alpine for smaller runtime image
