@@ -5,7 +5,7 @@ import { Scene } from '@babylonjs/core/scene';
 import { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector';
 import { ActionManager } from '@babylonjs/core/Actions/actionManager';
-import { AdvancedDynamicTexture } from '@babylonjs/gui/2D/advancedDynamicTexture.js';
+// import { AdvancedDynamicTexture } from '@babylonjs/gui/2D/advancedDynamicTexture.js';
 import { type PointOfInterest, POIType } from '$lib/types/pois';
 
 // Mock BabylonJS core
@@ -33,18 +33,18 @@ vi.mock('@babylonjs/core/Actions/actionManager');
 vi.mock('@babylonjs/core/Actions/directActions');
 vi.mock('@babylonjs/core/Materials/standardMaterial');
 
-// Mock BabylonJS GUI
-vi.mock('@babylonjs/gui/2D/advancedDynamicTexture.js', () => ({
-    AdvancedDynamicTexture: {
-        CreateFullscreenUI: vi.fn(() => ({
-            addControl: vi.fn(),
-            dispose: vi.fn()
-        }))
-    }
-}));
-vi.mock('@babylonjs/gui/2D/controls/rectangle.js');
-vi.mock('@babylonjs/gui/2D/controls/textBlock.js');
-vi.mock('@babylonjs/gui/2D/controls/control.js');
+// Mock BabylonJS GUI - DISABLED for build fix
+// vi.mock('@babylonjs/gui/2D/advancedDynamicTexture.js', () => ({
+//     AdvancedDynamicTexture: {
+//         CreateFullscreenUI: vi.fn(() => ({
+//             addControl: vi.fn(),
+//             dispose: vi.fn()
+//         }))
+//     }
+// }));
+// vi.mock('@babylonjs/gui/2D/controls/rectangle.js');
+// vi.mock('@babylonjs/gui/2D/controls/textBlock.js');
+// vi.mock('@babylonjs/gui/2D/controls/control.js');
 
 describe('PoiManager', () => {
     let scene: Scene;
