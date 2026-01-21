@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -12,7 +13,6 @@ import (
 	"tw-backend/internal/repository"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/pierrec/lz4/v4"
 )
 
 // MapHandler handles world map related requests
@@ -144,15 +144,18 @@ func (h *MapHandler) GetTile(w http.ResponseWriter, r *http.Request) {
 		binary.Write(payloadBuf, binary.LittleEndian, w)
 	}
 
-	// Compress Payload (LZ4)
-	// Compress Payload (LZ4)
-	compressedData := make([]byte, lz4.CompressBlockBound(payloadBuf.Len()))
-	n, err := lz4.CompressBlock(payloadBuf.Bytes(), compressedData, nil)
-	if err != nil {
+	// Compress Payload (GZIP)
+	var compressedBuf bytes.Buffer
+	gzipWriter := gzip.NewWriter(&compressedBuf)
+	if _, err := gzipWriter.Write(payloadBuf.Bytes()); err != nil {
 		http.Error(w, "Failed to compress data", http.StatusInternalServerError)
 		return
 	}
-	compressedData = compressedData[:n]
+	if err := gzipWriter.Close(); err != nil {
+		http.Error(w, "Failed to close gzip writer", http.StatusInternalServerError)
+		return
+	}
+	compressedData := compressedBuf.Bytes()
 
 	// Write Payload Length and Compressed Data
 	binary.Write(buf, binary.LittleEndian, uint32(len(compressedData)))

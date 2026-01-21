@@ -1,4 +1,3 @@
-import lz4 from 'lz4js';
 
 export interface TileData {
     face: number;
