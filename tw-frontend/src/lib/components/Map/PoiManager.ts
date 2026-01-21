@@ -5,10 +5,10 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { Scene } from "@babylonjs/core/scene";
-import { AdvancedDynamicTexture } from "@babylonjs/gui/2D/advancedDynamicTexture.js";
-import { Control } from "@babylonjs/gui/2D/controls/control.js";
-import { Rectangle } from "@babylonjs/gui/2D/controls/rectangle.js";
-import { TextBlock } from "@babylonjs/gui/2D/controls/textBlock.js";
+// import { AdvancedDynamicTexture } from "@babylonjs/gui/2D/advancedDynamicTexture.js";
+// import { Control } from "@babylonjs/gui/2D/controls/control.js";
+// import { Rectangle } from "@babylonjs/gui/2D/controls/rectangle.js";
+// import { TextBlock } from "@babylonjs/gui/2D/controls/textBlock.js";
 import type { PointOfInterest, POIType } from "$lib/types/pois";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 
@@ -19,7 +19,7 @@ export class PoiManager {
     private scene: Scene;
     private rootNode: Mesh;
     private markers: Map<string, Mesh> = new Map();
-    private labels: Map<string, Control> = new Map();
+    // private labels: Map<string, Control> = new Map();
     // private guiTexture: AdvancedDynamicTexture; // GUI disabled to fix build
     private radius: number;
     private onPoiClick: ((poi: PointOfInterest) => void) | undefined;
@@ -47,10 +47,10 @@ export class PoiManager {
     private clear() {
         this.markers.forEach(mesh => mesh.dispose());
         this.markers.clear();
-        this.labels.forEach(control => {
-            // control.dispose() 
-        });
-        this.labels.clear();
+        // this.labels.forEach(control => {
+        //     // control.dispose() 
+        // });
+        // this.labels.clear();
     }
 
     private createMarker(poi: PointOfInterest) {
