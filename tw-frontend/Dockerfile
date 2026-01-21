@@ -1,6 +1,9 @@
 # Use Alpine for building to avoid Debian repo connection issues
 FROM node:20-alpine AS builder
 
+# Switch to HTTP to bypass TLS errors in this environment
+RUN sed -i 's/https/http/' /etc/apk/repositories
+
 # Install build dependencies for canvas
 RUN apk add --no-cache \
     build-base \
