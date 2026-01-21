@@ -7,8 +7,7 @@ ENV SVELTE_SKIP_CANVAS_BUILD=true
 
 WORKDIR /app
 COPY package.json package-lock.json ./
-# Using npm install instead of npm ci to allow lock file updates when new packages are added
-RUN npm install
+
 COPY . .
 RUN npm run build
 RUN npm prune --production
