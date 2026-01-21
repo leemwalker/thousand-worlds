@@ -1,16 +1,16 @@
-# Use Debian-based image for building (Node 20 for ESM/CJS compatibility)
-FROM node:20-bullseye-slim AS builder
+# Use Alpine for building to avoid Debian repo connection issues
+FROM node:20-alpine AS builder
 
 # Install build dependencies for canvas
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libcairo2-dev \
-    libpango1.0-dev \
-    libjpeg-dev \
-    libgif-dev \
-    librsvg2-dev \
-    libpixman-1-dev \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache \
+    build-base \
+    cairo-dev \
+    pango-dev \
+    jpeg-dev \
+    giflib-dev \
+    librsvg-dev \
+    pixman-dev \
+    python3
 
 WORKDIR /app
 COPY package.json package-lock.json ./
