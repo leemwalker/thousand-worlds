@@ -142,14 +142,7 @@ export class MoonFPVController implements IPlayerController {
         this.tileGlobeManager?.update(this.camera);
     }
 
-    public dispose() {
-        this.disposed = true;
-        this.tileGlobeManager?.dispose();
-        // ... existing disposal ...
-        if (this.scene.onBeforeRenderObservable.hasObservers()) {
-            this.scene.onBeforeRenderObservable.remove(this.wrapObserver);
-        }
-    }
+
 
     /**
      * Create flat moon terrain with craters.
@@ -524,88 +517,7 @@ export class MoonFPVController implements IPlayerController {
         }
     }
 
-    /**
-     * Create the parent planet visible in the sky.
-     * Size and position based on orbital distance.
-     */
-    private createPlanetInSky(): void {
-        // Calculate angular size of planet as seen from moon
-        const planetRadiusKm = this.planetDiameterKm / 2;
-        const distanceKm = Math.max(this.moonDistanceKm, planetRadiusKm * 1.1); // Ensure we aren't inside the planet logic-wise
 
-        // Angular radius (alpha)
-        let angularRadiusRad = Math.asin(planetRadiusKm / distanceKm);
-
-        // Visual Scale Factor (Cinematic View)
-        // Real earth-moon size is ~1.9 degrees (too small for game feel)
-        // 15x scale makes it ~28 degrees (Cinematic, fills nice portion of sky)
-        const PLANET_ANGULAR_SCALE = 15.0;
-        angularRadiusRad *= PLANET_ANGULAR_SCALE;
-
-        // Clamp to prevent rendering glitches (max 140 degrees total size = 70 deg radius)
-        const maxRad = (70 * Math.PI) / 180;
-        if (angularRadiusRad > maxRad) angularRadiusRad = maxRad;
-
-        const angularSizeDeg = (angularRadiusRad * 2) * (180 / Math.PI);
-
-        // Place planet in sky
-        // We want the SURFACE of the planet to be at skyDistance, not the center
-        // This ensures the camera is never "inside" the mesh
-        const skyDistance = this.terrainSize * 1.5; // e.g. 750
-
-        // Math: sin(alpha) = R / D
-        // where R is scene radius of planet, D is distance to center
-        // We want D - R = skyDistance (surface is at skyDistance)
-        // D = R + skyDistance
-        // sin(alpha) = R / (R + skyDistance)
-        // R (1/sin - 1) = skyDistance
-        // R = skyDistance / (1/sin(alpha) - 1)
-
-        const sinAlpha = Math.sin(angularRadiusRad);
-        const relativeScale = (1 / sinAlpha) - 1;
-
-        // If relativeScale is too small (alpha -> 90), clamp it
-        const safeScale = Math.max(relativeScale, 0.1);
-
-        const sceneRadius = skyDistance / safeScale;
-        const sceneDiameter = sceneRadius * 2;
-        const centerDistance = sceneRadius + skyDistance;
-
-        console.log(`[MoonFPV] Planet: ${this.planetDiameterKm}km @ ${distanceKm.toFixed(1)}km = ${angularSizeDeg.toFixed(2)}°`);
-        console.log(`[MoonFPV] Rendering: R=${sceneRadius.toFixed(1)}, D=${centerDistance.toFixed(1)} (Surface @ ${skyDistance})`);
-
-        // Create planet sphere
-        this.planetMesh = MeshBuilder.CreateSphere("moonFPVPlanet", {
-            diameter: sceneDiameter,
-            segments: 64 // Increased segments for large planet
-        }, this.scene);
-
-        // Position planet above horizon initially (will be updated by updateCelestialBodies)
-        // Note: updateCelestialBodies needs to know the correct distance (centerDistance)
-        // We'll store it in a property or recalculate it there.
-        // For now, let's update updateCelestialBodies to use the vector length of the current position as the distance?
-        // Or better, standardise on skyDistance representing the center distance?
-        // Re-architecture: updateCelestialBodies assumes skyDistance is the location.
-        // We should adjust updateCelestialBodies to use a dynamic distance.
-        // Hack: We'll overwrite the 'skyDistance' logic in updateCelestialBodies by setting a custom property on the mesh
-        // or just by setting the position here and trusting the update loop?
-        // The update loop RECALCULATES position. So we must update the loop logic or the constant.
-
-        // Let's store the centerDistance for the update loop to use
-        (this.planetMesh as any).orbitDistance = centerDistance;
-
-        this.planetMesh.position = new Vector3(0, centerDistance * 0.8, centerDistance * 0.5);
-        this.planetMesh.renderingGroupId = 0; // Background layer
-
-        // Planet material - will be textured with simulation data
-        this.planetMaterial = new StandardMaterial("moonFPVPlanetMat", this.scene);
-        this.planetMaterial.diffuseColor = new Color3(0.3, 0.5, 0.7); // Earth-like blue (placeholder)
-        this.planetMaterial.emissiveColor = new Color3(0.1, 0.15, 0.2); // Slight glow
-        this.planetMaterial.specularColor = new Color3(0, 0, 0); // Matte surface - no plastic shine
-        this.planetMesh.material = this.planetMaterial;
-
-        console.log(`[MoonFPV] Planet mesh created: enabled=${this.planetMesh.isEnabled()}, pos=${this.planetMesh.position}`);
-    }
 
     /**
      * Create visual meshes for other moons in the system.
@@ -882,6 +794,7 @@ export class MoonFPVController implements IPlayerController {
 
         this.camera.detachControl();
         this.camera.dispose();
+        this.tileGlobeManager?.dispose();
         this.terrain?.dispose();
         this.planetMesh?.dispose();
         this.starfieldMesh?.dispose();
