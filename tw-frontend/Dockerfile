@@ -8,9 +8,12 @@ ENV SVELTE_SKIP_CANVAS_BUILD=true
 WORKDIR /app
 COPY package.json package-lock.json ./
 
+# Clean install dependencies with SSL verification disabled for build environment
+RUN npm config set strict-ssl false
+RUN npm ci
+
 COPY . .
 RUN npm run build
-RUN npm config set strict-ssl false
 RUN npm prune --production
 
 # Use Alpine for smaller runtime image
