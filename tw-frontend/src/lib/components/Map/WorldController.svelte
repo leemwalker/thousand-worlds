@@ -1395,25 +1395,27 @@
             }
         }
 
-        // Dispose old texture and object URL
-        if (globeTexture) {
-            globeTexture.dispose();
-            globeTexture = null;
-        }
-        if (objectUrl) {
-            URL.revokeObjectURL(objectUrl);
-            objectUrl = null;
-        }
+        // Store old texture for later disposal to prevent race condition
+        const oldTexture = globeTexture;
+        const oldObjectUrl = objectUrl;
+
+        // Reset references immediately so we don't try to use them
+        // But we DON'T dispose yet, because the render loop might be using them
+        globeTexture = null;
+        objectUrl = null;
 
         try {
             // Create object URL and load as image
-            objectUrl = URL.createObjectURL(blob);
+            // We create a NEW objectUrl
+            const newObjectUrl = URL.createObjectURL(blob);
+            objectUrl = newObjectUrl;
+
             const img = new Image();
 
             await new Promise<void>((resolve, reject) => {
                 img.onload = () => resolve();
                 img.onerror = () => reject(new Error("Failed to load image"));
-                img.src = objectUrl!;
+                img.src = newObjectUrl;
             });
 
             console.log(
@@ -1520,8 +1522,36 @@
             }
 
             console.log("[BabylonGlobe] Planet texture updated");
+
+            // Safe to dispose old resources now that new ones are swapped in
+            if (oldTexture) {
+                oldTexture.dispose();
+            }
+            if (oldObjectUrl) {
+                URL.revokeObjectURL(oldObjectUrl);
+            }
         } catch (err) {
             console.error("[BabylonGlobe] Failed to update texture:", err);
+
+            // Restore old texture if new one failed?
+            // For now just dispose temp new one if it exists?
+            // Complex restoration logic might be overkill, but let's at least clean up old ones
+            // to avoid leaks if we failed mid-way, although we cleared references.
+            // If we cleared references, the scene is rendering nothing or erroring?
+            // Actually, if we cleared 'globeTexture' global ref, but shader still has reference to 'oldTexture' (via material),
+            // it keeps rendering it until we swap.
+            // Wait, does 'globeTexture = null' affect the shader? No, shader uses the object passed to it.
+            // So shader continues using oldTexture until we call setDiffuseTexture.
+            // So if we fail, we should probably restore the global ref to oldTexture.
+
+            if (!globeTexture && oldTexture) {
+                globeTexture = oldTexture;
+                objectUrl = oldObjectUrl;
+            } else {
+                // If we failed and didn't restore, clean up
+                if (oldTexture) oldTexture.dispose();
+                if (oldObjectUrl) URL.revokeObjectURL(oldObjectUrl);
+            }
         }
     }
 

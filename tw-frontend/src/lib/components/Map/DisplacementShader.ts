@@ -12,7 +12,7 @@ Effect.ShadersStore["displacementVertexShader"] = `
     // Attributes
     attribute vec3 position;
     attribute vec3 normal;
-    attribute vec2 uv;
+    // attribute vec2 uv; // Unused, removed to fix WebGPU validation
 
     // Uniforms
     uniform mat4 world;
