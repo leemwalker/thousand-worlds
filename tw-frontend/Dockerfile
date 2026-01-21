@@ -1,19 +1,9 @@
 # Use Alpine for building to avoid Debian repo connection issues
+# Network issues persist, removing native dependencies to bypass apk add
 FROM node:20-alpine AS builder
 
-# Switch to HTTP to bypass TLS errors in this environment
-RUN sed -i 's/https/http/' /etc/apk/repositories
-
-# Install build dependencies for canvas
-RUN apk add --no-cache \
-    build-base \
-    cairo-dev \
-    pango-dev \
-    jpeg-dev \
-    giflib-dev \
-    librsvg-dev \
-    pixman-dev \
-    python3
+# Skip native dependencies for canvas - hoping for pure JS fallback or optional dependency
+ENV SVELTE_SKIP_CANVAS_BUILD=true
 
 WORKDIR /app
 COPY package.json package-lock.json ./
