@@ -5,7 +5,10 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { Scene } from "@babylonjs/core/scene";
-import { AdvancedDynamicTexture, Control, Rectangle, TextBlock } from "@babylonjs/gui";
+import { AdvancedDynamicTexture } from "@babylonjs/gui/2D/advancedDynamicTexture.js";
+import { Control } from "@babylonjs/gui/2D/controls/control.js";
+import { Rectangle } from "@babylonjs/gui/2D/controls/rectangle.js";
+import { TextBlock } from "@babylonjs/gui/2D/controls/textBlock.js";
 import type { PointOfInterest, POIType } from "$lib/types/pois";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 
