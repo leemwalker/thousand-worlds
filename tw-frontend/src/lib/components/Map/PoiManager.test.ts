@@ -5,7 +5,7 @@ import { Scene } from '@babylonjs/core/scene';
 import { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector';
 import { ActionManager } from '@babylonjs/core/Actions/actionManager';
-import { AdvancedDynamicTexture } from '@babylonjs/gui/2D/advancedDynamicTexture';
+import { AdvancedDynamicTexture } from '@babylonjs/gui';
 import { type PointOfInterest, POIType } from '$lib/types/pois';
 
 // Mock BabylonJS core
@@ -34,16 +34,17 @@ vi.mock('@babylonjs/core/Actions/directActions');
 vi.mock('@babylonjs/core/Materials/standardMaterial');
 
 // Mock BabylonJS GUI
-vi.mock('@babylonjs/gui/2D/advancedDynamicTexture', () => ({
+vi.mock('@babylonjs/gui', () => ({
     AdvancedDynamicTexture: {
         CreateFullscreenUI: vi.fn(() => ({
             addControl: vi.fn(),
             dispose: vi.fn()
         }))
-    }
+    },
+    Control: {},
+    Rectangle: vi.fn(),
+    TextBlock: vi.fn()
 }));
-vi.mock('@babylonjs/gui/2D/controls/rectangle');
-vi.mock('@babylonjs/gui/2D/controls/textBlock');
 
 describe('PoiManager', () => {
     let scene: Scene;
