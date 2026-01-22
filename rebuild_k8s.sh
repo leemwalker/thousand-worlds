@@ -50,6 +50,8 @@ echo "=== PHASE 1: Clean Shutdown ==="
 echo "Deleting application namespaces (this may take a minute)..."
 kubectl delete namespace tw-world --ignore-not-found --timeout=60s || true
 kubectl delete namespace tw-ingress --ignore-not-found --timeout=60s || true
+# Cleanup legacy namespaces if present
+kubectl delete namespace mud-world --ignore-not-found --timeout=60s || true
 
 echo "Waiting for namespace deletion (max 60 seconds)..."
 WAIT_COUNT=0
