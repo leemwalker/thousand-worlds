@@ -178,10 +178,9 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-      # Use hostNetwork to bind directly to host ports 80/443
-      # This bypasses K3s ServiceLB which conflicts with Traefik
-      hostNetwork: true
-      dnsPolicy: ClusterFirstWithHostNet
+      # Use hostNetwork removed to allow ServiceLB (svclb) to handle port binding
+      # hostNetwork: true
+      dnsPolicy: ClusterFirst
 ---
 apiVersion: v1
 kind: Service
@@ -189,8 +188,8 @@ metadata:
   name: ingress-nginx-controller
   namespace: tw-ingress
 spec:
-  # Using ClusterIP since we're using hostNetwork for external access
-  type: ClusterIP
+  # Using LoadBalancer to trigger K3s ServiceLB (svclb) pods to bind 80/443 on host
+  type: LoadBalancer
   ports:
     - name: http
       port: 80
