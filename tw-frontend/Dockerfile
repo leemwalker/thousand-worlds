@@ -1,20 +1,7 @@
-# Use Alpine for building to avoid Debian repo connection issues
-# Network issues persist, removing native dependencies to bypass apk add
-FROM node:20-alpine AS builder
+# Use Debian (slim) to verify if prebuilt binaries work (glibc vs musl)
+FROM node:20-slim AS builder
 
-# Skip native dependencies for canvas - hoping for pure JS fallback or optional dependency
 ENV SVELTE_SKIP_CANVAS_BUILD=true
-
-# Install dependencies required for building native modules (like canvas)
-RUN apk add --no-cache \
-    python3 \
-    make \
-    g++ \
-    cairo-dev \
-    pango-dev \
-    jpeg-dev \
-    giflib-dev \
-    pixman-dev
 
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -27,8 +14,8 @@ COPY . .
 RUN npm run build
 RUN npm prune --production
 
-# Use Alpine for smaller runtime image
-FROM node:20-alpine
+# Use Debian (slim) for runtime validation to match builder
+FROM node:20-slim
 WORKDIR /app
 COPY --from=builder /app/build build/
 COPY --from=builder /app/node_modules node_modules/
