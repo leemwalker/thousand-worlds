@@ -5,6 +5,17 @@ FROM node:20-alpine AS builder
 # Skip native dependencies for canvas - hoping for pure JS fallback or optional dependency
 ENV SVELTE_SKIP_CANVAS_BUILD=true
 
+# Install dependencies required for building native modules (like canvas)
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    cairo-dev \
+    pango-dev \
+    jpeg-dev \
+    giflib-dev \
+    pixman-dev
+
 WORKDIR /app
 COPY package.json package-lock.json ./
 
